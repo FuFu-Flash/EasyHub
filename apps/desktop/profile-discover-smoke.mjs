@@ -14,7 +14,7 @@ try {
       if (action === 'repos') return [];
       if (action === 'profile') return { login: args[0], name: args[0] === 'writer' ? 'Project Writer' : 'Test User', avatar_url: avatar, html_url: `https://github.com/${args[0]}`, followers: 10, following: 2, public_repos: 3, bio: 'Writing software' };
       if (action === 'contributions') return { total: 2, years: [2026, 2025], weeks: [{ contributionDays: [{ date: '2026-09-25', contributionCount: 2, color: '#40c463' }] }], repositories: [{ fullName: 'writer/example', isPrivate: false, count: 2, kind: '更新' }] };
-      if (action === 'trending') return [project];
+      if (action === 'trending') return { items: [project], page: 1, hasNextPage: false };
       if (action === 'searchUsers') return [{ id: 44, login: 'writer', avatar_url: avatar, html_url: 'https://github.com/writer', type: 'User' }];
       if (action === 'topStarredRepos') return [project];
       if (action === 'publicRepo') return project;

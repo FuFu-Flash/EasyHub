@@ -2,7 +2,7 @@
   "name": "easyhub",
   "private": true,
   "license": "GPL-3.0-only",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "dev": "node scripts/run-desktop.mjs dev",
@@ -12,6 +12,7 @@
     "test:ui": "node scripts/run-desktop.mjs test:ui",
     "test:public-ui": "node scripts/run-desktop.mjs test:public-ui",
     "test:discovery-ui": "node scripts/run-desktop.mjs test:discovery-ui",
+    "test:discovery-navigation": "node scripts/run-desktop.mjs test:discovery-navigation",
     "test:responsive-ui": "node scripts/run-desktop.mjs test:responsive-ui",
     "test:translation-ui": "node scripts/run-desktop.mjs test:translation-ui",
     "test:live-download": "node scripts/run-desktop.mjs test:live-download",

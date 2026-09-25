@@ -13,6 +13,7 @@ export interface GitHubCommit { sha: string; commit: { message: string; author: 
 export interface GitHubReleaseAsset { id: number; name: string; label: string | null; size: number; content_type: string; download_count: number; state: string; browser_download_url?: string; digest?: string }
 export interface GitHubRelease { id: number; tag_name: string; name: string | null; body: string | null; draft: boolean; prerelease: boolean; published_at: string | null; assets: GitHubReleaseAsset[] }
 export interface GitHubCreatedRelease extends GitHubRelease { upload_url: string; html_url: string }
+export interface TrendingPage { items: GitHubRepo[]; page: number; hasNextPage: boolean }
 
 export class GitHubError extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
@@ -70,12 +71,13 @@ export class GitHubClient {
     const result = await this.request<{ items: GitHubRepo[] }>(`/search/repositories?q=${encodeURIComponent(search)}&sort=stars&order=desc&per_page=3`, { signal });
     return result.items.filter((repo) => !repo.private && repo.owner.login.toLowerCase() === login.toLowerCase()).slice(0, 3);
   }
-  async trending(period: TrendingPeriod, signal?: AbortSignal): Promise<GitHubRepo[]> {
+  async trending(period: TrendingPeriod, page = 1, signal?: AbortSignal): Promise<TrendingPage> {
+    if (!Number.isInteger(page) || page < 1 || page > 34) throw new Error('Invalid trending page');
     const days = period === 'today' ? 1 : period === 'week' ? 7 : 30;
     const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
     const stars = period === 'today' ? 10 : period === 'week' ? 30 : 100;
     const query = `is:public archived:false pushed:>=${since} stars:>=${stars}`;
-    const result = await this.request<{ items: GitHubRepo[] }>(`/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=100`, { signal });
+    const result = await this.request<{ items: GitHubRepo[]; total_count?: number }>(`/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=30&page=${page}`, { signal });
     const now = Date.now();
     const score = (repo: GitHubRepo): number => {
       const starsScore = Math.log1p(repo.stargazers_count ?? 0);
@@ -83,7 +85,8 @@ export class GitHubClient {
       const updateAge = Math.max(0, (now - Date.parse(repo.updated_at)) / 86400000);
       return starsScore * 0.55 + Math.exp(-activityAge / Math.max(1, days)) * 2.8 + Math.exp(-updateAge / Math.max(1, days)) * 1.2;
     };
-    return result.items.filter((repo) => !repo.private && !repo.archived).sort((a, b) => score(b) - score(a)).slice(0, 30);
+    return { items: result.items.filter((repo) => !repo.private && !repo.archived).sort((a, b) => score(b) - score(a)),
+      page, hasNextPage: page * 30 < Math.min(result.total_count ?? result.items.length, 1000) };
   }
   async contributions(login: string, from: string, to: string, signal?: AbortSignal): Promise<Contributions> {
     const query = `query($login:String!,$from:DateTime!,$to:DateTime!){user(login:$login){contributionsCollection(from:$from,to:$to){contributionYears contributionCalendar{totalContributions weeks{contributionDays{date contributionCount color}}} commitContributionsByRepository(maxRepositories:100){repository{nameWithOwner isPrivate} contributions{totalCount}} issueContributionsByRepository{repository{nameWithOwner isPrivate} contributions{totalCount}} pullRequestContributionsByRepository(maxRepositories:100){repository{nameWithOwner isPrivate} contributions{totalCount}}}}}`;

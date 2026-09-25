@@ -2,7 +2,7 @@
 import type { FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { GitHubComment, GitHubCommit, GitHubIssue, GitHubRelease, GitHubRepo, GitHubSearchUser, GitHubUser } from '@easyhub/github';
+import type { GitHubComment, GitHubCommit, GitHubIssue, GitHubRelease, GitHubRepo, GitHubSearchUser, GitHubUser, TrendingPeriod } from '@easyhub/github';
 import type { CreateReleaseInput, LocalProjectLink, LocalProjectStatus, ProjectRelease, ReleaseProgress, SyncPreview, TranslationTargetLanguage } from '@easyhub/types';
 import { ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Clock3, CloudDownload, Compass, Folder, FolderOpen, Globe2, Home, Info, Languages, LockKeyhole, MessageCircle, Minus, Pencil, Plus, RotateCw, Search, Send, Settings2, Square, Tag, X } from 'lucide-react';
 import appIcon from './assets/easyhub-icon.svg';
@@ -98,6 +98,8 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   const [search, setSearch] = useState('');
   const [searchScope, setSearchScope] = useState<SearchScope>('mine');
   const [discoverScope, setDiscoverScope] = useState<DiscoverScope>('projects');
+  const [discoverPeriod, setDiscoverPeriod] = useState<TrendingPeriod>('today');
+  const [discoverPage, setDiscoverPage] = useState(1);
   const [searchDisplayMode, setSearchDisplayMode] = useState<SearchDisplayMode>(() => window.localStorage.getItem('easyhub:search-display-mode') === 'detailed' ? 'detailed' : 'compact');
   const [searchHistory, setSearchHistory] = useState(() => readSearchHistory(window.localStorage, user.login));
   const [publicRepos, setPublicRepos] = useState<GitHubRepo[]>([]);
@@ -119,6 +121,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const appRoot = useRef<HTMLDivElement>(null);
   const scrollArea = useRef<HTMLDivElement>(null);
+  const discoverScrollPosition = useRef<number | null>(null);
   const localizer = useRef(createDomLocalizer());
   const cancelled = useRef(false);
 
@@ -141,6 +144,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   }
   function clearSearchHistory(): void { setSearchHistory([]); window.localStorage.removeItem(historyKey(user.login)); }
   function openSearchedUser(candidate: GitHubSearchUser): void {
+    rememberDiscoverPosition();
     setProfileUser({ id: candidate.id, login: candidate.login, name: null, avatar_url: candidate.avatar_url, html_url: candidate.html_url });
     setProfileReturnView('discover'); setView('profile'); setError('');
   }
@@ -154,6 +158,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   }
 
   function openPublicProject(repo: GitHubRepo): void {
+    rememberDiscoverPosition();
     setPublicReturnView(view === 'profile' ? 'profile' : view === 'discover' ? 'discover' : 'projects');
     setPublicInitialDownload(null); setPublicSelected(repo); setView('public-project'); setError('');
   }
@@ -181,6 +186,16 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
     if (!owner || !name) return;
     try { openPublicProject(await api<GitHubRepo>('publicRepo', owner, name)); }
     catch (cause) { setError(message(cause)); }
+  }
+
+  function rememberDiscoverPosition(): void {
+    if (view === 'discover') discoverScrollPosition.current = scrollArea.current?.scrollTop ?? 0;
+  }
+
+  function changeDiscoverPage(nextPage: number): void {
+    if (nextPage < 1 || nextPage > 34) return;
+    setDiscoverPage(nextPage);
+    scrollArea.current?.querySelector('.trending-heading')?.scrollIntoView({ block: 'start' });
   }
 
   useLayoutEffect(() => {
@@ -211,6 +226,24 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
     update();
     return () => { observer.disconnect(); area.removeEventListener('scroll', update); };
   }, [view, repos, issues, commits, comments, busy]);
+
+  useLayoutEffect(() => {
+    if (view !== 'discover' || discoverScrollPosition.current === null) return;
+    const area = scrollArea.current;
+    const content = area?.querySelector('.page-content');
+    if (!area || !content) return;
+    const restore = (): void => {
+      if (discoverScrollPosition.current === null) return;
+      if (!content.querySelector('.trending-card, .user-search-card')) return;
+      const target = discoverScrollPosition.current;
+      area.scrollTop = target;
+      if (Math.abs(area.scrollTop - target) < 2) discoverScrollPosition.current = null;
+    };
+    const observer = new ResizeObserver(restore);
+    observer.observe(content);
+    restore();
+    return () => observer.disconnect();
+  }, [view, discoverPeriod, discoverPage, discoverScope, search]);
 
   const loadRepos = useCallback(async () => {
     cancelled.current = false; setBusy(true); setCanCancel(true); setError('');
@@ -484,22 +517,22 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
 
   return <div className="app-shell live-shell" ref={appRoot}>
     <aside className="sidebar"><nav className="sidebar-nav" aria-label="主导航">
-      <button className={nav === 'home' ? 'active' : ''} onClick={() => setView('home')}><Home size={19} />首页</button>
-      <button className={nav === 'projects' ? 'active' : ''} onClick={() => setView('projects')}><Folder size={19} />我的项目</button>
-      <button className={nav === 'discover' ? 'active' : ''} onClick={() => { setSearchScope('public'); setSearch(''); setView('discover'); }}><Compass size={19} />发现</button>
-      <button className={nav === 'issues' ? 'active' : ''} onClick={() => { setSelected(null); setView('issues'); }}><MessageCircle size={19} />问题{totalPendingIssues > 0 && <span className="nav-count">{totalPendingIssues}</span>}</button>
-      <button className={nav === 'settings' ? 'active' : ''} onClick={() => setView('settings')}><Settings2 size={19} />设置</button>
+      <button className={nav === 'home' ? 'active' : ''} onClick={() => { rememberDiscoverPosition(); setView('home'); }}><Home size={19} />首页</button>
+      <button className={nav === 'projects' ? 'active' : ''} onClick={() => { rememberDiscoverPosition(); setView('projects'); }}><Folder size={19} />我的项目</button>
+      <button className={nav === 'discover' ? 'active' : ''} onClick={() => { if (nav !== 'discover' && discoverScrollPosition.current === null) setSearch(''); setSearchScope('public'); setView('discover'); }}><Compass size={19} />发现</button>
+      <button className={nav === 'issues' ? 'active' : ''} onClick={() => { rememberDiscoverPosition(); setSelected(null); setView('issues'); }}><MessageCircle size={19} />问题{totalPendingIssues > 0 && <span className="nav-count">{totalPendingIssues}</span>}</button>
+      <button className={nav === 'settings' ? 'active' : ''} onClick={() => { rememberDiscoverPosition(); setView('settings'); }}><Settings2 size={19} />设置</button>
     </nav><div className="sidebar-bottom"><span className="sidebar-demo live-connected"><span />{language === 'en' ? 'Connected to GitHub' : '已连接 GitHub'} · {user.login}</span></div></aside>
     <div className="main-column" ref={scrollArea}><header className={`topbar topbar-${windowStyle}`}>
       {windowStyle === 'reference' && <div className="window-controls" aria-label="窗口控制"><button className="window-dot window-close" aria-label="关闭窗口" onClick={() => void window.easyHub?.closeWindow()} /><button className="window-dot window-minimize" aria-label="最小化窗口" onClick={() => void window.easyHub?.minimizeWindow()} /><button className="window-dot window-maximize" aria-label="最大化或还原窗口" onClick={() => void window.easyHub?.toggleMaximizeWindow()} /></div>}
-      <button className="topbar-brand" onClick={() => setView('home')}><img src={appIcon} alt="" /><span>EasyHub</span></button>
+      <button className="topbar-brand" onClick={() => { rememberDiscoverPosition(); setView('home'); }}><img src={appIcon} alt="" /><span>EasyHub</span></button>
       <label className="topbar-search"><Search size={19} /><input aria-label="搜索项目/用户" value={search} onFocus={() => { setSearchScope('public'); setView('discover'); }} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') recordSearch(search, discoverScope === 'users' ? 'users' : 'public'); }} placeholder="搜索项目/用户..." /></label>
       <div className="topbar-actions">
         <button className={`icon-button translation-toggle ${automaticTranslation ? 'active' : ''}`} type="button" aria-label={automaticTranslation ? '关闭翻译' : '开启翻译'} aria-pressed={automaticTranslation} title={automaticTranslation ? '关闭翻译' : '开启翻译'} onClick={() => setAutomaticTranslation((enabled) => !enabled)}><Languages size={21} strokeWidth={1.8} /></button>
         <div className="language-switcher"><button className="icon-button language-trigger" aria-label="选择语言" aria-expanded={languageMenuOpen} title="语言" onClick={() => setLanguageMenuOpen((open) => !open)}><Globe2 size={21} strokeWidth={1.8} /></button>{languageMenuOpen && <div className="language-menu" role="group" aria-label="语言选项"><button aria-pressed={language === 'zh'} onClick={() => { setLanguage('zh'); setLanguageMenuOpen(false); }}><span>中文</span>{language === 'zh' && <Check size={16} />}</button><button aria-pressed={language === 'en'} onClick={() => { setLanguage('en'); setLanguageMenuOpen(false); }}><span>English</span>{language === 'en' && <Check size={16} />}</button></div>}</div>
         <DownloadNotifications center={downloads} savedPublicRepoIds={savedPublicRepos.map((item) => item.id)} onAddPublic={addPublicProject} />
-        <button className="icon-button" aria-label="设置" onClick={() => setView('settings')}><Settings2 size={20} /></button>
-        <button className="topbar-profile" aria-label="个人页面" onClick={() => { setProfileUser(user); setProfileReturnView('home'); setView('profile'); }}><span className="topbar-avatar">{user.avatar_url ? <img src={user.avatar_url} alt="" /> : user.login.slice(0, 1).toUpperCase()}</span><ChevronDown size={16} /></button>
+        <button className="icon-button" aria-label="设置" onClick={() => { rememberDiscoverPosition(); setView('settings'); }}><Settings2 size={20} /></button>
+        <button className="topbar-profile" aria-label="个人页面" onClick={() => { rememberDiscoverPosition(); setProfileUser(user); setProfileReturnView(view === 'discover' ? 'discover' : 'home'); setView('profile'); }}><span className="topbar-avatar">{user.avatar_url ? <img src={user.avatar_url} alt="" /> : user.login.slice(0, 1).toUpperCase()}</span><ChevronDown size={16} /></button>
       </div>
       {windowStyle === 'windows' && <div className="windows-window-controls" aria-label="窗口控制"><button className="windows-control-button" aria-label="最小化窗口" title="最小化" onClick={() => void window.easyHub?.minimizeWindow()}><Minus size={17} strokeWidth={1.6} /></button><button className="windows-control-button" aria-label="最大化或还原窗口" title="最大化或还原" onClick={() => void window.easyHub?.toggleMaximizeWindow()}><Square size={13} strokeWidth={1.7} /></button><button className="windows-control-button windows-control-close" aria-label="关闭窗口" title="关闭" onClick={() => void window.easyHub?.closeWindow()}><X size={17} strokeWidth={1.6} /></button></div>}
     </header><main className="page-content live-page">
@@ -517,7 +550,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
 
       {view === 'profile' && <UserProfile key={profileUser.login} login={profileUser.login} initialUser={profileUser} onBack={() => setView(profileReturnView)} onOpenRepository={(fullName) => void openProfileRepository(fullName)} />}
 
-      {view === 'discover' && <TrendingDiscover query={search} setQuery={setSearch} scope={discoverScope} onScopeChange={setDiscoverScope} displayMode={searchDisplayMode} onDisplayMode={setSearchDisplayMode} history={searchHistory} onSelectHistory={selectSearchHistory} onClearHistory={clearSearchHistory} searchResults={publicRepos} searchBusy={publicSearchBusy} searchError={publicSearchError} onOpen={openPublicProject} onOpenProfile={openSearchedUser} onSearch={(value) => recordSearch(value, 'public')} onUserSearched={recordUserSearch} />}
+      {view === 'discover' && <TrendingDiscover query={search} setQuery={setSearch} scope={discoverScope} onScopeChange={setDiscoverScope} period={discoverPeriod} onPeriodChange={(period) => { setDiscoverPeriod(period); setDiscoverPage(1); }} page={discoverPage} onPageChange={changeDiscoverPage} displayMode={searchDisplayMode} onDisplayMode={setSearchDisplayMode} history={searchHistory} onSelectHistory={selectSearchHistory} onClearHistory={clearSearchHistory} searchResults={publicRepos} searchBusy={publicSearchBusy} searchError={publicSearchError} onOpen={openPublicProject} onOpenProfile={openSearchedUser} onSearch={(value) => recordSearch(value, 'public')} onUserSearched={recordUserSearch} />}
 
       {view === 'projects' && <>
         <div className="page-header"><div><div className="eyebrow">你的作品</div><h1>我的项目</h1><p>所有灵感和进展，都在这里。</p></div><button className="button button-primary" onClick={() => setView('new-project')}><Plus size={18} />新建项目</button></div>
@@ -581,7 +614,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
         <section className="panel settings-panel"><div className="settings-icon blue"><Languages size={22} /></div><div className="translation-settings"><div><h2>内容翻译</h2><p>使用顶部的翻译开关查看译文，再次关闭即可查看原文。公开文本由第三方服务翻译，译文保存在这台电脑上。</p></div><label>目标语言 <select aria-label="翻译目标语言" value={translationTarget} onChange={(event) => setTranslationTarget(event.target.value as TranslationTargetLanguage)}><option value="zh-CN">简体中文</option><option value="en">English</option></select></label><label className="translation-names-label" htmlFor="translation-names">不翻译的名称</label><p className="translation-names-help">当前项目、作者和链接中的 GitHub 项目名称会自动保留。其他产品名或专有名称可在这里补充，每行一个。</p><textarea id="translation-names" aria-label="不翻译的名称" rows={4} maxLength={8000} value={translationNamesText} onChange={(event) => setTranslationNamesText(event.target.value)} placeholder="每行输入一个需要保留的名称" /><small className="muted">已保存 {translationNames.length} 个名称，仅保存在这台电脑上。</small></div></section>
         <section className="panel settings-panel"><div className="settings-icon"><Globe2 size={22} /></div><div><h2>账户与连接</h2><p>已连接 GitHub：{user.login}。你的项目仍保存在 GitHub。</p><button className="button button-quiet" onClick={onLogout}>退出登录</button></div></section>
         <section className="panel settings-panel"><div className="settings-icon blue"><RotateCw size={22} /></div><div><h2>数据与同步</h2><p>从 GitHub 获取最新项目和问题信息。</p><button className="button button-quiet" disabled={busy} onClick={() => void refreshCurrent()}>刷新项目</button></div></section>
-        <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>Windows 桌面版 · 直接连接 GitHub</p><span className="settings-version">版本 1.0.1</span><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => void window.easyHub?.openLicense()}>查看许可协议 <ArrowRight size={15} /></button></div></div></section></div>
+        <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>Windows 桌面版 · 直接连接 GitHub</p><span className="settings-version">版本 1.0.2</span><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => void window.easyHub?.openLicense()}>查看许可协议 <ArrowRight size={15} /></button></div></div></section></div>
       </>}
     </main>{canScrollDown && !showIssueForm && <button className="scroll-down-cue" aria-label="向下滚动" onClick={() => scrollArea.current?.scrollBy({ top: Math.max(300, scrollArea.current.clientHeight * 0.75), behavior: 'smooth' })}><ChevronRight size={27} strokeWidth={2.6} style={{ transform: 'rotate(90deg)' }} /></button>}</div>
 

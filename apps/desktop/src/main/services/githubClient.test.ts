@@ -72,16 +72,19 @@ describe('GitHubClient', () => {
   it('ranks recent public projects with EasyHub metrics and excludes archived results', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-25T12:00:00Z'));
-    const transport = vi.fn(async () => Response.json({ items: [
+    const transport = vi.fn(async () => Response.json({ total_count: 65, items: [
       { id: 1, private: false, archived: false, stargazers_count: 200, pushed_at: '2026-09-25T11:00:00Z', updated_at: '2026-09-25T11:00:00Z' },
       { id: 2, private: false, archived: false, stargazers_count: 100, pushed_at: '2026-09-25T10:00:00Z', updated_at: '2026-09-25T10:00:00Z' },
       { id: 3, private: true, stargazers_count: 10000, pushed_at: '2026-09-25T10:00:00Z', updated_at: '2026-09-25T10:00:00Z' },
       { id: 4, private: false, archived: true, stargazers_count: 10000, pushed_at: '2026-09-25T10:00:00Z', updated_at: '2026-09-25T10:00:00Z' },
     ] }));
     const client = new GitHubClient(async () => 'token', transport);
-    expect((await client.trending('today')).map((item) => item.id)).toEqual([1, 2]);
+    expect((await client.trending('today')).items.map((item) => item.id)).toEqual([1, 2]);
+    expect((await client.trending('today', 2)).hasNextPage).toBe(true);
     const [url] = transport.mock.calls[0] as unknown as [string, RequestInit];
     expect(decodeURIComponent(url)).toContain('pushed:>=2026-09-24 stars:>=10');
+    const [nextUrl] = transport.mock.calls[1] as unknown as [string, RequestInit];
+    expect(nextUrl).toContain('per_page=30&page=2');
     vi.useRealTimers();
   });
 

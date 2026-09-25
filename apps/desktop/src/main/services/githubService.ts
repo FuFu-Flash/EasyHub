@@ -140,7 +140,7 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       case 'user': return await client.user(controller?.signal);
       case 'profile': if (validRepoPart(owner)) return await client.profile(owner, controller?.signal); invalid();
       case 'contributions': if (validRepoPart(owner) && typeof repo === 'string' && /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/.test(repo) && typeof third === 'string' && /^\d{4}-\d{2}-\d{2}T23:59:59\.999Z$/.test(third) && Date.parse(third) >= Date.parse(repo) && Date.parse(third) - Date.parse(repo) <= 370 * 86400000) return await client.contributions(owner, repo, third, controller?.signal); invalid();
-      case 'trending': if (owner === 'today' || owner === 'week' || owner === 'month') return await client.trending(owner, controller?.signal); invalid();
+      case 'trending': if ((owner === 'today' || owner === 'week' || owner === 'month') && Number.isInteger(repo) && Number(repo) >= 1 && Number(repo) <= 34) return await client.trending(owner, Number(repo), controller?.signal); invalid();
       case 'publicRepo': if (validRepoPart(owner) && validRepoPart(repo)) { const item = await client.repo(owner, repo); if (item.private) throw new Error('这个项目不是公开项目。'); return item; } invalid();
       case 'repos': return await client.repos(typeof owner === 'number' && owner > 0 && owner <= 100 ? owner : 1, controller?.signal);
       case 'searchPublicRepos': if (typeof owner === 'string' && owner.trim().length >= 2 && owner.trim().length <= 200) return await client.searchPublicRepos(owner, controller?.signal); invalid();

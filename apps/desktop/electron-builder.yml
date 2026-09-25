@@ -24,6 +24,8 @@ nsis:
   artifactName: EasyHub-${version}-setup.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  include: resources/installer.nsh
 portable:
   artifactName: EasyHub-${version}-portable.${ext}
 electronDownload:

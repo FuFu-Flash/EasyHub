@@ -14,7 +14,8 @@ try {
       if (action === 'readme') return '# Wide README\n\n[Releases](https://github.com/tester/wide-readme/releases/tag/v1.0.0)\n\n| Screenshot A | Screenshot B | Screenshot C |\n|---|---|---|\n| ![A](https://example.com/a.png) | ![B](https://example.com/b.png) | ![C](https://example.com/c.png) |\n\n' + 'A'.repeat(150);
       if (action === 'releases') return [{ id: 1, tag_name: 'v1.0.0', name: 'Version one', body: 'Release notes for testers.', draft: false, prerelease: false, published_at: new Date().toISOString(), assets: [] }];
       if (action === 'issues' || action === 'commits') return [];
-      if (action === 'trending' || action === 'searchPublicRepos') return [repo, { ...repo, id: 78, name: 'second' }, { ...repo, id: 79, name: 'third' }];
+      if (action === 'trending') return { items: [repo, { ...repo, id: 78, name: 'second' }, { ...repo, id: 79, name: 'third' }], page: 1, hasNextPage: false };
+      if (action === 'searchPublicRepos') return [repo, { ...repo, id: 78, name: 'second' }, { ...repo, id: 79, name: 'third' }];
       if (action === 'searchUsers') return [1, 2, 3].map((id) => ({ id, login: `writer${id}`, avatar_url: '', html_url: `https://github.com/writer${id}`, type: 'User' }));
       if (action === 'topStarredRepos') return [];
       throw new Error(`Unexpected API action: ${action}`);
