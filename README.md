@@ -8,15 +8,15 @@
 
 EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了哪些文件、写一句更新说明，然后点击“发布源码”。不需要安装 Git，也不需要学习复杂的命令。
 
-**目前提供 Windows 版 1.0.0。** Android 和 iOS 版尚未推出。
+**目前提供 Windows 版 1.0.1。** Android 和 iOS 版尚未推出。
 
 ## 下载 EasyHub
 
 | 版本 | 适合谁 | 下载 |
 | --- | --- | --- |
-| 安装版 | 想长期使用，可在安装时选择位置 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-1.0.0-setup.exe) |
-| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-1.0.0-portable.exe) |
-| 演示版 | 想先体验界面，不连接自己的 GitHub | [下载演示版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-1.0.0-demo.exe) |
+| 安装版 | 想长期使用，可在安装时选择位置 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.1/EasyHub-1.0.1-setup.exe) |
+| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.1/EasyHub-1.0.1-portable.exe) |
+| 演示版 | 想先体验界面，不连接自己的 GitHub | [下载演示版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.1/EasyHub-1.0.1-demo.exe) |
 
 这三个版本适用于 Windows 64 位电脑。应用尚未使用商业代码签名证书，首次运行时 Windows 可能显示“未知发布者”。演示版使用独立的模拟数据，不会登录 GitHub 或修改真实项目。
 
@@ -52,7 +52,7 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 ## “发布源码”和“发布新版本”
 
 - **发布源码**：保存平时对项目文件的修改。这项功能已连接真实 GitHub。
-- **发布新版本**：为自己的项目填写版本号和介绍，添加图片、链接及多个下载文件，预览后发布到 GitHub。再次发布时会建议下一个版本号。此功能已在当前源码中通过真实账号测试，**上方的 1.0.0 下载版本尚未包含**；演示版仍只展示模拟流程。
+- **发布新版本**：为自己的项目填写版本号和介绍，添加图片、链接及多个下载文件，预览后发布到 GitHub。再次发布时会建议下一个版本号。演示版仍只展示模拟流程。
 
 正式版未登录时的创建、发布和回复操作只作用于模拟项目。独立演示版始终使用模拟数据，方便放心体验。
 

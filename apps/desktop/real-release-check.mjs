@@ -16,7 +16,9 @@ const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQ
 const attachment = Buffer.from('EasyHub live release upload check\n', 'utf8');
 await writeFile(imagePath, image);
 await writeFile(attachmentPath, attachment);
-const app = await electron.launch({ executablePath: electronPath, args: ['.'], cwd: process.cwd() });
+const packaged = process.argv.includes('--packaged');
+const app = await electron.launch({ executablePath: packaged ? join(process.cwd(), 'release/win-unpacked/EasyHub.exe') : electronPath,
+  args: packaged ? [] : ['.'], cwd: process.cwd() });
 try {
   const page = await app.firstWindow();
   const auth = await page.evaluate(() => window.easyHub?.authStatus());
@@ -72,7 +74,7 @@ try {
   const savedPath = await page.evaluate(({ owner, repo, id }) => window.easyHub.downloadReleaseAsset(owner, repo, id), { owner, repo, id: textAsset.id });
   assert.equal(savedPath, downloadedPath);
   assert.deepEqual(await readFile(downloadedPath), attachment);
-  process.stdout.write(`Live release publish, preview, image, link, two uploads and download passed: ${tag}.\n`);
+  process.stdout.write(`${packaged ? 'Packaged' : 'Development'} live release publish, preview, image, link, two uploads and download passed: ${tag}.\n`);
 } finally {
   await app.close().catch(() => {});
   await rm(imagePath, { force: true });

@@ -2,7 +2,7 @@
   "name": "easyhub",
   "private": true,
   "license": "GPL-3.0-only",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "dev": "node scripts/run-desktop.mjs dev",
