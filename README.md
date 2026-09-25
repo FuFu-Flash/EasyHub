@@ -8,6 +8,8 @@
 
 EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了哪些文件、写一句更新说明，然后点击“发布源码”。不需要安装 Git，也不需要学习复杂的命令。
 
+[访问 EasyHub 官网](https://fufu-flash.github.io/easyhub-website/) · [查看所有发布版本](https://github.com/FuFu-Flash/EasyHub/releases)
+
 **目前提供 Windows 版 1.0.1。** Android 和 iOS 版尚未推出。
 
 ## 下载 EasyHub
