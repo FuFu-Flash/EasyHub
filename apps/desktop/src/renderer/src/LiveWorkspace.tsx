@@ -2,9 +2,9 @@
 import type { FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { GitHubComment, GitHubCommit, GitHubIssue, GitHubRepo, GitHubSearchUser, GitHubUser } from '@easyhub/github';
-import type { LocalProjectLink, LocalProjectStatus, SyncPreview, TranslationTargetLanguage } from '@easyhub/types';
-import { ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Clock3, CloudDownload, Compass, Folder, FolderOpen, Globe2, Home, Info, Languages, LockKeyhole, MessageCircle, Minus, Pencil, Plus, RotateCw, Search, Send, Settings2, Square, X } from 'lucide-react';
+import type { GitHubComment, GitHubCommit, GitHubIssue, GitHubRelease, GitHubRepo, GitHubSearchUser, GitHubUser } from '@easyhub/github';
+import type { CreateReleaseInput, LocalProjectLink, LocalProjectStatus, ProjectRelease, ReleaseProgress, SyncPreview, TranslationTargetLanguage } from '@easyhub/types';
+import { ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Clock3, CloudDownload, Compass, Folder, FolderOpen, Globe2, Home, Info, Languages, LockKeyhole, MessageCircle, Minus, Pencil, Plus, RotateCw, Search, Send, Settings2, Square, Tag, X } from 'lucide-react';
 import appIcon from './assets/easyhub-icon.svg';
 import pottedPlant from './assets/easyhub-potted-plant.svg';
 import { LocalWorkspace } from './LocalWorkspace';
@@ -13,6 +13,7 @@ import { ReadmeMarkdown } from './components/ReadmeMarkdown';
 import { LiveProjectDangerZone } from './components/LiveProjectDangerZone';
 import { PublicProjectBrowser } from './components/PublicProjectBrowser';
 import { ReleaseDownloads } from './components/ReleaseDownloads';
+import { ReleaseEditor } from './components/ReleaseEditor';
 import { DownloadNotifications } from './components/DownloadNotifications';
 import { TranslationPreferencesContext } from './components/TranslatableContent';
 import { TranslatableContent } from './components/TranslatableContent';
@@ -24,7 +25,7 @@ import { createDomLocalizer, readLanguage, type Language } from './i18n';
 import { historyKey, readSearchHistory, rememberSearch, type SearchEntry, type SearchScope } from './searchHistory';
 import { publicBookmarksKey, readPublicBookmarks } from './publicBookmarks';
 
-type View = 'home' | 'projects' | 'discover' | 'profile' | 'project' | 'public-project' | 'downloads' | 'issues' | 'issue' | 'history' | 'version' | 'new-project' | 'local' | 'settings';
+type View = 'home' | 'projects' | 'discover' | 'profile' | 'project' | 'public-project' | 'downloads' | 'new-release' | 'issues' | 'issue' | 'history' | 'version' | 'new-project' | 'local' | 'settings';
 type Action = 'repos' | 'searchPublicRepos' | 'publicRepo' | 'createRepo' | 'readme' | 'issues' | 'createIssue' | 'updateIssue' | 'comments' | 'createComment' | 'commits' | 'commit';
 
 function api<T>(action: Action, ...args: unknown[]): Promise<T> {
@@ -63,6 +64,10 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   const [publicSelected, setPublicSelected] = useState<GitHubRepo | null>(null);
   const [publicInitialDownload, setPublicInitialDownload] = useState<{ tag?: string } | null>(null);
   const [downloadFocusTag, setDownloadFocusTag] = useState<string | undefined>();
+  const [releaseHistory, setReleaseHistory] = useState<ProjectRelease[]>([]);
+  const [releaseImages, setReleaseImages] = useState<Record<string, string>>({});
+  const [releaseBusy, setReleaseBusy] = useState(false);
+  const [releaseProgress, setReleaseProgress] = useState<ReleaseProgress | null>(null);
   const [publicReturnView, setPublicReturnView] = useState<'projects' | 'discover' | 'profile'>('discover');
   const [profileUser, setProfileUser] = useState<GitHubUser>(user);
   const [profileReturnView, setProfileReturnView] = useState<'home' | 'discover'>('home');
@@ -116,6 +121,8 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   const scrollArea = useRef<HTMLDivElement>(null);
   const localizer = useRef(createDomLocalizer());
   const cancelled = useRef(false);
+
+  useEffect(() => window.easyHub?.onReleaseProgress((value) => setReleaseProgress(value)), []);
 
   const recordSearch = useCallback((query: string, scope: SearchScope) => {
     if (!query.trim() || ((scope === 'public' || scope === 'users') && query.trim().length < 2)) return;
@@ -364,6 +371,33 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
     await downloads.start({ kind: 'archive', repo: selected, ref, fileName: `${selected.name}-${ref.slice(0, 8)}.zip` });
   }
 
+  async function openNewRelease(): Promise<void> {
+    if (!selected || selected.archived || !window.easyHub) return;
+    setBusy(true); setError(''); setReleaseImages({}); setReleaseProgress(null);
+    try {
+      const items = await window.easyHub.github<GitHubRelease[]>('releases', ownerOf(selected), selected.name);
+      setReleaseHistory(items.map((item) => ({
+        id: String(item.id), tagName: item.tag_name, title: item.name || item.tag_name,
+        body: item.body || '', channel: /^alpha/i.test(item.tag_name) ? 'alpha' : /^beta/i.test(item.tag_name) ? 'beta' : 'stable',
+        publishedAt: item.published_at || '',
+        assets: item.assets.map((asset) => ({ id: String(asset.id), name: asset.name, size: asset.size, mimeType: asset.content_type })),
+      })));
+      setView('new-release');
+    } catch (cause) { setError(message(cause)); }
+    finally { setBusy(false); }
+  }
+
+  async function publishNewRelease(input: CreateReleaseInput): Promise<void> {
+    if (!selected || !window.easyHub) return;
+    setReleaseBusy(true); setError(''); setReleaseProgress(null);
+    try {
+      const result = await window.easyHub.publishRelease({ owner: ownerOf(selected), repo: selected.name,
+        tagName: input.tagName, title: input.title, body: input.body, channel: input.channel, assetIds: input.assets.map((asset) => asset.id) });
+      setNotice('新版本已发布到 GitHub。'); setDownloadFocusTag(result.tag_name); setView('downloads');
+    } catch (cause) { setError(message(cause)); }
+    finally { setReleaseBusy(false); setReleaseProgress(null); }
+  }
+
   async function refreshCurrent(): Promise<void> {
     await loadRepos();
     if (!selected || cancelled.current) return;
@@ -502,10 +536,18 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
 
       {view === 'downloads' && selected && <TranslationPreferencesContext.Provider value={{ automatic: automaticTranslation, target: translationTarget, repository: { name: selected.name, owner: selected.owner.login, fullName: selected.full_name }, names: translationNames }}><ReleaseDownloads repo={selected} focusTag={downloadFocusTag} onDownload={(request) => void downloads.start(request)} downloadBusy={downloads.busy} onBack={() => setView('project')} /></TranslationPreferencesContext.Provider>}
 
+      {view === 'new-release' && selected && <ReleaseEditor key={selected.id} project={{ name: selected.name,
+        health: localLinks.some((link) => link.repositoryId === selected.id && (localStatuses[link.id]?.files.length ?? 0) > 0) ? 'changes' : 'saved',
+        releases: releaseHistory }} language={language} busy={releaseBusy} progress={releaseProgress} imageSources={releaseImages}
+        onRegisterInlineImage={(id, source) => setReleaseImages((current) => ({ ...current, [id]: typeof source === 'string' ? source : URL.createObjectURL(source) }))}
+        onChooseFiles={(inline) => window.easyHub!.chooseReleaseFiles(inline)} onPublish={(input) => void publishNewRelease(input)}
+        onBack={() => { if (releaseBusy) void window.easyHub?.cancelRelease(); else setView('project'); }} onOpenUpdate={() => setView('local')}
+        onOpenLink={(url) => void window.easyHub?.openExternalLink(url)} />}
+
 
       {view === 'project' && selected && <TranslationPreferencesContext.Provider value={{ automatic: automaticTranslation, target: translationTarget, repository: { name: selected.name, owner: selected.owner.login, fullName: selected.full_name }, names: translationNames }}>
         <button className="back-link" onClick={() => setView('projects')}><ArrowLeft size={17} />所有项目</button>
-        <section className="detail-hero"><div className="detail-main"><RepoLogo repo={selected} /><div><div className="detail-name-row"><h1>{selected.name}</h1><span className="visibility-label">{selected.private ? <><LockKeyhole size={13} />只有我</> : <><Globe2 size={13} />所有人</>}</span></div>{!selected.private && selected.description ? <TranslatableContent text={selected.description} format="text" render={(value) => <p>{value}</p>} /> : <p>{selected.description || '还没有项目介绍'}</p>}<span className="status status-saved"><span className="status-dot" />{selected.archived ? '已存档 · 只读' : '已保存到 GitHub'}</span></div></div><div className="detail-actions"><button className="button button-primary" disabled={selected.archived} onClick={() => setView('local')}><FolderOpen size={17} />本地项目与发布源码</button><button className="button button-quiet" onClick={() => { setDownloadFocusTag(undefined); setView('downloads'); }}><ArrowDownToLine size={17} />下载项目</button></div></section>
+        <section className="detail-hero"><div className="detail-main"><RepoLogo repo={selected} /><div><div className="detail-name-row"><h1>{selected.name}</h1><span className="visibility-label">{selected.private ? <><LockKeyhole size={13} />只有我</> : <><Globe2 size={13} />所有人</>}</span></div>{!selected.private && selected.description ? <TranslatableContent text={selected.description} format="text" render={(value) => <p>{value}</p>} /> : <p>{selected.description || '还没有项目介绍'}</p>}<span className="status status-saved"><span className="status-dot" />{selected.archived ? '已存档 · 只读' : '已保存到 GitHub'}</span></div></div><div className="detail-actions"><button className="button button-primary" disabled={selected.archived} onClick={() => setView('local')}><FolderOpen size={17} />本地项目与发布源码</button>{!selected.archived && (selected.permissions?.push || ownerOf(selected).toLowerCase() === user.login.toLowerCase()) && <button className="button button-quiet" disabled={busy} onClick={() => void openNewRelease()}><Tag size={17} />发布新版本</button>}<button className="button button-quiet" onClick={() => { setDownloadFocusTag(undefined); setView('downloads'); }}><ArrowDownToLine size={17} />下载项目</button></div></section>
         <div className="detail-grid"><div className="detail-primary"><section className="panel"><div className="panel-heading"><h2>项目介绍</h2><button className="text-link" disabled={selected.archived} onClick={() => void beginEditIntroduction()}><Pencil size={15} />编辑介绍</button></div>{readme ? !selected.private ? <TranslatableContent text={readme} format="markdown" paragraphMode render={(value) => <ReadmeMarkdown markdown={value} repository={{ owner: ownerOf(selected), name: selected.name, branch: selected.default_branch }} onOpenLink={(href) => void openReadmeLink(href, selected)} />} /> : <ReadmeMarkdown markdown={readme} repository={{ owner: ownerOf(selected), name: selected.name, branch: selected.default_branch }} onOpenLink={(href) => void openReadmeLink(href, selected)} /> : <p className="muted">这个项目还没有介绍。</p>}</section><section className="panel"><div className="panel-heading"><h2>历史版本</h2><button className="text-link" onClick={() => setView('history')}>查看全部 <ArrowRight size={16} /></button></div><div className="timeline-list">{commits.slice(0, 3).map((item) => <button className="timeline-item" key={item.sha} onClick={() => void openVersion(item)}><span className="timeline-dot" /><span><strong>{item.commit.message.split('\n')[0]}</strong><small>{item.commit.author?.date ? relativeDate(item.commit.author.date, language) : ''}</small></span><ChevronRight size={17} /></button>)}{commits.length === 0 && <p className="muted">还没有历史版本。</p>}</div></section></div><div className="detail-side"><section className="panel side-panel"><div className="panel-heading"><h2>问题</h2><span className="count-bubble">{visibleIssues.length}</span></div><p>看看大家的反馈，一起让项目变得更好。</p><button className="button button-quiet full-width" onClick={() => setView('issues')}>查看问题 <ArrowRight size={16} /></button></section><section className="panel side-panel"><div className="panel-heading"><h2>项目状态</h2></div><div className="status-detail"><span className="big-status-dot saved" /><div><strong>已保存到 GitHub</strong><small>上次更新：{relativeDate(selected.updated_at, language)}</small></div></div><button className="text-link" onClick={() => setView('local')}>查看本地修改 <ArrowRight size={16} /></button></section></div></div>
         {(selected.owner.login.toLowerCase() === user.login.toLowerCase() || selected.permissions?.admin) && <LiveProjectDangerZone repo={selected} language={language} onUpdate={(updated) => { setSelected(updated); setRepos((items) => items.map((item) => item.id === updated.id ? updated : item)); }} onTransferred={() => { setView('projects'); void loadRepos(); }} onNotice={setNotice} />}
       </TranslationPreferencesContext.Provider>}

@@ -4,12 +4,14 @@ import { authStatus, cancelArchive, cancelDeviceLogin, cancelGithubReads, downlo
 import type { DownloadTransferProgress } from './services/githubService';
 import { LocalProjectStore } from './git/LocalProjectStore';
 import { LocalProjectService } from './git/LocalProjectService';
+import { ReleasePublishingService } from './services/releasePublishing';
 import { FallbackTranslationProvider, GoogleWebTranslationProvider, MyMemoryTranslationProvider, TranslationService } from './services/TranslationService';
 import type { TranslationRequest } from '@easyhub/types';
 
 let mainWindow: BrowserWindow | null = null;
 let localService: LocalProjectService;
 let translationService: TranslationService;
+let releaseService: ReleasePublishingService;
 const translationJobs = new Map<string, AbortController>();
 
 function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
@@ -61,6 +63,7 @@ app.whenReady().then(() => {
   translationService = new TranslationService(new FallbackTranslationProvider(
     new MyMemoryTranslationProvider(translateFetch), new GoogleWebTranslationProvider(translateFetch)),
   join(app.getPath('userData'), 'translations.json'));
+  releaseService = new ReleasePublishingService();
   void localService.startWatching();
 
   ipcMain.handle('easyhub:window-minimize', (event) => {
@@ -147,6 +150,9 @@ app.whenReady().then(() => {
   ipcMain.handle('easyhub:auth-poll', (event) => { assertTrustedSender(event); return pollDeviceLogin(); });
   ipcMain.handle('easyhub:auth-cancel', (event) => { assertTrustedSender(event); cancelDeviceLogin(); });
   ipcMain.handle('easyhub:auth-logout', (event) => { assertTrustedSender(event); return logout(); });
+  ipcMain.handle('easyhub:release-choose-files', (event, inline: unknown) => { assertTrustedSender(event); return releaseService.chooseFiles(inline as boolean); });
+  ipcMain.handle('easyhub:release-publish', (event, input: unknown) => { assertTrustedSender(event); return releaseService.publish(input, (value) => event.sender.send('easyhub:release-progress', value)); });
+  ipcMain.handle('easyhub:release-cancel', (event) => { assertTrustedSender(event); releaseService.cancel(); });
   ipcMain.handle('easyhub:github', (event, action: unknown, ...args: unknown[]) => { assertTrustedSender(event); return githubAction(action, args); });
   ipcMain.handle('easyhub:github-cancel', (event) => { assertTrustedSender(event); cancelGithubReads(); });
   const sendDownloadProgress = (event: Electron.IpcMainInvokeEvent, value: DownloadTransferProgress): void => {

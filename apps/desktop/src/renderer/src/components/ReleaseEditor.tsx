@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
-import type { CreateReleaseInput, Project, ReleaseAsset, ReleaseChannel } from '@easyhub/types';
+import type { CreateReleaseInput, PickedReleaseFile, Project, ReleaseAsset, ReleaseChannel, ReleaseProgress } from '@easyhub/types';
 import { ArrowLeft, ArrowRight, FilePlus2, ImagePlus, Info, Link2, Plus, Trash2 } from 'lucide-react';
 import type { Language } from '../i18n';
 import { MAX_RELEASE_ASSET_SIZE, MAX_RELEASE_ASSETS, nextReleaseTag, validateReleaseAssets, validateReleaseInput } from '../stores/releaseStore';
@@ -21,12 +21,14 @@ function markdownLabel(value: string): string {
   return value.trim().replace(/[\[\]\\]/gu, '\\$&');
 }
 
-export function ReleaseEditor({ project, language, busy, imageSources, onRegisterInlineImage, onPublish, onBack, onOpenUpdate, onOpenLink }: {
-  project: Project;
+export function ReleaseEditor({ project, language, busy, imageSources, onRegisterInlineImage, onChooseFiles, progress, onPublish, onBack, onOpenUpdate, onOpenLink }: {
+  project: Pick<Project, 'name' | 'health' | 'releases'>;
   language: Language;
   busy: boolean;
   imageSources: Record<string, string>;
-  onRegisterInlineImage: (id: string, file: File) => void;
+  onRegisterInlineImage: (id: string, source: File | string) => void;
+  onChooseFiles?: (inline: boolean) => Promise<PickedReleaseFile[]>;
+  progress?: ReleaseProgress | null;
   onPublish: (input: CreateReleaseInput) => void;
   onBack: () => void;
   onOpenUpdate: () => void;
@@ -80,13 +82,7 @@ export function ReleaseEditor({ project, language, busy, imageSources, onRegiste
       mimeType: file.type || 'application/octet-stream',
       file,
     }));
-    try {
-      validateReleaseAssets([...assets, ...added]);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '无法添加文件');
-      return;
-    }
-    setAssets((current) => [...current, ...added.map(({ file: _file, ...asset }) => asset)]);
+    if (!acceptFiles(added.map(({ file: _file, ...asset }) => asset))) return;
     if (inline) {
       for (const item of added) {
         onRegisterInlineImage(item.id, item.file);
@@ -96,6 +92,30 @@ export function ReleaseEditor({ project, language, busy, imageSources, onRegiste
       setMediaDialog(null);
     }
     setError(null);
+  }
+
+  function acceptFiles(items: ReleaseAsset[]): boolean {
+    try { validateReleaseAssets([...assets, ...items]); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : '无法添加文件'); return false; }
+    setAssets((current) => [...current, ...items]);
+    return true;
+  }
+
+  async function chooseFiles(inline: boolean): Promise<void> {
+    if (!onChooseFiles) { (inline ? imageInput : assetInput).current?.click(); return; }
+    try {
+      const picked = await onChooseFiles(inline);
+      if (!picked.length) return;
+      if (!acceptFiles(picked.map(({ previewDataUrl: _preview, ...asset }) => asset))) return;
+      if (inline) {
+        for (const item of picked) {
+          if (item.previewDataUrl) onRegisterInlineImage(item.id, item.previewDataUrl);
+          setBody((current) => `${current.trimEnd()}\n\n![${markdownLabel(item.name)}](easyhub-image:${item.id})\n`.trimStart());
+        }
+        setMediaDialog(null);
+      }
+      setError(null);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '无法选择文件。'); }
   }
 
   function removeAsset(id: string): void {
@@ -156,7 +176,7 @@ export function ReleaseEditor({ project, language, busy, imageSources, onRegiste
         <div className="release-section-heading"><span>3</span><div><h2>下载文件</h2><p>可选择一个或多个安装包、压缩包或其他文件。</p></div></div>
         <input ref={assetInput} type="file" multiple className="release-hidden-input" aria-label="选择发布文件" onChange={(event) => addFiles(event, false)} />
         <input ref={imageInput} type="file" multiple accept="image/*" className="release-hidden-input" aria-label="选择介绍图片" onChange={(event) => addFiles(event, true)} />
-        <button className="release-add-files" onClick={() => assetInput.current?.click()}><FilePlus2 size={22} /><strong>添加文件</strong><span>点击选择文件，可一次添加多个</span></button>
+        <button className="release-add-files" onClick={() => void chooseFiles(false)}><FilePlus2 size={22} /><strong>添加文件</strong><span>点击选择文件，可一次添加多个</span></button>
         {assets.length > 0 && <div className="release-selected-files">{assets.map((asset) => <div key={asset.id} className="release-selected-file"><FilePlus2 size={17} /><span title={asset.name}>{asset.name}</span><small>{formatFileSize(asset.size)}</small><button className="icon-button" aria-label={`移除 ${asset.name}`} onClick={() => removeAsset(asset.id)}><Trash2 size={16} /></button></div>)}</div>}
         <p className="release-field-hint">按 GitHub 当前规则：最多 {MAX_RELEASE_ASSETS} 个文件，每个文件小于 {MAX_RELEASE_ASSET_SIZE / 1024 ** 3} GiB。同一版本内文件名不能重复，文件类型不受限制。</p>
       </section>
@@ -167,8 +187,9 @@ export function ReleaseEditor({ project, language, busy, imageSources, onRegiste
       <ReleasePreview release={draft} imageSources={imageSources} language={language} onOpenLink={onOpenLink} />
       {assets.length === 0 && <div className="release-preview-warning"><Info size={17} />未添加安装包。GitHub 仍会自动提供项目源码压缩包。</div>}
       {project.health === 'changes' && <div className="release-preview-warning"><Info size={17} />尚未发布的本地修改不会出现在这个新版本中。</div>}
-      <div className="release-editor-actions"><button className="button button-quiet" onClick={() => setStage('edit')}><ArrowLeft size={16} />返回编辑</button><button className="button button-primary" disabled={busy} onClick={() => onPublish(draft)}>确认发布新版本 <ArrowRight size={17} /></button></div>
-      <p className="release-demo-note">当前是演示模式：点击确认只会更新本窗口中的演示数据，不会上传文件到 GitHub。</p>
+      {progress && <div className="release-upload-progress" role="status"><strong>{progress.phase}</strong>{progress.total > 0 && <progress value={progress.loaded} max={progress.total} />}</div>}
+      <div className="release-editor-actions"><button className="button button-quiet" disabled={busy && !progress?.cancelable} onClick={busy && progress?.cancelable ? onBack : () => setStage('edit')}>{busy ? '取消发布' : <><ArrowLeft size={16} />返回编辑</>}</button><button className="button button-primary" disabled={busy} onClick={() => onPublish(draft)}>{busy ? '正在发布…' : '确认发布新版本'} <ArrowRight size={17} /></button></div>
+      {!onChooseFiles && <p className="release-demo-note">当前是演示模式：点击确认只会更新本窗口中的演示数据，不会上传文件到 GitHub。</p>}
     </div>}
     {mediaDialog && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMediaDialog(null); }}><div className="modal release-media-modal" role="dialog" aria-modal="true" aria-labelledby="release-media-title">
       <h2 id="release-media-title">{mediaDialog === 'image' ? '添加图片' : '添加链接'}</h2>
@@ -176,7 +197,7 @@ export function ReleaseEditor({ project, language, busy, imageSources, onRegiste
       <label className="field"><span>{mediaDialog === 'image' ? '图片说明' : '显示文字'}</span><input value={mediaLabel} onChange={(event) => setMediaLabel(event.target.value)} placeholder={mediaDialog === 'image' ? '例如：应用界面' : '例如：使用说明'} /></label>
       <label className="field"><span>{mediaDialog === 'image' ? '图片地址' : '链接地址'}</span><input value={mediaUrl} onChange={(event) => setMediaUrl(event.target.value)} placeholder="https://example.com" /></label>
       {error && <div className="release-error" role="alert">{error}</div>}
-      <div className="modal-actions"><button className="button button-quiet" onClick={() => setMediaDialog(null)}>取消</button>{mediaDialog === 'image' && <button className="button button-quiet" onClick={() => imageInput.current?.click()}><ImagePlus size={16} />选择本地图片</button>}<button className="button button-primary" onClick={insertMedia}><Plus size={16} />插入</button></div>
+      <div className="modal-actions"><button className="button button-quiet" onClick={() => setMediaDialog(null)}>取消</button>{mediaDialog === 'image' && <button className="button button-quiet" onClick={() => void chooseFiles(true)}><ImagePlus size={16} />选择本地图片</button>}<button className="button button-primary" onClick={insertMedia}><Plus size={16} />插入</button></div>
     </div></div>}
   </div>;
 }

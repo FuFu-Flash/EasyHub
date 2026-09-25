@@ -16,6 +16,7 @@
     "test:translation-ui": "node scripts/run-desktop.mjs test:translation-ui",
     "test:live-download": "node scripts/run-desktop.mjs test:live-download",
     "test:live-local": "node scripts/run-desktop.mjs test:live-local",
+    "test:live-release": "node scripts/run-desktop.mjs test:live-release",
     "test:live-translation": "node scripts/run-desktop.mjs test:live-translation",
     "test:danger-ui": "node scripts/run-desktop.mjs test:danger-ui",
     "test:packaged": "node scripts/run-desktop.mjs test:packaged",

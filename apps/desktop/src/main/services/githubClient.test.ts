@@ -2,6 +2,22 @@ import { describe, expect, it, vi } from 'vitest';
 import { GitHubClient, friendlyGitHubError } from '@easyhub/github';
 
 describe('GitHubClient', () => {
+  it('creates a draft release and publishes it only after assets are ready', async () => {
+    const transport = vi.fn(async (_url: string | URL, init?: RequestInit) => {
+      if (init?.method === 'DELETE') return new Response(null, { status: 204 });
+      return Response.json({ id: 42, tag_name: 'v0.01', upload_url: 'https://uploads.github.com/example{?name,label}', draft: init?.method === 'POST' });
+    });
+    const client = new GitHubClient(async () => 'test-token', transport);
+    await client.createRelease('writer', 'app', { tagName: 'v0.01', target: 'main', name: 'First', body: 'Details', prerelease: false });
+    const [createUrl, createInit] = transport.mock.calls[0] as unknown as [string, RequestInit];
+    expect(createUrl).toBe('https://api.github.com/repos/writer/app/releases');
+    expect(JSON.parse(createInit.body as string)).toMatchObject({ draft: true, tag_name: 'v0.01', target_commitish: 'main' });
+    await client.updateRelease('writer', 'app', 42, { body: 'Final details', draft: false });
+    const [updateUrl, updateInit] = transport.mock.calls[1] as unknown as [string, RequestInit];
+    expect(updateUrl).toBe('https://api.github.com/repos/writer/app/releases/42');
+    expect(JSON.parse(updateInit.body as string)).toEqual({ body: 'Final details', draft: false });
+    await client.deleteRelease('writer', 'app', 42);
+  });
   it('sends a token only to the GitHub API and paginates repositories', async () => {
     const transport = vi.fn(async () => Response.json([{ id: 1, name: 'A' }]));
     const client = new GitHubClient(async () => 'private-token', transport);

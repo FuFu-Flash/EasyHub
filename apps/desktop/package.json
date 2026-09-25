@@ -18,6 +18,7 @@
     "test:translation-ui": "node paragraph-translation-smoke.mjs",
     "test:live-download": "node real-download-check.mjs",
     "test:live-local": "node real-local-project-check.mjs",
+    "test:live-release": "node real-release-check.mjs",
     "test:live-translation": "node real-translation-check.mjs",
     "test:danger-ui": "node live-danger-smoke.mjs",
     "test:packaged": "node smoke.mjs --packaged",

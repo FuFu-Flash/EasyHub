@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
+import { mkdtemp, rmdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { _electron as electron } from 'playwright-core';
@@ -12,6 +14,7 @@ const imageServer = createServer((_request, response) => {
 });
 await new Promise((resolve) => imageServer.listen(0, '127.0.0.1', resolve));
 const imageUrl = `http://127.0.0.1:${imageServer.address().port}/intro.png`;
+const selectedFolder = await mkdtemp(join(tmpdir(), 'easyhub-ui-smoke-'));
 const packagedExecutable = join(process.cwd(), 'release/win-unpacked/EasyHub.exe');
 const app = await electron.launch({
   executablePath: packaged ? packagedExecutable : electronPath,
@@ -23,7 +26,7 @@ try {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] });
     ipcMain.removeHandler('easyhub:auth-status');
     ipcMain.handle('easyhub:auth-status', () => ({ user: null, clientId: null }));
-  }, process.cwd());
+  }, selectedFolder);
 
   const page = await app.firstWindow();
   const security = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getLastWebPreferences());
@@ -456,4 +459,5 @@ try {
 } finally {
   await app.close().catch(() => {});
   imageServer.close();
+  await rmdir(selectedFolder).catch(() => {});
 }

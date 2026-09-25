@@ -45,6 +45,10 @@ export interface CreateReleaseInput {
   assets: ReleaseAsset[];
 }
 
+export interface PickedReleaseFile extends ReleaseAsset { previewDataUrl?: string }
+export interface PublishReleaseRequest { owner: string; repo: string; tagName: string; title: string; body: string; channel: ReleaseChannel; assetIds: string[] }
+export interface ReleaseProgress { phase: string; loaded: number; total: number; cancelable: boolean }
+
 export interface IssueComment {
   id: string;
   author: string;

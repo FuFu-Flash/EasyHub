@@ -10,8 +10,9 @@ export interface Contributions { total: number; years: number[]; weeks: { contri
 export interface GitHubIssue { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; created_at: string; user: { login: string } | null; comments: number; pull_request?: unknown }
 export interface GitHubComment { id: number; body: string; created_at: string; user: { login: string } | null }
 export interface GitHubCommit { sha: string; commit: { message: string; author: { name: string; date: string } | null }; author: { login: string } | null; stats?: { additions: number; deletions: number }; files?: { filename: string; status: string }[] }
-export interface GitHubReleaseAsset { id: number; name: string; label: string | null; size: number; content_type: string; download_count: number; state: string }
+export interface GitHubReleaseAsset { id: number; name: string; label: string | null; size: number; content_type: string; download_count: number; state: string; browser_download_url?: string; digest?: string }
 export interface GitHubRelease { id: number; tag_name: string; name: string | null; body: string | null; draft: boolean; prerelease: boolean; published_at: string | null; assets: GitHubReleaseAsset[] }
+export interface GitHubCreatedRelease extends GitHubRelease { upload_url: string; html_url: string }
 
 export class GitHubError extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
@@ -131,7 +132,16 @@ export class GitHubClient {
   }
   commits(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubCommit[]> { return this.request(`${repoPath(owner, repo)}/commits?per_page=100`, { signal }); }
   commit(owner: string, repo: string, sha: string, signal?: AbortSignal): Promise<GitHubCommit> { return this.request(`${repoPath(owner, repo)}/commits/${encodePart(sha)}`, { signal }); }
-  releases(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubRelease[]> { return this.request(`${repoPath(owner, repo)}/releases?per_page=30`, { signal }); }
+  releases(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubRelease[]> { return this.request(`${repoPath(owner, repo)}/releases?per_page=30`, { signal, cache: 'no-store' }); }
+  createRelease(owner: string, repo: string, input: { tagName: string; target: string; name: string; body: string; prerelease: boolean }, signal?: AbortSignal): Promise<GitHubCreatedRelease> {
+    return this.request(`${repoPath(owner, repo)}/releases`, { method: 'POST', body: JSON.stringify({ tag_name: input.tagName, target_commitish: input.target, name: input.name, body: input.body, draft: true, prerelease: input.prerelease }), signal });
+  }
+  updateRelease(owner: string, repo: string, id: number, input: { body: string; draft: boolean }, signal?: AbortSignal): Promise<GitHubCreatedRelease> {
+    return this.request(`${repoPath(owner, repo)}/releases/${id}`, { method: 'PATCH', body: JSON.stringify(input), signal });
+  }
+  deleteRelease(owner: string, repo: string, id: number): Promise<void> {
+    return this.request(`${repoPath(owner, repo)}/releases/${id}`, { method: 'DELETE' });
+  }
   releaseAsset(owner: string, repo: string, id: number, signal?: AbortSignal): Promise<GitHubReleaseAsset> { return this.request(`${repoPath(owner, repo)}/releases/assets/${id}`, { signal }); }
   async downloadReleaseAsset(owner: string, repo: string, id: number, signal?: AbortSignal): Promise<Response> {
     const response = await this.transport(`https://api.github.com${repoPath(owner, repo)}/releases/assets/${id}`, {

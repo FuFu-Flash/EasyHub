@@ -67,6 +67,8 @@ async function accessToken(): Promise<string> {
   return current.accessToken;
 }
 
+export function githubAccessToken(): Promise<string> { return accessToken(); }
+
 const client = new GitHubClient(accessToken, (input, init) => net.fetch(String(input), init));
 
 export async function gitHubIdentity(): Promise<{ token: string; user: GitHubUser }> {

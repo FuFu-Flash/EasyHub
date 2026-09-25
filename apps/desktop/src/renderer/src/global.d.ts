@@ -1,6 +1,8 @@
 import type { GitHubUser } from '@easyhub/github';
 import type { FolderInspection, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
 import type { TranslationProgress, TranslationRequest } from '@easyhub/types';
+import type { PickedReleaseFile, PublishReleaseRequest, ReleaseProgress } from '@easyhub/types';
+import type { GitHubCreatedRelease } from '@easyhub/github';
 
 export {};
 
@@ -36,6 +38,10 @@ declare global {
       authPoll: () => Promise<{ state: 'waiting' | 'complete'; user?: GitHubUser; interval?: number }>;
       authCancel: () => Promise<void>;
       authLogout: () => Promise<void>;
+      chooseReleaseFiles: (inline: boolean) => Promise<PickedReleaseFile[]>;
+      publishRelease: (input: PublishReleaseRequest) => Promise<GitHubCreatedRelease>;
+      cancelRelease: () => Promise<void>;
+      onReleaseProgress: (callback: (value: ReleaseProgress) => void) => () => void;
       github: <T>(action: string, ...args: unknown[]) => Promise<T>;
       cancelGithubReads: () => Promise<void>;
       downloadArchive: (owner: string, repo: string, ref: string) => Promise<string | null>;
