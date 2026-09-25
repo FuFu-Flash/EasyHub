@@ -1,0 +1,28 @@
+{
+  "name": "easyhub",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "version": "1.0.0",
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "dev": "node scripts/run-desktop.mjs dev",
+    "typecheck": "node scripts/run-desktop.mjs typecheck",
+    "lint": "node scripts/run-desktop.mjs lint",
+    "test": "node scripts/run-desktop.mjs test",
+    "test:ui": "node scripts/run-desktop.mjs test:ui",
+    "test:public-ui": "node scripts/run-desktop.mjs test:public-ui",
+    "test:discovery-ui": "node scripts/run-desktop.mjs test:discovery-ui",
+    "test:responsive-ui": "node scripts/run-desktop.mjs test:responsive-ui",
+    "test:translation-ui": "node scripts/run-desktop.mjs test:translation-ui",
+    "test:live-download": "node scripts/run-desktop.mjs test:live-download",
+    "test:live-local": "node scripts/run-desktop.mjs test:live-local",
+    "test:live-translation": "node scripts/run-desktop.mjs test:live-translation",
+    "test:danger-ui": "node scripts/run-desktop.mjs test:danger-ui",
+    "test:packaged": "node scripts/run-desktop.mjs test:packaged",
+    "test:demo-packaged": "node scripts/run-desktop.mjs test:demo-packaged",
+    "icons": "node scripts/run-desktop.mjs icons",
+    "build": "node scripts/run-desktop.mjs build",
+    "package:win": "node scripts/run-desktop.mjs package:win",
+    "package:demo": "node scripts/run-desktop.mjs package:demo"
+  }
+}

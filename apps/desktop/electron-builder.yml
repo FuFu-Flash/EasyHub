@@ -1,0 +1,30 @@
+appId: com.easyhub.desktop
+productName: EasyHub
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**/*
+  - package.json
+extraResources:
+  - from: ../../LICENSE
+    to: LICENSE
+  - from: resources/easyhub.ico
+    to: easyhub.ico
+  - from: resources/easyhub.png
+    to: easyhub.png
+asar: true
+npmRebuild: false
+win:
+  target:
+    - nsis
+    - portable
+  icon: resources/easyhub.ico
+nsis:
+  artifactName: EasyHub-${version}-setup.${ext}
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+portable:
+  artifactName: EasyHub-${version}-portable.${ext}
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/

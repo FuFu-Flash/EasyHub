@@ -1,0 +1,25 @@
+appId: com.easyhub.desktop.demo
+productName: EasyHub Demo
+directories:
+  output: release/demo
+  buildResources: resources
+files:
+  - out/**/*
+  - package.json
+extraResources:
+  - from: ../../LICENSE
+    to: LICENSE
+  - from: resources/easyhub.ico
+    to: easyhub.ico
+  - from: resources/easyhub.png
+    to: easyhub.png
+asar: true
+npmRebuild: false
+win:
+  target:
+    - portable
+  icon: resources/easyhub.ico
+portable:
+  artifactName: EasyHub-${version}-demo.${ext}
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/
