@@ -14,11 +14,11 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 
 ## 下载 EasyHub
 
-| 版本 | 适合谁 | 下载 |
-| --- | --- | --- |
-| 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-setup.exe) |
-| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-portable.exe) |
-| 演示版 | 想先体验界面，不连接自己的 GitHub | [下载演示版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-demo.exe) |
+| 版本 | 适合谁 | Gitee 下载 | GitHub 下载 |
+| --- | --- | --- | --- |
+| 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://gitee.com/HUAJILA/easy-hub/releases/download/v1.2.0/EasyHub-1.2.0-setup.exe) | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-setup.exe) |
+| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://gitee.com/HUAJILA/easy-hub/releases/download/v1.2.0/EasyHub-1.2.0-portable.exe) | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-portable.exe) |
+| 演示版 | 想先体验界面，不连接自己的 GitHub | [下载演示版](https://gitee.com/HUAJILA/easy-hub/releases/download/v1.2.0/EasyHub-1.2.0-demo.exe) | [下载演示版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-demo.exe) |
 
 这三个版本适用于 Windows 64 位电脑。应用尚未使用商业代码签名证书，首次运行时 Windows 可能显示“未知发布者”。演示版使用独立的模拟数据，不会登录 GitHub 或修改真实项目。
 
