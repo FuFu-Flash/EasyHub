@@ -158,3 +158,33 @@ export interface TranslationRequest {
   protectedNames?: string[];
 }
 export interface TranslationProgress { id: string; completed: number; total: number }
+
+export type AiProviderId = 'openai' | 'deepseek' | 'openrouter' | 'siliconflow';
+export interface AiSettingsStatus { providerId: AiProviderId | 'legacy'; baseUrl: string; model: string; hasApiKey: boolean }
+export interface AiSettingsInput { providerId: AiProviderId | 'legacy'; model: string; apiKey?: string }
+export interface AiReviewRequest {
+  owner: string;
+  repo: string;
+  number: number;
+  headSha: string;
+  requestId: string;
+  providerBaseUrl: string;
+  consentToSend: true;
+  language?: 'zh' | 'en';
+}
+export interface AiReviewFinding {
+  severity: 'high' | 'medium' | 'low';
+  file: string;
+  line?: number;
+  description: string;
+  suggestion: string;
+}
+export interface AiReviewResult {
+  headSha: string;
+  summary: string;
+  findings: AiReviewFinding[];
+  limitations: string[];
+  reviewedFiles: number;
+  totalFiles: number;
+}
+export interface AiReviewProgress { requestId: string; phase: string; completed: number; total: number }

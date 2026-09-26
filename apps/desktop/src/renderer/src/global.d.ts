@@ -3,6 +3,7 @@ import type { FolderInspection, LocalDiscoveryResult, LocalOperationProgress, Lo
 import type { TranslationProgress, TranslationRequest } from '@easyhub/types';
 import type { PickedReleaseFile, PublishReleaseRequest, ReleaseProgress } from '@easyhub/types';
 import type { GitHubCreatedRelease } from '@easyhub/github';
+import type { AiSettingsInput, AiSettingsStatus, AiReviewRequest, AiReviewResult, AiReviewProgress } from '@easyhub/types';
 
 export {};
 
@@ -38,6 +39,13 @@ declare global {
       openLicense: () => Promise<void>;
       openExternalLink: (url: string) => Promise<void>;
       authStatus: () => Promise<{ user: GitHubUser | null; clientId: string | null }>;
+      aiSettings: () => Promise<AiSettingsStatus>;
+      aiSaveSettings: (input: AiSettingsInput) => Promise<AiSettingsStatus>;
+      aiForgetKey: () => Promise<AiSettingsStatus>;
+      aiTestConnection: () => Promise<void>;
+      aiReviewPull: (input: AiReviewRequest) => Promise<AiReviewResult>;
+      aiCancelReview: (id: string) => Promise<void>;
+      onAiReviewProgress: (callback: (value: AiReviewProgress) => void) => () => void;
       authStart: () => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;
       authPoll: () => Promise<{ state: 'waiting' | 'complete'; user?: GitHubUser; interval?: number }>;
       authCancel: () => Promise<void>;
@@ -50,6 +58,7 @@ declare global {
       cancelGithubReads: () => Promise<void>;
       downloadArchive: (owner: string, repo: string, ref: string) => Promise<string | null>;
       downloadReleaseAsset: (owner: string, repo: string, assetId: number) => Promise<string | null>;
+      downloadPullRequestFile: (owner: string, repo: string, number: number, path: string, headSha: string) => Promise<string | null>;
       revealDownloadedArchive: (path: string) => Promise<void>;
       openDownloadedFile: (path: string) => Promise<void>;
       cancelArchive: () => Promise<void>;

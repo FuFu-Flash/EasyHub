@@ -2,6 +2,8 @@ import { spawnSync } from 'node:child_process';
 
 const allowed = new Set(['dev', 'typecheck', 'lint', 'test', 'test:ui', 'test:public-ui', 'test:discovery-ui', 'test:discovery-navigation', 'test:responsive-ui', 'test:translation-ui', 'test:live-download', 'test:live-local', 'test:live-release', 'test:live-translation', 'test:danger-ui', 'test:packaged', 'test:demo-packaged', 'icons', 'build', 'package:win', 'package:demo']);
 const task = process.argv[2];
+allowed.add('test:ai-review-ui');
+allowed.add('test:live-pull-download');
 if (!allowed.has(task)) {
   process.stderr.write('Unknown desktop task.\n');
   process.exit(1);

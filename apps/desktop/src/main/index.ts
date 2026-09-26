@@ -1,6 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, net, session, shell } from 'electron';
 import { join } from 'node:path';
-import { authStatus, cancelArchive, cancelDeviceLogin, cancelGithubReads, downloadArchive, downloadReleaseAsset, githubAction, logout, openDownloadedFile, pollDeviceLogin, revealDownloadedArchive, startDeviceLogin } from './services/githubService';
+import { authStatus, cancelArchive, cancelDeviceLogin, cancelGithubReads, downloadArchive, downloadReleaseAsset, downloadPullRequestFile, getPullRequestReviewContext, githubAction, logout, openDownloadedFile, pollDeviceLogin, revealDownloadedArchive, startDeviceLogin } from './services/githubService';
+import { AsyncEntry } from '@napi-rs/keyring';
+import { AiReviewService } from './services/AiReviewService';
+import { OpenAiReviewProvider } from './services/OpenAiReviewProvider';
 import type { DownloadTransferProgress } from './services/githubService';
 import { LocalProjectStore } from './git/LocalProjectStore';
 import { LocalProjectService } from './git/LocalProjectService';
@@ -13,6 +16,7 @@ let mainWindow: BrowserWindow | null = null;
 let localService: LocalProjectService;
 let translationService: TranslationService;
 let releaseService: ReleasePublishingService;
+let aiReviewService: AiReviewService;
 const translationJobs = new Map<string, AbortController>();
 
 function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
@@ -66,6 +70,8 @@ app.whenReady().then(() => {
     new MyMemoryTranslationProvider(translateFetch), new GoogleWebTranslationProvider(translateFetch)),
   join(app.getPath('userData'), 'translations.json'));
   releaseService = new ReleasePublishingService();
+  aiReviewService = new AiReviewService(new AsyncEntry('EasyHub AI API', 'default'),
+    new OpenAiReviewProvider((url, init) => net.fetch(url, init)), getPullRequestReviewContext);
   void localService.startWatching();
 
   ipcMain.handle('easyhub:window-minimize', (event) => {
@@ -152,6 +158,15 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('easyhub:auth-status', (event) => { assertTrustedSender(event); return authStatus(); });
+  ipcMain.handle('easyhub:ai-settings', (event) => { assertTrustedSender(event); return aiReviewService.settings(); });
+  ipcMain.handle('easyhub:ai-save-settings', (event, input: unknown) => { assertTrustedSender(event); return aiReviewService.save(input); });
+  ipcMain.handle('easyhub:ai-forget-key', (event) => { assertTrustedSender(event); return aiReviewService.forgetKey(); });
+  ipcMain.handle('easyhub:ai-test-connection', (event) => { assertTrustedSender(event); return aiReviewService.testConnection(); });
+  ipcMain.handle('easyhub:ai-review-pull', (event, input: unknown) => {
+    assertTrustedSender(event);
+    return aiReviewService.review(input, (progress) => { if (!event.sender.isDestroyed()) event.sender.send('easyhub:ai-review-progress', progress); });
+  });
+  ipcMain.handle('easyhub:ai-cancel-review', (event, id: unknown) => { assertTrustedSender(event); aiReviewService.cancel(id); });
   ipcMain.handle('easyhub:auth-start', (event) => { assertTrustedSender(event); return startDeviceLogin('Ov23lixRW8K0uXzZqwMj'); });
   ipcMain.handle('easyhub:auth-poll', (event) => { assertTrustedSender(event); return pollDeviceLogin(); });
   ipcMain.handle('easyhub:auth-cancel', (event) => { assertTrustedSender(event); cancelDeviceLogin(); });
@@ -167,6 +182,11 @@ app.whenReady().then(() => {
   };
   ipcMain.handle('easyhub:download-archive', (event, owner: unknown, repo: unknown, ref: unknown) => { assertTrustedSender(event); return downloadArchive(owner, repo, ref, (value) => sendDownloadProgress(event, value)); });
   ipcMain.handle('easyhub:download-release-asset', (event, owner: unknown, repo: unknown, assetId: unknown) => { assertTrustedSender(event); return downloadReleaseAsset(owner, repo, assetId, (value) => sendDownloadProgress(event, value)); });
+  ipcMain.handle('easyhub:download-pull-file', (event, owner: unknown, repo: unknown, number: unknown, path: unknown, headSha: unknown) => {
+    assertTrustedSender(event);
+    if (typeof headSha !== 'string' || !/^[a-f0-9]{40}$/iu.test(headSha)) throw new Error('请刷新改进请求后重新下载。');
+    return downloadPullRequestFile(owner, repo, number, path, (value) => sendDownloadProgress(event, value), headSha);
+  });
   ipcMain.handle('easyhub:reveal-downloaded-archive', (event, path: unknown) => { assertTrustedSender(event); revealDownloadedArchive(path); });
   ipcMain.handle('easyhub:open-downloaded-file', (event, path: unknown) => { assertTrustedSender(event); return openDownloadedFile(path); });
   ipcMain.handle('easyhub:cancel-archive', (event) => { assertTrustedSender(event); cancelArchive(); });
@@ -180,4 +200,4 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
-app.on('before-quit', () => localService?.stopWatching());
+app.on('before-quit', () => { localService?.stopWatching(); aiReviewService?.cancelAll(); });

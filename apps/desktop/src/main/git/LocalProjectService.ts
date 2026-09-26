@@ -276,18 +276,26 @@ export class LocalProjectService {
 
   private watchRecord(record: LocalProjectRecord): void {
     this.watchers.get(record.id)?.close();
+    const pending = this.timers.get(record.id);
+    if (pending) clearTimeout(pending);
+    this.timers.delete(record.id);
     try {
+      const scan = (): void => {
+        if (!this.watchers.has(record.id)) return;
+        if (this.active) {
+          this.timers.set(record.id, setTimeout(scan, 700));
+          return;
+        }
+        void runGitTask<GitProjectStatus>({ action: 'status', path: record.localPath }).result
+          .then((status) => this.send('easyhub:local-status', { id: record.id, status: { files: status.files, needsReview: status.hasPreparedChanges } }))
+          .catch(() => undefined);
+      };
       const watcher = watch(record.localPath, { recursive: true }, (_event, filename) => {
         const segments = String(filename ?? '').replaceAll('\\', '/').split('/');
         if (segments.some((part) => ['.git', 'node_modules', '.venv', '__pycache__', '.next', '.turbo', 'dist', 'build'].includes(part))) return;
         const earlier = this.timers.get(record.id);
         if (earlier) clearTimeout(earlier);
-        this.timers.set(record.id, setTimeout(() => {
-          if (this.active) return;
-          void runGitTask<GitProjectStatus>({ action: 'status', path: record.localPath }).result
-            .then((status) => this.send('easyhub:local-status', { id: record.id, status: { files: status.files, needsReview: status.hasPreparedChanges } }))
-            .catch(() => undefined);
-        }, 700));
+        this.timers.set(record.id, setTimeout(scan, 700));
       });
       watcher.on('error', () => { watcher.close(); this.watchers.delete(record.id); });
       this.watchers.set(record.id, watcher);

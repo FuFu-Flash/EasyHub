@@ -2,7 +2,7 @@ export type Transport = (input: string | URL, init?: RequestInit) => Promise<Res
 
 export interface GitHubUser { id?: number; login: string; name: string | null; avatar_url: string; html_url: string; bio?: string | null; company?: string | null; location?: string | null; followers?: number; following?: number; public_repos?: number; created_at?: string }
 export interface GitHubSearchUser { id: number; login: string; avatar_url: string; html_url: string; type: string }
-export interface GitHubRepo { id: number; name: string; full_name: string; html_url?: string; description: string | null; private: boolean; fork?: boolean; parent?: { id: number; full_name: string; default_branch: string; html_url: string; owner: { login: string }; name: string }; allow_forking?: boolean; archived?: boolean; permissions?: { admin: boolean; push: boolean; pull: boolean }; updated_at: string; pushed_at?: string | null; created_at?: string; stargazers_count?: number; language?: string | null; default_branch: string; owner: { login: string; avatar_url?: string }; open_issues_count: number }
+export interface GitHubRepo { id: number; name: string; full_name: string; html_url?: string; description: string | null; private: boolean; fork?: boolean; parent?: { id: number; full_name: string; default_branch: string; html_url: string; owner: { login: string }; name: string }; allow_forking?: boolean; allow_merge_commit?: boolean; allow_squash_merge?: boolean; allow_rebase_merge?: boolean; archived?: boolean; permissions?: { admin: boolean; push: boolean; pull: boolean }; updated_at: string; pushed_at?: string | null; created_at?: string; stargazers_count?: number; language?: string | null; default_branch: string; owner: { login: string; avatar_url?: string }; open_issues_count: number }
 export interface GitHubComparison { status: string; ahead_by: number; behind_by: number; total_commits: number; files?: GitHubPullFile[] }
 export interface GitHubForkComparison extends GitHubComparison { openRequest: GitHubPullRequest | null }
 export type TrendingPeriod = 'today' | 'week' | 'month';
@@ -11,8 +11,10 @@ export interface ContributionRepository { fullName: string; isPrivate: boolean; 
 export interface Contributions { total: number; years: number[]; weeks: { contributionDays: ContributionDay[] }[]; repositories: ContributionRepository[] }
 export interface GitHubIssue { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; created_at: string; user: { login: string } | null; comments: number; pull_request?: unknown }
 export interface GitHubIssuePage { items: GitHubIssue[]; nextPage: number | null }
-export interface GitHubPullRequest { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; draft: boolean; merged: boolean; merged_at: string | null; created_at: string; html_url: string; user: { login: string } | null; comments: number; changed_files?: number; additions?: number; deletions?: number; head: { ref: string; label: string }; base: { ref: string } }
-export interface GitHubPullFile { filename: string; status: string; additions: number; deletions: number }
+export interface GitHubPullRepository { id: number; name: string; full_name: string; owner: { login: string } }
+export interface GitHubPullRequest { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; draft: boolean; merged: boolean; merged_at: string | null; created_at: string; html_url: string; user: { login: string } | null; comments: number; changed_files?: number; additions?: number; deletions?: number; mergeable?: boolean | null; mergeable_state?: string; head: { ref: string; label: string; sha?: string; repo?: GitHubPullRepository | null }; base: { ref: string; sha?: string; repo?: GitHubPullRepository | null } }
+export interface GitHubPullFile { filename: string; status: string; additions: number; deletions: number; sha?: string; previous_filename?: string; patch?: string }
+export interface GitHubMergeResult { merged: boolean; sha: string; message: string }
 export interface GitHubComment { id: number; body: string; created_at: string; user: { login: string } | null }
 export interface GitHubCommit { sha: string; commit: { message: string; author: { name: string; date: string } | null }; author: { login: string } | null; stats?: { additions: number; deletions: number }; files?: { filename: string; status: string }[] }
 export interface GitHubReleaseAsset { id: number; name: string; label: string | null; size: number; content_type: string; download_count: number; state: string; browser_download_url?: string; digest?: string }
@@ -103,7 +105,7 @@ export class GitHubClient {
     const map = (groups: Group[], kind: ContributionRepository['kind']): ContributionRepository[] => groups.map((item) => ({ fullName: item.repository.nameWithOwner, isPrivate: item.repository.isPrivate, count: item.contributions.totalCount, kind }));
     return { total: collection.contributionCalendar.totalContributions, years: collection.contributionYears, weeks: collection.contributionCalendar.weeks, repositories: [...map(collection.commitContributionsByRepository, '更新'), ...map(collection.issueContributionsByRepository, '问题'), ...map(collection.pullRequestContributionsByRepository, '合并请求')] };
   }
-  repo(owner: string, repo: string): Promise<GitHubRepo> { return this.request(repoPath(owner, repo)); }
+  repo(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubRepo> { return this.request(repoPath(owner, repo), { signal }); }
   createFork(owner: string, repo: string, name: string): Promise<GitHubRepo> {
     return this.request(`${repoPath(owner, repo)}/forks`, { method: 'POST', body: JSON.stringify({ name, default_branch_only: true }) });
   }
@@ -162,8 +164,28 @@ export class GitHubClient {
   pullRequest(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubPullRequest> {
     return this.request(`${repoPath(owner, repo)}/pulls/${number}`, { signal });
   }
-  pullFiles(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubPullFile[]> {
-    return this.request(`${repoPath(owner, repo)}/pulls/${number}/files?per_page=100`, { signal });
+  async pullFiles(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubPullFile[]> {
+    const files: GitHubPullFile[] = [];
+    // GitHub caps this endpoint at 3,000 files. Callers compare with changed_files.
+    for (let page = 1; page <= 30; page += 1) {
+      const batch = await this.request<GitHubPullFile[]>(`${repoPath(owner, repo)}/pulls/${number}/files?per_page=100&page=${page}`, { signal });
+      files.push(...batch);
+      if (batch.length < 100) break;
+    }
+    return files;
+  }
+  mergePullRequest(owner: string, repo: string, number: number, sha: string, method: 'merge' | 'squash' | 'rebase' = 'merge'): Promise<GitHubMergeResult> {
+    return this.request(`${repoPath(owner, repo)}/pulls/${number}/merge`, { method: 'PUT', body: JSON.stringify({ sha, merge_method: method }) });
+  }
+  closePullRequest(owner: string, repo: string, number: number): Promise<GitHubPullRequest> {
+    return this.request(`${repoPath(owner, repo)}/pulls/${number}`, { method: 'PATCH', body: JSON.stringify({ state: 'closed' }) });
+  }
+  async downloadBlob(owner: string, repo: string, sha: string, signal?: AbortSignal): Promise<Response> {
+    const response = await this.transport(`https://api.github.com${repoPath(owner, repo)}/git/blobs/${encodePart(sha)}`, {
+      signal, redirect: 'error', headers: { Accept: 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28', Authorization: `Bearer ${await this.token()}` },
+    });
+    if (!response.ok) throw new GitHubError(response.status, 'GitHub changed file download failed');
+    return response;
   }
   createPullRequest(owner: string, repo: string, input: { title: string; body: string; head: string; base: string }): Promise<GitHubPullRequest> {
     return this.request(`${repoPath(owner, repo)}/pulls`, { method: 'POST', body: JSON.stringify(input) });

@@ -4,9 +4,15 @@ directories:
   output: release/demo
   buildResources: resources
 files:
-  - out/**/*
+  - out/main/**/*
+  - out/preload/**/*
+  - out/renderer/**/*
   - package.json
 extraResources:
+  - from: ../../THIRD_PARTY_NOTICES.md
+    to: THIRD_PARTY_NOTICES.md
+  - from: resources/licenses
+    to: licenses
   - from: ../../LICENSE
     to: LICENSE
   - from: resources/easyhub.ico

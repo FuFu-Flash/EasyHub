@@ -6,19 +6,19 @@
 
 <p align="center">让 GitHub 像发布一条动态一样简单。</p>
 
-EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了哪些文件、写一句更新说明，然后点击“发布源码”。不需要安装 Git，也不需要学习复杂的命令。
+EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了哪些文件、写一句更新说明，然后点击“发布源码”。收到别人提交的代码改进时，还可以先用 AI 辅助审查。不需要安装 Git，也不需要学习复杂的命令。
 
 [访问 EasyHub 官网](https://fufu-flash.github.io/easyhub-website/) · [查看所有发布版本](https://github.com/FuFu-Flash/EasyHub/releases)
 
-**目前提供 Windows 版 1.1.0。** Android 和 iOS 版尚未推出。
+**目前提供 Windows 版 1.2.0。** Android 和 iOS 版尚未推出。
 
 ## 下载 EasyHub
 
 | 版本 | 适合谁 | 下载 |
 | --- | --- | --- |
-| 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.1.0/EasyHub-1.1.0-setup.exe) |
-| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.1.0/EasyHub-1.1.0-portable.exe) |
-| 演示版 | 想先体验界面，不连接自己的 GitHub | [下载演示版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.1.0/EasyHub-1.1.0-demo.exe) |
+| 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-setup.exe) |
+| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-portable.exe) |
+| 演示版 | 想先体验界面，不连接自己的 GitHub | [下载演示版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-demo.exe) |
 
 这三个版本适用于 Windows 64 位电脑。应用尚未使用商业代码签名证书，首次运行时 Windows 可能显示“未知发布者”。演示版使用独立的模拟数据，不会登录 GitHub 或修改真实项目。
 
@@ -32,6 +32,18 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 4. 随时回到项目页面，查看介绍、问题和历史版本。
 
 发布前，EasyHub 会检查 GitHub 上是否有新内容。如果同一个文件在两处都改过，会请你选择保留哪个版本；不会擅自覆盖文件或强制上传。
+
+## 用 AI 辅助审查代码改进
+
+别人向项目提交改进后，你可以在“改进请求”中查看说明和修改文件，按需点击“AI 审查”。EasyHub 会帮你整理可能存在的问题、对应文件及修改建议。你也可以下载修改文件自行检查，再决定批准并合入，或拒绝并关闭这次请求。**AI 不会替你作出合入决定。**
+
+在安装版或便携版中，开始使用只需三步：
+
+1. 在“设置 → AI API 授权”选择 OpenAI、DeepSeek、OpenRouter 或 SiliconFlow，填写你自己的 API Key。
+2. 打开一个改进请求，点击“AI 审查”。EasyHub 会先显示将使用的服务，并说明要发送的内容；确认后才开始审查。
+3. 查看审查摘要、风险提示和修改建议。
+
+审查只覆盖这次请求中可读取的文字修改，不会运行程序或测试；文件太多时，页面会说明哪些内容未被审查。结果仅供参考，AI 服务商可能收取费用。你的 API Key 保存在这台电脑的系统安全存储中。
 
 ## 现在可以做什么
 
@@ -49,6 +61,7 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 - 浏览“EasyHub 热门”的今日、本周、本月项目，每页 30 个，可翻页查看更多；这个榜单由 EasyHub 排列，**不是 GitHub 官方 Trending**。
 - 在独立的浏览页面查看他人的公开项目。项目文件和设置保持只读，但仍可向作者提出问题、回复问题和查看改进请求。
 - 想提交代码改进时，可以自动在自己的账号下创建仓库副本，下载到电脑修改并发布源码，再把改进提交给原项目作者审阅。仓库副本会单独列出，并显示它与原项目的关系。
+- 收到改进请求后，可以查看并下载对方修改的文件，选择批准并合入，或填写原因后拒绝并关闭。
 - 从项目介绍中的版本链接直接进入 EasyHub 的下载页面，选择需要的版本或文件。
 
 **按需翻译**
@@ -67,5 +80,7 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 EasyHub 不需要另注册账号，也没有自己的云端服务器。作品、问题和历史版本保存在 GitHub；登录凭证保存在这台电脑的系统安全存储中。
 
 翻译功能会把**公开项目**中需要翻译的文字发送给第三方翻译服务；不会发送私有项目的内容。服务不可用时显示原文，翻译也不会修改 GitHub 上的内容。
+
+使用 AI 审查前，EasyHub 会再次征求你的同意。确认后，这次改进的标题、描述、文件名和修改内容会发送给你选择的 AI 服务商；私有项目也会明确提示。审查结果只在 EasyHub 中展示，不会替你发布评论或合入修改。
 
 EasyHub 采用 [GNU GPLv3 许可](LICENSE)。

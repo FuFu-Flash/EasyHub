@@ -157,7 +157,7 @@ const english: Record<string, string> = {
   '使用 GitHub 登录': 'Sign in with GitHub', '数据与同步': 'Data & Sync',
   '演示项目数据只保存在当前窗口，重新启动后会恢复初始状态。窗口控件和语言偏好会保留。': 'Demo projects live only in this window and reset on restart. Window control and language preferences are kept.',
   '重置演示数据': 'Reset Demo Data', '关于 EasyHub': 'About EasyHub',
-  'Windows 桌面版': 'Windows desktop app', '版本 1.1.0': 'Version 1.1.0',
+  'Windows 桌面版': 'Windows desktop app', '版本 1.2.0': 'Version 1.2.0',
   '本应用采用 GNU General Public License 第 3 版。': 'This application is licensed under GNU General Public License version 3.',
   '查看许可协议': 'View License', '无法打开许可协议页面': 'Could not open the license page',
   '选择保存位置，EasyHub 会把': 'Choose where to save it. EasyHub will put',

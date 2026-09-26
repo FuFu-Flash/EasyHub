@@ -1,10 +1,10 @@
 import { AsyncEntry } from '@napi-rs/keyring';
-import { GitHubClient, friendlyGitHubError } from '@easyhub/github';
-import type { GitHubUser } from '@easyhub/github';
+import { GitHubClient, GitHubError, friendlyGitHubError } from '@easyhub/github';
+import type { GitHubPullFile, GitHubPullRequest, GitHubRepo, GitHubUser } from '@easyhub/github';
 import { dialog, net, shell } from 'electron';
-import { createWriteStream } from 'node:fs';
+import { constants, createWriteStream } from 'node:fs';
 import { existsSync } from 'node:fs';
-import { rm, rename } from 'node:fs/promises';
+import { copyFile, link, rm, rename } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
@@ -27,6 +27,17 @@ function validClientId(value: unknown): value is string { return typeof value ==
 function validRepoPart(value: unknown): value is string { return typeof value === 'string' && /^[A-Za-z0-9_.-]{1,100}$/.test(value) && value !== '.' && value !== '..'; }
 function validText(value: unknown, max: number): value is string { return typeof value === 'string' && value.trim().length > 0 && value.length <= max; }
 function invalid(): never { throw new Error('填写的内容无效，请检查后重试。'); }
+function validSha(value: unknown): value is string { return typeof value === 'string' && /^[a-f0-9]{40}$/.test(value); }
+function validBranch(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 255 && !/[\x00-\x20\x7f~^:?*\[\\]/.test(value) && !value.includes('..') && !value.includes('@{')
+    && !value.split('/').some((part) => !part || part.startsWith('.') || part.endsWith('.lock')) && !value.endsWith('.');
+}
+function validPullPath(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 4096 && !/[\\\x00-\x1f\x7f]/.test(value)
+    && !value.split('/').some((part) => part === '' || part === '.' || part === '..');
+}
+class PullRequestOperationError extends Error {}
+const staleRequestMessage = '这个改进请求已经有新修改，请刷新后重新查看。';
 
 async function loadCredential(): Promise<Credential | null> {
   if (credential !== undefined) return credential;
@@ -70,6 +81,44 @@ async function accessToken(): Promise<string> {
 export function githubAccessToken(): Promise<string> { return accessToken(); }
 
 const client = new GitHubClient(accessToken, (input, init) => net.fetch(String(input), init));
+
+function validatePullSnapshot(pull: GitHubPullRequest, repository: GitHubRepo, number: number, expectedHeadSha?: string): void {
+  if (pull.number !== number || pull.base.repo?.id !== repository.id || !validSha(pull.head.sha)) {
+    throw new PullRequestOperationError('无法确认这个改进请求所属的项目，请刷新后重试。');
+  }
+  if (expectedHeadSha !== undefined && pull.head.sha !== expectedHeadSha) throw new PullRequestOperationError(staleRequestMessage);
+}
+
+async function writablePullRequest(owner: string, repo: string, number: number, expectedHeadSha: string, expectedBaseRef: string, expectedBaseSha: string): Promise<{ pullRequest: GitHubPullRequest; repository: GitHubRepo }> {
+  const repository = await client.repo(owner, repo);
+  if (!repository.permissions?.push && !repository.permissions?.admin) throw new PullRequestOperationError('你没有这个项目的审批权限。');
+  if (repository.archived) throw new PullRequestOperationError('这个项目已存档，请先取消存档。');
+  const pull = await client.pullRequest(owner, repo, number);
+  validatePullSnapshot(pull, repository, number, expectedHeadSha);
+  if (pull.base.ref !== expectedBaseRef || pull.base.sha !== expectedBaseSha) throw new PullRequestOperationError('接收改进的位置或内容已经改变，请刷新后重新查看。');
+  if (pull.state !== 'open' || pull.merged || pull.merged_at) throw new PullRequestOperationError('这个改进请求已经处理过，请刷新后查看。');
+  return { pullRequest: pull, repository };
+}
+
+export interface PullRequestReviewContext { repository: GitHubRepo; pullRequest: GitHubPullRequest; files: GitHubPullFile[]; filesTruncated: boolean }
+
+export async function getPullRequestReviewContext(owner: string, repo: string, number: number, expectedHeadSha?: string, signal?: AbortSignal): Promise<PullRequestReviewContext> {
+  if (!validRepoPart(owner) || !validRepoPart(repo) || !Number.isSafeInteger(number) || number <= 0 || (expectedHeadSha !== undefined && !validSha(expectedHeadSha))) invalid();
+  try {
+    const [repository, pullRequest] = await Promise.all([client.repo(owner, repo, signal), client.pullRequest(owner, repo, number, signal)]);
+    validatePullSnapshot(pullRequest, repository, number, expectedHeadSha);
+    const files = await client.pullFiles(owner, repo, number, signal);
+    const current = await client.pullRequest(owner, repo, number, signal);
+    validatePullSnapshot(current, repository, number, pullRequest.head.sha);
+    if (current.base.sha !== pullRequest.base.sha || current.base.ref !== pullRequest.base.ref || current.changed_files !== pullRequest.changed_files) {
+      throw new PullRequestOperationError(staleRequestMessage);
+    }
+    return { repository, pullRequest: current, files, filesTruncated: current.changed_files !== undefined ? current.changed_files > files.length : files.length >= 3000 };
+  } catch (error) {
+    if (error instanceof PullRequestOperationError) throw error;
+    throw new PullRequestOperationError(friendlyGitHubError(error));
+  }
+}
 
 export async function gitHubIdentity(): Promise<{ token: string; user: GitHubUser }> {
   const token = await accessToken();
@@ -127,7 +176,7 @@ export async function logout(): Promise<void> { pending = null; await vault.dele
 export async function githubAction(action: unknown, args: unknown[]): Promise<unknown> {
   if (typeof action !== 'string' || !Array.isArray(args) || args.length > 4) invalid();
   const [owner, repo, third, fourth] = args;
-  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'comments', 'pullRequests', 'pullRequest', 'pullFiles', 'commits', 'commit', 'releases'].includes(action) ? new AbortController() : null;
+  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'comments', 'pullRequests', 'pullRequest', 'pullFiles', 'pullReviewContext', 'commits', 'commit', 'releases'].includes(action) ? new AbortController() : null;
   if (controller) readControllers.add(controller);
   try {
     const assertAdmin = async (ownerName: string, repoName: string): Promise<void> => {
@@ -215,6 +264,39 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       case 'pullRequests': if (validRepoPart(owner) && validRepoPart(repo) && Number.isInteger(third) && Number(third) >= 1 && Number(third) <= 10000) return await client.pullRequests(owner, repo, Number(third), controller?.signal); break;
       case 'pullRequest': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.pullRequest(owner, repo, Number(third), controller?.signal); break;
       case 'pullFiles': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.pullFiles(owner, repo, Number(third), controller?.signal); break;
+      case 'pullReviewContext': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && validSha(fourth)) return await getPullRequestReviewContext(owner, repo, Number(third), fourth, controller?.signal); invalid();
+      case 'acceptPullRequest':
+      case 'rejectPullRequest': {
+        if (!validRepoPart(owner) || !validRepoPart(repo) || !Number.isSafeInteger(third) || Number(third) <= 0 || typeof fourth !== 'object' || fourth === null || Array.isArray(fourth)) invalid();
+        const input = fourth as Record<string, unknown>;
+        if (!validSha(input.expectedHeadSha) || !validBranch(input.expectedBaseRef) || !validSha(input.expectedBaseSha)) invalid();
+        if (action === 'acceptPullRequest') {
+          if (input.method !== undefined && input.method !== 'merge' && input.method !== 'squash' && input.method !== 'rebase') invalid();
+          const { pullRequest: pull, repository } = await writablePullRequest(owner, repo, Number(third), input.expectedHeadSha, input.expectedBaseRef, input.expectedBaseSha);
+          if (pull.draft) throw new PullRequestOperationError('这个改进请求还在准备中，暂时不能批准。');
+          if (pull.mergeable === false) throw new PullRequestOperationError('有内容需要作者确认，暂时无法合入。');
+          const allowed = { merge: repository.allow_merge_commit !== false, squash: repository.allow_squash_merge !== false, rebase: repository.allow_rebase_merge !== false };
+          const method = input.method ?? (allowed.merge ? 'merge' : allowed.squash ? 'squash' : 'rebase');
+          if (!allowed[method]) throw new PullRequestOperationError('这个项目暂时不允许这种合入方式，请在 GitHub 检查项目设置。');
+          const result = await client.mergePullRequest(owner, repo, Number(third), input.expectedHeadSha, method);
+          if (!result.merged) throw new PullRequestOperationError('GitHub 未完成合入，请检查项目要求后重试。');
+          return { merged: true, sha: result.sha, message: '改进请求已批准并合入。' };
+        }
+        if (input.reason !== undefined && (typeof input.reason !== 'string' || input.reason.length > 65536)) invalid();
+        await writablePullRequest(owner, repo, Number(third), input.expectedHeadSha, input.expectedBaseRef, input.expectedBaseSha);
+        if (typeof input.reason === 'string' && input.reason.trim()) {
+          try { await client.createComment(owner, repo, Number(third), input.reason.trim()); }
+          catch { throw new PullRequestOperationError('无法确认拒绝说明是否发送成功，未继续关闭，请刷新后查看。'); }
+          try {
+            await writablePullRequest(owner, repo, Number(third), input.expectedHeadSha, input.expectedBaseRef, input.expectedBaseSha);
+            return await client.closePullRequest(owner, repo, Number(third));
+          } catch (error) {
+            throw new PullRequestOperationError(`拒绝说明已发送，但未能确认是否关闭。${error instanceof PullRequestOperationError ? error.message : '请刷新后查看。'}`);
+          }
+        }
+        // The close endpoint has no conditional-head argument; re-check directly before it.
+        return await client.closePullRequest(owner, repo, Number(third));
+      }
       case 'createPullRequest': {
         if (!validRepoPart(owner) || !validRepoPart(repo) || typeof third !== 'object' || third === null) invalid();
         const input = third as Record<string, unknown>;
@@ -229,6 +311,11 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
     }
     invalid();
   } catch (error) {
+    if (error instanceof PullRequestOperationError) throw error;
+    if ((action === 'acceptPullRequest' || action === 'rejectPullRequest') && error instanceof GitHubError) {
+      if (error.status === 409) throw new Error(staleRequestMessage);
+      if (error.status === 405) throw new Error('GitHub 暂时不允许合入，请先满足项目的检查和审批要求。');
+    }
     if (error instanceof Error && (error.message.startsWith('填写') || error.message.startsWith('请先') || error.message.startsWith('GitHub 登录') || error.message.startsWith('你没有') || error.message.startsWith('这个项目') || error.message.startsWith('这是你') || error.message.startsWith('仓库副本') || error.message.startsWith('找不到属于') || error.message.startsWith('原项目'))) throw error;
     throw new Error(friendlyGitHubError(error));
   } finally { if (controller) readControllers.delete(controller); }
@@ -245,6 +332,65 @@ export async function openDownloadedFile(path: unknown): Promise<void> {
   if (typeof path !== 'string' || !downloadedArchives.has(path) || !existsSync(path)) throw new Error('找不到已下载的文件。');
   const error = await shell.openPath(path);
   if (error) throw new Error('无法打开这个文件。');
+}
+
+export async function downloadPullRequestFile(owner: unknown, repo: unknown, number: unknown, path: unknown, progress: (value: DownloadTransferProgress) => void, expectedHeadSha?: string): Promise<string | null> {
+  if (!validRepoPart(owner) || !validRepoPart(repo) || !Number.isSafeInteger(number) || Number(number) <= 0 || !validPullPath(path) || (expectedHeadSha !== undefined && !validSha(expectedHeadSha))) invalid();
+  if (archiveController) throw new Error('已有一个下载正在进行，请稍候。');
+  const controller = new AbortController();
+  archiveController = controller;
+  let tempPath: string | undefined;
+  try {
+    const context = await getPullRequestReviewContext(owner, repo, Number(number), expectedHeadSha, controller.signal);
+    const file = context.files.find((item) => item.filename === path);
+    if (!file) throw new PullRequestOperationError('这个文件不在改进请求中，请刷新后重新选择。');
+    if (file.status === 'removed') throw new PullRequestOperationError('这个文件已被删除，没有新版本可下载。');
+    if (!validSha(file.sha)) throw new PullRequestOperationError('这个文件暂时无法下载，请稍后重试。');
+    const source = context.pullRequest.head.repo ?? context.repository;
+    if (!validRepoPart(source.owner.login) || !validRepoPart(source.name)) throw new PullRequestOperationError('无法确认修改文件的来源，请刷新后重试。');
+    let name = path.split('/').at(-1)!.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').replace(/[. ]+$/, '').slice(0, 180);
+    if (!name) throw new PullRequestOperationError('下载文件名称无效。');
+    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name)) name = `_${name}`;
+    const target = await dialog.showSaveDialog({ title: '保存修改文件', defaultPath: name });
+    if (target.canceled || !target.filePath || controller.signal.aborted) return null;
+    tempPath = `${target.filePath}.easyhub-${randomUUID()}.tmp`;
+    const response = await client.downloadBlob(source.owner.login, source.name, file.sha, controller.signal);
+    if (!response.body) throw new PullRequestOperationError('这个文件暂时无法下载，请稍后重试。');
+    const total = Number(response.headers.get('content-length')) || 0;
+    let received = 0;
+    let lastProgressAt = 0;
+    const meter = new Transform({ transform(chunk: Buffer, _encoding, callback) {
+      received += chunk.length;
+      if (Date.now() - lastProgressAt > 100) { progress({ loaded: received, total: total || null, percent: total ? Math.min(99, Math.round(received / total * 100)) : null }); lastProgressAt = Date.now(); }
+      callback(null, chunk);
+    } });
+    await pipeline(Readable.fromWeb(response.body as import('node:stream/web').ReadableStream, { signal: controller.signal }), meter, createWriteStream(tempPath, { flags: 'wx' }));
+    if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    try {
+      // Both paths share a directory: a hard link atomically creates the destination
+      // without replacing any file that appeared while the download was running.
+      try { await link(tempPath, target.filePath); }
+      catch (error) {
+        const code = error instanceof Error && 'code' in error ? error.code : undefined;
+        if (!['EPERM', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS', 'EXDEV'].includes(String(code))) throw error;
+        await copyFile(tempPath, target.filePath, constants.COPYFILE_EXCL);
+      }
+      await rm(tempPath, { force: true });
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error;
+      const confirmation = await dialog.showMessageBox({ type: 'warning', buttons: ['取消', '覆盖'], defaultId: 0, cancelId: 0, message: '下载已完成，此位置已有同名文件。确定要覆盖当前文件吗？' });
+      if (confirmation.response !== 1 || controller.signal.aborted) { await rm(tempPath, { force: true }); return null; }
+      await rename(tempPath, target.filePath);
+    }
+    progress({ loaded: received, total: total || received, percent: 100 });
+    downloadedArchives.add(target.filePath);
+    return target.filePath;
+  } catch (error) {
+    if (tempPath) await rm(tempPath, { force: true }).catch(() => undefined);
+    if (controller.signal.aborted) throw new Error('操作已取消。');
+    if (error instanceof PullRequestOperationError) throw error;
+    throw new Error(friendlyGitHubError(error));
+  } finally { archiveController = null; }
 }
 
 export async function downloadArchive(owner: unknown, repo: unknown, ref: unknown, progress: (value: DownloadTransferProgress) => void): Promise<string | null> {

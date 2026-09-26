@@ -4,6 +4,7 @@ import { createDownloadTransferSampler } from './downloadTransfer';
 
 export type DownloadRequest =
   | { kind: 'archive'; repo: GitHubRepo; ref: string; assetId?: number; fileName: string; offerAdd?: boolean }
+  | { kind: 'pull-file'; repo: GitHubRepo; number: number; path: string; headSha: string; fileName: string }
   | { kind: 'project'; repo: GitHubRepo; fileName: string };
 
 export interface DownloadItem {
@@ -66,10 +67,12 @@ export function useDownloadCenter(onProjectDownloaded: () => Promise<void>) {
           change(id, { state: 'complete', phase: '项目已经下载完成。', percent: 100, localLinkId: link.id, path: link.localPath, seen: false });
           await onProjectDownloaded().catch(() => undefined);
         } else {
-          const path = request.assetId === undefined
+          const path = request.kind === 'pull-file'
+            ? await api.downloadPullRequestFile(request.repo.owner.login, request.repo.name, request.number, request.path, request.headSha)
+            : request.assetId === undefined
             ? await api.downloadArchive(request.repo.owner.login, request.repo.name, request.ref)
             : await api.downloadReleaseAsset(request.repo.owner.login, request.repo.name, request.assetId);
-          if (path) change(id, { state: 'complete', phase: '项目已经下载完成。', percent: 100, path, seen: false });
+          if (path) change(id, { state: 'complete', phase: request.kind === 'pull-file' ? '修改文件已经下载完成。' : '项目已经下载完成。', percent: 100, path, seen: false });
           else setItems((current) => current.filter((old) => old.id !== id));
         }
       } catch (cause) {
@@ -101,7 +104,7 @@ export function useDownloadCenter(onProjectDownloaded: () => Promise<void>) {
   }
 
   async function openFile(item: DownloadItem): Promise<void> {
-    if (!item.path || item.request.kind !== 'archive' || !window.easyHub) return;
+    if (!item.path || item.request.kind === 'project' || !window.easyHub) return;
     try { await window.easyHub.openDownloadedFile(item.path); }
     catch (cause) { change(item.id, { error: cause instanceof Error ? cause.message : '无法打开文件。' }); }
   }

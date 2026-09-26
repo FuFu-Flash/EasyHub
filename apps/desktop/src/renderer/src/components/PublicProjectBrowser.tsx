@@ -41,7 +41,7 @@ function PublicIssueConversation({ repo, issue, comments, protectedNames, reply,
   </div>;
 }
 
-export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOpenLink, onDownload, onForkReady, downloadBusy, startInDownloads = false, initialFocusTag }: {
+export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOpenLink, onDownload, onForkReady, onOpenAiSettings, downloadBusy, startInDownloads = false, initialFocusTag }: {
   repo: GitHubRepo;
   language: Language;
   currentUser: string;
@@ -49,6 +49,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
   onOpenLink: (url: string) => void;
   onDownload: (request: DownloadRequest) => void;
   onForkReady: (fork: GitHubRepo) => void;
+  onOpenAiSettings?: () => void;
   downloadBusy: boolean;
   startInDownloads?: boolean;
   initialFocusTag?: string;
@@ -181,7 +182,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
     {error && <div className="live-error" role="alert">{error}</div>}
     {proposalNotice && <div className="public-proposal-notice" role="status">{proposalNotice}</div>}
     <nav className="public-browser-tabs" aria-label="项目内容"><button className={tab === 'intro' ? 'selected' : ''} onClick={() => setTab('intro')}>项目介绍</button><button className={tab === 'issues' ? 'selected' : ''} onClick={() => setTab('issues')}>问题 <span>{issues.length}{nextIssuePage ? '+' : ''}</span></button><button className={tab === 'pulls' ? 'selected' : ''} onClick={() => setTab('pulls')}>改进请求</button><button className={tab === 'history' ? 'selected' : ''} onClick={() => setTab('history')}>历史版本</button></nav>
-    {tab === 'pulls' && <PullRequestsPanel repo={repo} currentUser={currentUser} showCreateButton={false} />}
+    {tab === 'pulls' && <PullRequestsPanel repo={repo} currentUser={currentUser} language={language} showCreateButton={false} downloadBusy={downloadBusy} onOpenAiSettings={onOpenAiSettings} onDownloadFile={async (number, path, headSha) => { onDownload({ kind: 'pull-file', repo, number, path, headSha, fileName: path.split('/').pop() || path }); }} />}
     {tab !== 'pulls' && <section className="panel public-browser-content">
       {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取项目内容…</p>}
       {tab === 'intro' && <><div className="panel-heading"><h2>项目介绍</h2></div>{readme ? <TranslatableContent text={readme} format="markdown" paragraphMode render={(value) => <ReadmeMarkdown markdown={value} repository={{ owner, name: repo.name, branch: repo.default_branch }} onOpenLink={openReadmeLink} />} /> : !busy && <p className="muted">这个项目还没有介绍。</p>}</>}

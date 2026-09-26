@@ -78,6 +78,40 @@ describe('GitHubClient', () => {
     expect(JSON.parse((transport.mock.calls[0]?.[1] as RequestInit).body as string)).toEqual({ name: 'Search', default_branch_only: true });
   });
 
+  it('loads changed files after the first hundred and stops at the GitHub limit', async () => {
+    const transport = vi.fn(async (input: string | URL) => {
+      const page = Number(new URL(String(input)).searchParams.get('page'));
+      return Response.json(Array.from({ length: page === 2 ? 1 : 100 }, (_, index) => ({ filename: `${page}-${index}.ts`, status: 'modified', additions: 1, deletions: 0 })));
+    });
+    const client = new GitHubClient(async () => 'token', transport);
+    const files = await client.pullFiles('owner', 'repo', 7);
+    expect(files).toHaveLength(101);
+    expect(files.at(-1)?.filename).toBe('2-0.ts');
+    const cappedTransport = vi.fn(async () => Response.json(Array.from({ length: 100 }, () => ({ filename: 'file.ts' }))));
+    expect(await new GitHubClient(async () => 'token', cappedTransport).pullFiles('owner', 'repo', 7)).toHaveLength(3000);
+    expect(cappedTransport).toHaveBeenCalledTimes(30);
+  });
+
+  it('pins merges to the reviewed revision and uses close for rejection', async () => {
+    const transport = vi.fn(async (_input: string | URL, _init?: RequestInit) => Response.json({ merged: true }));
+    const client = new GitHubClient(async () => 'token', transport);
+    await client.mergePullRequest('owner', 'repo', 7, 'a'.repeat(40), 'squash');
+    await client.closePullRequest('owner', 'repo', 7);
+    expect(transport.mock.calls[0]?.[0]).toBe('https://api.github.com/repos/owner/repo/pulls/7/merge');
+    expect(transport.mock.calls[0]?.[1]?.method).toBe('PUT');
+    expect(JSON.parse(transport.mock.calls[0]?.[1]?.body as string)).toEqual({ sha: 'a'.repeat(40), merge_method: 'squash' });
+    expect(transport.mock.calls[1]?.[1]?.method).toBe('PATCH');
+    expect(JSON.parse(transport.mock.calls[1]?.[1]?.body as string)).toEqual({ state: 'closed' });
+  });
+
+  it('downloads raw immutable file bytes without following redirected token requests', async () => {
+    const transport = vi.fn(async (_input: string | URL, _init?: RequestInit) => new Response(new Uint8Array([0, 1, 255])));
+    const client = new GitHubClient(async () => 'token', transport);
+    expect([...new Uint8Array(await (await client.downloadBlob('writer', 'copy', 'a'.repeat(40))).arrayBuffer())]).toEqual([0, 1, 255]);
+    expect(transport.mock.calls[0]?.[0]).toBe(`https://api.github.com/repos/writer/copy/git/blobs/${'a'.repeat(40)}`);
+    expect(transport.mock.calls[0]?.[1]).toMatchObject({ redirect: 'error', headers: { Accept: 'application/vnd.github.raw+json' } });
+  });
+
   it('searches only public repositories and excludes unexpected private results', async () => {
     const transport = vi.fn(async () => Response.json({ items: [
       { id: 1, name: 'EasyHub', private: false },

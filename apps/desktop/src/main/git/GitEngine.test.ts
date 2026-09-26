@@ -11,6 +11,20 @@ async function folder(): Promise<string> { const path = await mkdtemp(join(tmpdi
 afterEach(async () => { await Promise.all(directories.splice(0).map((path) => rm(path, { recursive: true, force: true }))); });
 
 describe('GitEngine', () => {
+  it('recognizes edits to an existing file after an earlier clean scan', async () => {
+    const dir = await folder();
+    await git.init({ fs, dir, defaultBranch: 'main' });
+    await writeFile(join(dir, 'existing.txt'), 'first');
+    await git.add({ fs, dir, filepath: 'existing.txt' });
+    await git.commit({ fs, dir, message: 'start', author: { name: 'Test', email: 'test@example.com' } });
+    const engine = new GitEngine();
+    expect((await engine.getStatus(dir)).files).toEqual([]);
+    await writeFile(join(dir, 'existing.txt'), 'later');
+    expect((await engine.getStatus(dir)).files).toEqual([{ path: 'existing.txt', kind: 'modified' }]);
+    await writeFile(join(dir, 'existing.txt'), 'again');
+    expect((await engine.getStatus(dir)).files).toEqual([{ path: 'existing.txt', kind: 'modified' }]);
+  });
+
   async function cloudChange(localFiles: Record<string, string>, cloudFiles: Record<string, string>, removed: string[] = []) {
     const dir = await folder(); const author = { name: 'Test', email: 'test@example.com' };
     await git.init({ fs, dir, defaultBranch: 'main' });
