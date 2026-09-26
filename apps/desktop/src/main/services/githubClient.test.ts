@@ -34,6 +34,50 @@ describe('GitHubClient', () => {
     expect((await client.issues('owner', 'repo')).map((item) => item.title)).toEqual(['Issue']);
   });
 
+  it('continues past pull requests to load later issue pages', async () => {
+    const issue = (number: number) => ({ id: number, number, title: `Issue ${number}` });
+    const pull = (number: number) => ({ id: number, number, title: `PR ${number}`, pull_request: {} });
+    const transport = vi.fn(async (input: string | URL) => {
+      const page = new URL(String(input)).searchParams.get('page');
+      return Response.json(page === '2'
+        ? Array.from({ length: 50 }, (_, index) => issue(index + 51))
+        : [...Array.from({ length: 50 }, (_, index) => issue(index + 1)), ...Array.from({ length: 50 }, (_, index) => pull(index + 1))]);
+    });
+    const client = new GitHubClient(async () => 'token', transport);
+    expect((await client.issues('owner', 'repo')).length).toBe(100);
+    expect(transport).toHaveBeenCalledTimes(2);
+  });
+
+  it('lists pull requests separately and creates one from an existing source', async () => {
+    const transport = vi.fn(async (input: string | URL, init?: RequestInit) => Response.json(init?.method === 'POST'
+      ? { number: 12, title: 'Improve search' }
+      : String(input).includes('/pulls/12') ? { number: 12, title: 'Improve search', changed_files: 2 } : [{ number: 12, title: 'Improve search' }]));
+    const client = new GitHubClient(async () => 'token', transport);
+    expect((await client.pullRequests('owner', 'repo'))[0]?.number).toBe(12);
+    expect((await client.pullRequest('owner', 'repo', 12)).changed_files).toBe(2);
+    await client.createPullRequest('owner', 'repo', { title: 'Improve search', body: 'Details', head: 'writer:fix-search', base: 'main' });
+    const [url, init] = transport.mock.calls[2] as unknown as [string, RequestInit];
+    expect(url).toBe('https://api.github.com/repos/owner/repo/pulls');
+    expect(JSON.parse(init.body as string)).toEqual({ title: 'Improve search', body: 'Details', head: 'writer:fix-search', base: 'main' });
+  });
+
+  it('creates a personal repository copy and compares it with the original', async () => {
+    const transport = vi.fn(async (input: string | URL, init?: RequestInit) => Response.json(
+      init?.method === 'POST' ? { id: 42, name: 'Search', fork: true, owner: { login: 'writer' } }
+        : { status: 'ahead', ahead_by: 1, behind_by: 0, files: [{ filename: 'fix.txt', additions: 1, deletions: 0 }] },
+    ));
+    const client = new GitHubClient(async () => 'token', transport);
+    expect((await client.createFork('author', 'Search', 'Search')).fork).toBe(true);
+    expect((await client.compare('author', 'Search', 'main', 'writer', 'main')).ahead_by).toBe(1);
+    await client.openPullRequestForHead('author', 'Search', 'writer', 'main', 'main');
+    expect(transport.mock.calls.map(([url]) => url)).toEqual([
+      'https://api.github.com/repos/author/Search/forks',
+      'https://api.github.com/repos/author/Search/compare/main...writer%3Amain',
+      'https://api.github.com/repos/author/Search/pulls?state=open&head=writer%3Amain&base=main&per_page=1',
+    ]);
+    expect(JSON.parse((transport.mock.calls[0]?.[1] as RequestInit).body as string)).toEqual({ name: 'Search', default_branch_only: true });
+  });
+
   it('searches only public repositories and excludes unexpected private results', async () => {
     const transport = vi.fn(async () => Response.json({ items: [
       { id: 1, name: 'EasyHub', private: false },

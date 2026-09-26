@@ -300,12 +300,22 @@ try {
     ipcMain.handle('easyhub:auth-poll', () => ({ state: 'complete', user }));
     ipcMain.removeHandler('easyhub:open-external-link');
     ipcMain.handle('easyhub:open-external-link', () => undefined);
+    let discoveryRoots = [];
+    ipcMain.removeHandler('easyhub:local-discovery-roots');
+    ipcMain.handle('easyhub:local-discovery-roots', () => discoveryRoots);
+    ipcMain.removeHandler('easyhub:local-discovery-add-root');
+    ipcMain.handle('easyhub:local-discovery-add-root', (_event, path) => discoveryRoots = [path]);
+    ipcMain.removeHandler('easyhub:local-discovery-remove-root');
+    ipcMain.handle('easyhub:local-discovery-remove-root', () => discoveryRoots = []);
+    ipcMain.removeHandler('easyhub:local-discovery-scan');
+    ipcMain.handle('easyhub:local-discovery-scan', () => ({ added: 0, alreadyAdded: 1, skipped: 0, scanned: 2, limited: false }));
     ipcMain.removeHandler('easyhub:github');
     ipcMain.handle('easyhub:github', (_event, action, ...args) => {
       if (action === 'repos') return args[0] === 1 ? [otherRepo, repo] : [];
       if (action === 'searchPublicRepos') return args[0] === 'Public' ? [publicRepo] : [];
       if (action === 'readme') return '# CloudDemo\n\nThis is a GitHub introduction.';
       if (action === 'issues') return [{ ...issue, state: issueState }];
+      if (action === 'issuesPage') return { items: [{ ...issue, state: issueState }], nextPage: null };
       if (action === 'comments') return [];
       if (action === 'commits') return [commit];
       if (action === 'commit') return commit;
@@ -339,6 +349,15 @@ try {
   assert.equal(inspectedFolder?.state, 'new');
   await page.locator('.topbar-windows .windows-control-button').first().waitFor();
   assert.equal(await page.locator('.topbar-windows .windows-control-button').count(), 3);
+  await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
+  await page.getByRole('button', { name: /这台电脑/ }).click();
+  await page.getByRole('heading', { name: '查找已有项目' }).waitFor();
+  await page.getByRole('button', { name: '添加查找位置' }).click();
+  await page.getByText('已添加 0 个项目；1 个此前已添加。').waitFor();
+  await page.screenshot({ path: 'out/local-discovery-smoke.png' });
+  await page.locator('.topbar-search input').fill('https://github.com/demo-user/CloudDemo');
+  await page.locator('.topbar-search input').press('Enter');
+  await page.locator('.detail-hero').getByRole('heading', { name: 'CloudDemo' }).waitFor();
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
   await page.getByRole('button', { name: '所有公开项目' }).click();
   await page.locator('.toolbar input').fill('Public');

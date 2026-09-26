@@ -4,6 +4,7 @@ import { authStatus, cancelArchive, cancelDeviceLogin, cancelGithubReads, downlo
 import type { DownloadTransferProgress } from './services/githubService';
 import { LocalProjectStore } from './git/LocalProjectStore';
 import { LocalProjectService } from './git/LocalProjectService';
+import { DiscoveryRootsStore } from './git/LocalProjectDiscovery';
 import { ReleasePublishingService } from './services/releasePublishing';
 import { FallbackTranslationProvider, GoogleWebTranslationProvider, MyMemoryTranslationProvider, TranslationService } from './services/TranslationService';
 import type { TranslationRequest } from '@easyhub/types';
@@ -58,7 +59,8 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   localService = new LocalProjectService(new LocalProjectStore(join(app.getPath('userData'), 'local-projects.json')),
-    (channel, value) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, value); });
+    (channel, value) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, value); },
+    new DiscoveryRootsStore(join(app.getPath('userData'), 'project-search-locations.json')));
   const translateFetch = (url: string, init: RequestInit): Promise<Response> => net.fetch(url, init);
   translationService = new TranslationService(new FallbackTranslationProvider(
     new MyMemoryTranslationProvider(translateFetch), new GoogleWebTranslationProvider(translateFetch)),
@@ -105,6 +107,10 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('easyhub:local-list', (event) => { assertTrustedSender(event); return localService.list(); });
+  ipcMain.handle('easyhub:local-discovery-roots', (event) => { assertTrustedSender(event); return localService.listDiscoveryRoots(); });
+  ipcMain.handle('easyhub:local-discovery-add-root', (event, path: unknown) => { assertTrustedSender(event); return localService.addDiscoveryRoot(path); });
+  ipcMain.handle('easyhub:local-discovery-remove-root', (event, path: unknown) => { assertTrustedSender(event); return localService.removeDiscoveryRoot(path); });
+  ipcMain.handle('easyhub:local-discovery-scan', (event) => { assertTrustedSender(event); return localService.scanDiscoveryRoots(); });
   ipcMain.handle('easyhub:local-inspect', (event, path: unknown) => { assertTrustedSender(event); return localService.inspect(path); });
   ipcMain.handle('easyhub:local-connect', (event, path: unknown) => { assertTrustedSender(event); return localService.connectExisting(path); });
   ipcMain.handle('easyhub:local-create', (event, path: unknown, name: unknown, description: unknown, isPrivate: unknown) => { assertTrustedSender(event); return localService.create(path, name, description, isPrivate); });

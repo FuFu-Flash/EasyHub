@@ -2,12 +2,17 @@ export type Transport = (input: string | URL, init?: RequestInit) => Promise<Res
 
 export interface GitHubUser { id?: number; login: string; name: string | null; avatar_url: string; html_url: string; bio?: string | null; company?: string | null; location?: string | null; followers?: number; following?: number; public_repos?: number; created_at?: string }
 export interface GitHubSearchUser { id: number; login: string; avatar_url: string; html_url: string; type: string }
-export interface GitHubRepo { id: number; name: string; full_name: string; description: string | null; private: boolean; archived?: boolean; permissions?: { admin: boolean; push: boolean; pull: boolean }; updated_at: string; pushed_at?: string | null; created_at?: string; stargazers_count?: number; language?: string | null; default_branch: string; owner: { login: string; avatar_url?: string }; open_issues_count: number }
+export interface GitHubRepo { id: number; name: string; full_name: string; html_url?: string; description: string | null; private: boolean; fork?: boolean; parent?: { id: number; full_name: string; default_branch: string; html_url: string; owner: { login: string }; name: string }; allow_forking?: boolean; archived?: boolean; permissions?: { admin: boolean; push: boolean; pull: boolean }; updated_at: string; pushed_at?: string | null; created_at?: string; stargazers_count?: number; language?: string | null; default_branch: string; owner: { login: string; avatar_url?: string }; open_issues_count: number }
+export interface GitHubComparison { status: string; ahead_by: number; behind_by: number; total_commits: number; files?: GitHubPullFile[] }
+export interface GitHubForkComparison extends GitHubComparison { openRequest: GitHubPullRequest | null }
 export type TrendingPeriod = 'today' | 'week' | 'month';
 export interface ContributionDay { date: string; contributionCount: number; color: string }
 export interface ContributionRepository { fullName: string; isPrivate: boolean; count: number; kind: '更新' | '问题' | '合并请求' }
 export interface Contributions { total: number; years: number[]; weeks: { contributionDays: ContributionDay[] }[]; repositories: ContributionRepository[] }
 export interface GitHubIssue { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; created_at: string; user: { login: string } | null; comments: number; pull_request?: unknown }
+export interface GitHubIssuePage { items: GitHubIssue[]; nextPage: number | null }
+export interface GitHubPullRequest { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; draft: boolean; merged: boolean; merged_at: string | null; created_at: string; html_url: string; user: { login: string } | null; comments: number; changed_files?: number; additions?: number; deletions?: number; head: { ref: string; label: string }; base: { ref: string } }
+export interface GitHubPullFile { filename: string; status: string; additions: number; deletions: number }
 export interface GitHubComment { id: number; body: string; created_at: string; user: { login: string } | null }
 export interface GitHubCommit { sha: string; commit: { message: string; author: { name: string; date: string } | null }; author: { login: string } | null; stats?: { additions: number; deletions: number }; files?: { filename: string; status: string }[] }
 export interface GitHubReleaseAsset { id: number; name: string; label: string | null; size: number; content_type: string; download_count: number; state: string; browser_download_url?: string; digest?: string }
@@ -99,6 +104,12 @@ export class GitHubClient {
     return { total: collection.contributionCalendar.totalContributions, years: collection.contributionYears, weeks: collection.contributionCalendar.weeks, repositories: [...map(collection.commitContributionsByRepository, '更新'), ...map(collection.issueContributionsByRepository, '问题'), ...map(collection.pullRequestContributionsByRepository, '合并请求')] };
   }
   repo(owner: string, repo: string): Promise<GitHubRepo> { return this.request(repoPath(owner, repo)); }
+  createFork(owner: string, repo: string, name: string): Promise<GitHubRepo> {
+    return this.request(`${repoPath(owner, repo)}/forks`, { method: 'POST', body: JSON.stringify({ name, default_branch_only: true }) });
+  }
+  compare(owner: string, repo: string, base: string, headOwner: string, head: string): Promise<GitHubComparison> {
+    return this.request(`${repoPath(owner, repo)}/compare/${encodePart(base)}...${encodePart(`${headOwner}:${head}`)}`);
+  }
   updateVisibility(owner: string, repo: string, isPrivate: boolean): Promise<GitHubRepo> {
     return this.request(repoPath(owner, repo), { method: 'PATCH', body: JSON.stringify({ private: isPrivate }) });
   }
@@ -120,8 +131,20 @@ export class GitHubClient {
     if (!response.ok) throw new GitHubError(response.status, 'GitHub README request failed');
     return response.text();
   }
-  issues(owner: string, repo: string, state: 'open' | 'closed' | 'all' = 'all', signal?: AbortSignal): Promise<GitHubIssue[]> {
-    return this.request<GitHubIssue[]>(`${repoPath(owner, repo)}/issues?state=${state}&per_page=100`, { signal }).then((items) => items.filter((item) => !item.pull_request));
+  async issuePage(owner: string, repo: string, state: 'open' | 'closed' | 'all' = 'all', page = 1, signal?: AbortSignal): Promise<GitHubIssuePage> {
+    const items: GitHubIssue[] = [];
+    let currentPage = page;
+    for (let fetched = 0; fetched < 5; fetched += 1) {
+      const raw = await this.request<GitHubIssue[]>(`${repoPath(owner, repo)}/issues?state=${state}&per_page=100&page=${currentPage}`, { signal });
+      items.push(...raw.filter((item) => !item.pull_request));
+      currentPage += 1;
+      if (raw.length < 100) return { items, nextPage: null };
+      if (items.length >= 100) break;
+    }
+    return { items, nextPage: currentPage };
+  }
+  async issues(owner: string, repo: string, state: 'open' | 'closed' | 'all' = 'all', signal?: AbortSignal): Promise<GitHubIssue[]> {
+    return (await this.issuePage(owner, repo, state, 1, signal)).items;
   }
   createIssue(owner: string, repo: string, title: string, body: string): Promise<GitHubIssue> {
     return this.request(`${repoPath(owner, repo)}/issues`, { method: 'POST', body: JSON.stringify({ title, body }) });
@@ -132,6 +155,22 @@ export class GitHubClient {
   comments(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubComment[]> { return this.request(`${repoPath(owner, repo)}/issues/${number}/comments?per_page=100`, { signal }); }
   createComment(owner: string, repo: string, number: number, body: string): Promise<GitHubComment> {
     return this.request(`${repoPath(owner, repo)}/issues/${number}/comments`, { method: 'POST', body: JSON.stringify({ body }) });
+  }
+  pullRequests(owner: string, repo: string, page = 1, signal?: AbortSignal): Promise<GitHubPullRequest[]> {
+    return this.request(`${repoPath(owner, repo)}/pulls?state=all&sort=updated&direction=desc&per_page=100&page=${page}`, { signal });
+  }
+  pullRequest(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubPullRequest> {
+    return this.request(`${repoPath(owner, repo)}/pulls/${number}`, { signal });
+  }
+  pullFiles(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubPullFile[]> {
+    return this.request(`${repoPath(owner, repo)}/pulls/${number}/files?per_page=100`, { signal });
+  }
+  createPullRequest(owner: string, repo: string, input: { title: string; body: string; head: string; base: string }): Promise<GitHubPullRequest> {
+    return this.request(`${repoPath(owner, repo)}/pulls`, { method: 'POST', body: JSON.stringify(input) });
+  }
+  openPullRequestForHead(owner: string, repo: string, headOwner: string, headBranch: string, base: string): Promise<GitHubPullRequest[]> {
+    const query = new URLSearchParams({ state: 'open', head: `${headOwner}:${headBranch}`, base, per_page: '1' });
+    return this.request(`${repoPath(owner, repo)}/pulls?${query.toString()}`);
   }
   commits(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubCommit[]> { return this.request(`${repoPath(owner, repo)}/commits?per_page=100`, { signal }); }
   commit(owner: string, repo: string, sha: string, signal?: AbortSignal): Promise<GitHubCommit> { return this.request(`${repoPath(owner, repo)}/commits/${encodePart(sha)}`, { signal }); }

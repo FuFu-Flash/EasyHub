@@ -3,6 +3,10 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('easyHub', {
   chooseFolder: (): Promise<string | null> => ipcRenderer.invoke('easyhub:choose-folder'),
   localList: () => ipcRenderer.invoke('easyhub:local-list'),
+  localDiscoveryRoots: () => ipcRenderer.invoke('easyhub:local-discovery-roots'),
+  localDiscoveryAddRoot: (path: string) => ipcRenderer.invoke('easyhub:local-discovery-add-root', path),
+  localDiscoveryRemoveRoot: (path: string) => ipcRenderer.invoke('easyhub:local-discovery-remove-root', path),
+  localDiscoveryScan: () => ipcRenderer.invoke('easyhub:local-discovery-scan'),
   localInspect: (path: string) => ipcRenderer.invoke('easyhub:local-inspect', path),
   localConnect: (path: string) => ipcRenderer.invoke('easyhub:local-connect', path),
   localCreate: (path: string, name: string, description: string, isPrivate: boolean) => ipcRenderer.invoke('easyhub:local-create', path, name, description, isPrivate),

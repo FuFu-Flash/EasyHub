@@ -127,7 +127,7 @@ export async function logout(): Promise<void> { pending = null; await vault.dele
 export async function githubAction(action: unknown, args: unknown[]): Promise<unknown> {
   if (typeof action !== 'string' || !Array.isArray(args) || args.length > 4) invalid();
   const [owner, repo, third, fourth] = args;
-  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'searchPublicRepos', 'searchUsers', 'topStarredRepos', 'readme', 'issues', 'comments', 'commits', 'commit', 'releases'].includes(action) ? new AbortController() : null;
+  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'comments', 'pullRequests', 'pullRequest', 'pullFiles', 'commits', 'commit', 'releases'].includes(action) ? new AbortController() : null;
   if (controller) readControllers.add(controller);
   try {
     const assertAdmin = async (ownerName: string, repoName: string): Promise<void> => {
@@ -142,7 +142,62 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       case 'contributions': if (validRepoPart(owner) && typeof repo === 'string' && /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/.test(repo) && typeof third === 'string' && /^\d{4}-\d{2}-\d{2}T23:59:59\.999Z$/.test(third) && Date.parse(third) >= Date.parse(repo) && Date.parse(third) - Date.parse(repo) <= 370 * 86400000) return await client.contributions(owner, repo, third, controller?.signal); invalid();
       case 'trending': if ((owner === 'today' || owner === 'week' || owner === 'month') && Number.isInteger(repo) && Number(repo) >= 1 && Number(repo) <= 34) return await client.trending(owner, Number(repo), controller?.signal); invalid();
       case 'publicRepo': if (validRepoPart(owner) && validRepoPart(repo)) { const item = await client.repo(owner, repo); if (item.private) throw new Error('这个项目不是公开项目。'); return item; } invalid();
+      case 'repository': if (validRepoPart(owner) && validRepoPart(repo)) return await client.repo(owner, repo); invalid();
       case 'repos': return await client.repos(typeof owner === 'number' && owner > 0 && owner <= 100 ? owner : 1, controller?.signal);
+      case 'myFork': {
+        if (!validRepoPart(owner) || !validRepoPart(repo)) invalid();
+        const [upstream, identity] = await Promise.all([client.repo(owner, repo), gitHubIdentity()]);
+        for (let page = 1; page <= 10; page++) {
+          const batch = await client.repos(page, controller?.signal);
+          const candidates = batch.filter((item) => item.fork && item.owner.login.toLowerCase() === identity.user.login.toLowerCase());
+          for (const candidate of candidates) {
+            const detail = await client.repo(candidate.owner.login, candidate.name);
+            if (detail.parent?.id === upstream.id) return detail;
+          }
+          if (batch.length < 100) break;
+        }
+        return null;
+      }
+      case 'forkRepo': {
+        if (!validRepoPart(owner) || !validRepoPart(repo) || !validRepoPart(third)) invalid();
+        const [upstream, identity] = await Promise.all([client.repo(owner, repo), gitHubIdentity()]);
+        if (upstream.private || upstream.archived || upstream.allow_forking === false || upstream.permissions?.pull === false) throw new Error('这个项目当前不允许创建仓库副本。');
+        if (upstream.owner.login.toLowerCase() === identity.user.login.toLowerCase()) throw new Error('这是你自己的项目，无需创建仓库副本。');
+        const created = await client.createFork(owner, repo, third);
+        if (created.owner.login.toLowerCase() !== identity.user.login.toLowerCase()) throw new Error('仓库副本尚未准备好，请稍后在我的项目中查看。');
+        for (let attempt = 0; attempt < 12; attempt++) {
+          try {
+            const ready = await client.repo(created.owner.login, created.name);
+            if (ready.fork && ready.parent?.id === upstream.id) return ready;
+          } catch { /* GitHub creates the fork asynchronously. */ }
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+        throw new Error('仓库副本尚未准备好，请稍后在我的项目中查看。');
+      }
+      case 'forkComparison': {
+        if (!validRepoPart(owner) || !validRepoPart(repo)) invalid();
+        const [fork, identity] = await Promise.all([client.repo(owner, repo), gitHubIdentity()]);
+        if (fork.owner.login.toLowerCase() !== identity.user.login.toLowerCase() || !fork.fork || !fork.parent) throw new Error('找不到属于你的仓库副本。');
+        const [comparison, open] = await Promise.all([
+          client.compare(fork.parent.owner.login, fork.parent.name, fork.parent.default_branch, fork.owner.login, fork.default_branch),
+          client.openPullRequestForHead(fork.parent.owner.login, fork.parent.name, fork.owner.login, fork.default_branch, fork.parent.default_branch),
+        ]);
+        return { ...comparison, openRequest: open[0] ?? null };
+      }
+      case 'submitForkContribution': {
+        if (!validRepoPart(owner) || !validRepoPart(repo) || !validText(third, 256) || typeof fourth !== 'string' || fourth.length > 65536) invalid();
+        const [fork, identity] = await Promise.all([client.repo(owner, repo), gitHubIdentity()]);
+        if (fork.owner.login.toLowerCase() !== identity.user.login.toLowerCase() || !fork.fork || !fork.parent) throw new Error('找不到属于你的仓库副本。');
+        const upstream = await client.repo(fork.parent.owner.login, fork.parent.name);
+        if (upstream.id !== fork.parent.id || upstream.archived) throw new Error('原项目暂时无法接收改进请求。');
+        const comparison = await client.compare(upstream.owner.login, upstream.name, upstream.default_branch, fork.owner.login, fork.default_branch);
+        if (comparison.ahead_by < 1) throw new Error('仓库副本还没有可提交的修改，请先发布源码。');
+        const open = await client.openPullRequestForHead(upstream.owner.login, upstream.name, fork.owner.login, fork.default_branch, upstream.default_branch);
+        if (open[0]) return open[0];
+        return await client.createPullRequest(upstream.owner.login, upstream.name, {
+          title: third.trim(), body: fourth, head: `${fork.owner.login}:${fork.default_branch}`, base: upstream.default_branch,
+        });
+      }
       case 'searchPublicRepos': if (typeof owner === 'string' && owner.trim().length >= 2 && owner.trim().length <= 200) return await client.searchPublicRepos(owner, controller?.signal); invalid();
       case 'searchUsers': if (typeof owner === 'string' && owner.trim().length >= 2 && owner.trim().length <= 200) return await client.searchUsers(owner, controller?.signal); invalid();
       case 'topStarredRepos': if (validRepoPart(owner)) return await client.topStarredRepos(owner, controller?.signal); invalid();
@@ -152,17 +207,29 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       case 'transferRepo': if (validRepoPart(owner) && validRepoPart(repo) && validRepoPart(third)) { await assertAdmin(owner, repo); return await client.transferRepo(owner, repo, third); } invalid();
       case 'readme': if (validRepoPart(owner) && validRepoPart(repo)) return await client.readme(owner, repo, controller?.signal); break;
       case 'issues': if (validRepoPart(owner) && validRepoPart(repo) && (third === 'open' || third === 'closed' || third === 'all')) return await client.issues(owner, repo, third, controller?.signal); break;
+      case 'issuesPage': if (validRepoPart(owner) && validRepoPart(repo) && (third === 'open' || third === 'closed' || third === 'all') && Number.isInteger(fourth) && Number(fourth) >= 1 && Number(fourth) <= 10000) return await client.issuePage(owner, repo, third, Number(fourth), controller?.signal); break;
       case 'createIssue': if (validRepoPart(owner) && validRepoPart(repo) && validText(third, 256) && typeof fourth === 'string' && fourth.length <= 65536) return await client.createIssue(owner, repo, third, fourth); invalid();
       case 'updateIssue': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && (fourth === 'open' || fourth === 'closed')) return await client.updateIssue(owner, repo, Number(third), fourth); break;
       case 'comments': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.comments(owner, repo, Number(third), controller?.signal); break;
       case 'createComment': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && validText(fourth, 65536)) return await client.createComment(owner, repo, Number(third), fourth); break;
+      case 'pullRequests': if (validRepoPart(owner) && validRepoPart(repo) && Number.isInteger(third) && Number(third) >= 1 && Number(third) <= 10000) return await client.pullRequests(owner, repo, Number(third), controller?.signal); break;
+      case 'pullRequest': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.pullRequest(owner, repo, Number(third), controller?.signal); break;
+      case 'pullFiles': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.pullFiles(owner, repo, Number(third), controller?.signal); break;
+      case 'createPullRequest': {
+        if (!validRepoPart(owner) || !validRepoPart(repo) || typeof third !== 'object' || third === null) invalid();
+        const input = third as Record<string, unknown>;
+        if (!validText(input.title, 256) || typeof input.body !== 'string' || input.body.length > 65536 || typeof input.head !== 'string' || typeof input.base !== 'string') invalid();
+        const [sourceOwner, sourceBranch, extra] = input.head.split(':');
+        if (extra !== undefined || !validRepoPart(sourceOwner) || !sourceBranch || !/^[A-Za-z0-9_./-]{1,200}$/.test(sourceBranch) || sourceBranch.includes('..') || sourceBranch.includes('//') || !/^[A-Za-z0-9_./-]{1,200}$/.test(input.base) || input.base.includes('..') || input.base.includes('//')) invalid();
+        return await client.createPullRequest(owner, repo, { title: input.title.trim(), body: input.body, head: input.head, base: input.base });
+      }
       case 'commits': if (validRepoPart(owner) && validRepoPart(repo)) return await client.commits(owner, repo, controller?.signal); break;
       case 'commit': if (validRepoPart(owner) && validRepoPart(repo) && typeof third === 'string' && /^[a-f0-9]{40}$/.test(third)) return await client.commit(owner, repo, third, controller?.signal); break;
       case 'releases': if (validRepoPart(owner) && validRepoPart(repo)) return await client.releases(owner, repo, controller?.signal); break;
     }
     invalid();
   } catch (error) {
-    if (error instanceof Error && (error.message.startsWith('填写') || error.message.startsWith('请先') || error.message.startsWith('GitHub 登录') || error.message.startsWith('你没有'))) throw error;
+    if (error instanceof Error && (error.message.startsWith('填写') || error.message.startsWith('请先') || error.message.startsWith('GitHub 登录') || error.message.startsWith('你没有') || error.message.startsWith('这个项目') || error.message.startsWith('这是你') || error.message.startsWith('仓库副本') || error.message.startsWith('找不到属于') || error.message.startsWith('原项目'))) throw error;
     throw new Error(friendlyGitHubError(error));
   } finally { if (controller) readControllers.delete(controller); }
 }

@@ -1,4 +1,4 @@
-export type SearchScope = 'local' | 'mine' | 'public' | 'users';
+export type SearchScope = 'local' | 'mine' | 'forks' | 'public' | 'users';
 export interface SearchEntry { query: string; scope: SearchScope }
 
 const MAX_HISTORY = 10;
@@ -11,7 +11,7 @@ export function readSearchHistory(storage: Pick<Storage, 'getItem'>, login: stri
     if (!Array.isArray(value)) return [];
     return value.filter((item): item is SearchEntry => typeof item === 'object' && item !== null
       && typeof item.query === 'string' && item.query.length > 0 && item.query.length <= 200
-      && ['local', 'mine', 'public', 'users'].includes(item.scope)).slice(0, MAX_HISTORY);
+      && ['local', 'mine', 'forks', 'public', 'users'].includes(item.scope)).slice(0, MAX_HISTORY);
   } catch { return []; }
 }
 

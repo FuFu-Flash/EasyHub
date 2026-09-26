@@ -141,6 +141,13 @@ export interface LocalOperationProgress {
   total?: number;
   cancelable?: boolean;
 }
+export interface LocalDiscoveryResult {
+  added: number;
+  alreadyAdded: number;
+  skipped: number;
+  scanned: number;
+  limited: boolean;
+}
 export type TranslationTargetLanguage = 'zh-CN' | 'en';
 export interface TranslationRequest {
   id: string;

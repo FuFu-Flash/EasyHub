@@ -1,5 +1,5 @@
 import type { GitHubUser } from '@easyhub/github';
-import type { FolderInspection, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
+import type { FolderInspection, LocalDiscoveryResult, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
 import type { TranslationProgress, TranslationRequest } from '@easyhub/types';
 import type { PickedReleaseFile, PublishReleaseRequest, ReleaseProgress } from '@easyhub/types';
 import type { GitHubCreatedRelease } from '@easyhub/github';
@@ -11,6 +11,10 @@ declare global {
     easyHub?: {
       chooseFolder: () => Promise<string | null>;
       localList: () => Promise<LocalProjectLink[]>;
+      localDiscoveryRoots: () => Promise<string[]>;
+      localDiscoveryAddRoot: (path: string) => Promise<string[]>;
+      localDiscoveryRemoveRoot: (path: string) => Promise<string[]>;
+      localDiscoveryScan: () => Promise<LocalDiscoveryResult>;
       localInspect: (path: string) => Promise<FolderInspection>;
       localConnect: (path: string) => Promise<LocalProjectLink>;
       localCreate: (path: string, name: string, description: string, isPrivate: boolean) => Promise<LocalProjectLink>;

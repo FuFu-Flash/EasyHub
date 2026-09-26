@@ -3,15 +3,16 @@ import { session } from 'electron';
 import { randomUUID } from 'node:crypto';
 import type { FSWatcher } from 'node:fs';
 import { lstat, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, parse } from 'node:path';
 import type { GitHubRepo } from '@easyhub/github';
-import type { FolderInspection, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
+import type { FolderInspection, LocalDiscoveryResult, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
 import { createEmptyRepository, gitHubIdentity, repositoryDetails } from '../services/githubService';
 import type { GitProgress, GitProjectInfo, GitProjectStatus, GitRepository } from './GitEngine';
 import { LocalProjectStore } from './LocalProjectStore';
 import type { LocalProjectRecord } from './LocalProjectStore';
 import { runGitTask } from './gitTaskRunner';
 import type { GitJob, GitTask } from './gitTaskRunner';
+import { DiscoveryRootsStore, findGitProjects } from './LocalProjectDiscovery';
 
 function validName(value: unknown): value is string { return typeof value === 'string' && /^[A-Za-z0-9_.-]{1,100}$/.test(value) && value !== '.' && value !== '..'; }
 function repository(repo: GitHubRepo): GitRepository { return { owner: repo.owner.login, name: repo.name, defaultBranch: repo.default_branch || 'main' }; }
@@ -33,9 +34,13 @@ export class LocalProjectService {
   private readonly watchers = new Map<string, FSWatcher>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
   private active: GitJob<unknown> | null = null;
+  private discoveryController: AbortController | null = null;
+  private discoveryJob: GitJob<GitProjectInfo> | null = null;
+  private discoveryPromise: Promise<LocalDiscoveryResult> | null = null;
   private cancelSafe = true;
   private operationTail: Promise<void> = Promise.resolve();
-  constructor(private readonly store: LocalProjectStore, private readonly send: (channel: string, value: unknown) => void) {}
+  constructor(private readonly store: LocalProjectStore, private readonly send: (channel: string, value: unknown) => void,
+    private readonly discoveryRoots?: DiscoveryRootsStore) {}
 
   async grant(path: string): Promise<string> {
     const canonical = await realpath(path);
@@ -51,6 +56,75 @@ export class LocalProjectService {
   }
 
   async list(): Promise<LocalProjectRecord[]> { return this.store.list(); }
+
+  async listDiscoveryRoots(): Promise<string[]> { return this.discoveryRoots?.list() ?? []; }
+
+  async addDiscoveryRoot(path: unknown): Promise<string[]> {
+    const canonical = await this.selected(path);
+    if (parse(canonical).root === canonical) throw new Error('请选一个存放项目的文件夹，不要选择整个磁盘。');
+    if (!this.discoveryRoots) throw new Error('无法保存查找位置。');
+    return this.discoveryRoots.add(canonical);
+  }
+
+  async removeDiscoveryRoot(path: unknown): Promise<string[]> {
+    if (typeof path !== 'string' || !this.discoveryRoots || !(await this.discoveryRoots.list()).includes(path)) throw new Error('查找位置无效。');
+    return this.discoveryRoots.remove(path);
+  }
+
+  scanDiscoveryRoots(): Promise<LocalDiscoveryResult> {
+    if (this.discoveryPromise) return this.discoveryPromise;
+    const controller = new AbortController();
+    this.discoveryController = controller;
+    const task = this.scanApprovedRoots(controller.signal);
+    this.discoveryPromise = task;
+    void task.finally(() => { if (this.discoveryController === controller) this.discoveryController = null; if (this.discoveryPromise === task) this.discoveryPromise = null; }).catch(() => undefined);
+    return task;
+  }
+
+  private async scanApprovedRoots(signal: AbortSignal): Promise<LocalDiscoveryResult> {
+    const roots = await this.listDiscoveryRoots();
+    const result: LocalDiscoveryResult = { added: 0, alreadyAdded: 0, skipped: 0, scanned: 0, limited: false };
+    if (roots.length === 0) return result;
+    const identity = await gitHubIdentity();
+    const known = new Set((await this.store.list()).map((record) => record.localPath.toLowerCase()));
+    const visited = new Set<string>();
+    for (const root of roots) {
+      if (signal.aborted) throw new Error('查找已取消。');
+      let canonical: string;
+      try { canonical = await realpath(root); }
+      catch { result.skipped += 1; continue; }
+      if (canonical !== root) { result.skipped += 1; continue; }
+      const found = await findGitProjects(root, signal, (count) => this.send('easyhub:local-progress', { phase: `正在查找本地项目 · 已检查 ${result.scanned + count} 个文件夹` }));
+      result.scanned += found.visited;
+      result.limited ||= found.limited;
+      for (const folder of found.folders) {
+        if (signal.aborted) throw new Error('查找已取消。');
+        const key = folder.toLowerCase();
+        if (visited.has(key)) continue;
+        visited.add(key);
+        if (known.has(key)) { result.alreadyAdded += 1; continue; }
+        this.send('easyhub:local-progress', { phase: `正在核对项目 · 已找到 ${result.added + result.skipped + result.alreadyAdded + 1} 个` });
+        try {
+          const job = runGitTask<GitProjectInfo>({ action: 'inspect', path: folder });
+          this.discoveryJob = job;
+          const info = await job.result;
+          this.discoveryJob = null;
+          if (info.root !== folder || !info.owner || !info.repo) { result.skipped += 1; continue; }
+          const remote = await repositoryDetails(info.owner, info.repo);
+          if (signal.aborted) throw new Error('查找已取消。');
+          if (remote.owner.login.toLowerCase() !== identity.user.login.toLowerCase() && !remote.permissions?.push) { result.skipped += 1; continue; }
+          const record = await this.store.upsert({ repositoryId: remote.id, owner: remote.owner.login, name: remote.name, localPath: folder });
+          this.watchRecord(record);
+          known.add(key);
+          result.added += 1;
+        } catch {
+          if (signal.aborted) throw new Error('查找已取消。');
+          result.skipped += 1;
+        } finally { this.discoveryJob = null; }
+      }
+    }
+    return result;
+  }
 
   private async inspectRaw(path: unknown): Promise<GitProjectInfo> {
     const canonical = await this.selected(path);
@@ -172,7 +246,7 @@ export class LocalProjectService {
       await rename(temp, file);
     } finally { await rm(temp, { force: true }).catch(() => undefined); }
   }
-  cancel(): void { if (this.cancelSafe) this.active?.cancel(); }
+  cancel(): void { if (this.cancelSafe) this.active?.cancel(); this.discoveryController?.abort(); this.discoveryJob?.cancel(); }
 
   async startWatching(): Promise<void> { for (const record of await this.store.list()) this.watchRecord(record); }
   stopWatching(): void { for (const watcher of this.watchers.values()) watcher.close(); for (const timer of this.timers.values()) clearTimeout(timer); this.watchers.clear(); this.timers.clear(); }
