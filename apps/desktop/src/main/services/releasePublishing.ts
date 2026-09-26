@@ -8,7 +8,7 @@ import { dialog, net, session } from 'electron';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { GitHubClient, GitHubError, friendlyGitHubError } from '@easyhub/github';
 import type { GitHubCreatedRelease, GitHubReleaseAsset } from '@easyhub/github';
-import type { PickedReleaseFile, PublishReleaseRequest, ReleaseProgress } from '@easyhub/types';
+import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, PublishReleaseRequest, ReleaseProgress, RemoveReleaseAssetRequest } from '@easyhub/types';
 import { githubAccessToken, gitHubIdentity } from './githubService';
 
 const MAX_FILES = 1000;
@@ -25,6 +25,38 @@ interface SelectedFile { path: string; name: string; size: number; modified: num
 function validPart(value: unknown): value is string { return typeof value === 'string' && /^[A-Za-z0-9_.-]{1,100}$/.test(value) && value !== '.' && value !== '..'; }
 function validTag(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 80 && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) && !value.includes('..') && !value.endsWith('.') && !value.endsWith('.lock');
+}
+
+function validReleaseId(value: unknown): value is number { return typeof value === 'number' && Number.isSafeInteger(value) && value > 0; }
+function releaseTarget(input: unknown): { owner: string; repo: string; releaseId: number } {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) throw new Error('版本信息无效。');
+  const value = input as Record<string, unknown>;
+  if (!validPart(value.owner) || !validPart(value.repo) || !validReleaseId(value.releaseId)) throw new Error('版本信息无效。');
+  return { owner: value.owner, repo: value.repo, releaseId: value.releaseId };
+}
+
+export function validateEditReleaseRequest(input: unknown): EditReleaseRequest {
+  const target = releaseTarget(input);
+  const value = input as Record<string, unknown>;
+  if (typeof value.title !== 'string' || !value.title.trim() || value.title.length > 120 ||
+      typeof value.body !== 'string' || value.body.length > 262144 || typeof value.prerelease !== 'boolean') throw new Error('请检查版本名称和介绍。');
+  return { ...target, title: value.title, body: value.body, prerelease: value.prerelease };
+}
+
+export function validateAddReleaseAssetsRequest(input: unknown): AddReleaseAssetsRequest {
+  const target = releaseTarget(input);
+  const value = input as Record<string, unknown>;
+  if (!Array.isArray(value.assetIds) || value.assetIds.length < 1 || value.assetIds.length > MAX_FILES ||
+      !value.assetIds.every((id: unknown) => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id)) ||
+      new Set(value.assetIds).size !== value.assetIds.length) throw new Error('请选择要上传的文件。');
+  return { ...target, assetIds: value.assetIds as string[] };
+}
+
+export function validateRemoveReleaseAssetRequest(input: unknown): RemoveReleaseAssetRequest {
+  const target = releaseTarget(input);
+  const value = input as Record<string, unknown>;
+  if (!validReleaseId(value.assetId)) throw new Error('文件信息无效。');
+  return { ...target, assetId: value.assetId };
 }
 
 export function validatePublishRequest(input: unknown): PublishReleaseRequest {
@@ -119,6 +151,80 @@ export class ReleasePublishingService {
   }
 
   cancel(): void { this.active?.abort(); }
+
+  private async editableRelease(owner: string, repoName: string, releaseId: number, signal?: AbortSignal): Promise<GitHubCreatedRelease> {
+    const repo = await this.client.repo(owner, repoName);
+    const identity = await gitHubIdentity();
+    if (repo.archived || !(repo.permissions?.push || repo.permissions?.admin || repo.owner.login.toLowerCase() === identity.user.login.toLowerCase())) {
+      throw new Error('你没有编辑这个版本的权限。');
+    }
+    const release = await this.client.release(owner, repoName, releaseId, signal);
+    if (release.draft) throw new Error('这个版本尚未发布，请在 GitHub 中编辑草稿。');
+    return release;
+  }
+
+  async edit(raw: unknown): Promise<GitHubCreatedRelease> {
+    const input = validateEditReleaseRequest(raw);
+    if (this.active) throw new Error('已有版本操作正在进行，请稍后。');
+    await this.editableRelease(input.owner, input.repo, input.releaseId);
+    try {
+      return await this.client.updateRelease(input.owner, input.repo, input.releaseId,
+        { name: input.title.trim(), body: input.body, prerelease: input.prerelease });
+    } catch (error) { throw new Error(friendlyGitHubError(error)); }
+  }
+
+  async addAssets(raw: unknown, progress: (value: ReleaseProgress) => void): Promise<GitHubCreatedRelease> {
+    const input = validateAddReleaseAssetsRequest(raw);
+    if (this.active) throw new Error('已有版本操作正在进行，请稍后。');
+    const chosen = input.assetIds.map((id) => this.selected.get(id));
+    if (chosen.some((file) => !file)) throw new Error('请重新选择要上传的文件。');
+    const files = chosen as SelectedFile[];
+    const release = await this.editableRelease(input.owner, input.repo, input.releaseId);
+    const existing = new Set(release.assets.map((asset) => asset.name.toLowerCase()));
+    if (files.some((file) => existing.has(file.name.toLowerCase())) || new Set(files.map((file) => file.name.toLowerCase())).size !== files.length) {
+      throw new Error('这个版本已有同名文件，请先移除旧文件或为新文件改名。');
+    }
+    if (release.assets.length + files.length > MAX_FILES) throw new Error('每个版本最多可包含 1000 个文件。');
+    for (const file of files) {
+      const details = await stat(file.path);
+      if (!details.isFile() || details.size !== file.size || details.mtimeMs !== file.modified) throw new Error(`“${file.name}”已发生变化，请重新选择。`);
+    }
+    const controller = new AbortController();
+    this.active = controller;
+    const total = files.reduce((sum, file) => sum + file.size, 0);
+    let loaded = 0;
+    try {
+      const token = await githubAccessToken();
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index]!;
+        const id = input.assetIds[index]!;
+        const phase = `正在上传 ${file.name}`;
+        progress({ phase, loaded, total, cancelable: true });
+        const url = release.upload_url.replace(/\{.*$/, '') + `?name=${encodeURIComponent(file.name)}`;
+        const uploaded = await uploadAsset(url, file, token, controller.signal, (bytes) => {
+          loaded += bytes;
+          progress({ phase, loaded, total, cancelable: true });
+        });
+        if (uploaded.state !== 'uploaded' || uploaded.size !== file.size) throw new Error(`“${file.name}”上传后未通过检查。`);
+        this.selected.delete(id);
+      }
+      return await this.client.release(input.owner, input.repo, input.releaseId);
+    } catch (error) {
+      if (controller.signal.aborted) throw new Error('上传已取消。已完成的文件仍保留在版本中。');
+      throw new Error(`${friendlyGitHubError(error)} 已完成的文件仍保留在版本中。`);
+    } finally { this.active = null; }
+  }
+
+  async removeAsset(raw: unknown): Promise<GitHubCreatedRelease> {
+    const input = validateRemoveReleaseAssetRequest(raw);
+    if (this.active) throw new Error('已有版本操作正在进行，请稍后。');
+    const release = await this.editableRelease(input.owner, input.repo, input.releaseId);
+    if (!release.assets.some((asset) => asset.id === input.assetId)) throw new Error('这个文件已不在当前版本中，请刷新后重试。');
+    try {
+      await this.client.deleteReleaseAsset(input.owner, input.repo, input.assetId);
+      return await this.client.release(input.owner, input.repo, input.releaseId);
+    } catch (error) { throw new Error(friendlyGitHubError(error)); }
+  }
 
   async publish(raw: unknown, progress: (value: ReleaseProgress) => void): Promise<GitHubCreatedRelease> {
     if (this.active) throw new Error('已有新版本正在发布，请稍后。');

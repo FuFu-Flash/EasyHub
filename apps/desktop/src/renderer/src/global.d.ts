@@ -1,7 +1,7 @@
 import type { GitHubUser } from '@easyhub/github';
 import type { FolderInspection, LocalDiscoveryResult, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
 import type { TranslationProgress, TranslationRequest } from '@easyhub/types';
-import type { PickedReleaseFile, PublishReleaseRequest, ReleaseProgress } from '@easyhub/types';
+import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, PublishReleaseRequest, ReleaseProgress, RemoveReleaseAssetRequest } from '@easyhub/types';
 import type { GitHubCreatedRelease } from '@easyhub/github';
 import type { AiSettingsInput, AiSettingsStatus, AiReviewRequest, AiReviewResult, AiReviewProgress } from '@easyhub/types';
 
@@ -47,11 +47,15 @@ declare global {
       aiCancelReview: (id: string) => Promise<void>;
       onAiReviewProgress: (callback: (value: AiReviewProgress) => void) => () => void;
       authStart: () => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;
+      authStartDeletion: (owner: string, repo: string, id: number) => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;
       authPoll: () => Promise<{ state: 'waiting' | 'complete'; user?: GitHubUser; interval?: number }>;
       authCancel: () => Promise<void>;
       authLogout: () => Promise<void>;
       chooseReleaseFiles: (inline: boolean) => Promise<PickedReleaseFile[]>;
       publishRelease: (input: PublishReleaseRequest) => Promise<GitHubCreatedRelease>;
+      editRelease: (input: EditReleaseRequest) => Promise<GitHubCreatedRelease>;
+      addReleaseAssets: (input: AddReleaseAssetsRequest) => Promise<GitHubCreatedRelease>;
+      removeReleaseAsset: (input: RemoveReleaseAssetRequest) => Promise<GitHubCreatedRelease>;
       cancelRelease: () => Promise<void>;
       onReleaseProgress: (callback: (value: ReleaseProgress) => void) => () => void;
       github: <T>(action: string, ...args: unknown[]) => Promise<T>;

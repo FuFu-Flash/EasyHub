@@ -9,13 +9,15 @@ import { randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
 
-interface Credential { clientId: string; accessToken: string; refreshToken?: string; expiresAt?: number }
+interface Credential { clientId: string; accessToken: string; refreshToken?: string; expiresAt?: number; scopes?: string[] }
 interface DeviceCode { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval?: number }
-interface TokenReply { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; interval?: number }
+interface TokenReply { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; interval?: number; scope?: string }
 
 const vault = new AsyncEntry('EasyHub GitHub OAuth', 'default');
 let credential: Credential | null | undefined;
-let pending: { code: string; clientId: string; expiresAt: number; interval: number } | null = null;
+interface DeletionTarget { owner: string; repo: string; id: number }
+let pending: { code: string; clientId: string; expiresAt: number; interval: number; expectedLogin?: string; deleteAuthorization?: boolean; deletionTarget?: DeletionTarget } | null = null;
+let oneTimeDeletion: { token: string; expiresAt: number; target: DeletionTarget } | null = null;
 let polling = false;
 let lastPoll = 0;
 let archiveController: AbortController | null = null;
@@ -37,6 +39,7 @@ function validPullPath(value: unknown): value is string {
     && !value.split('/').some((part) => part === '' || part === '.' || part === '..');
 }
 class PullRequestOperationError extends Error {}
+class DangerOperationError extends Error {}
 const staleRequestMessage = '这个改进请求已经有新修改，请刷新后重新查看。';
 
 async function loadCredential(): Promise<Credential | null> {
@@ -72,7 +75,7 @@ async function accessToken(): Promise<string> {
     if (!current.refreshToken) throw new Error('GitHub 登录已过期，请重新登录。');
     const refreshed = await exchange({ client_id: current.clientId, grant_type: 'refresh_token', refresh_token: current.refreshToken });
     if (!refreshed.access_token) throw new Error('GitHub 登录已过期，请重新登录。');
-    await saveCredential({ clientId: current.clientId, accessToken: refreshed.access_token, refreshToken: refreshed.refresh_token ?? current.refreshToken, expiresAt: refreshed.expires_in ? Date.now() + refreshed.expires_in * 1000 : undefined });
+    await saveCredential({ clientId: current.clientId, accessToken: refreshed.access_token, refreshToken: refreshed.refresh_token ?? current.refreshToken, expiresAt: refreshed.expires_in ? Date.now() + refreshed.expires_in * 1000 : undefined, scopes: refreshed.scope ? refreshed.scope.split(',').map((value) => value.trim()) : current.scopes });
     return refreshed.access_token;
   }
   return current.accessToken;
@@ -136,16 +139,26 @@ export async function authStatus(): Promise<{ user: GitHubUser | null; clientId:
   catch { return { user: null, clientId: current.clientId }; }
 }
 
-export async function startDeviceLogin(clientId: unknown): Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }> {
+export async function startDeviceLogin(clientId: unknown, includeDeleteScope = false, deletionTarget?: DeletionTarget): Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }> {
   if (!validClientId(clientId)) invalid();
+  if (includeDeleteScope) oneTimeDeletion = null;
+  if (includeDeleteScope && (!deletionTarget || !validRepoPart(deletionTarget.owner) || !validRepoPart(deletionTarget.repo) || !Number.isSafeInteger(deletionTarget.id) || deletionTarget.id <= 0)) invalid();
+  const expectedLogin = includeDeleteScope ? (await client.user()).login : undefined;
+  if (includeDeleteScope && deletionTarget) {
+    const remote = await client.repo(deletionTarget.owner, deletionTarget.repo);
+    if (remote.id !== deletionTarget.id || remote.full_name !== `${deletionTarget.owner}/${deletionTarget.repo}` ||
+        !remote.permissions?.admin && remote.owner.login.toLowerCase() !== expectedLogin?.toLowerCase()) {
+      throw new DangerOperationError('项目信息或权限已变化，请刷新后重试。');
+    }
+  }
   const response = await net.fetch('https://github.com/login/device/code', {
     method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: clientId, scope: 'repo read:user' }),
+    body: new URLSearchParams({ client_id: clientId, scope: includeDeleteScope ? 'repo read:user delete_repo' : 'repo read:user' }),
   });
   if (!response.ok) throw new Error('GitHub 登录暂时不可用，请稍后重试。');
   const result = await response.json() as DeviceCode & { error?: string };
   if (!result.device_code || !result.user_code || result.error) throw new Error('无法开始 GitHub 登录，请检查 Client ID 和 Device Flow 设置。');
-  pending = { code: result.device_code, clientId, expiresAt: Date.now() + result.expires_in * 1000, interval: Math.max(result.interval ?? 5, 5) };
+  pending = { code: result.device_code, clientId, expiresAt: Date.now() + result.expires_in * 1000, interval: Math.max(result.interval ?? 5, 5), expectedLogin, deleteAuthorization: includeDeleteScope, deletionTarget };
   lastPoll = 0;
   return { userCode: result.user_code, verificationUri: result.verification_uri, expiresAt: pending.expiresAt, interval: pending.interval };
 }
@@ -163,15 +176,25 @@ export async function pollDeviceLogin(): Promise<{ state: 'waiting' | 'complete'
     if (result.error === 'access_denied') throw new Error('你没有允许 EasyHub 登录。');
     if (result.error || !result.access_token) throw new Error('登录确认失败，请重新尝试。');
     if (pending !== flow) return { state: 'waiting', interval: flow.interval };
-    await saveCredential({ clientId: flow.clientId, accessToken: result.access_token, refreshToken: result.refresh_token, expiresAt: result.expires_in ? Date.now() + result.expires_in * 1000 : undefined });
+    const scopes = result.scope?.split(',').map((value) => value.trim()) ?? [];
+    if (flow.deleteAuthorization) {
+      if (!scopes.includes('delete_repo')) { pending = null; throw new Error('GitHub 未授予删除项目权限，请重新授权。'); }
+      const candidate = new GitHubClient(async () => result.access_token!, (input, init) => net.fetch(String(input), init));
+      const authorizedUser = await candidate.user();
+      if (authorizedUser.login.toLowerCase() !== flow.expectedLogin?.toLowerCase()) { pending = null; throw new Error('授权的 GitHub 账号与当前账号不一致，项目没有删除。'); }
+      oneTimeDeletion = { token: result.access_token, expiresAt: Date.now() + Math.min((result.expires_in ?? 600) * 1000, 600_000), target: flow.deletionTarget! };
+      pending = null;
+      return { state: 'complete', user: authorizedUser };
+    }
+    await saveCredential({ clientId: flow.clientId, accessToken: result.access_token, refreshToken: result.refresh_token, expiresAt: result.expires_in ? Date.now() + result.expires_in * 1000 : undefined, scopes });
     pending = null;
     return { state: 'complete', user: await client.user() };
   } finally { polling = false; }
 }
 
-export function cancelDeviceLogin(): void { pending = null; }
+export function cancelDeviceLogin(): void { pending = null; oneTimeDeletion = null; }
 export function cancelGithubReads(): void { for (const controller of readControllers) controller.abort(); }
-export async function logout(): Promise<void> { pending = null; await vault.deleteCredential(); credential = null; }
+export async function logout(): Promise<void> { pending = null; oneTimeDeletion = null; await vault.deleteCredential(); credential = null; }
 
 export async function githubAction(action: unknown, args: unknown[]): Promise<unknown> {
   if (typeof action !== 'string' || !Array.isArray(args) || args.length > 4) invalid();
@@ -179,10 +202,25 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
   const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'comments', 'pullRequests', 'pullRequest', 'pullFiles', 'pullReviewContext', 'commits', 'commit', 'releases'].includes(action) ? new AbortController() : null;
   if (controller) readControllers.add(controller);
   try {
-    const assertAdmin = async (ownerName: string, repoName: string): Promise<void> => {
+    const assertAdmin = async (ownerName: string, repoName: string): Promise<GitHubRepo> => {
       const [remote, identity] = await Promise.all([client.repo(ownerName, repoName), gitHubIdentity()]);
       if (!remote.permissions?.admin && remote.owner.login.toLowerCase() !== identity.user.login.toLowerCase()) {
         throw new Error('你没有这个项目的管理权限。');
+      }
+      return remote;
+    };
+    const protectionState = async (remote: GitHubRepo): Promise<{ branch: string; enabled: boolean; externalRules: boolean; reviewsRequired: number | null }> => {
+      if (!validBranch(remote.default_branch)) throw new DangerOperationError('无法识别项目的默认分支。');
+      const branch = await client.branch(remote.owner.login, remote.name, remote.default_branch);
+      try {
+        const protection = await client.branchProtection(remote.owner.login, remote.name, remote.default_branch);
+        return { branch: remote.default_branch, enabled: true, externalRules: false,
+          reviewsRequired: protection.required_pull_request_reviews?.required_approving_review_count ?? null };
+      } catch (error) {
+        if (error instanceof GitHubError && error.status === 404) {
+          return { branch: remote.default_branch, enabled: false, externalRules: branch.protected, reviewsRequired: null };
+        }
+        throw error;
       }
     };
     switch (action) {
@@ -254,6 +292,39 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       case 'updateVisibility': if (validRepoPart(owner) && validRepoPart(repo) && typeof third === 'boolean') { await assertAdmin(owner, repo); return await client.updateVisibility(owner, repo, third); } invalid();
       case 'setArchived': if (validRepoPart(owner) && validRepoPart(repo) && typeof third === 'boolean') { await assertAdmin(owner, repo); return await client.setArchived(owner, repo, third); } invalid();
       case 'transferRepo': if (validRepoPart(owner) && validRepoPart(repo) && validRepoPart(third)) { await assertAdmin(owner, repo); return await client.transferRepo(owner, repo, third); } invalid();
+      case 'branchProtectionStatus': if (validRepoPart(owner) && validRepoPart(repo)) return await protectionState(await assertAdmin(owner, repo)); invalid();
+      case 'setDefaultBranchProtection': {
+        if (!validRepoPart(owner) || !validRepoPart(repo) || typeof third !== 'object' || third === null || Array.isArray(third)) invalid();
+        const input = third as Record<string, unknown>;
+        if (!validBranch(input.expectedBranch) || typeof input.expectedEnabled !== 'boolean' || typeof input.enable !== 'boolean' ||
+            input.enable === input.expectedEnabled || input.confirmation !== `${owner}/${repo}`) invalid();
+        const remote = await assertAdmin(owner, repo);
+        if (remote.archived) throw new DangerOperationError('这个项目已存档，请先取消存档。');
+        if (remote.default_branch !== input.expectedBranch) throw new DangerOperationError('默认分支已改变，请刷新后重试。');
+        const current = await protectionState(remote);
+        if (current.externalRules) throw new DangerOperationError('默认分支受其他规则保护，EasyHub 不会覆盖这些规则。');
+        if (current.enabled !== input.expectedEnabled) throw new DangerOperationError('保护规则已变化，请刷新后重试。');
+        if (input.enable) await client.createBasicBranchProtection(owner, repo, current.branch);
+        else await client.deleteBranchProtection(owner, repo, current.branch);
+        return await protectionState(remote);
+      }
+      case 'deleteRepoScope': {
+        if (!validRepoPart(owner) || !validRepoPart(repo) || !Number.isSafeInteger(third) || Number(third) <= 0) invalid();
+        return Boolean(oneTimeDeletion && oneTimeDeletion.expiresAt > Date.now() && oneTimeDeletion.target.id === third &&
+          oneTimeDeletion.target.owner === owner && oneTimeDeletion.target.repo === repo);
+      }
+      case 'deleteRepo': {
+        if (!validRepoPart(owner) || !validRepoPart(repo) || !Number.isSafeInteger(third) || Number(third) <= 0 || fourth !== `${owner}/${repo}`) invalid();
+        const remote = await assertAdmin(owner, repo);
+        if (remote.id !== third || remote.full_name !== fourth) throw new DangerOperationError('项目信息已变化，请刷新后重试。');
+        const temporary = oneTimeDeletion && oneTimeDeletion.expiresAt > Date.now() && oneTimeDeletion.target.id === third &&
+          oneTimeDeletion.target.owner === owner && oneTimeDeletion.target.repo === repo ? oneTimeDeletion : null;
+        if (!temporary) throw new DangerOperationError('删除项目前需要单独授权。');
+        oneTimeDeletion = null;
+        const deletionClient = new GitHubClient(async () => temporary.token, (input, init) => net.fetch(String(input), init));
+        await deletionClient.deleteRepository(owner, repo);
+        return { deleted: true, id: remote.id };
+      }
       case 'readme': if (validRepoPart(owner) && validRepoPart(repo)) return await client.readme(owner, repo, controller?.signal); break;
       case 'issues': if (validRepoPart(owner) && validRepoPart(repo) && (third === 'open' || third === 'closed' || third === 'all')) return await client.issues(owner, repo, third, controller?.signal); break;
       case 'issuesPage': if (validRepoPart(owner) && validRepoPart(repo) && (third === 'open' || third === 'closed' || third === 'all') && Number.isInteger(fourth) && Number(fourth) >= 1 && Number(fourth) <= 10000) return await client.issuePage(owner, repo, third, Number(fourth), controller?.signal); break;
@@ -311,7 +382,7 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
     }
     invalid();
   } catch (error) {
-    if (error instanceof PullRequestOperationError) throw error;
+    if (error instanceof PullRequestOperationError || error instanceof DangerOperationError) throw error;
     if ((action === 'acceptPullRequest' || action === 'rejectPullRequest') && error instanceof GitHubError) {
       if (error.status === 409) throw new Error(staleRequestMessage);
       if (error.status === 405) throw new Error('GitHub 暂时不允许合入，请先满足项目的检查和审批要求。');

@@ -15,11 +15,18 @@ export function AiSettingsPanel({ disabled = false, language = readLanguage() }:
   const [busy, setBusy] = useState<'save' | 'test' | 'remove' | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [expanded, setExpanded] = useState(false);
   const mounted = useRef(false);
   const t = (zh: string, en: string): string => language === 'en' ? en : zh;
   const locked = disabled || loading || busy !== null;
   const edited = saved !== null && (providerId !== saved.providerId || model.trim() !== saved.model || apiKey.length > 0);
   const changedProvider = saved !== null && providerId !== saved.providerId;
+  const modelChoices = [...new Set([saved?.model, aiProvider(saved?.providerId)?.defaultModel].filter((value): value is string => Boolean(value)))];
+
+  function toggleExpanded(): void {
+    if (expanded && saved) { setProviderId(saved.providerId); setModel(saved.model); setApiKey(''); setError(''); setNotice(''); }
+    setExpanded((value) => !value);
+  }
 
   useEffect(() => {
     mounted.current = true;
@@ -34,14 +41,14 @@ export function AiSettingsPanel({ disabled = false, language = readLanguage() }:
     return () => { active = false; mounted.current = false; };
   }, [disabled, language]);
 
-  async function act(action: 'save' | 'test' | 'remove'): Promise<void> {
+  async function act(action: 'save' | 'test' | 'remove', selectedModel = model): Promise<void> {
     if (!window.easyHub || locked) return;
     setBusy(action); setError(''); setNotice('');
     try {
       if (action === 'save') {
-        if (!model.trim()) throw new Error(t('请输入服务商提供的模型名称。', 'Enter the model name provided by your service.'));
+        if (!selectedModel.trim()) throw new Error(t('请输入服务商提供的模型名称。', 'Enter the model name provided by your service.'));
         if (changedProvider && !apiKey.trim()) throw new Error(t('更换服务商后，请输入对应服务的 API Key。', 'Enter the new provider’s API key when changing providers.'));
-        await window.easyHub.aiSaveSettings({ providerId, model: model.trim(), ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}) });
+        await window.easyHub.aiSaveSettings({ providerId, model: selectedModel.trim(), ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}) });
         if (mounted.current) setApiKey('');
       } else if (action === 'test') {
         await window.easyHub.aiTestConnection();
@@ -52,7 +59,8 @@ export function AiSettingsPanel({ disabled = false, language = readLanguage() }:
       const result = await window.easyHub.aiSettings();
       if (!mounted.current) return;
       setSaved(result);
-      if (action === 'save') { setProviderId(result.providerId); setModel(result.model); }
+      if (action === 'save') { setProviderId(result.providerId); setModel(result.model); setExpanded(false); }
+      if (action === 'remove') setExpanded(false);
       setNotice(action === 'save' ? t('AI 设置已保存。', 'AI settings saved.') : action === 'test' ? t('连接成功，可以开始 AI 审查。', 'Connected. AI review is ready.') : t('已移除保存的 API Key。', 'Saved API key removed.'));
     } catch (cause) {
       if (!mounted.current) return;
@@ -64,7 +72,11 @@ export function AiSettingsPanel({ disabled = false, language = readLanguage() }:
   return <section className="panel settings-panel ai-settings-panel" aria-labelledby="ai-settings-heading">
     <div className="settings-icon blue"><KeyRound size={21} /></div>
     <div className="ai-settings-content">
-      <h2 id="ai-settings-heading">{t('AI API 授权', 'AI API Access')}</h2>
+      <div className="ai-settings-summary"><button type="button" className="ai-settings-toggle" aria-expanded={expanded} aria-controls="ai-settings-details" onClick={toggleExpanded}><span><h2 id="ai-settings-heading">{t('AI API 授权', 'AI API Access')}</h2><small>{loading ? t('正在读取设置…', 'Loading settings…') : saved?.hasApiKey ? t('已连接 · 点击管理授权', 'Connected · manage access') : t('点击设置 AI 服务', 'Set up an AI provider')}</small></span><ChevronDown size={19} className={expanded ? 'expanded' : ''} /></button>
+        {!expanded && saved?.hasApiKey && <label className="ai-compact-model"><span>{t('模型选择', 'Model')}</span><select aria-label={t('模型选择', 'Model')} value={saved.model} disabled={locked} onChange={(event) => { setModel(event.target.value); void act('save', event.target.value); }}>{modelChoices.map((choice) => <option key={choice} value={choice}>{choice}</option>)}</select></label>}
+      </div>
+      {!expanded && error && <p className="live-error" role="alert">{error}</p>}
+      <div id="ai-settings-details" hidden={!expanded}>
       <p>{t('选择 AI 服务商，填写你自己的 API Key，即可审查改进请求。', 'Choose an AI provider and enter your own API key to review proposed changes.')}</p>
       {disabled ? <p className="ai-settings-note">{t('演示版中不保存密钥。请使用正式版连接你的 AI 服务。', 'The demo does not store keys. Use the full edition to connect your AI service.')}</p> : <p className="ai-settings-note">{t('密钥保存在这台电脑的安全存储中。每次审查前，你都可以确认将发送的内容和服务地址。', 'Your key is kept in this computer’s secure storage. Before each review, you can confirm the content and service address.')}</p>}
       <form onSubmit={(event) => { event.preventDefault(); void act('save'); }}>
@@ -83,6 +95,7 @@ export function AiSettingsPanel({ disabled = false, language = readLanguage() }:
         <p className="ai-settings-note">{t('测试连接与审查可能产生服务商费用。', 'Connection tests and reviews may incur charges from your provider.')}</p>
         {edited && <p className="ai-settings-note">{t('保存修改后即可测试连接。', 'Save your changes before testing the connection.')}</p>}
       </form>
+      </div>
     </div>
   </section>;
 }

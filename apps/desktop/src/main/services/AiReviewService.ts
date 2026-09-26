@@ -1,5 +1,5 @@
 import type { AiReviewFinding, AiReviewProgress, AiReviewRequest, AiReviewResult, AiSettingsInput, AiSettingsStatus } from '@easyhub/types';
-import type { GitHubPullFile, GitHubPullRequest } from '@easyhub/github';
+import { isEmptyAddedPullFile, type GitHubPullFile, type GitHubPullRequest } from '@easyhub/github';
 import { AI_PROVIDERS, aiProvider, aiProviderForBaseUrl } from '../../shared/aiProviders';
 
 export interface AiCredentials { baseUrl: string; model: string; apiKey: string }
@@ -201,7 +201,13 @@ export class AiReviewService {
       if (missing) limitations.push(en ? `${missing} files have no reviewable text diff (such as images, binary files, or oversized changes).` : `${missing} 个文件没有可供审查的文字差异（可能是图片、二进制文件或过大的修改）。`);
       if (partial) limitations.push(en ? 'This change is large, so only part of it was reviewed.' : '修改内容较多，本次只审查了部分内容。');
       if (context.filesTruncated) limitations.push(en ? 'GitHub could not provide all files in this request; some were not reviewed.' : '这个请求的文件数量超出了 GitHub 可提供的范围，部分文件未被审查。');
-      if (!batches.length) throw new Error('这些文件没有可供 AI 审查的文字修改，可以先下载文件自行检查。');
+      if (!batches.length) {
+        const empty = context.files.filter(isEmptyAddedPullFile);
+        const summary = empty.length === 1 && context.files.length === 1
+          ? en ? `${empty[0]!.filename} is a newly added empty file. There is no code to review.` : `${empty[0]!.filename} 是新建的空文件，没有代码内容可供审查。`
+          : en ? 'These files have no text changes available for AI review.' : '这些文件没有可供 AI 审查的文字修改。';
+        return { headSha: input.headSha, summary, findings: [], limitations, reviewedFiles: 0, totalFiles: context.pullRequest.changed_files ?? context.files.length };
+      }
       const findings: AiReviewFinding[] = [];
       const summaries: string[] = [];
       for (const [index, files] of batches.entries()) {

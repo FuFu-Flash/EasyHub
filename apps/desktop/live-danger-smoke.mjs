@@ -7,16 +7,27 @@ const packaged = process.argv.includes('--packaged');
 const app = await electron.launch({ executablePath: packaged ? join(process.cwd(), 'release/win-unpacked/EasyHub.exe') : electronPath, args: packaged ? [] : ['.'], cwd: process.cwd() });
 try {
   await app.evaluate(({ ipcMain }) => {
-    const repo = { id: 901, name: 'owned-repo', full_name: 'test-owner/owned-repo', description: 'A sample project', private: false, archived: false, permissions: { admin: true, push: true, pull: true }, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'test-owner' }, open_issues_count: 0 };
+    let repo = { id: 901, name: 'owned-repo', full_name: 'test-owner/owned-repo', description: 'A sample project', private: false, archived: false, permissions: { admin: true, push: true, pull: true }, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'test-owner' }, open_issues_count: 0 };
+    let protectedBranch = false;
+    let deleteAuthorized = false;
+    globalThis.easyhubDangerSmoke = { protectionChanges: [], deletions: [], authorizationStarts: 0 };
     ipcMain.removeHandler('easyhub:auth-status');
     ipcMain.handle('easyhub:auth-status', () => ({ user: { login: 'test-owner', name: 'Owner', avatar_url: '', html_url: '' }, clientId: 'test-client' }));
+    ipcMain.removeHandler('easyhub:auth-start-delete');
+    ipcMain.handle('easyhub:auth-start-delete', () => { globalThis.easyhubDangerSmoke.authorizationStarts += 1; return { userCode: 'ABCD-EFGH', verificationUri: 'https://github.com/login/device', expiresAt: Date.now() + 900000, interval: 5 }; });
+    ipcMain.removeHandler('easyhub:auth-poll');
+    ipcMain.handle('easyhub:auth-poll', () => { deleteAuthorized = true; return { state: 'complete', user: { login: 'test-owner' } }; });
     ipcMain.removeHandler('easyhub:github');
     ipcMain.handle('easyhub:github', (_event, action, ...args) => {
       if (action === 'repos') return [repo];
       if (action === 'readme') return '# Owned repo';
       if (action === 'issues' || action === 'commits') return [];
-      if (action === 'updateVisibility') return { ...repo, private: args[2] };
-      if (action === 'setArchived') return { ...repo, private: true, archived: args[2] };
+      if (action === 'updateVisibility') return repo = { ...repo, private: args[2] };
+      if (action === 'setArchived') return repo = { ...repo, archived: args[2] };
+      if (action === 'branchProtectionStatus') return { branch: 'main', enabled: protectedBranch, externalRules: false, reviewsRequired: protectedBranch ? 1 : null };
+      if (action === 'setDefaultBranchProtection') { globalThis.easyhubDangerSmoke.protectionChanges.push(args[2]); protectedBranch = args[2].enable; return { branch: 'main', enabled: protectedBranch, externalRules: false, reviewsRequired: protectedBranch ? 1 : null }; }
+      if (action === 'deleteRepoScope') return deleteAuthorized;
+      if (action === 'deleteRepo') { globalThis.easyhubDangerSmoke.deletions.push(args); return { deleted: true, id: repo.id }; }
       throw new Error(`Unexpected action: ${action}`);
     });
     ipcMain.removeHandler('easyhub:choose-folder');
@@ -47,11 +58,33 @@ try {
   const dialog = page.getByRole('dialog', { name: '变更项目可见性' });
   await dialog.getByRole('textbox', { name: '确认项目名称' }).fill('owned-repo');
   await dialog.getByRole('button', { name: '改变可见性' }).click();
-  await danger.getByText('这个项目目前只有你能看到。').waitFor();
+  await danger.getByText('这个项目目前只有获得授权的人能看到。').waitFor();
   await danger.getByRole('button', { name: '存档此项目' }).click();
   await page.getByRole('dialog', { name: '存档此项目' }).getByRole('textbox', { name: '确认项目名称' }).fill('owned-repo');
   await page.getByRole('dialog', { name: '存档此项目' }).getByRole('button', { name: '存档此项目' }).click();
   await danger.getByRole('button', { name: '取消存档' }).waitFor();
+  await danger.getByRole('button', { name: '取消存档' }).click();
+  await page.getByRole('dialog', { name: '取消项目存档' }).getByRole('textbox', { name: '确认项目名称' }).fill('owned-repo');
+  await page.getByRole('dialog', { name: '取消项目存档' }).getByRole('button', { name: '取消存档' }).click();
+  await danger.getByRole('button', { name: '管理规则' }).click();
+  const rules = page.getByRole('dialog', { name: '分支保护规则' });
+  await rules.getByText(/还没有旧版保护规则/).waitFor();
+  await rules.getByRole('textbox', { name: '确认项目名称' }).fill('test-owner/owned-repo');
+  await rules.getByRole('button', { name: '开启默认分支保护' }).click();
+  await danger.getByRole('button', { name: '管理规则' }).click();
+  await rules.getByText(/已启用保护/).waitFor();
+  await rules.getByRole('textbox', { name: '确认项目名称' }).fill('test-owner/owned-repo');
+  await rules.getByRole('button', { name: '移除默认分支保护' }).click();
+  assert.deepEqual((await app.evaluate(() => globalThis.easyhubDangerSmoke.protectionChanges)).map((item) => item.enable), [true, false]);
+  await danger.getByRole('button', { name: '删除此项目' }).click();
+  const removal = page.getByRole('dialog', { name: '删除此项目' });
+  await removal.getByRole('textbox', { name: '确认项目名称' }).fill('test-owner/owned-repo');
+  await removal.getByRole('button', { name: '授权删除权限' }).click();
+  await removal.getByText('ABCD-EFGH').waitFor();
+  assert.equal(await app.evaluate(() => globalThis.easyhubDangerSmoke.deletions.length), 0);
+  await removal.getByRole('button', { name: '删除此项目' }).waitFor({ state: 'visible', timeout: 10000 });
+  await removal.getByRole('button', { name: '删除此项目' }).click();
+  assert.deepEqual(await app.evaluate(() => globalThis.easyhubDangerSmoke.deletions), [['test-owner', 'owned-repo', 901, 'test-owner/owned-repo']]);
   process.stdout.write('Live danger zone and new project options smoke test passed.\n');
 } finally {
   await app.close();

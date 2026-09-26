@@ -62,6 +62,109 @@ describe('GitHub device authorization', () => {
     expect(requests.every((request) => request.method === 'GET')).toBe(true);
   });
 
+  it('reads current protection and changes only the confirmed default branch rule', async () => {
+    vi.resetModules();
+    vault.password = JSON.stringify({ clientId: 'Ov23lixRW8K0uXzZqwMj', accessToken: 'test-token' });
+    let protectedBranch = false;
+    const mutations: Array<{ method: string; url: string; body?: string }> = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input); const method = init?.method ?? 'GET';
+      if (method !== 'GET') mutations.push({ method, url, body: init?.body as string | undefined });
+      if (url.endsWith('/user')) return Response.json({ login: 'owner' });
+      if (url.endsWith('/repos/owner/app')) return Response.json({ id: 91, name: 'app', full_name: 'owner/app', default_branch: 'main', archived: false, owner: { login: 'owner' }, permissions: { admin: true } });
+      if (url.endsWith('/branches/main')) return Response.json({ name: 'main', protected: protectedBranch });
+      if (url.endsWith('/branches/main/protection')) {
+        if (method === 'PUT') { protectedBranch = true; return Response.json({ required_pull_request_reviews: { required_approving_review_count: 1 } }); }
+        if (method === 'DELETE') { protectedBranch = false; return new Response(null, { status: 204 }); }
+        return protectedBranch ? Response.json({ required_pull_request_reviews: { required_approving_review_count: 1 } }) : Response.json({ message: 'Not Found' }, { status: 404 });
+      }
+      throw new Error(`Unexpected request: ${method} ${url}`);
+    }));
+    const service = await import('./githubService');
+    expect(await service.githubAction('branchProtectionStatus', ['owner', 'app'])).toMatchObject({ branch: 'main', enabled: false, externalRules: false });
+    await expect(service.githubAction('setDefaultBranchProtection', ['owner', 'app', { expectedBranch: 'other', expectedEnabled: false, enable: true, confirmation: 'owner/app' }])).rejects.toThrow();
+    expect(mutations).toHaveLength(0);
+    expect(await service.githubAction('setDefaultBranchProtection', ['owner', 'app', { expectedBranch: 'main', expectedEnabled: false, enable: true, confirmation: 'owner/app' }])).toMatchObject({ enabled: true });
+    expect(await service.githubAction('setDefaultBranchProtection', ['owner', 'app', { expectedBranch: 'main', expectedEnabled: true, enable: false, confirmation: 'owner/app' }])).toMatchObject({ enabled: false });
+    expect(mutations.map((item) => item.method)).toEqual(['PUT', 'DELETE']);
+    expect(JSON.parse(mutations[0]!.body!)).toMatchObject({ required_pull_request_reviews: { required_approving_review_count: 1 } });
+  });
+
+  it('refuses to overwrite protection from other GitHub rules', async () => {
+    vi.resetModules();
+    vault.password = JSON.stringify({ clientId: 'Ov23lixRW8K0uXzZqwMj', accessToken: 'test-token' });
+    const mutations: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input); const method = init?.method ?? 'GET';
+      if (method !== 'GET') mutations.push(url);
+      if (url.endsWith('/user')) return Response.json({ login: 'owner' });
+      if (url.endsWith('/repos/owner/app')) return Response.json({ id: 91, name: 'app', full_name: 'owner/app', default_branch: 'main', owner: { login: 'owner' }, permissions: { admin: true } });
+      if (url.endsWith('/branches/main')) return Response.json({ name: 'main', protected: true });
+      if (url.endsWith('/branches/main/protection')) return Response.json({ message: 'Not Found' }, { status: 404 });
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+    const service = await import('./githubService');
+    expect(await service.githubAction('branchProtectionStatus', ['owner', 'app'])).toMatchObject({ enabled: false, externalRules: true });
+    await expect(service.githubAction('setDefaultBranchProtection', ['owner', 'app', { expectedBranch: 'main', expectedEnabled: false, enable: true, confirmation: 'owner/app' }])).rejects.toThrow();
+    expect(mutations).toHaveLength(0);
+  });
+
+  it('requires delete scope, current repository ID and exact full name before deletion', async () => {
+    vi.resetModules();
+    vault.password = JSON.stringify({ clientId: 'Ov23lixRW8K0uXzZqwMj', accessToken: 'test-token' });
+    const methods: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input); const method = init?.method ?? 'GET'; methods.push(method);
+      if (url.endsWith('/user')) return Response.json({ login: 'owner' });
+      if (url.endsWith('/repos/owner/app')) return method === 'DELETE' ? new Response(null, { status: 204 }) : Response.json({ id: 91, name: 'app', full_name: 'owner/app', owner: { login: 'owner' }, permissions: { admin: true } });
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+    const service = await import('./githubService');
+    expect(await service.githubAction('deleteRepoScope', ['owner', 'app', 91])).toBe(false);
+    await expect(service.githubAction('deleteRepo', ['owner', 'app', 91, 'owner/app'])).rejects.toThrow('删除项目前需要单独授权');
+    expect(methods).not.toContain('DELETE');
+    vault.password = JSON.stringify({ clientId: 'Ov23lixRW8K0uXzZqwMj', accessToken: 'test-token', scopes: ['repo', 'delete_repo'] });
+    vi.resetModules();
+    const elevated = await import('./githubService');
+    await expect(elevated.githubAction('deleteRepo', ['owner', 'app', 92, 'owner/app'])).rejects.toThrow('项目信息已变化');
+    await expect(elevated.githubAction('deleteRepo', ['owner', 'app', 91, 'owner/wrong'])).rejects.toThrow();
+    expect(methods).not.toContain('DELETE');
+    await expect(elevated.githubAction('deleteRepo', ['owner', 'app', 91, 'owner/app'])).rejects.toThrow('删除项目前需要单独授权');
+    expect(methods).not.toContain('DELETE');
+  });
+
+  it('adds delete permission only after a separate device authorization by the same account', async () => {
+    vi.resetModules();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-27T00:00:00Z'));
+    vault.password = JSON.stringify({ clientId: 'Ov23lixRW8K0uXzZqwMj', accessToken: 'regular-token' });
+    let elevatedLogin = 'someone-else';
+    const requests: Array<{ url: string; body?: string }> = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input); const body = init?.body?.toString(); requests.push({ url, body });
+      if (url.endsWith('/login/device/code')) return Response.json({ device_code: 'private-device-code', user_code: 'ABCD-EFGH', verification_uri: 'https://github.com/login/device', expires_in: 900, interval: 5 });
+      if (url.endsWith('/login/oauth/access_token')) return Response.json({ access_token: 'elevated-token', scope: 'repo,read:user,delete_repo' });
+      if (url.endsWith('/user')) return Response.json({ login: (init?.headers as Record<string, string>)?.Authorization === 'Bearer elevated-token' ? elevatedLogin : 'owner' });
+      if (url.endsWith('/repos/owner/app')) return init?.method === 'DELETE' ? new Response(null, { status: 204 }) : Response.json({ id: 91, name: 'app', full_name: 'owner/app', owner: { login: 'owner' }, permissions: { admin: true } });
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+    const service = await import('./githubService');
+    await service.startDeviceLogin('Ov23lixRW8K0uXzZqwMj', true, { owner: 'owner', repo: 'app', id: 91 });
+    expect(requests.find((item) => item.url.endsWith('/login/device/code'))?.body).toContain('delete_repo');
+    await expect(service.pollDeviceLogin()).rejects.toThrow('账号与当前账号不一致');
+    expect(vault.password).toContain('regular-token');
+    elevatedLogin = 'owner';
+    await service.startDeviceLogin('Ov23lixRW8K0uXzZqwMj', true, { owner: 'owner', repo: 'app', id: 91 });
+    vi.advanceTimersByTime(5_000);
+    expect(await service.pollDeviceLogin()).toMatchObject({ state: 'complete', user: { login: 'owner' } });
+    expect(vault.password).toContain('regular-token');
+    expect(await service.githubAction('deleteRepoScope', ['owner', 'app', 91])).toBe(true);
+    expect(await service.githubAction('deleteRepoScope', ['owner', 'other', 91])).toBe(false);
+    expect(await service.githubAction('deleteRepo', ['owner', 'app', 91, 'owner/app'])).toEqual({ deleted: true, id: 91 });
+    expect(await service.githubAction('deleteRepoScope', ['owner', 'app', 91])).toBe(false);
+    expect(vault.password).not.toContain('elevated-token');
+  });
+
   it('validates pull request sources before sending them to GitHub', async () => {
     vi.resetModules();
     vault.password = JSON.stringify({ clientId: 'Ov23lixRW8K0uXzZqwMj', accessToken: 'test-token' });

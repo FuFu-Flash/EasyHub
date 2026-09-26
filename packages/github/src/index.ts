@@ -3,6 +3,8 @@ export type Transport = (input: string | URL, init?: RequestInit) => Promise<Res
 export interface GitHubUser { id?: number; login: string; name: string | null; avatar_url: string; html_url: string; bio?: string | null; company?: string | null; location?: string | null; followers?: number; following?: number; public_repos?: number; created_at?: string }
 export interface GitHubSearchUser { id: number; login: string; avatar_url: string; html_url: string; type: string }
 export interface GitHubRepo { id: number; name: string; full_name: string; html_url?: string; description: string | null; private: boolean; fork?: boolean; parent?: { id: number; full_name: string; default_branch: string; html_url: string; owner: { login: string }; name: string }; allow_forking?: boolean; allow_merge_commit?: boolean; allow_squash_merge?: boolean; allow_rebase_merge?: boolean; archived?: boolean; permissions?: { admin: boolean; push: boolean; pull: boolean }; updated_at: string; pushed_at?: string | null; created_at?: string; stargazers_count?: number; language?: string | null; default_branch: string; owner: { login: string; avatar_url?: string }; open_issues_count: number }
+export interface GitHubBranchProtection { required_status_checks: unknown | null; required_pull_request_reviews: { required_approving_review_count?: number } | null; enforce_admins: { enabled: boolean } | null }
+export interface GitHubBranch { name: string; protected: boolean }
 export interface GitHubComparison { status: string; ahead_by: number; behind_by: number; total_commits: number; files?: GitHubPullFile[] }
 export interface GitHubForkComparison extends GitHubComparison { openRequest: GitHubPullRequest | null }
 export type TrendingPeriod = 'today' | 'week' | 'month';
@@ -14,6 +16,9 @@ export interface GitHubIssuePage { items: GitHubIssue[]; nextPage: number | null
 export interface GitHubPullRepository { id: number; name: string; full_name: string; owner: { login: string } }
 export interface GitHubPullRequest { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; draft: boolean; merged: boolean; merged_at: string | null; created_at: string; html_url: string; user: { login: string } | null; comments: number; changed_files?: number; additions?: number; deletions?: number; mergeable?: boolean | null; mergeable_state?: string; head: { ref: string; label: string; sha?: string; repo?: GitHubPullRepository | null }; base: { ref: string; sha?: string; repo?: GitHubPullRepository | null } }
 export interface GitHubPullFile { filename: string; status: string; additions: number; deletions: number; sha?: string; previous_filename?: string; patch?: string }
+export function isEmptyAddedPullFile(file: GitHubPullFile): boolean {
+  return file.status === 'added' && file.sha === 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391';
+}
 export interface GitHubMergeResult { merged: boolean; sha: string; message: string }
 export interface GitHubComment { id: number; body: string; created_at: string; user: { login: string } | null }
 export interface GitHubCommit { sha: string; commit: { message: string; author: { name: string; date: string } | null }; author: { login: string } | null; stats?: { additions: number; deletions: number }; files?: { filename: string; status: string }[] }
@@ -121,6 +126,24 @@ export class GitHubClient {
   transferRepo(owner: string, repo: string, newOwner: string): Promise<GitHubRepo> {
     return this.request(`${repoPath(owner, repo)}/transfer`, { method: 'POST', body: JSON.stringify({ new_owner: newOwner }) });
   }
+  branch(owner: string, repo: string, branch: string): Promise<GitHubBranch> {
+    return this.request(`${repoPath(owner, repo)}/branches/${encodePart(branch)}`);
+  }
+  branchProtection(owner: string, repo: string, branch: string): Promise<GitHubBranchProtection> {
+    return this.request(`${repoPath(owner, repo)}/branches/${encodePart(branch)}/protection`);
+  }
+  createBasicBranchProtection(owner: string, repo: string, branch: string): Promise<GitHubBranchProtection> {
+    return this.request(`${repoPath(owner, repo)}/branches/${encodePart(branch)}/protection`, {
+      method: 'PUT', body: JSON.stringify({ required_status_checks: null, enforce_admins: false,
+        required_pull_request_reviews: { required_approving_review_count: 1 }, restrictions: null }),
+    });
+  }
+  deleteBranchProtection(owner: string, repo: string, branch: string): Promise<void> {
+    return this.request(`${repoPath(owner, repo)}/branches/${encodePart(branch)}/protection`, { method: 'DELETE' });
+  }
+  deleteRepository(owner: string, repo: string): Promise<void> {
+    return this.request(repoPath(owner, repo), { method: 'DELETE' });
+  }
   createRepo(name: string, description: string, isPrivate: boolean, autoInit = true): Promise<GitHubRepo> {
     return this.request('/user/repos', { method: 'POST', body: JSON.stringify({ name, description, private: isPrivate, auto_init: autoInit }) });
   }
@@ -197,14 +220,18 @@ export class GitHubClient {
   commits(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubCommit[]> { return this.request(`${repoPath(owner, repo)}/commits?per_page=100`, { signal }); }
   commit(owner: string, repo: string, sha: string, signal?: AbortSignal): Promise<GitHubCommit> { return this.request(`${repoPath(owner, repo)}/commits/${encodePart(sha)}`, { signal }); }
   releases(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubRelease[]> { return this.request(`${repoPath(owner, repo)}/releases?per_page=30`, { signal, cache: 'no-store' }); }
+  release(owner: string, repo: string, id: number, signal?: AbortSignal): Promise<GitHubCreatedRelease> { return this.request(`${repoPath(owner, repo)}/releases/${id}`, { signal, cache: 'no-store' }); }
   createRelease(owner: string, repo: string, input: { tagName: string; target: string; name: string; body: string; prerelease: boolean }, signal?: AbortSignal): Promise<GitHubCreatedRelease> {
     return this.request(`${repoPath(owner, repo)}/releases`, { method: 'POST', body: JSON.stringify({ tag_name: input.tagName, target_commitish: input.target, name: input.name, body: input.body, draft: true, prerelease: input.prerelease }), signal });
   }
-  updateRelease(owner: string, repo: string, id: number, input: { body: string; draft: boolean }, signal?: AbortSignal): Promise<GitHubCreatedRelease> {
+  updateRelease(owner: string, repo: string, id: number, input: { name?: string; body?: string; draft?: boolean; prerelease?: boolean }, signal?: AbortSignal): Promise<GitHubCreatedRelease> {
     return this.request(`${repoPath(owner, repo)}/releases/${id}`, { method: 'PATCH', body: JSON.stringify(input), signal });
   }
   deleteRelease(owner: string, repo: string, id: number): Promise<void> {
     return this.request(`${repoPath(owner, repo)}/releases/${id}`, { method: 'DELETE' });
+  }
+  deleteReleaseAsset(owner: string, repo: string, id: number): Promise<void> {
+    return this.request(`${repoPath(owner, repo)}/releases/assets/${id}`, { method: 'DELETE' });
   }
   releaseAsset(owner: string, repo: string, id: number, signal?: AbortSignal): Promise<GitHubReleaseAsset> { return this.request(`${repoPath(owner, repo)}/releases/assets/${id}`, { signal }); }
   async downloadReleaseAsset(owner: string, repo: string, id: number, signal?: AbortSignal): Promise<Response> {

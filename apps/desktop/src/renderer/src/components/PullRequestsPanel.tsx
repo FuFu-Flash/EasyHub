@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { GitHubComment, GitHubPullFile, GitHubPullRequest, GitHubRepo } from '@easyhub/github';
+import { isEmptyAddedPullFile, type GitHubComment, type GitHubPullFile, type GitHubPullRequest, type GitHubRepo } from '@easyhub/github';
 import type { AiReviewProgress, AiReviewResult, AiSettingsStatus } from '@easyhub/types';
 import { ArrowLeft, ArrowRight, Check, Download, GitPullRequest, Plus, RotateCw, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { TranslatableContent } from './TranslatableContent';
@@ -176,7 +176,16 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   }
 
   async function prepareAiReview(): Promise<void> {
-    if (!selected || !hasRevision || !snapshotReady || aiRequestId.current || aiPreparing || busy) return;
+    if (!selected?.head.sha || !snapshotReady || aiRequestId.current || aiPreparing || busy) return;
+    if (!filesTruncated && files.length > 0 && files.every((file) => !file.patch)) {
+      const empty = files.filter(isEmptyAddedPullFile);
+      const summary = empty.length === 1 && files.length === 1
+        ? t(`${empty[0]!.filename} 是新建的空文件，没有代码内容可供审查。`, `${empty[0]!.filename} is a newly added empty file. There is no code to review.`)
+        : t('这些文件没有可供 AI 审查的文字修改。', 'These files have no text changes available for AI review.');
+      setAiError('');
+      setAiReview({ headSha: selected.head.sha, summary, findings: [], limitations: [t('没有检查文件内容。', 'File contents were not reviewed.')], reviewedFiles: 0, totalFiles: selected.changed_files ?? files.length });
+      return;
+    }
     const version = viewVersion.current;
     setAiPreparing(true); setAiError('');
     try {
@@ -246,7 +255,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
         <div className="pull-files">
           <div className="pull-files-heading"><h3>修改的文件 {selected.changed_files ?? files.length}</h3><button className="button button-quiet" disabled={busy || !snapshotReady || !hasRevision || aiPreparing || aiProgress !== null} onClick={() => void prepareAiReview()}>{aiPreparing ? <RotateCw size={16} className="live-spin" /> : <Sparkles size={16} />}{t('AI 审查', 'AI review')}</button></div>
           {filesTruncated && <p className="ai-settings-note">{t('本次修改的文件较多，GitHub 只返回了部分文件。请在 GitHub 上确认完整修改后再决定是否合入。', 'GitHub returned only part of this large change. Check the full changes on GitHub before deciding whether to merge.')}</p>}
-          {files.map((file) => <div className="live-file pull-download-row" key={file.filename}><span className="pull-file-name" data-content-original>{file.filename}</span><small>+{file.additions} / −{file.deletions}</small><button className="button button-quiet small-button" disabled={file.status === 'removed' || !onDownloadFile || !snapshotReady || !hasRevision || downloadingFile !== null || downloadBusy} onClick={() => void download(file)} aria-label={`${t('下载文件', 'Download file')} ${file.filename}`}>{downloadingFile === file.filename ? <RotateCw size={15} className="live-spin" /> : <Download size={15} />}{file.status === 'removed' ? t('已删除', 'Deleted') : t('下载', 'Download')}</button></div>)}
+          {files.map((file) => <div className="live-file pull-download-row" key={file.filename}><span className="pull-file-name" data-content-original>{file.filename}</span><small>{isEmptyAddedPullFile(file) ? t('新建空文件', 'New empty file') : `+${file.additions} / −${file.deletions}`}</small><button className="button button-quiet small-button" disabled={file.status === 'removed' || !onDownloadFile || !snapshotReady || !hasRevision || downloadingFile !== null || downloadBusy} onClick={() => void download(file)} aria-label={`${t('下载文件', 'Download file')} ${file.filename}`}>{downloadingFile === file.filename ? <RotateCw size={15} className="live-spin" /> : <Download size={15} />}{file.status === 'removed' ? t('已删除', 'Deleted') : t('下载', 'Download')}</button></div>)}
           {!busy && files.length === 0 && <p className="muted">{t('没有可显示的文件修改。', 'There are no file changes to display.')}</p>}
         </div>
         {(aiProgress || aiReview || aiError) && <section className="ai-review-result" aria-label={t('AI 审查结果', 'AI review results')}>

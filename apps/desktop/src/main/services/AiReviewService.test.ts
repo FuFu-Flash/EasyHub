@@ -214,9 +214,22 @@ describe('bounded AI review and cancellation', () => {
     expect(result.limitations.join('\n')).toContain('GitHub');
   });
 
-  it('refuses an AI call when all changes lack reviewable text', async () => {
+  it('explains an added empty file without calling AI or suggesting a download', async () => {
+    const empty = context([{ filename: 'python.py', status: 'added', additions: 0, deletions: 0, sha: 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391' }]);
+    const { service, complete } = setup({ context: empty });
+    const result = await service.review(request, vi.fn());
+    expect(result).toMatchObject({ reviewedFiles: 0, totalFiles: 1 });
+    expect(result.summary).toContain('python.py');
+    expect(result.summary).toContain('空文件');
+    expect(result.summary).not.toContain('下载');
+    expect(complete).not.toHaveBeenCalled();
+  });
+
+  it('reports patchless non-text changes without making an AI call', async () => {
     const { service, complete } = setup({ context: context([{ filename: 'binary.bin', status: 'added', additions: 0, deletions: 0 }]) });
-    await expect(service.review(request, vi.fn())).rejects.toThrow('没有可供 AI 审查的文字修改');
+    const result = await service.review(request, vi.fn());
+    expect(result).toMatchObject({ reviewedFiles: 0, totalFiles: 1, findings: [] });
+    expect(result.summary).toContain('没有可供 AI 审查的文字修改');
     expect(complete).not.toHaveBeenCalled();
   });
 

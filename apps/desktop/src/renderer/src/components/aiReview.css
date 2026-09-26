@@ -1,6 +1,17 @@
 .ai-settings-panel { min-width: 0; align-items: flex-start; }
 .ai-settings-panel .settings-icon { flex: 0 0 45px; }
 .ai-settings-content { flex: 1; min-width: 0; }
+.ai-settings-summary { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.ai-settings-toggle { display: flex; align-items: center; justify-content: space-between; flex: 1 1 210px; min-width: 0; gap: 14px; padding: 0; border: 0; background: transparent; color: #263852; text-align: left; cursor: pointer; }
+.ai-settings-toggle h2 { margin: 0 0 5px; }
+.ai-settings-toggle small { color: #7b8ca3; font-size: 12px; }
+.ai-settings-summary .ai-settings-toggle > svg { flex: none; color: #7186a2; transform: none; transition: transform .2s ease; }
+.ai-settings-summary .ai-settings-toggle > svg.expanded { transform: rotate(180deg); }
+.ai-compact-model { display: flex; align-items: center; gap: 10px; flex: 0 0 310px; min-width: 0; color: #627993; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.ai-compact-model > span { flex: none; }
+.ai-compact-model select { flex: 1; width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid #dce4f1; border-radius: 9px; background: #fff; color: #263852; font: inherit; }
+.ai-compact-model select:focus-visible,.ai-settings-toggle:focus-visible { outline: 3px solid #dce9ff; outline-offset: 3px; }
+.ai-settings-content #ai-settings-details[hidden] { display: none; }
 .ai-settings-content form { margin-top: 20px; }
 .ai-settings-content .field { margin-bottom: 17px; }
 .ai-settings-content .field > span { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
@@ -58,6 +69,10 @@
 .ai-consent-service dt { color: #7a8aa2; }
 .ai-consent-service dd { margin: 0; color: #3a506f; overflow-wrap: anywhere; }
 .ai-consent-modal .ai-private-notice { color: #95631e; background: #fff6e5; border-radius: 9px; padding: 11px 13px; }
+@media (max-width: 1100px) {
+  .ai-settings-summary { flex-wrap: wrap; }
+  .ai-compact-model { flex-basis: 100%; }
+}
 @media (max-width: 700px) {
   .ai-settings-panel { padding: 20px 16px; gap: 12px; }
   .ai-settings-panel .settings-icon { flex-basis: 34px; width: 34px; height: 34px; border-radius: 10px; }

@@ -47,6 +47,9 @@ export interface CreateReleaseInput {
 
 export interface PickedReleaseFile extends ReleaseAsset { previewDataUrl?: string }
 export interface PublishReleaseRequest { owner: string; repo: string; tagName: string; title: string; body: string; channel: ReleaseChannel; assetIds: string[] }
+export interface EditReleaseRequest { owner: string; repo: string; releaseId: number; title: string; body: string; prerelease: boolean }
+export interface AddReleaseAssetsRequest { owner: string; repo: string; releaseId: number; assetIds: string[] }
+export interface RemoveReleaseAssetRequest { owner: string; repo: string; releaseId: number; assetId: number }
 export interface ReleaseProgress { phase: string; loaded: number; total: number; cancelable: boolean }
 
 export interface IssueComment {

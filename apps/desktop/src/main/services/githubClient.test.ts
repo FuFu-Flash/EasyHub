@@ -17,6 +17,11 @@ describe('GitHubClient', () => {
     expect(updateUrl).toBe('https://api.github.com/repos/writer/app/releases/42');
     expect(JSON.parse(updateInit.body as string)).toEqual({ body: 'Final details', draft: false });
     await client.deleteRelease('writer', 'app', 42);
+    await client.release('writer', 'app', 42);
+    await client.deleteReleaseAsset('writer', 'app', 7);
+    const [assetUrl, assetInit] = transport.mock.calls[4] as unknown as [string, RequestInit];
+    expect(assetUrl).toBe('https://api.github.com/repos/writer/app/releases/assets/7');
+    expect(assetInit.method).toBe('DELETE');
   });
   it('sends a token only to the GitHub API and paginates repositories', async () => {
     const transport = vi.fn(async () => Response.json([{ id: 1, name: 'A' }]));
@@ -208,6 +213,28 @@ describe('GitHubClient', () => {
       { url: 'https://api.github.com/repos/owner/sample', method: 'PATCH', body: '{"archived":true}' },
       { url: 'https://api.github.com/repos/owner/sample/transfer', method: 'POST', body: '{"new_owner":"new-owner"}' },
     ]);
+  });
+
+  it('uses the protected-branch and repository deletion endpoints without unrelated settings', async () => {
+    const calls: { url: string; method: string; body?: string }[] = [];
+    const client = new GitHubClient(async () => 'token', async (input, init) => {
+      calls.push({ url: String(input), method: init?.method ?? 'GET', body: init?.body as string | undefined });
+      return init?.method === 'DELETE' ? new Response(null, { status: 204 }) : Response.json({ name: 'main', protected: false });
+    });
+    await client.branch('owner', 'app', 'main');
+    await client.branchProtection('owner', 'app', 'main');
+    await client.createBasicBranchProtection('owner', 'app', 'main');
+    await client.deleteBranchProtection('owner', 'app', 'main');
+    await client.deleteRepository('owner', 'app');
+    expect(calls.map((call) => [call.method, call.url])).toEqual([
+      ['GET', 'https://api.github.com/repos/owner/app/branches/main'],
+      ['GET', 'https://api.github.com/repos/owner/app/branches/main/protection'],
+      ['PUT', 'https://api.github.com/repos/owner/app/branches/main/protection'],
+      ['DELETE', 'https://api.github.com/repos/owner/app/branches/main/protection'],
+      ['DELETE', 'https://api.github.com/repos/owner/app'],
+    ]);
+    expect(JSON.parse(calls[2]!.body!)).toEqual({ required_status_checks: null, enforce_admins: false,
+      required_pull_request_reviews: { required_approving_review_count: 1 }, restrictions: null });
   });
 
   it('lists release choices and downloads a selected asset as binary data', async () => {
