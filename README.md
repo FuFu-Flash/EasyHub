@@ -10,15 +10,15 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 
 [访问 EasyHub 官网](https://fufu-flash.github.io/easyhub-website/) · [查看所有发布版本](https://github.com/FuFu-Flash/EasyHub/releases)
 
-**目前提供 Windows 版 1.0.2。** Android 和 iOS 版尚未推出。
+**目前提供 Windows 版 1.1.0。** Android 和 iOS 版尚未推出。
 
 ## 下载 EasyHub
 
 | 版本 | 适合谁 | 下载 |
 | --- | --- | --- |
-| 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.2/EasyHub-1.0.2-setup.exe) |
-| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.2/EasyHub-1.0.2-portable.exe) |
-| 演示版 | 想先体验界面，不连接自己的 GitHub | [下载演示版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.2/EasyHub-1.0.2-demo.exe) |
+| 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.1.0/EasyHub-1.1.0-setup.exe) |
+| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.1.0/EasyHub-1.1.0-portable.exe) |
+| 演示版 | 想先体验界面，不连接自己的 GitHub | [下载演示版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.1.0/EasyHub-1.1.0-demo.exe) |
 
 这三个版本适用于 Windows 64 位电脑。应用尚未使用商业代码签名证书，首次运行时 Windows 可能显示“未知发布者”。演示版使用独立的模拟数据，不会登录 GitHub 或修改真实项目。
 
@@ -39,14 +39,16 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 
 - 查看项目介绍、问题和历史版本；创建、回复、关闭或重新打开问题。
 - 添加已有文件夹，查看新增、修改、删除和重命名的文件，发布尚未保存到 GitHub 的修改。
+- 在“我的项目”选择电脑上的查找位置，识别已连接到自己 GitHub 项目的文件夹，并自动加入这台电脑的项目列表。只检查选择的位置，不修改项目文件。
 - 编辑并预览项目介绍，插入图片链接和网页链接。真实项目的介绍会先保存在本地，点击“发布源码”后才会更新到 GitHub。
 - 查看可下载的版本，选择安装包等附件，或下载某个版本的项目文件。下载通知会显示进度，也可以取消。
 
 **发现别人的作品**
 
-- 搜索公开项目和用户，切换精简或详细视图；最近 10 条搜索记录可随时清除。
+- 搜索公开项目和用户，或粘贴 GitHub 项目地址直接打开项目；可以切换精简或详细视图，最近 10 条搜索记录可随时清除。
 - 浏览“EasyHub 热门”的今日、本周、本月项目，每页 30 个，可翻页查看更多；这个榜单由 EasyHub 排列，**不是 GitHub 官方 Trending**。
-- 在独立的浏览页面查看他人的公开项目。项目文件和设置保持只读，但仍可向作者提出问题或回复问题。
+- 在独立的浏览页面查看他人的公开项目。项目文件和设置保持只读，但仍可向作者提出问题、回复问题和查看改进请求。
+- 想提交代码改进时，可以自动在自己的账号下创建仓库副本，下载到电脑修改并发布源码，再把改进提交给原项目作者审阅。仓库副本会单独列出，并显示它与原项目的关系。
 - 从项目介绍中的版本链接直接进入 EasyHub 的下载页面，选择需要的版本或文件。
 
 **按需翻译**
