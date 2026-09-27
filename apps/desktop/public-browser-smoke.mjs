@@ -7,7 +7,7 @@ const packaged = process.argv.includes('--packaged');
 const app = await electron.launch({ executablePath: packaged ? join(process.cwd(), 'release/win-unpacked/EasyHub.exe') : electronPath, args: packaged ? [] : ['.'], cwd: process.cwd() });
 try {
   await app.evaluate(({ ipcMain }) => {
-    const project = { id: 200, name: 'sample-public', full_name: 'another-author/sample-public', description: 'A public sample', private: false, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'another-author' }, open_issues_count: 1 };
+    const project = { id: 200, name: 'sample-public', full_name: 'another-author/sample-public', description: 'A public sample', private: false, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'another-author', avatar_url: 'https://avatars.githubusercontent.com/u/12345?v=4' }, open_issues_count: 1 };
     const fork = { ...project, id: 300, full_name: 'test-user/sample-public', fork: true, html_url: 'https://github.com/test-user/sample-public', owner: { login: 'test-user' }, parent: { id: 200, full_name: project.full_name, name: project.name, default_branch: 'main', html_url: 'https://github.com/another-author/sample-public', owner: project.owner } };
     globalThis.easyhubCreatedPull = null;
     const pullDetail = (number) => ({ id: number, number, title: number === 12 ? 'A new improvement' : 'Improve results', body: 'A clearer list.', state: 'open', draft: false, merged: false, merged_at: null, created_at: new Date().toISOString(), user: { login: 'visitor' }, head: { ref: 'fix-list', label: 'visitor:fix-list', sha: 'a'.repeat(40) }, base: { ref: 'main', sha: 'b'.repeat(40) }, changed_files: 1 });
@@ -18,6 +18,7 @@ try {
     ipcMain.removeHandler('easyhub:github');
     ipcMain.handle('easyhub:github', (_event, action, ...args) => {
       if (action === 'repos') return [];
+      if (action === 'activityCounts') return { 200: { issues: 1, closedIssues: 1, pullRequests: 2, closedPullRequests: 0 } };
       if (action === 'searchPublicRepos') return [project];
       if (action === 'readme') return '# Public project\n\nA project anyone can browse.\n\n[Releases](https://github.com/another-author/sample-public/releases/tag/v1.0.0)\n\n[Other Releases](https://github.com/other-author/other-repo/releases/latest)';
       if (action === 'publicRepo' || action === 'repository') return args[0] === 'test-user' ? fork : args[0] === 'another-author' && args[1] === 'sample-public' ? project : { ...project, id: 201, name: 'other-repo', full_name: 'other-author/other-repo', owner: { login: 'other-author' } };
@@ -73,8 +74,21 @@ try {
   await page.locator('.topbar-search input').press('Enter');
   await page.getByTestId('public-project-browser').waitFor();
   const browser = page.getByTestId('public-project-browser');
+  assert.equal(await browser.locator('.public-browser-hero .public-owner-avatar img').getAttribute('src'), 'https://avatars.githubusercontent.com/u/12345?v=4');
+  await browser.getByRole('button', { name: '改进请求 2' }).waitFor();
   await page.screenshot({ path: 'out/public-browser-smoke.png' });
   assert.equal(await browser.getByText('Public project').count(), 1);
+  await browser.getByRole('button', { name: '下载发行版或源码' }).waitFor();
+  const selectableReadmeText = browser.locator('.readme-markdown').getByText('A project anyone can browse.', { exact: true });
+  await selectableReadmeText.scrollIntoViewIfNeeded();
+  assert.equal(await selectableReadmeText.evaluate((element) => getComputedStyle(element).userSelect), 'text');
+  const readmeTextBox = await selectableReadmeText.boundingBox();
+  assert.ok(readmeTextBox);
+  await page.mouse.move(readmeTextBox.x + 6, readmeTextBox.y + readmeTextBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(readmeTextBox.x + Math.min(110, readmeTextBox.width - 6), readmeTextBox.y + readmeTextBox.height / 2, { steps: 10 });
+  await page.mouse.up();
+  assert.match(await page.evaluate(() => window.getSelection()?.toString() ?? ''), /project any/);
   for (const forbidden of ['发布更新', '获取最新', '同步', '本地路径', '上传 Release', '删除项目', '编辑介绍']) {
     assert.equal(await browser.getByText(forbidden, { exact: false }).count(), 0, `Read-only page exposed ${forbidden}`);
   }
@@ -94,7 +108,7 @@ try {
   await page.getByRole('button', { name: 'Choose language' }).click();
   await page.getByRole('button', { name: '中文' }).click();
   await browser.getByRole('link', { name: 'Releases', exact: true }).click();
-  await browser.getByRole('heading', { name: '版本下载' }).waitFor();
+  await browser.getByRole('heading', { name: '下载发行版或源码' }).waitFor();
   assert.equal(await app.evaluate(() => globalThis.easyhubExternalOpenCount), 0);
   await browser.getByText('README 提到的版本').waitFor();
   await browser.getByRole('button', { name: '返回项目' }).click();
@@ -103,7 +117,7 @@ try {
   await browser.getByRole('button', { name: /Resolved issue/ }).waitFor();
   await browser.getByRole('button', { name: '待处理' }).click();
   await browser.getByRole('button', { name: /Public issue/ }).click();
-  assert.equal(await browser.getByRole('button', { name: '下载项目' }).count(), 0, 'Issue detail must not show project download actions');
+  assert.equal(await browser.getByRole('button', { name: '下载发行版或源码' }).count(), 0, 'Issue detail must not show project download actions');
   assert.equal(await browser.locator('.public-browser-tabs').count(), 0, 'Issue detail should use the standalone issue layout');
   assert.equal(await browser.locator('.public-issue-detail .conversation .message').count(), 2);
   await browser.locator('.public-issue-detail .message-box').first().waitFor();
@@ -132,7 +146,7 @@ try {
   await page.screenshot({ path: 'out/public-issue-translated-smoke.png' });
   await browser.getByRole('textbox', { name: '写一条回复' }).fill('Thanks for the report');
   await browser.getByRole('button', { name: '发送回复' }).click();
-  assert.equal(await browser.locator('.public-issue-detail .conversation .message').count(), 3);
+  await browser.locator('.public-issue-detail .conversation .message').nth(2).waitFor();
   await browser.getByRole('button', { name: '返回问题' }).click();
   await browser.getByText('译文：Public issue').waitFor();
   await browser.getByRole('button', { name: '提出问题/建议' }).click();
@@ -159,8 +173,8 @@ try {
   assert.equal(await proposalForm.getByRole('textbox', { name: '来源版本' }).count(), 0);
   await page.screenshot({ path: 'out/public-proposal-modal-smoke.png' });
   await proposalForm.getByRole('button', { name: '取消' }).click();
-  await browser.getByRole('button', { name: '下载项目' }).click();
-  await browser.getByRole('heading', { name: '版本下载' }).waitFor();
+  await browser.getByRole('button', { name: '下载发行版或源码' }).click();
+  await browser.getByRole('heading', { name: '下载发行版或源码' }).waitFor();
   const releaseTranslation = browser.locator('.release-download-card .translatable-content').first();
   await releaseTranslation.getByText('译文：A downloadable version.', { exact: false }).waitFor();
   assert.equal(await app.evaluate(() => globalThis.easyhubDownloadCount), 0);
@@ -199,7 +213,7 @@ try {
   await page.locator('.saved-public-section').getByRole('button', { name: '浏览' }).click();
   await page.getByTestId('public-project-browser').waitFor();
   await page.getByRole('link', { name: 'Other Releases' }).click();
-  await page.getByRole('heading', { name: '版本下载' }).waitFor();
+  await page.getByRole('heading', { name: '下载发行版或源码' }).waitFor();
   await page.getByText('other-author/other-repo').first().waitFor();
   assert.equal(await app.evaluate(() => globalThis.easyhubExternalOpenCount), 0);
   await page.getByRole('button', { name: '返回项目' }).click();

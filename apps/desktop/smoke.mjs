@@ -312,6 +312,7 @@ try {
     ipcMain.removeHandler('easyhub:github');
     ipcMain.handle('easyhub:github', (_event, action, ...args) => {
       if (action === 'repos') return args[0] === 1 ? [otherRepo, repo] : [];
+      if (action === 'activityCounts') return { 101: { issues: issueState === 'open' ? 1 : 0, closedIssues: issueState === 'closed' ? 1 : 0, pullRequests: 0, closedPullRequests: 0 }, 103: { issues: 0, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 }, 104: { issues: 0, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 } };
       if (action === 'searchPublicRepos') return args[0] === 'Public' ? [publicRepo] : [];
       if (action === 'readme') return '# CloudDemo\n\nThis is a GitHub introduction.';
       if (action === 'issues') return [{ ...issue, state: issueState }];

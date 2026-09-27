@@ -6,12 +6,13 @@ const app = await electron.launch({ executablePath: electronPath, args: ['.'], c
 try {
   await app.evaluate(({ ipcMain }) => {
     const avatar = `data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect width="48" height="48" fill="#2874d5"/></svg>').toString('base64')}`;
-    const project = { id: 901, name: 'example', full_name: 'writer/example', description: 'A public example', private: false, archived: false, stargazers_count: 321, language: 'TypeScript', pushed_at: new Date().toISOString(), updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'writer', avatar_url: '' }, open_issues_count: 0 };
+    const project = { id: 901, name: 'example', full_name: 'writer/example', description: 'A public example', private: false, archived: false, stargazers_count: 321, language: 'TypeScript', pushed_at: new Date().toISOString(), updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'writer', avatar_url: avatar }, open_issues_count: 0 };
     ipcMain.removeHandler('easyhub:auth-status');
     ipcMain.handle('easyhub:auth-status', () => ({ user: { login: 'tester', name: 'Test User', avatar_url: avatar, html_url: 'https://github.com/tester' }, clientId: 'test-client' }));
     ipcMain.removeHandler('easyhub:github');
     ipcMain.handle('easyhub:github', (_event, action, ...args) => {
       if (action === 'repos') return [];
+      if (action === 'activityCounts') return { 901: { issues: 2, closedIssues: 0, pullRequests: 3, closedPullRequests: 0 } };
       if (action === 'profile') return { login: args[0], name: args[0] === 'writer' ? 'Project Writer' : 'Test User', avatar_url: avatar, html_url: `https://github.com/${args[0]}`, followers: 10, following: 2, public_repos: 3, bio: 'Writing software' };
       if (action === 'contributions') return { total: 2, years: [2026, 2025], weeks: [{ contributionDays: [{ date: '2026-09-25', contributionCount: 2, color: '#40c463' }] }], repositories: [{ fullName: 'writer/example', isPrivate: false, count: 2, kind: '更新' }] };
       if (action === 'trending') return { items: [project], page: 1, hasNextPage: false };
@@ -38,8 +39,12 @@ try {
   await page.locator('.sidebar-nav button').filter({ hasText: '发现' }).click();
   await page.getByText('EasyHub 热门', { exact: true }).waitFor();
   await page.screenshot({ path: 'out/discover-smoke.png' });
+  const discoverAvatar = await page.locator('.trending-card .trending-author-avatar img').first().getAttribute('src');
+  assert.ok(discoverAvatar, 'Discover card should display the project owner avatar');
   await page.locator('.trending-card').first().click();
   await page.getByTestId('public-project-browser').waitFor();
+  assert.equal(await page.locator('.public-browser-hero .public-owner-avatar img').getAttribute('src'), discoverAvatar);
+  await page.getByTestId('public-project-browser').getByRole('button', { name: '改进请求 3' }).waitFor();
   assert.equal(await page.getByTestId('public-project-browser').getByText('发布更新').count(), 0);
   await page.locator('.sidebar-nav button').filter({ hasText: '发现' }).click();
   await page.locator('.discover-scopes button').filter({ hasText: '用户' }).click();

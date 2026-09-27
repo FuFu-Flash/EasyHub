@@ -13,6 +13,7 @@ try {
       if (action === 'repos') return [repo];
       if (action === 'readme') return '# Wide README\n\n[Releases](https://github.com/tester/wide-readme/releases/tag/v1.0.0)\n\n| Screenshot A | Screenshot B | Screenshot C |\n|---|---|---|\n| ![A](https://example.com/a.png) | ![B](https://example.com/b.png) | ![C](https://example.com/c.png) |\n\n' + 'A'.repeat(150);
       if (action === 'releases') return [{ id: 1, tag_name: 'v1.0.0', name: 'Version one', body: 'Release notes for testers.', draft: false, prerelease: false, published_at: new Date().toISOString(), assets: [] }];
+      if (action === 'issuesPage') return { items: [], nextPage: null };
       if (action === 'issues' || action === 'commits') return [];
       if (action === 'trending') return { items: [repo, { ...repo, id: 78, name: 'second' }, { ...repo, id: 79, name: 'third' }], page: 1, hasNextPage: false };
       if (action === 'searchPublicRepos') return [repo, { ...repo, id: 78, name: 'second' }, { ...repo, id: 79, name: 'third' }];
@@ -30,7 +31,7 @@ try {
   await page.reload();
   await page.locator('.live-connected').waitFor();
   await page.locator('.sidebar-nav button').filter({ hasText: '我的项目' }).click();
-  await page.getByText('wide-readme').first().click();
+  await page.locator('.cloud-row').filter({ hasText: 'wide-readme' }).getByRole('button', { name: '查看', exact: true }).click();
   await page.locator('.detail-grid .readme-markdown').first().waitFor();
   const ownReadme = page.locator('.detail-grid .translatable-content').first();
   await page.getByRole('button', { name: '开启翻译' }).click();
@@ -53,14 +54,15 @@ try {
   }
   assert.equal(await page.getByRole('button', { name: '开启翻译' }).isVisible(), true, 'The translation switch should remain visible in a narrow window');
   await page.getByRole('link', { name: 'Releases' }).click();
-  await page.getByRole('heading', { name: '版本下载' }).waitFor();
+  await page.getByRole('heading', { name: '下载发行版或源码' }).waitFor();
   await page.getByText('README 提到的版本').waitFor();
   const ownRelease = page.locator('.release-download-card .translatable-content').first();
   await page.getByRole('button', { name: '开启翻译' }).click();
   await ownRelease.getByText('译文：Release notes for testers.', { exact: false }).waitFor();
   await page.getByRole('button', { name: '返回项目' }).click();
-  await page.getByRole('button', { name: '下载项目', exact: true }).click();
-  await page.getByRole('heading', { name: '版本下载' }).waitFor();
+  await page.getByRole('button', { name: '编辑发行版', exact: true }).click();
+  await page.getByRole('heading', { name: '编辑发行版', exact: true }).waitFor();
+  await page.getByTestId('release-edit-panel').waitFor();
   await page.getByRole('button', { name: '下载源码 ZIP' }).waitFor();
   await page.screenshot({ path: 'out/release-downloads-smoke.png' });
   await page.locator('.sidebar-nav button').filter({ hasText: '发现' }).click();

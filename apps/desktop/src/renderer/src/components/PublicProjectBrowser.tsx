@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { GitHubComment, GitHubCommit, GitHubIssue, GitHubIssuePage, GitHubRepo } from '@easyhub/github';
+import type { GitHubActivityCount, GitHubComment, GitHubCommit, GitHubIssue, GitHubIssuePage, GitHubRepo } from '@easyhub/github';
 import { ArrowDownToLine, ArrowLeft, ArrowRight, Clock3, Globe2, MessageCircle, Plus, RotateCw, X } from 'lucide-react';
 import { ReadmeMarkdown } from './ReadmeMarkdown';
 import { ReleaseDownloads } from './ReleaseDownloads';
@@ -58,6 +58,8 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
   const [focusTag, setFocusTag] = useState<string | undefined>(initialFocusTag);
   const [readme, setReadme] = useState('');
   const [issues, setIssues] = useState<GitHubIssue[]>([]);
+  const [activityCounts, setActivityCounts] = useState<GitHubActivityCount | null>(null);
+  const [activityUnavailable, setActivityUnavailable] = useState(false);
   const [issueFilter, setIssueFilter] = useState<'open' | 'closed'>('open');
   const [nextIssuePage, setNextIssuePage] = useState<number | null>(null);
   const [loadingIssues, setLoadingIssues] = useState(false);
@@ -80,6 +82,24 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
   const [replySaving, setReplySaving] = useState(false);
   const owner = repo.owner.login;
   const issueAuthorNames = [selectedIssue?.user?.login, ...comments.map((item) => item.user?.login)].filter((name): name is string => Boolean(name));
+
+  async function refreshActivityCounts(): Promise<void> {
+    try {
+      const result = await window.easyHub!.github<Record<number, GitHubActivityCount>>('activityCounts', [{ id: repo.id, owner, name: repo.name }]);
+      setActivityCounts(result[repo.id] ?? null);
+      setActivityUnavailable(!result[repo.id]);
+    } catch { setActivityUnavailable(true); }
+  }
+
+  useEffect(() => {
+    let active = true;
+    setActivityCounts(null);
+    setActivityUnavailable(false);
+    void window.easyHub!.github<Record<number, GitHubActivityCount>>('activityCounts', [{ id: repo.id, owner, name: repo.name }])
+      .then((result) => { if (active) { setActivityCounts(result[repo.id] ?? null); setActivityUnavailable(!result[repo.id]); } })
+      .catch(() => { if (active) setActivityUnavailable(true); });
+    return () => { active = false; };
+  }, [repo.id, owner, repo.name]);
 
   useEffect(() => {
     let active = true;
@@ -148,6 +168,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
       const created = await window.easyHub.github<GitHubIssue>('createIssue', owner, repo.name, issueTitle.trim(), issueBody.trim());
       if (issueFilter === 'open') setIssues((items) => [created, ...items]);
       else setIssueFilter('open');
+      void refreshActivityCounts();
       setTab('issues'); setProposalNotice('问题已提出。');
       setIssueTitle(''); setIssueBody(''); setShowProposalForm(false);
     } catch (cause) { setProposalError(errorText(cause)); }
@@ -178,11 +199,11 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
 
   return <div className="public-browser" data-testid="public-project-browser">
     <button className="back-link" onClick={onBack}><ArrowLeft size={17} />返回搜索结果</button>
-    <section className="detail-hero public-browser-hero"><div className="detail-main"><span className="project-logo logo-sky" aria-hidden="true">{repo.name.slice(0, 1).toUpperCase()}</span><div><div className="detail-name-row"><h1>{repo.full_name}</h1><span className="visibility-label"><Globe2 size={13} />公开项目</span></div>{repo.description ? <TranslatableContent text={repo.description} format="text" render={(value) => <p>{value}</p>} /> : <p>还没有项目介绍</p>}<span className="public-readonly-label">项目内容只读 · 可以提出问题、改进请求和下载</span></div></div><div className="detail-actions"><button className="button button-quiet" onClick={() => { setProposalError(''); setShowProposalForm(true); }}><Plus size={17} />提出问题/建议</button><button className="button button-primary" onClick={() => { setFocusTag(undefined); setTab('downloads'); }}><ArrowDownToLine size={17} />下载项目</button></div></section>
+    <section className="detail-hero public-browser-hero"><div className="detail-main"><span className="project-logo logo-sky public-owner-avatar" aria-hidden="true">{repo.owner.avatar_url ? <img src={repo.owner.avatar_url} alt="" /> : repo.owner.login.slice(0, 1).toUpperCase()}</span><div><div className="detail-name-row"><h1>{repo.full_name}</h1><span className="visibility-label"><Globe2 size={13} />公开项目</span></div>{repo.description ? <TranslatableContent text={repo.description} format="text" render={(value) => <p>{value}</p>} /> : <p>还没有项目介绍</p>}<span className="public-readonly-label">项目内容只读 · 可以提出问题、改进请求和下载</span></div></div><div className="detail-actions"><button className="button button-quiet" onClick={() => { setProposalError(''); setShowProposalForm(true); }}><Plus size={17} />提出问题/建议</button><button className="button button-primary" onClick={() => { setFocusTag(undefined); setTab('downloads'); }}><ArrowDownToLine size={17} />下载发行版或源码</button></div></section>
     {error && <div className="live-error" role="alert">{error}</div>}
     {proposalNotice && <div className="public-proposal-notice" role="status">{proposalNotice}</div>}
-    <nav className="public-browser-tabs" aria-label="项目内容"><button className={tab === 'intro' ? 'selected' : ''} onClick={() => setTab('intro')}>项目介绍</button><button className={tab === 'issues' ? 'selected' : ''} onClick={() => setTab('issues')}>问题 <span>{issues.length}{nextIssuePage ? '+' : ''}</span></button><button className={tab === 'pulls' ? 'selected' : ''} onClick={() => setTab('pulls')}>改进请求</button><button className={tab === 'history' ? 'selected' : ''} onClick={() => setTab('history')}>历史版本</button></nav>
-    {tab === 'pulls' && <PullRequestsPanel repo={repo} currentUser={currentUser} language={language} showCreateButton={false} downloadBusy={downloadBusy} onOpenAiSettings={onOpenAiSettings} onDownloadFile={async (number, path, headSha) => { onDownload({ kind: 'pull-file', repo, number, path, headSha, fileName: path.split('/').pop() || path }); }} />}
+    <nav className="public-browser-tabs" aria-label="项目内容"><button className={tab === 'intro' ? 'selected' : ''} onClick={() => setTab('intro')}>项目介绍</button><button className={tab === 'issues' ? 'selected' : ''} onClick={() => setTab('issues')}>问题 <span>{activityCounts?.issues ?? `${issues.length}${nextIssuePage ? '+' : ''}`}</span></button><button className={tab === 'pulls' ? 'selected' : ''} onClick={() => setTab('pulls')}>改进请求 <span>{activityCounts?.pullRequests ?? (activityUnavailable ? '—' : '…')}</span></button><button className={tab === 'history' ? 'selected' : ''} onClick={() => setTab('history')}>历史版本</button></nav>
+    {tab === 'pulls' && <PullRequestsPanel repo={repo} currentUser={currentUser} language={language} showCreateButton={false} downloadBusy={downloadBusy} onActivityChanged={() => void refreshActivityCounts()} onOpenAiSettings={onOpenAiSettings} onDownloadFile={async (number, path, headSha) => { onDownload({ kind: 'pull-file', repo, number, path, headSha, fileName: path.split('/').pop() || path }); }} />}
     {tab !== 'pulls' && <section className="panel public-browser-content">
       {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取项目内容…</p>}
       {tab === 'intro' && <><div className="panel-heading"><h2>项目介绍</h2></div>{readme ? <TranslatableContent text={readme} format="markdown" paragraphMode render={(value) => <ReadmeMarkdown markdown={value} repository={{ owner, name: repo.name, branch: repo.default_branch }} onOpenLink={openReadmeLink} />} /> : !busy && <p className="muted">这个项目还没有介绍。</p>}</>}

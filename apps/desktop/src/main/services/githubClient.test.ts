@@ -53,6 +53,18 @@ describe('GitHubClient', () => {
     expect(transport).toHaveBeenCalledTimes(2);
   });
 
+  it('gets separate issue and improvement counts without using the combined repository count', async () => {
+    const transport = vi.fn(async (_input: string | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { query: string; variables: Record<string, string> };
+      expect(body.query).toContain('issues(states:OPEN){totalCount} closedIssues:issues(states:CLOSED){totalCount} pullRequests(states:OPEN){totalCount} closedPullRequests:pullRequests(states:CLOSED){totalCount}');
+      expect(body.variables).toEqual({ owner0: 'writer', name0: 'app', owner1: 'team', name1: 'website' });
+      return Response.json({ data: { repo0: { issues: { totalCount: 2 }, closedIssues: { totalCount: 3 }, pullRequests: { totalCount: 5 }, closedPullRequests: { totalCount: 1 } }, repo1: { issues: { totalCount: 0 }, closedIssues: { totalCount: 0 }, pullRequests: { totalCount: 1 }, closedPullRequests: { totalCount: 0 } } } });
+    });
+    const client = new GitHubClient(async () => 'token', transport);
+    expect(await client.activityCounts([{ id: 11, owner: 'writer', name: 'app' }, { id: 12, owner: 'team', name: 'website' }])).toEqual({ 11: { issues: 2, closedIssues: 3, pullRequests: 5, closedPullRequests: 1 }, 12: { issues: 0, closedIssues: 0, pullRequests: 1, closedPullRequests: 0 } });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
   it('lists pull requests separately and creates one from an existing source', async () => {
     const transport = vi.fn(async (input: string | URL, init?: RequestInit) => Response.json(init?.method === 'POST'
       ? { number: 12, title: 'Improve search' }

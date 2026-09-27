@@ -1,6 +1,6 @@
 import { AsyncEntry } from '@napi-rs/keyring';
 import { GitHubClient, GitHubError, friendlyGitHubError } from '@easyhub/github';
-import type { GitHubPullFile, GitHubPullRequest, GitHubRepo, GitHubUser } from '@easyhub/github';
+import type { GitHubActivityRepository, GitHubPullFile, GitHubPullRequest, GitHubRepo, GitHubUser } from '@easyhub/github';
 import { dialog, net, shell } from 'electron';
 import { constants, createWriteStream } from 'node:fs';
 import { existsSync } from 'node:fs';
@@ -199,7 +199,7 @@ export async function logout(): Promise<void> { pending = null; oneTimeDeletion 
 export async function githubAction(action: unknown, args: unknown[]): Promise<unknown> {
   if (typeof action !== 'string' || !Array.isArray(args) || args.length > 4) invalid();
   const [owner, repo, third, fourth] = args;
-  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'comments', 'pullRequests', 'pullRequest', 'pullFiles', 'pullReviewContext', 'commits', 'commit', 'releases'].includes(action) ? new AbortController() : null;
+  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'activityCounts', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'comments', 'pullRequests', 'pullRequestsPage', 'pullRequest', 'pullFiles', 'pullReviewContext', 'commits', 'commit', 'releases'].includes(action) ? new AbortController() : null;
   if (controller) readControllers.add(controller);
   try {
     const assertAdmin = async (ownerName: string, repoName: string): Promise<GitHubRepo> => {
@@ -231,6 +231,10 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       case 'publicRepo': if (validRepoPart(owner) && validRepoPart(repo)) { const item = await client.repo(owner, repo); if (item.private) throw new Error('这个项目不是公开项目。'); return item; } invalid();
       case 'repository': if (validRepoPart(owner) && validRepoPart(repo)) return await client.repo(owner, repo); invalid();
       case 'repos': return await client.repos(typeof owner === 'number' && owner > 0 && owner <= 100 ? owner : 1, controller?.signal);
+      case 'activityCounts': {
+        if (args.length !== 1 || !Array.isArray(owner) || owner.length > 500 || !owner.every((item: unknown) => typeof item === 'object' && item !== null && !Array.isArray(item) && Number.isSafeInteger((item as Record<string, unknown>).id) && Number((item as Record<string, unknown>).id) > 0 && validRepoPart((item as Record<string, unknown>).owner) && validRepoPart((item as Record<string, unknown>).name))) invalid();
+        return await client.activityCounts(owner as GitHubActivityRepository[], controller?.signal);
+      }
       case 'myFork': {
         if (!validRepoPart(owner) || !validRepoPart(repo)) invalid();
         const [upstream, identity] = await Promise.all([client.repo(owner, repo), gitHubIdentity()]);
@@ -333,6 +337,7 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       case 'comments': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.comments(owner, repo, Number(third), controller?.signal); break;
       case 'createComment': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && validText(fourth, 65536)) return await client.createComment(owner, repo, Number(third), fourth); break;
       case 'pullRequests': if (validRepoPart(owner) && validRepoPart(repo) && Number.isInteger(third) && Number(third) >= 1 && Number(third) <= 10000) return await client.pullRequests(owner, repo, Number(third), controller?.signal); break;
+      case 'pullRequestsPage': if (validRepoPart(owner) && validRepoPart(repo) && (third === 'open' || third === 'closed') && Number.isInteger(fourth) && Number(fourth) >= 1 && Number(fourth) <= 10000) return await client.pullRequestsPage(owner, repo, third, Number(fourth), controller?.signal); break;
       case 'pullRequest': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.pullRequest(owner, repo, Number(third), controller?.signal); break;
       case 'pullFiles': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.pullFiles(owner, repo, Number(third), controller?.signal); break;
       case 'pullReviewContext': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && validSha(fourth)) return await getPullRequestReviewContext(owner, repo, Number(third), fourth, controller?.signal); invalid();

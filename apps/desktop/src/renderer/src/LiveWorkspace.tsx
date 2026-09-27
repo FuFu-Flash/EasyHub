@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { GitHubComment, GitHubCommit, GitHubIssue, GitHubIssuePage, GitHubRelease, GitHubRepo, GitHubSearchUser, GitHubUser, TrendingPeriod } from '@easyhub/github';
+import type { GitHubActivityCount, GitHubComment, GitHubCommit, GitHubIssue, GitHubIssuePage, GitHubPullRequest, GitHubRelease, GitHubRepo, GitHubSearchUser, GitHubUser, TrendingPeriod } from '@easyhub/github';
 import type { CreateReleaseInput, LocalProjectLink, LocalProjectStatus, ProjectRelease, ReleaseProgress, SyncPreview, TranslationTargetLanguage } from '@easyhub/types';
 import { ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Clock3, CloudDownload, Compass, Folder, FolderOpen, Globe2, Home, Info, Languages, LockKeyhole, MessageCircle, Minus, Pencil, Plus, RotateCw, Search, Send, Settings2, Square, Tag, X } from 'lucide-react';
 import appIcon from './assets/easyhub-icon.svg';
@@ -13,6 +13,7 @@ import { ReadmeMarkdown } from './components/ReadmeMarkdown';
 import { LiveProjectDangerZone } from './components/LiveProjectDangerZone';
 import { PublicProjectBrowser } from './components/PublicProjectBrowser';
 import { PullRequestsPanel } from './components/PullRequestsPanel';
+import { PullReviewGroups } from './components/PullReviewGroups';
 import { AiSettingsPanel } from './components/AiSettingsPanel';
 import { ForkContributionPanel } from './components/ForkContributionPanel';
 import { ForksOverview } from './components/ForksOverview';
@@ -32,7 +33,7 @@ import { publicBookmarksKey, readPublicBookmarks } from './publicBookmarks';
 import { parseProjectAddress } from './projectAddress';
 
 type View = 'home' | 'projects' | 'discover' | 'profile' | 'project' | 'public-project' | 'downloads' | 'new-release' | 'issues' | 'issue' | 'pulls' | 'history' | 'version' | 'new-project' | 'local' | 'settings';
-type Action = 'repos' | 'searchPublicRepos' | 'publicRepo' | 'repository' | 'createRepo' | 'readme' | 'issues' | 'issuesPage' | 'createIssue' | 'updateIssue' | 'comments' | 'createComment' | 'commits' | 'commit';
+type Action = 'repos' | 'activityCounts' | 'searchPublicRepos' | 'publicRepo' | 'repository' | 'createRepo' | 'readme' | 'issues' | 'issuesPage' | 'createIssue' | 'updateIssue' | 'comments' | 'createComment' | 'commits' | 'commit';
 
 function api<T>(action: Action, ...args: unknown[]): Promise<T> {
   if (!window.easyHub) return Promise.reject(new Error('应用连接不可用，请重新启动 EasyHub。'));
@@ -68,9 +69,13 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [selected, setSelected] = useState<GitHubRepo | null>(null);
   const [pullReturn, setPullReturn] = useState<GitHubRepo | null>(null);
+  const [pullInitialRequest, setPullInitialRequest] = useState<GitHubPullRequest | null>(null);
+  const [activityCounts, setActivityCounts] = useState<Record<number, GitHubActivityCount>>({});
+  const [activityError, setActivityError] = useState('');
   const [publicSelected, setPublicSelected] = useState<GitHubRepo | null>(null);
   const [publicInitialDownload, setPublicInitialDownload] = useState<{ tag?: string } | null>(null);
   const [downloadFocusTag, setDownloadFocusTag] = useState<string | undefined>();
+  const [editReleaseOnOpen, setEditReleaseOnOpen] = useState(false);
   const [releaseHistory, setReleaseHistory] = useState<ProjectRelease[]>([]);
   const [releaseImages, setReleaseImages] = useState<Record<string, string>>({});
   const [releaseBusy, setReleaseBusy] = useState(false);
@@ -207,10 +212,10 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
     }
     setIntroEditing(false);
     if (release.owner.toLowerCase() === current.owner.login.toLowerCase() && release.repo.toLowerCase() === current.name.toLowerCase()) {
-      setDownloadFocusTag(release.tag); setView('downloads'); return;
+      setDownloadFocusTag(release.tag); setEditReleaseOnOpen(false); setView('downloads'); return;
     }
     const owned = repos.find((item) => item.owner.login.toLowerCase() === release.owner.toLowerCase() && item.name.toLowerCase() === release.repo.toLowerCase());
-    if (owned) { setSelected(owned); setDownloadFocusTag(release.tag); setView('downloads'); return; }
+    if (owned) { setSelected(owned); setDownloadFocusTag(release.tag); setEditReleaseOnOpen(false); setView('downloads'); return; }
     try {
       const remote = await api<GitHubRepo>('publicRepo', release.owner, release.repo);
       if (view !== 'public-project') setPublicReturnView(view === 'profile' ? 'profile' : view === 'discover' ? 'discover' : 'projects');
@@ -292,11 +297,23 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
         if (batch.length < 100 || cancelled.current) break;
       }
       setRepos(all);
+      if (all.length) {
+        void api<Record<number, GitHubActivityCount>>('activityCounts', all.map((repo) => ({ id: repo.id, owner: repo.owner.login, name: repo.name })))
+          .then((counts) => { setActivityCounts(counts); setActivityError(''); })
+          .catch(() => setActivityError('暂时无法获取准确的反馈数量。打开项目仍可查看内容。'));
+      } else { setActivityCounts({}); setActivityError(''); }
     } catch (cause) { if (!cancelled.current) setError(message(cause)); }
     finally { setBusy(false); setCanCancel(false); }
   }, []);
 
   useEffect(() => { void loadRepos(); }, [loadRepos]);
+  async function refreshActivityCount(repo: GitHubRepo): Promise<void> {
+    try {
+      const result = await api<Record<number, GitHubActivityCount>>('activityCounts', [{ id: repo.id, owner: repo.owner.login, name: repo.name }]);
+      const count = result[repo.id];
+      if (count) setActivityCounts((current) => ({ ...current, [repo.id]: count }));
+    } catch { setActivityError('暂时无法更新反馈数量。稍后重新打开页面即可重试。'); }
+  }
   const refreshLocalLinks = useCallback(async () => { setLocalLinks(await window.easyHub?.localList() ?? []); }, []);
   const downloads = useDownloadCenter(refreshLocalLinks);
   useEffect(() => { void refreshLocalLinks(); }, [refreshLocalLinks]);
@@ -378,12 +395,6 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
     finally { setBusy(false); setCanCancel(false); }
   }
 
-  function openPullRequests(repo: GitHubRepo): void {
-    setPullReturn(selected);
-    setSelected(repo);
-    setView('pulls');
-  }
-
   async function openIssue(item: GitHubIssue, project: GitHubRepo | null = selected): Promise<void> {
     if (!project) return;
     cancelled.current = false; setSelected(project); setIssues(issueGroups[project.id] ?? (selected?.id === project.id ? issues : []));
@@ -428,6 +439,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
       const next = await api<GitHubIssue>('updateIssue', ownerOf(selected), selected.name, issue.number, issue.state === 'open' ? 'closed' : 'open');
       setIssue(next); setIssues((items) => items.map((item) => item.number === next.number ? next : item));
       setIssueGroups((groups) => { const current = groups[selected.id]; return current ? { ...groups, [selected.id]: current.map((item) => item.number === next.number ? next : item) } : groups; });
+      void refreshActivityCount(selected);
       setNotice(next.state === 'closed' ? '问题已标记为解决。' : '问题已重新打开。');
     } catch (cause) { setError(message(cause)); }
     finally { setBusy(false); }
@@ -474,7 +486,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
     try {
       const result = await window.easyHub.publishRelease({ owner: ownerOf(selected), repo: selected.name,
         tagName: input.tagName, title: input.title, body: input.body, channel: input.channel, assetIds: input.assets.map((asset) => asset.id) });
-      setNotice('新版本已发布到 GitHub。'); setDownloadFocusTag(result.tag_name); setView('downloads');
+      setNotice('新版本已发布到 GitHub。'); setDownloadFocusTag(result.tag_name); setEditReleaseOnOpen(false); setView('downloads');
     } catch (cause) { setError(message(cause)); }
     finally { setReleaseBusy(false); setReleaseProgress(null); }
   }
@@ -547,16 +559,18 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   const filtered = ownRepos.filter((repo) => `${repo.name} ${repo.description ?? ''}`.toLowerCase().includes(search.toLowerCase()));
   const savedPublicMatches = savedPublicRepos.filter((repo) => `${repo.full_name} ${repo.description ?? ''}`.toLowerCase().includes(search.toLowerCase()));
   const visibleIssues = issues.filter((item) => item.state === 'open');
-  const pendingIssueCount = (repo: GitHubRepo): number => issueGroups[repo.id]?.filter((item) => item.state === 'open').length ?? repo.open_issues_count;
-  const orderedIssueRepos = [...repos].sort((a, b) => Number(pendingIssueCount(b) > 0) - Number(pendingIssueCount(a) > 0) || pendingIssueCount(b) - pendingIssueCount(a) || a.name.localeCompare(b.name));
-  const totalPendingIssues = repos.reduce((total, repo) => total + pendingIssueCount(repo), 0);
+  const pendingIssueCount = (repo: GitHubRepo): number | null => activityCounts[repo.id]?.issues ?? null;
+  const orderedIssueRepos = [...repos].sort((a, b) => (pendingIssueCount(b) ?? -1) - (pendingIssueCount(a) ?? -1) || a.name.localeCompare(b.name));
+  const totalPendingIssues = repos.every((repo) => activityCounts[repo.id]) ? repos.reduce((total, repo) => total + (activityCounts[repo.id]?.issues ?? 0), 0) : null;
+  const totalPendingPulls = repos.every((repo) => activityCounts[repo.id]) ? repos.reduce((total, repo) => total + (activityCounts[repo.id]?.pullRequests ?? 0), 0) : null;
   const pendingLocal = localLinks.map((link) => ({ link, repo: repos.find((repo) => repo.id === link.repositoryId), status: localStatuses[link.id] })).find((item) => item.repo && item.status?.files.length);
   const nav = view === 'issue' || view === 'issues' || view === 'pulls' ? 'issues' : view === 'settings' ? 'settings' : view === 'home' ? 'home' : view === 'discover' || view === 'public-project' && publicReturnView === 'discover' ? 'discover' : view === 'profile' || view === 'public-project' && publicReturnView === 'profile' ? 'profile' : 'projects';
+  const canEditSelectedRelease = Boolean(selected && !selected.archived && (selected.permissions?.push || selected.permissions?.admin || selected.owner.login.toLowerCase() === user.login.toLowerCase()));
 
   function issueSectionTabs(active: 'issues' | 'pulls') {
     return <div className="issue-section-tabs" role="tablist" aria-label={language === 'en' ? 'Issues and code reviews' : '问题与代码提交审查'}>
-      <button type="button" role="tab" aria-selected={active === 'issues'} className={active === 'issues' ? 'selected' : ''} onClick={() => { if (active === 'pulls') { setSelected(pullReturn); setView('issues'); } }}>问题</button>
-      <button type="button" role="tab" aria-selected={active === 'pulls'} className={active === 'pulls' ? 'selected' : ''} onClick={() => { if (active === 'issues') { setPullReturn(selected); setView('pulls'); } }}>代码提交审查</button>
+      <button type="button" role="tab" aria-selected={active === 'issues'} className={active === 'issues' ? 'selected' : ''} onClick={() => { if (active === 'pulls') { setSelected(pullReturn); setPullInitialRequest(null); setView('issues'); } }}>问题 <span>{selected ? activityCounts[selected.id]?.issues ?? '…' : totalPendingIssues ?? '…'}</span></button>
+      <button type="button" role="tab" aria-selected={active === 'pulls'} className={active === 'pulls' ? 'selected' : ''} onClick={() => { if (active === 'issues') { setPullReturn(selected); setPullInitialRequest(null); setView('pulls'); } }}>代码提交审查 <span>{selected ? activityCounts[selected.id]?.pullRequests ?? '…' : totalPendingPulls ?? '…'}</span></button>
     </div>;
   }
 
@@ -578,7 +592,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
       <button className={nav === 'home' ? 'active' : ''} onClick={() => { rememberDiscoverPosition(); setView('home'); }}><Home size={19} />首页</button>
       <button className={nav === 'projects' ? 'active' : ''} onClick={() => { rememberDiscoverPosition(); setView('projects'); }}><Folder size={19} />我的项目</button>
       <button className={nav === 'discover' ? 'active' : ''} onClick={() => { if (nav !== 'discover' && discoverScrollPosition.current === null) setSearch(''); setSearchScope('public'); setView('discover'); }}><Compass size={19} />发现</button>
-      <button className={nav === 'issues' ? 'active' : ''} onClick={() => { rememberDiscoverPosition(); setSelected(null); setView('issues'); }}><MessageCircle size={19} />问题{totalPendingIssues > 0 && <span className="nav-count">{totalPendingIssues}</span>}</button>
+      <button className={nav === 'issues' ? 'active' : ''} onClick={() => { rememberDiscoverPosition(); setSelected(null); setView('issues'); }}><MessageCircle size={19} />问题{totalPendingIssues !== null && totalPendingIssues > 0 && <span className="nav-count">{totalPendingIssues}</span>}</button>
       <button className={nav === 'settings' ? 'active' : ''} onClick={() => { rememberDiscoverPosition(); setView('settings'); }}><Settings2 size={19} />设置</button>
     </nav><div className="sidebar-bottom"><span className="sidebar-demo live-connected"><span />{language === 'en' ? 'Connected to GitHub' : '已连接 GitHub'} · {user.login}</span></div></aside>
     <div className="main-column" ref={scrollArea}><header className={`topbar topbar-${windowStyle}`}>
@@ -626,7 +640,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
 
       {view === 'public-project' && publicSelected && <TranslationPreferencesContext.Provider value={{ automatic: automaticTranslation, target: translationTarget, repository: { name: publicSelected.name, owner: publicSelected.owner.login, fullName: publicSelected.full_name }, names: translationNames }}><PublicProjectBrowser repo={publicSelected} language={language} currentUser={user.login} onBack={() => setView(publicReturnView)} onOpenLink={(url) => void openReadmeLink(url, publicSelected)} onDownload={(request) => void downloads.start(request)} onForkReady={openCreatedFork} onOpenAiSettings={() => setView('settings')} downloadBusy={downloads.busy} startInDownloads={Boolean(publicInitialDownload)} initialFocusTag={publicInitialDownload?.tag} /></TranslationPreferencesContext.Provider>}
 
-      {view === 'downloads' && selected && <TranslationPreferencesContext.Provider value={{ automatic: automaticTranslation, target: translationTarget, repository: { name: selected.name, owner: selected.owner.login, fullName: selected.full_name }, names: translationNames }}><ReleaseDownloads repo={selected} focusTag={downloadFocusTag} canEdit={Boolean(selected.permissions?.push || selected.permissions?.admin || selected.owner.login.toLowerCase() === user?.login.toLowerCase())} onDownload={(request) => void downloads.start(request)} downloadBusy={downloads.busy} onBack={() => setView('project')} /></TranslationPreferencesContext.Provider>}
+      {view === 'downloads' && selected && <TranslationPreferencesContext.Provider value={{ automatic: automaticTranslation, target: translationTarget, repository: { name: selected.name, owner: selected.owner.login, fullName: selected.full_name }, names: translationNames }}><ReleaseDownloads repo={selected} focusTag={downloadFocusTag} editOnOpen={editReleaseOnOpen} canEdit={canEditSelectedRelease} onDownload={(request) => void downloads.start(request)} downloadBusy={downloads.busy} onBack={() => setView('project')} /></TranslationPreferencesContext.Provider>}
 
       {view === 'new-release' && selected && <ReleaseEditor key={selected.id} project={{ name: selected.name,
         health: localLinks.some((link) => link.repositoryId === selected.id && (localStatuses[link.id]?.files.length ?? 0) > 0) ? 'changes' : 'saved',
@@ -639,26 +653,28 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
 
       {view === 'project' && selected && <TranslationPreferencesContext.Provider value={{ automatic: automaticTranslation, target: translationTarget, repository: { name: selected.name, owner: selected.owner.login, fullName: selected.full_name }, names: translationNames }}>
         <button className="back-link" onClick={() => setView('projects')}><ArrowLeft size={17} />所有项目</button>
-        <section className="detail-hero"><div className="detail-main"><RepoLogo repo={selected} /><div><div className="detail-name-row"><h1>{selected.name}</h1><span className="visibility-label">{selected.private ? <><LockKeyhole size={13} />只有我</> : <><Globe2 size={13} />所有人</>}</span></div>{!selected.private && selected.description ? <TranslatableContent text={selected.description} format="text" render={(value) => <p>{value}</p>} /> : <p>{selected.description || '还没有项目介绍'}</p>}<span className="status status-saved"><span className="status-dot" />{selected.archived ? '已存档 · 只读' : '已保存到 GitHub'}</span></div></div><div className="detail-actions"><button className="button button-primary" disabled={selected.archived} onClick={() => setView('local')}><FolderOpen size={17} />本地项目与发布源码</button>{!selected.fork && !selected.archived && (selected.permissions?.push || ownerOf(selected).toLowerCase() === user.login.toLowerCase()) && <button className="button button-quiet" disabled={busy} onClick={() => void openNewRelease()}><Tag size={17} />发布新版本</button>}<button className="button button-quiet" onClick={() => { setDownloadFocusTag(undefined); setView('downloads'); }}><ArrowDownToLine size={17} />下载项目</button></div></section>
+        <section className="detail-hero"><div className="detail-main"><RepoLogo repo={selected} /><div><div className="detail-name-row"><h1>{selected.name}</h1><span className="visibility-label">{selected.private ? <><LockKeyhole size={13} />只有我</> : <><Globe2 size={13} />所有人</>}</span></div>{!selected.private && selected.description ? <TranslatableContent text={selected.description} format="text" render={(value) => <p>{value}</p>} /> : <p>{selected.description || '还没有项目介绍'}</p>}<span className="status status-saved"><span className="status-dot" />{selected.archived ? '已存档 · 只读' : '已保存到 GitHub'}</span></div></div><div className="detail-actions"><button className="button button-primary" disabled={selected.archived} onClick={() => setView('local')}><FolderOpen size={17} />本地项目与发布源码</button>{!selected.fork && !selected.archived && (selected.permissions?.push || ownerOf(selected).toLowerCase() === user.login.toLowerCase()) && <button className="button button-quiet" disabled={busy} onClick={() => void openNewRelease()}><Tag size={17} />发布新版本</button>}<button className="button button-quiet" onClick={() => { setDownloadFocusTag(undefined); setEditReleaseOnOpen(canEditSelectedRelease); setView('downloads'); }}>{canEditSelectedRelease ? <Pencil size={17} /> : <ArrowDownToLine size={17} />}{canEditSelectedRelease ? '编辑发行版' : '下载发行版或源码'}</button></div></section>
         {selected.fork && <ForkContributionPanel key={selected.id} repo={selected} localLinkId={localLinks.find((item) => item.repositoryId === selected.id)?.id} suggestedTitle={commits[0]?.commit.message.split('\n')[0] ?? ''} onOpenLocal={() => setView('local')} onBrowseOriginal={(owner, name) => void browseForkOriginal(owner, name)} onOpenExternal={(url) => void window.easyHub?.openExternalLink(url)} />}
         <div className="detail-grid"><div className="detail-primary"><section className="panel"><div className="panel-heading"><h2>项目介绍</h2><button className="text-link" disabled={selected.archived} onClick={() => void beginEditIntroduction()}><Pencil size={15} />编辑介绍</button></div>{readme ? !selected.private ? <TranslatableContent text={readme} format="markdown" paragraphMode render={(value) => <ReadmeMarkdown markdown={value} repository={{ owner: ownerOf(selected), name: selected.name, branch: selected.default_branch }} onOpenLink={(href) => void openReadmeLink(href, selected)} />} /> : <ReadmeMarkdown markdown={readme} repository={{ owner: ownerOf(selected), name: selected.name, branch: selected.default_branch }} onOpenLink={(href) => void openReadmeLink(href, selected)} /> : <p className="muted">这个项目还没有介绍。</p>}</section><section className="panel"><div className="panel-heading"><h2>历史版本</h2><button className="text-link" onClick={() => setView('history')}>查看全部 <ArrowRight size={16} /></button></div><div className="timeline-list">{commits.slice(0, 3).map((item) => <button className="timeline-item" key={item.sha} onClick={() => void openVersion(item)}><span className="timeline-dot" /><span><strong>{item.commit.message.split('\n')[0]}</strong><small>{item.commit.author?.date ? relativeDate(item.commit.author.date, language) : ''}</small></span><ChevronRight size={17} /></button>)}{commits.length === 0 && <p className="muted">还没有历史版本。</p>}</div></section></div><div className="detail-side"><section className="panel side-panel"><div className="panel-heading"><h2>问题</h2><span className="count-bubble">{visibleIssues.length}</span></div><p>看看大家的反馈，一起让项目变得更好。</p><button className="button button-quiet full-width" onClick={() => setView('issues')}>查看问题 <ArrowRight size={16} /></button></section><section className="panel side-panel"><div className="panel-heading"><h2>项目状态</h2></div><div className="status-detail"><span className="big-status-dot saved" /><div><strong>已保存到 GitHub</strong><small>上次更新：{relativeDate(selected.updated_at, language)}</small></div></div><button className="text-link" onClick={() => setView('local')}>查看本地修改 <ArrowRight size={16} /></button></section></div></div>
         {(selected.owner.login.toLowerCase() === user.login.toLowerCase() || selected.permissions?.admin) && <LiveProjectDangerZone repo={selected} language={language} onUpdate={(updated) => { setSelected(updated); setRepos((items) => items.map((item) => item.id === updated.id ? updated : item)); }} onTransferred={() => { setView('projects'); void loadRepos(); }} onNotice={setNotice} />}
       </TranslationPreferencesContext.Provider>}
 
       {view === 'pulls' && <>
-        <div className="page-header"><div><div className="eyebrow">一起完善作品</div><h1>问题</h1><p>查看反馈与代码提交，一起完善项目。</p></div></div>
+        <div className="page-header"><div><div className="eyebrow">一起完善作品</div><h1>代码提交审查</h1><p>查看大家提交的改进，检查修改并决定是否合入项目。</p></div></div>
         {issueSectionTabs('pulls')}
+        {activityError && <p className="live-error" role="alert">{activityError}</p>}
         {selected ? <>
-          <div className="toolbar"><button className="filter-project" onClick={() => { setSelected(null); setPullReturn(null); }}>{selected.name}<X size={15} /></button></div>
-          <TranslationPreferencesContext.Provider value={{ automatic: automaticTranslation && !selected.private, target: translationTarget, repository: { name: selected.name, owner: selected.owner.login, fullName: selected.full_name }, names: translationNames }}><PullRequestsPanel repo={selected} currentUser={user.login} language={language} downloadBusy={downloads.busy} onOpenAiSettings={() => setView('settings')} onDownloadFile={(number, path, headSha) => downloads.start({ kind: 'pull-file', repo: selected, number, path, headSha, fileName: path.split('/').pop() || path })} /></TranslationPreferencesContext.Provider>
-        </> : <div className="issue-project-list">{repos.map((repo) => <section className="issue-project-group live-issue-group" key={repo.id}><button className="issue-project-header" onClick={() => { setSelected(repo); setPullReturn(null); }}><RepoLogo repo={repo} small /><span className="issue-project-heading"><strong>{repo.name}</strong><small>{repo.description || '还没有项目介绍'}</small></span><span className="issue-project-count">查看代码提交</span><ChevronRight className="issue-project-chevron" size={19} /></button></section>)}</div>}
+          <div className="toolbar"><button className="filter-project" onClick={() => { setSelected(null); setPullReturn(null); setPullInitialRequest(null); }}>{selected.name}<X size={15} /></button></div>
+          <TranslationPreferencesContext.Provider value={{ automatic: automaticTranslation && !selected.private, target: translationTarget, repository: { name: selected.name, owner: selected.owner.login, fullName: selected.full_name }, names: translationNames }}><PullRequestsPanel repo={selected} initialRequest={pullInitialRequest} currentUser={user.login} language={language} downloadBusy={downloads.busy} onActivityChanged={() => void refreshActivityCount(selected)} onOpenAiSettings={() => setView('settings')} onDownloadFile={(number, path, headSha) => downloads.start({ kind: 'pull-file', repo: selected, number, path, headSha, fileName: path.split('/').pop() || path })} /></TranslationPreferencesContext.Provider>
+        </> : <PullReviewGroups repos={repos} counts={activityCounts} logo={(repo) => <RepoLogo repo={repo} small />} onOpen={(repo, request) => { setPullReturn(null); setPullInitialRequest(request); setSelected(repo); }} />}
       </>}
 
       {view === 'issues' && <>
         <div className="page-header"><div><div className="eyebrow">一起完善作品</div><h1>问题</h1><p>查看反馈、回复想法，解决遇到的困难。</p></div></div>
         {issueSectionTabs('issues')}
-        <div className="toolbar"><div className="segmented"><button className={issueFilter === 'open' ? 'selected' : ''} onClick={() => setIssueFilter('open')}>待处理 <span>{selected ? issues.filter((item) => item.state === 'open').length : totalPendingIssues}</span></button><button className={issueFilter === 'closed' ? 'selected' : ''} onClick={() => setIssueFilter('closed')}>已解决</button></div>{selected && <button className="filter-project" onClick={() => setSelected(null)}>{selected.name}<X size={15} /></button>}</div>
-        {selected ? <div className="issue-list">{issues.filter((item) => item.state === issueFilter).map((item) => <button className="issue-row" key={item.id} onClick={() => void openIssue(item)}><span className={`issue-indicator ${item.state === 'closed' ? 'closed' : ''}`}><CircleHelp size={19} /></span><span className="issue-row-main"><IssueListTitle issue={item} repo={selected} automatic={automaticTranslation} target={translationTarget} names={translationNames} /><small>{selected.name} · {item.user?.login || 'GitHub 用户'} · {relativeDate(item.created_at, language)}</small></span><span className="issue-comments"><MessageCircle size={16} />{item.comments}</span><ChevronRight size={18} className="chevron" /></button>)}{!busy && issues.filter((item) => item.state === issueFilter).length === 0 && <div className="empty-state"><span className="empty-icon"><MessageCircle size={28} /></span><h3>{issueFilter === 'open' ? '没有待处理的问题' : '还没有已解决的问题'}</h3><p>这里会显示项目收到的反馈。</p></div>}</div> : <div className="issue-project-list">{orderedIssueRepos.map((repo) => { const expanded = expandedRepo === repo.id; const items = (issueGroups[repo.id] || []).filter((item) => item.state === issueFilter); return <section className="issue-project-group live-issue-group" key={repo.id}><button className="issue-project-header" aria-expanded={expanded} onClick={() => void toggleIssueGroup(repo)}><RepoLogo repo={repo} small /><span className="issue-project-heading"><strong>{repo.name}</strong><small>{repo.description || '还没有项目介绍'}</small></span><span className={`issue-project-count ${issueFilter === 'open' && pendingIssueCount(repo) > 0 ? 'live-pending-count' : ''}`}>{issueFilter === 'open' ? `${pendingIssueCount(repo)} 个待处理的问题` : expanded ? `${items.length} 个已解决的问题` : '查看已解决的问题'}</span><ChevronDown className={`issue-project-chevron ${expanded ? 'expanded' : ''}`} size={19} /></button><div className="issue-project-items live-group-items" hidden={!expanded}>{expanded && (items.length ? items.map((item) => <button className="issue-row" key={item.id} onClick={() => void openIssue(item, repo)}><span className={`issue-indicator ${item.state === 'closed' ? 'closed' : ''}`}><CircleHelp size={19} /></span><span className="issue-row-main"><IssueListTitle issue={item} repo={repo} automatic={automaticTranslation} target={translationTarget} names={translationNames} /><small>{item.user?.login || 'GitHub 用户'} · {relativeDate(item.created_at, language)}</small></span><span className="issue-comments"><MessageCircle size={16} />{item.comments}</span><ChevronRight size={18} className="chevron" /></button>) : issueGroups[repo.id] && <p className="live-empty">{issueFilter === 'open' ? '没有待处理的问题' : '还没有已解决的问题'}</p>)}<button className="button button-quiet issue-project-review" onClick={() => openPullRequests(repo)}>审阅改进请求 <ArrowRight size={16} /></button></div></section>; })}</div>}
+        {activityError && <p className="live-error" role="alert">{activityError}</p>}
+        <div className="toolbar"><div className="segmented"><button className={issueFilter === 'open' ? 'selected' : ''} onClick={() => setIssueFilter('open')}>待处理 <span>{selected ? activityCounts[selected.id]?.issues ?? '…' : totalPendingIssues ?? '…'}</span></button><button className={issueFilter === 'closed' ? 'selected' : ''} onClick={() => setIssueFilter('closed')}>已解决</button></div>{selected && <button className="filter-project" onClick={() => setSelected(null)}>{selected.name}<X size={15} /></button>}</div>
+        {selected ? <div className="issue-list">{issues.filter((item) => item.state === issueFilter).map((item) => <button className="issue-row" key={item.id} onClick={() => void openIssue(item)}><span className={`issue-indicator ${item.state === 'closed' ? 'closed' : ''}`}><CircleHelp size={19} /></span><span className="issue-row-main"><IssueListTitle issue={item} repo={selected} automatic={automaticTranslation} target={translationTarget} names={translationNames} /><small>{selected.name} · {item.user?.login || 'GitHub 用户'} · {relativeDate(item.created_at, language)}</small></span><span className="issue-comments"><MessageCircle size={16} />{item.comments}</span><ChevronRight size={18} className="chevron" /></button>)}{!busy && issues.filter((item) => item.state === issueFilter).length === 0 && <div className="empty-state"><span className="empty-icon"><MessageCircle size={28} /></span><h3>{issueFilter === 'open' ? '没有待处理的问题' : '还没有已解决的问题'}</h3><p>这里会显示项目收到的反馈。</p></div>}</div> : <div className="issue-project-list">{orderedIssueRepos.map((repo) => { const expanded = expandedRepo === repo.id; const items = (issueGroups[repo.id] || []).filter((item) => item.state === issueFilter); return <section className="issue-project-group live-issue-group" key={repo.id}><button className="issue-project-header" aria-expanded={expanded} onClick={() => void toggleIssueGroup(repo)}><RepoLogo repo={repo} small /><span className="issue-project-heading"><strong>{repo.name}</strong><small>{repo.description || '还没有项目介绍'}</small></span><span className={`issue-project-count ${issueFilter === 'open' && (pendingIssueCount(repo) ?? 0) > 0 ? 'live-pending-count' : ''}`}>{issueFilter === 'open' ? `${pendingIssueCount(repo) ?? '…'} 个待处理的问题` : expanded ? `${items.length} 个已解决的问题` : '查看已解决的问题'}</span><ChevronDown className={`issue-project-chevron ${expanded ? 'expanded' : ''}`} size={19} /></button><div className="issue-project-items live-group-items" hidden={!expanded}>{expanded && (items.length ? items.map((item) => <button className="issue-row" key={item.id} onClick={() => void openIssue(item, repo)}><span className={`issue-indicator ${item.state === 'closed' ? 'closed' : ''}`}><CircleHelp size={19} /></span><span className="issue-row-main"><IssueListTitle issue={item} repo={repo} automatic={automaticTranslation} target={translationTarget} names={translationNames} /><small>{item.user?.login || 'GitHub 用户'} · {relativeDate(item.created_at, language)}</small></span><span className="issue-comments"><MessageCircle size={16} />{item.comments}</span><ChevronRight size={18} className="chevron" /></button>) : issueGroups[repo.id] && <p className="live-empty">{issueFilter === 'open' ? '没有待处理的问题' : '还没有已解决的问题'}</p>)}</div></section>; })}</div>}
         {issuePagingRepo && issueNextPages[issuePagingRepo.id] && <button className="button button-quiet pull-more" disabled={loadingMoreIssues} onClick={() => void loadMoreIssuesFor(issuePagingRepo)}>{loadingMoreIssues ? '正在加载…' : '加载更多问题'}</button>}
       </>}
 

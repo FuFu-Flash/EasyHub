@@ -12,12 +12,14 @@ import './aiReview.css';
 function errorText(error: unknown): string { return error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/, '') : '暂时无法完成操作，请稍后重试。'; }
 interface PullReviewSnapshot { repository: GitHubRepo; pullRequest: GitHubPullRequest; files: GitHubPullFile[]; filesTruncated: boolean }
 
-export function PullRequestsPanel({ repo, currentUser, language, showCreateButton = true, refreshKey = 0, onDownloadFile, onOpenAiSettings, downloadBusy = false }: {
+export function PullRequestsPanel({ repo, currentUser, language, showCreateButton = true, refreshKey = 0, initialRequest, onActivityChanged, onDownloadFile, onOpenAiSettings, downloadBusy = false }: {
   repo: GitHubRepo;
   currentUser: string;
   language: Language;
   showCreateButton?: boolean;
   refreshKey?: number;
+  initialRequest?: GitHubPullRequest | null;
+  onActivityChanged?: () => void;
   onDownloadFile?: (requestNumber: number, path: string, headSha: string) => Promise<void>;
   onOpenAiSettings?: () => void;
   downloadBusy?: boolean;
@@ -97,9 +99,10 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     void window.easyHub!.github<GitHubPullRequest[]>('pullRequests', owner, repo.name, 1).then((result) => {
       if (!active) return;
       setItems(result); setHasMore(result.length === 100);
+      if (initialRequest) void open(initialRequest);
     }).catch((cause) => { if (active) setError(errorText(cause)); }).finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
-  }, [owner, repo.name, repo.default_branch, currentUser, refreshKey]);
+  }, [owner, repo.name, repo.default_branch, currentUser, refreshKey, initialRequest]);
 
   async function loadMore(): Promise<void> {
     if (!hasMore || busy) return;
@@ -152,6 +155,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
       setSnapshotReady(false);
       const updated = { ...selected, state: 'closed' as const, merged: action === 'accept', merged_at: action === 'accept' ? new Date().toISOString() : selected.merged_at };
       setSelected(updated); setItems((current) => current.map((known) => known.id === updated.id ? updated : known));
+      onActivityChanged?.();
       setNotice(action === 'accept' ? t('改进已批准并合入项目。', 'The changes were approved and merged into the project.') : t('改进请求已拒绝并关闭。', 'The change request was rejected and closed.'));
       try {
         const [context, discussion] = await Promise.all([
@@ -232,6 +236,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
         title: title.trim(), body: body.trim(), head: `${sourceOwner.trim()}:${sourceBranch.trim()}`, base: base.trim(),
       });
       setItems((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+      onActivityChanged?.();
       setShowForm(false); setTitle(''); setBody(''); setSourceBranch('');
       await open(created);
     } catch (cause) { setError(errorText(cause)); }

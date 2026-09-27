@@ -14,13 +14,12 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 
 ## 下载 EasyHub
 
-| 版本 | 适合谁 | Gitee 下载 | GitHub 下载 |
-| --- | --- | --- | --- |
-| 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://gitee.com/HUAJILA/easy-hub/releases/download/v1.2.0/EasyHub-1.2.0-setup.exe) | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-setup.exe) |
-| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://gitee.com/HUAJILA/easy-hub/releases/download/v1.2.0/EasyHub-1.2.0-portable.exe) | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-portable.exe) |
-| 演示版 | 想先体验界面，不连接自己的 GitHub | [下载演示版](https://gitee.com/HUAJILA/easy-hub/releases/download/v1.2.0/EasyHub-1.2.0-demo.exe) | [下载演示版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-demo.exe) |
+| 版本 | 适合谁 | 下载 |
+| --- | --- | --- |
+| 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-setup.exe) |
+| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-portable.exe) |
 
-这三个版本适用于 Windows 64 位电脑。应用尚未使用商业代码签名证书，首次运行时 Windows 可能显示“未知发布者”。演示版使用独立的模拟数据，不会登录 GitHub 或修改真实项目。
+这两个版本适用于 Windows 64 位电脑。应用尚未使用商业代码签名证书，首次运行时 Windows 可能显示“未知发布者”。
 
 安装版的“创建桌面快捷方式”默认勾选，可以在安装时取消。
 
@@ -50,6 +49,7 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 **管理自己的作品**
 
 - 查看项目介绍、问题和历史版本；创建、回复、关闭或重新打开问题。
+- “问题”和“代码提交审查”分别显示待处理数量，按项目查看反馈或审阅别人提交的改进。
 - 添加已有文件夹，查看新增、修改、删除和重命名的文件，发布尚未保存到 GitHub 的修改。
 - 在“我的项目”选择电脑上的查找位置，识别已连接到自己 GitHub 项目的文件夹，并自动加入这台电脑的项目列表。只检查选择的位置，不修改项目文件。
 - 编辑并预览项目介绍，插入图片链接和网页链接。真实项目的介绍会先保存在本地，点击“发布源码”后才会更新到 GitHub。
@@ -71,9 +71,9 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 ## “发布源码”和“发布新版本”
 
 - **发布源码**：保存平时对项目文件的修改。这项功能已连接真实 GitHub。
-- **发布新版本**：为自己的项目填写版本号和介绍，添加图片、链接及多个下载文件，预览后发布到 GitHub。再次发布时会建议下一个版本号。演示版仍只展示模拟流程。
+- **发布新版本**：为自己的项目填写版本号和介绍，添加图片、链接及多个下载文件，预览后发布到 GitHub。再次发布时会建议下一个版本号。
 
-正式版未登录时的创建、发布和回复操作只作用于模拟项目。独立演示版始终使用模拟数据，方便放心体验。
+未登录时的创建、发布和回复操作只作用于应用内的模拟项目。
 
 ## 关于数据
 

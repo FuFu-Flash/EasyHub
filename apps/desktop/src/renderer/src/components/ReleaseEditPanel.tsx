@@ -84,7 +84,7 @@ export function ReleaseEditPanel({ repo, release, onUpdated, onClose }: {
   };
 
   return <div className="release-edit-panel" data-testid="release-edit-panel">
-    <div className="release-edit-heading"><h3>{t('编辑已发布版本')} · {release.tag_name}</h3><button className="icon-button" onClick={onClose} aria-label={t('关闭编辑')}><X size={18} /></button></div>
+    <div className="release-edit-heading"><h3>{t('编辑发行版')} · {release.tag_name}</h3><button className="icon-button" onClick={onClose} aria-label={t('关闭编辑')}><X size={18} /></button></div>
     <p className="muted">{t('版本号保持不变，下载链接继续有效。')}</p>
     <label>{t('版本名称')}<input value={title} maxLength={120} onChange={(event) => setTitle(event.target.value)} disabled={busy} /></label>
     <label>{t('版本介绍')}<textarea rows={8} value={body} maxLength={262144} onChange={(event) => setBody(event.target.value)} disabled={busy} /></label>

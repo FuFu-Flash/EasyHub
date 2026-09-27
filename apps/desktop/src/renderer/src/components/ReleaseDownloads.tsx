@@ -14,7 +14,7 @@ function sizeLabel(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function ReleaseDownloads({ repo, onBack, onDownload, downloadBusy, offerAdd = false, focusTag, canEdit = false }: { repo: GitHubRepo; onBack: () => void; onDownload: (request: DownloadRequest) => void; downloadBusy: boolean; offerAdd?: boolean; focusTag?: string; canEdit?: boolean }) {
+export function ReleaseDownloads({ repo, onBack, onDownload, downloadBusy, offerAdd = false, focusTag, canEdit = false, editOnOpen = false }: { repo: GitHubRepo; onBack: () => void; onDownload: (request: DownloadRequest) => void; downloadBusy: boolean; offerAdd?: boolean; focusTag?: string; canEdit?: boolean; editOnOpen?: boolean }) {
   const [releases, setReleases] = useState<GitHubRelease[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -23,13 +23,13 @@ export function ReleaseDownloads({ repo, onBack, onDownload, downloadBusy, offer
 
   useEffect(() => {
     let active = true;
-    setLoading(true); setError(''); setReleases([]);
+    setLoading(true); setError(''); setReleases([]); setEditingId(null);
     void window.easyHub?.github<GitHubRelease[]>('releases', owner, repo.name)
-      .then((items) => { if (active) setReleases(items.filter((item) => !item.draft)); })
+      .then((items) => { if (active) { const published = items.filter((item) => !item.draft); setReleases(published); if (editOnOpen && canEdit) setEditingId(published[0]?.id ?? null); } })
       .catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : '暂时无法获取发布的版本。'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [owner, repo.name]);
+  }, [owner, repo.name, editOnOpen, canEdit]);
 
   const visibleReleases = focusTag ? [...releases].sort((a, b) => Number(b.tag_name === focusTag) - Number(a.tag_name === focusTag)) : releases;
   const download = (ref: string, fileName: string, assetId?: number): void => onDownload({ kind: 'archive', repo, ref, assetId, fileName, offerAdd });
@@ -37,13 +37,13 @@ export function ReleaseDownloads({ repo, onBack, onDownload, downloadBusy, offer
 
   return <div className="release-downloads" data-testid="release-downloads">
     <button className="back-link" onClick={onBack}><ArrowLeft size={17} />返回项目</button>
-    <div className="page-header"><div><div className="eyebrow">{repo.full_name}</div><h1>版本下载</h1><p>选择你需要的版本或文件，再保存到电脑。</p></div></div>
+    <div className="page-header"><div><div className="eyebrow">{repo.full_name}</div><h1>{editOnOpen && canEdit ? '编辑发行版' : '下载发行版或源码'}</h1><p>{editOnOpen && canEdit ? '选择已发布的版本，修改介绍或管理下载文件。' : '选择发行版文件或源码，再保存到电脑。'}</p></div></div>
     {error && <div className="live-error" role="alert">{error}</div>}
     {downloadBusy && <p className="muted">下载正在进行，可在右上角通知中查看进度。</p>}
     {loading ? <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取版本…</p> : <>
-      {releases.length === 0 && !error && <p className="muted">这个项目还没有发布可下载的新版本，你仍可以下载项目源码。</p>}
+      {releases.length === 0 && !error && <p className="muted">{editOnOpen && canEdit ? '这个项目还没有可编辑的发行版，请先发布新版本。' : '这个项目还没有发布可下载的新版本，你仍可以下载项目源码。'}</p>}
       {visibleReleases.map((release) => <section className="panel release-download-card" key={release.id}>
-        {canEdit && <div className="release-edit-entry"><button type="button" className="secondary-button" onClick={() => setEditingId((value) => value === release.id ? null : release.id)}>{translateText(editingId === release.id ? '收起编辑' : '编辑版本', readLanguage())}</button></div>}
+        {canEdit && <div className="release-edit-entry"><button type="button" className="secondary-button" onClick={() => setEditingId((value) => value === release.id ? null : release.id)}>{translateText(editingId === release.id ? '收起编辑' : '编辑发行版', readLanguage())}</button></div>}
         {canEdit && editingId === release.id && <ReleaseEditPanel repo={repo} release={release} onUpdated={onUpdated} onClose={() => setEditingId(null)} />}
         <div className="release-download-heading"><div><span className="release-tag">{release.tag_name}</span>{release.prerelease && <span className="release-prerelease">测试版</span>}{releases[0]?.id === release.id && !release.prerelease && <span className="release-latest">最新版本</span>}{focusTag === release.tag_name && <span className="release-latest">README 提到的版本</span>}<h2>{release.name || release.tag_name}</h2><small>{release.published_at ? new Date(release.published_at).toLocaleString() : '尚未公布时间'}</small></div></div>
         {release.body && (offerAdd || !repo.private ? <TranslatableContent text={release.body} format="markdown" render={(value) => <div className="release-description"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{value}</ReactMarkdown></div>} /> : <div className="release-description"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{release.body}</ReactMarkdown></div>)}

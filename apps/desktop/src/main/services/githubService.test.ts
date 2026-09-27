@@ -316,6 +316,8 @@ describe('safe improvement request handling', () => {
 
   it('rejects malformed action input before network requests', async () => {
     const { service, fetchMock } = await setup();
+    await expect(service.githubAction('activityCounts', [[{ id: 1, owner: '../other', name: 'sample' }]])).rejects.toThrow();
+    await expect(service.githubAction('pullRequestsPage', ['owner', 'sample', 'everything', 1])).rejects.toThrow();
     await expect(service.githubAction('acceptPullRequest', ['owner', 'sample', 7, { expectedHeadSha: 'main' }])).rejects.toThrow('填写');
     await expect(service.githubAction('acceptPullRequest', ['owner', 'sample', 7, { expectedHeadSha: headSha, expectedBaseRef: originalPull.base.ref, expectedBaseSha: originalPull.base.sha, method: 'force' }])).rejects.toThrow('填写');
     expect(fetchMock).not.toHaveBeenCalled();

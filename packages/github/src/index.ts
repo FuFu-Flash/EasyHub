@@ -13,6 +13,8 @@ export interface ContributionRepository { fullName: string; isPrivate: boolean; 
 export interface Contributions { total: number; years: number[]; weeks: { contributionDays: ContributionDay[] }[]; repositories: ContributionRepository[] }
 export interface GitHubIssue { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; created_at: string; user: { login: string } | null; comments: number; pull_request?: unknown }
 export interface GitHubIssuePage { items: GitHubIssue[]; nextPage: number | null }
+export interface GitHubActivityCount { issues: number; closedIssues: number; pullRequests: number; closedPullRequests: number }
+export interface GitHubActivityRepository { id: number; owner: string; name: string }
 export interface GitHubPullRepository { id: number; name: string; full_name: string; owner: { login: string } }
 export interface GitHubPullRequest { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; draft: boolean; merged: boolean; merged_at: string | null; created_at: string; html_url: string; user: { login: string } | null; comments: number; changed_files?: number; additions?: number; deletions?: number; mergeable?: boolean | null; mergeable_state?: string; head: { ref: string; label: string; sha?: string; repo?: GitHubPullRepository | null }; base: { ref: string; sha?: string; repo?: GitHubPullRepository | null } }
 export interface GitHubPullFile { filename: string; status: string; additions: number; deletions: number; sha?: string; previous_filename?: string; patch?: string }
@@ -171,6 +173,31 @@ export class GitHubClient {
   async issues(owner: string, repo: string, state: 'open' | 'closed' | 'all' = 'all', signal?: AbortSignal): Promise<GitHubIssue[]> {
     return (await this.issuePage(owner, repo, state, 1, signal)).items;
   }
+  async activityCounts(repositories: GitHubActivityRepository[], signal?: AbortSignal): Promise<Record<number, GitHubActivityCount>> {
+    const counts: Record<number, GitHubActivityCount> = {};
+    for (let offset = 0; offset < repositories.length; offset += 20) {
+      const batch = repositories.slice(offset, offset + 20);
+      const variables: Record<string, string> = {};
+      const definitions: string[] = [];
+      const fields = batch.map((item, index) => {
+        variables[`owner${index}`] = item.owner;
+        variables[`name${index}`] = item.name;
+        definitions.push(`$owner${index}:String!`, `$name${index}:String!`);
+        return `repo${index}:repository(owner:$owner${index},name:$name${index}){issues(states:OPEN){totalCount} closedIssues:issues(states:CLOSED){totalCount} pullRequests(states:OPEN){totalCount} closedPullRequests:pullRequests(states:CLOSED){totalCount}}`;
+      });
+      const response = await this.request<{ data?: Record<string, { issues: { totalCount: number }; closedIssues: { totalCount: number }; pullRequests: { totalCount: number }; closedPullRequests: { totalCount: number } } | null>; errors?: { message: string }[] }>('/graphql', {
+        method: 'POST', body: JSON.stringify({ query: `query(${definitions.join(',')}){${fields.join(' ')}}`, variables }), signal,
+      });
+      if (!response.data) throw new GitHubError(502, 'GitHub activity counts unavailable');
+      batch.forEach((item, index) => {
+        const value = response.data?.[`repo${index}`];
+        if (value && Number.isSafeInteger(value.issues?.totalCount) && Number.isSafeInteger(value.closedIssues?.totalCount) && Number.isSafeInteger(value.pullRequests?.totalCount) && Number.isSafeInteger(value.closedPullRequests?.totalCount)) {
+          counts[item.id] = { issues: value.issues.totalCount, closedIssues: value.closedIssues.totalCount, pullRequests: value.pullRequests.totalCount, closedPullRequests: value.closedPullRequests.totalCount };
+        }
+      });
+    }
+    return counts;
+  }
   createIssue(owner: string, repo: string, title: string, body: string): Promise<GitHubIssue> {
     return this.request(`${repoPath(owner, repo)}/issues`, { method: 'POST', body: JSON.stringify({ title, body }) });
   }
@@ -183,6 +210,9 @@ export class GitHubClient {
   }
   pullRequests(owner: string, repo: string, page = 1, signal?: AbortSignal): Promise<GitHubPullRequest[]> {
     return this.request(`${repoPath(owner, repo)}/pulls?state=all&sort=updated&direction=desc&per_page=100&page=${page}`, { signal });
+  }
+  pullRequestsPage(owner: string, repo: string, state: 'open' | 'closed', page = 1, signal?: AbortSignal): Promise<GitHubPullRequest[]> {
+    return this.request(`${repoPath(owner, repo)}/pulls?state=${state}&sort=updated&direction=desc&per_page=100&page=${page}`, { signal });
   }
   pullRequest(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubPullRequest> {
     return this.request(`${repoPath(owner, repo)}/pulls/${number}`, { signal });
