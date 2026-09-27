@@ -130,6 +130,13 @@ try {
   await assertEnglish('Add Folder');
   await page.locator('.sidebar-nav').getByRole('button', { name: 'Settings' }).click();
   await assertEnglish('Settings');
+  const settingsOrder = await page.locator('.settings-stack > *').evaluateAll((panels) => panels.map((panel) => panel.querySelector('h2')?.textContent?.trim()));
+  assert.deepEqual(settingsOrder.slice(0, 3), ['Account & Connection', 'Window Controls', 'AI API Access']);
+  assert.equal(settingsOrder.at(-2), 'Hosts repair');
+  assert.equal(settingsOrder.at(-1), 'About EasyHub');
+  assert.equal(settingsOrder.includes('Data & Sync'), false);
+  await page.getByText('If you cannot reach GitHub, try turning on this switch.').waitFor();
+  await page.getByRole('switch', { name: 'Hosts repair' }).waitFor();
   await page.getByText('GNU GPLv3').waitFor();
   await page.screenshot({ path: 'out/settings-english-smoke.png' });
   await page.getByRole('button', { name: 'Choose language' }).click();
@@ -331,6 +338,8 @@ try {
   await page.getByRole('button', { name: '使用 GitHub 登录' }).click();
   await page.getByText('ABCD-EFGH').waitFor();
   await page.locator('.live-connected').waitFor({ timeout: 8000 });
+  await page.locator('.sidebar-refresh').waitFor();
+  assert.equal(await page.locator('.sidebar-refresh').evaluate((button) => button.nextElementSibling?.classList.contains('live-connected')), true);
   await app.evaluate(({ ipcMain }) => {
     ipcMain.removeHandler('easyhub:local-list');
     ipcMain.handle('easyhub:local-list', () => [{ id: 'home-local', repositoryId: 101, owner: 'demo-user', name: 'CloudDemo', localPath: 'C:\\Mock\\CloudDemo', lastOpenedAt: new Date().toISOString() }]);
@@ -404,6 +413,10 @@ try {
   assert.deepEqual(residual, [], 'Untranslated text in English live version details');
   await page.screenshot({ path: 'out/live-project-smoke.png' });
   for (const name of ['Home', 'My Projects', 'Issues', 'Settings']) { await page.locator('.sidebar-nav').getByRole('button', { name }).click(); assert.deepEqual(await untranslatedLive(), [], `Untranslated text in English live ${name}`); }
+  const liveSettingsOrder = await page.locator('.settings-stack > *').evaluateAll((panels) => panels.map((panel) => panel.querySelector('h2')?.textContent?.trim()));
+  assert.equal(liveSettingsOrder.at(-2), 'Hosts repair');
+  assert.equal(liveSettingsOrder.at(-1), 'About EasyHub');
+  assert.equal(liveSettingsOrder.includes('Data & Sync'), false);
   await page.locator('.sidebar-nav').getByRole('button', { name: 'Home' }).click();
   await page.getByRole('button', { name: 'Download from GitHub' }).click();
   assert.deepEqual(await untranslatedLive(), [], 'Untranslated text in English local projects');

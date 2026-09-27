@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { authStatus, cancelArchive, cancelDeviceLogin, cancelGithubReads, downloadArchive, downloadReleaseAsset, downloadPullRequestFile, getPullRequestReviewContext, githubAction, logout, openDownloadedFile, pollDeviceLogin, revealDownloadedArchive, startDeviceLogin } from './services/githubService';
 import { AsyncEntry } from '@napi-rs/keyring';
 import { AiReviewService } from './services/AiReviewService';
+import { HostsRepairService } from './services/hostsRepair';
 import { OpenAiReviewProvider } from './services/OpenAiReviewProvider';
 import type { DownloadTransferProgress } from './services/githubService';
 import { LocalProjectStore } from './git/LocalProjectStore';
@@ -17,6 +18,7 @@ let localService: LocalProjectService;
 let translationService: TranslationService;
 let releaseService: ReleasePublishingService;
 let aiReviewService: AiReviewService;
+let hostsRepairService: HostsRepairService;
 const translationJobs = new Map<string, AbortController>();
 
 function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
@@ -72,6 +74,15 @@ app.whenReady().then(() => {
   releaseService = new ReleasePublishingService();
   aiReviewService = new AiReviewService(new AsyncEntry('EasyHub AI API', 'default'),
     new OpenAiReviewProvider((url, init) => net.fetch(url, init)), getPullRequestReviewContext);
+  hostsRepairService = new HostsRepairService((url, init) => net.fetch(url, init),
+    app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources'), app.getPath('userData'));
+  const refreshHostsIfDue = (): void => { void hostsRepairService.status().then((status) => {
+    if (status.enabled && (!status.updatedAt || Date.now() - Date.parse(status.updatedAt) > 86400000)) {
+      void hostsRepairService.refresh().then(() => session.defaultSession.clearHostResolverCache()).catch(() => undefined);
+    }
+  }).catch(() => undefined); };
+  refreshHostsIfDue();
+  setInterval(refreshHostsIfDue, 6 * 60 * 60 * 1000).unref();
   void localService.startWatching();
 
   ipcMain.handle('easyhub:window-minimize', (event) => {
@@ -93,6 +104,29 @@ app.whenReady().then(() => {
   ipcMain.handle('easyhub:open-license', async (event) => {
     assertTrustedSender(event);
     await shell.openExternal('https://www.gnu.org/licenses/gpl-3.0.html');
+  });
+
+  ipcMain.handle('easyhub:hosts-status', (event) => { assertTrustedSender(event); return hostsRepairService.status(); });
+  ipcMain.handle('easyhub:hosts-set-enabled', async (event, enabled: unknown) => {
+    assertTrustedSender(event);
+    if (typeof enabled !== 'boolean') throw new Error('Hosts 修复设置无效。');
+    if (enabled) {
+      const answer = await dialog.showMessageBox(mainWindow!, {
+        type: 'warning', title: '开启 Hosts 修复', buttons: ['取消', '继续'], defaultId: 0, cancelId: 0,
+        message: '此操作会修改整台电脑的 Windows Hosts 文件。',
+        detail: 'EasyHub 将从 maxiaof/github-hosts 获取 GitHub 地址，并只管理带有 EasyHub 标记的区块。Windows 会要求管理员授权。',
+      });
+      if (answer.response !== 1) return hostsRepairService.status();
+    }
+    const status = await hostsRepairService.setEnabled(enabled);
+    await session.defaultSession.clearHostResolverCache();
+    return status;
+  });
+  ipcMain.handle('easyhub:hosts-refresh', async (event) => {
+    assertTrustedSender(event);
+    const status = await hostsRepairService.refresh();
+    await session.defaultSession.clearHostResolverCache();
+    return status;
   });
 
   ipcMain.handle('easyhub:open-external-link', async (event, rawUrl: unknown) => {

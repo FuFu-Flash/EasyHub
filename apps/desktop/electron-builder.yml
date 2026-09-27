@@ -19,6 +19,8 @@ extraResources:
     to: easyhub.ico
   - from: resources/easyhub.png
     to: easyhub.png
+  - from: resources/hosts-repair.ps1
+    to: hosts-repair.ps1
 asar: true
 npmRebuild: false
 win:

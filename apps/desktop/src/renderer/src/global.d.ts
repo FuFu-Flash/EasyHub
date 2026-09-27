@@ -5,6 +5,8 @@ import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, Pu
 import type { GitHubCreatedRelease } from '@easyhub/github';
 import type { AiSettingsInput, AiSettingsStatus, AiReviewRequest, AiReviewResult, AiReviewProgress } from '@easyhub/types';
 
+interface HostsRepairStatus { enabled: boolean; updatedAt: string | null; source: string }
+
 export {};
 
 declare global {
@@ -37,6 +39,9 @@ declare global {
       toggleMaximizeWindow: () => Promise<void>;
       closeWindow: () => Promise<void>;
       openLicense: () => Promise<void>;
+      hostsStatus: () => Promise<HostsRepairStatus>;
+      hostsSetEnabled: (enabled: boolean) => Promise<HostsRepairStatus>;
+      hostsRefresh: () => Promise<HostsRepairStatus>;
       openExternalLink: (url: string) => Promise<void>;
       authStatus: () => Promise<{ user: GitHubUser | null; clientId: string | null }>;
       aiSettings: () => Promise<AiSettingsStatus>;
