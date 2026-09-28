@@ -21,9 +21,7 @@ EasyHub 让你更轻松地使用 GitHub。用 Windows 版创作和发布作品�
 | Android | 精简安装包 | 适合大多数较新的 Android 手机 | [下载 Android 安装包](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-arm64.apk) |
 | Android | 通用安装包 | 精简安装包无法安装时尝试 | [下载通用安装包](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk) |
 
-两个 Windows 版本适用于 64 位电脑。应用尚未使用商业代码签名证书，首次运行时 Windows 可能显示“未知发布者”。Android 版适用于 Android 7.0 及以上；从 GitHub 下载安装包后打开，按系统提示确认安装权限。如果之前装过测试版，需要先卸载测试版，再安装这个正式版并重新登录 GitHub。
-
-安装版的“创建桌面快捷方式”默认勾选，可以在安装时取消。
+两个 Windows 版本适用于 64 位电脑。应用尚未使用商业代码签名证书，首次运行时 Windows 可能显示“未知发布者”。Android 版适用于 Android 7.0 及以上；从 GitHub 下载安装包后打开，按系统提示确认安装权限。
 
 ## 在 Windows 上创作和发布
 
