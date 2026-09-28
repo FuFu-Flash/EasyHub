@@ -63,7 +63,8 @@ async function saveCredential(next: Credential): Promise<void> {
 async function exchange(form: Record<string, string>): Promise<TokenReply> {
   const response = await net.fetch('https://github.com/login/oauth/access_token', {
     method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(form),
-  });
+    signal: AbortSignal.timeout(15000),
+  }).catch(() => { throw new Error('无法连接 GitHub 登录接口。请检查网络连接；如果当前网络阻断登录请求，仅修改 Hosts 无法解决。'); });
   if (!response.ok) throw new Error('GitHub 登录暂时不可用，请稍后重试。');
   return response.json() as Promise<TokenReply>;
 }
@@ -154,7 +155,8 @@ export async function startDeviceLogin(clientId: unknown, includeDeleteScope = f
   const response = await net.fetch('https://github.com/login/device/code', {
     method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: clientId, scope: includeDeleteScope ? 'repo read:user delete_repo' : 'repo read:user' }),
-  });
+    signal: AbortSignal.timeout(15000),
+  }).catch(() => { throw new Error('无法连接 GitHub 登录接口。请检查网络连接；如果当前网络阻断登录请求，仅修改 Hosts 无法解决。'); });
   if (!response.ok) throw new Error('GitHub 登录暂时不可用，请稍后重试。');
   const result = await response.json() as DeviceCode & { error?: string };
   if (!result.device_code || !result.user_code || result.error) throw new Error('无法开始 GitHub 登录，请检查 Client ID 和 Device Flow 设置。');
@@ -199,7 +201,7 @@ export async function logout(): Promise<void> { pending = null; oneTimeDeletion 
 export async function githubAction(action: unknown, args: unknown[]): Promise<unknown> {
   if (typeof action !== 'string' || !Array.isArray(args) || args.length > 4) invalid();
   const [owner, repo, third, fourth] = args;
-  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'activityCounts', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'comments', 'pullRequests', 'pullRequestsPage', 'pullRequest', 'pullFiles', 'pullReviewContext', 'commits', 'commit', 'releases'].includes(action) ? new AbortController() : null;
+  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'starredRepos', 'isStarred', 'activityCounts', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'comments', 'pullRequests', 'pullRequestsPage', 'pullRequest', 'pullFiles', 'pullReviewContext', 'commits', 'commit', 'releases'].includes(action) ? new AbortController() : null;
   if (controller) readControllers.add(controller);
   try {
     const assertAdmin = async (ownerName: string, repoName: string): Promise<GitHubRepo> => {
@@ -231,6 +233,9 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       case 'publicRepo': if (validRepoPart(owner) && validRepoPart(repo)) { const item = await client.repo(owner, repo); if (item.private) throw new Error('这个项目不是公开项目。'); return item; } invalid();
       case 'repository': if (validRepoPart(owner) && validRepoPart(repo)) return await client.repo(owner, repo); invalid();
       case 'repos': return await client.repos(typeof owner === 'number' && owner > 0 && owner <= 100 ? owner : 1, controller?.signal);
+      case 'starredRepos': if (args.length === 1 && Number.isInteger(owner) && Number(owner) >= 1 && Number(owner) <= 1000) return await client.starredRepos(Number(owner), controller?.signal); invalid();
+      case 'isStarred': if (args.length === 2 && validRepoPart(owner) && validRepoPart(repo)) return await client.isStarred(owner, repo, controller?.signal); invalid();
+      case 'setStarred': if (args.length === 3 && validRepoPart(owner) && validRepoPart(repo) && typeof third === 'boolean') return await client.setStarred(owner, repo, third); invalid();
       case 'activityCounts': {
         if (args.length !== 1 || !Array.isArray(owner) || owner.length > 500 || !owner.every((item: unknown) => typeof item === 'object' && item !== null && !Array.isArray(item) && Number.isSafeInteger((item as Record<string, unknown>).id) && Number((item as Record<string, unknown>).id) > 0 && validRepoPart((item as Record<string, unknown>).owner) && validRepoPart((item as Record<string, unknown>).name))) invalid();
         return await client.activityCounts(owner as GitHubActivityRepository[], controller?.signal);

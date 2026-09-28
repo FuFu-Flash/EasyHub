@@ -1,0 +1,28 @@
+appId: com.easyhub.installer
+productName: EasyHub 安装程序
+directories:
+  output: ../out/installer-shell-build
+files:
+  - main.cjs
+  - path.cjs
+  - preload.cjs
+  - index.html
+  - style.css
+  - renderer.js
+  - icon.svg
+  - package.json
+extraResources:
+  - from: ../out/installer-shell-payload/core-installer.exe
+    to: core-installer.exe
+  - from: ../resources/easyhub.ico
+    to: easyhub.ico
+asar: true
+npmRebuild: false
+electronVersion: 38.8.6
+win:
+  target: portable
+  icon: ../resources/easyhub.ico
+portable:
+  artifactName: EasyHub-${version}-setup.${ext}
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/

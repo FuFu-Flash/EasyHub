@@ -36,20 +36,20 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
     <div className="settings-panel-content">
       <div className="hosts-repair-heading">
         <div><h2>{t('Hosts 修复', 'Hosts repair')}</h2>
-          <p>{t('访问不了 GitHub 时，可以试试打开这个开关。', 'If you cannot reach GitHub, try turning on this switch.')}</p></div>
+          <p>{t('先检测登录和项目接口，再决定是否需要修改地址。', 'Check login and project connections before changing any addresses.')}</p></div>
         <button type="button" role="switch" aria-label={t('Hosts 修复', 'Hosts repair')} aria-checked={status?.enabled ?? false}
           className={`easyhub-switch ${status?.enabled ? 'is-on' : ''}`} disabled={disabled || busy || !status}
           onClick={() => void act('toggle')}><span /></button>
       </div>
       <p className="hosts-repair-explain">{t(
-        '开启后，EasyHub 会更新这台电脑的 GitHub 访问地址。需要 Windows 管理员授权，且会影响整台电脑；关闭时只移除 EasyHub 添加的内容。',
-        'EasyHub will update this computer’s GitHub addresses. Windows administrator approval is required, and the change affects the whole computer. Turning it off removes only entries added by EasyHub.')}</p>
+        '只有当前地址无法连接、备用地址已通过检测时，EasyHub 才会写入 Hosts。需要 Windows 管理员授权，且会影响整台电脑；关闭时只移除 EasyHub 添加的内容。若网络阻断登录请求，Hosts 无法解决。',
+        'EasyHub writes a Hosts entry only when the current connection fails and the replacement passes a connection check. Windows administrator approval is required; the change affects the whole computer. Turning it off removes only EasyHub entries. Hosts cannot bypass a network block on login requests.')}</p>
       <div className="hosts-repair-footer">
-        <span className="hosts-repair-status">{disabled ? t('演示版不可用', 'Unavailable in demo') : status?.enabled ? t('已开启', 'On') : t('已关闭', 'Off')}
+        <span className="hosts-repair-status">{busy ? t('正在检测连接与备用地址…', 'Checking the connection and replacement addresses…') : disabled ? t('演示版不可用', 'Unavailable in demo') : status?.enabled ? t('已开启', 'On') : t('已关闭', 'Off')}
           {status?.updatedAt && ` · ${t('上次更新', 'Last updated')} ${new Date(status.updatedAt).toLocaleString(language === 'en' ? 'en-US' : 'zh-CN')}`}</span>
         <div className="hosts-repair-actions">
-          <button type="button" className="text-link" onClick={() => void window.easyHub?.openExternalLink('https://github.com/maxiaof/github-hosts')}>
-            {t('查看地址来源', 'View address source')} <ExternalLink size={14} /></button>
+          <button type="button" className="text-link" onClick={() => void window.easyHub?.openExternalLink('https://dns.alidns.com/')}>
+            {t('查看 DNS 服务', 'View DNS service')} <ExternalLink size={14} /></button>
           {status?.enabled && <button type="button" className="button button-quiet" disabled={busy} onClick={() => void act('refresh')}>
             <RotateCw size={15} className={busy ? 'live-spin' : ''} />{t('立即更新', 'Update now')}</button>}
         </div>

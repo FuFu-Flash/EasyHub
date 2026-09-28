@@ -80,20 +80,21 @@ try {
   assert.equal(await settingsToggle.locator('svg').evaluate((svg) => getComputedStyle(svg).transform), 'none');
   assert.equal(await settings.locator('input[type="password"]').isVisible(), false);
   await settingsToggle.click();
-  assert.equal(await settings.getByLabel('AI 服务商', { exact: true }).inputValue(), 'openai');
+  assert.match(await settings.getByRole('combobox', { name: 'AI 服务商' }).innerText(), /OpenAI/);
   assert.equal(await settings.locator('input[type="url"]').count(), 0);
   assert.equal(await settings.getByLabel('模型名称', { exact: true }).inputValue(), 'gpt-4.1-mini');
   await settings.locator('input[type="password"]').fill('smoke-user-supplied-key');
   await settings.getByRole('button', { name: '保存授权' }).click();
   await settings.locator('#ai-settings-details').waitFor({ state: 'hidden' });
-  assert.equal(await settings.getByLabel('模型选择', { exact: true }).inputValue(), 'gpt-4.1-mini');
+  assert.match(await settings.getByRole('combobox', { name: '模型选择' }).innerText(), /gpt-4.1-mini/);
   assert.equal(await settings.locator('input[type="password"]').inputValue(), '');
   assert.equal(await page.evaluate(() => JSON.stringify(localStorage).includes('smoke-user-supplied-key')), false);
   await settingsToggle.click();
   await settings.getByRole('button', { name: '测试连接' }).click();
   await settings.getByText('连接成功，可以开始 AI 审查。').waitFor();
   assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.tests), 1);
-  await settings.getByLabel('AI 服务商', { exact: true }).selectOption('deepseek');
+  await settings.getByRole('combobox', { name: 'AI 服务商' }).click();
+  await settings.getByRole('option', { name: /DeepSeek/ }).click();
   assert.equal(await settings.getByLabel('模型名称', { exact: true }).inputValue(), 'deepseek-v4-flash');
   assert.equal(await settings.getByRole('button', { name: '保存授权' }).isDisabled(), true);
   await settings.locator('input[type="password"]').fill('smoke-deepseek-key');
@@ -101,8 +102,9 @@ try {
   await settings.getByLabel('模型名称', { exact: true }).fill('deepseek-custom-test');
   await settings.getByRole('button', { name: '保存授权' }).click();
   await settings.locator('#ai-settings-details').waitFor({ state: 'hidden' });
-  assert.equal(await settings.getByLabel('模型选择', { exact: true }).inputValue(), 'deepseek-custom-test');
-  await settings.getByLabel('模型选择', { exact: true }).selectOption('deepseek-v4-flash');
+  assert.match(await settings.getByRole('combobox', { name: '模型选择' }).innerText(), /deepseek-custom-test/);
+  await settings.getByRole('combobox', { name: '模型选择' }).click();
+  await settings.getByRole('option', { name: 'deepseek-v4-flash' }).click();
   for (let attempt = 0; attempt < 30 && (await app.evaluate(() => globalThis.easyhubAiSmoke.saves.length)) < 3; attempt += 1) await page.waitForTimeout(100);
   assert.equal(await settingsToggle.getAttribute('aria-expanded'), 'false');
   assert.deepEqual((await app.evaluate(() => globalThis.easyhubAiSmoke.saves)).map((item) => [item.providerId, item.model]), [['openai', 'gpt-4.1-mini'], ['deepseek', 'deepseek-custom-test'], ['deepseek', 'deepseek-v4-flash']]);
@@ -159,7 +161,7 @@ try {
 
   assert.equal(await pulls.getByRole('button', { name: '下载文件 old-option.txt' }).isDisabled(), true);
   await pulls.getByRole('button', { name: '下载文件 src/validation.ts' }).click();
-  await page.getByRole('dialog', { name: '下载通知' }).getByText('validation.ts', { exact: true }).waitFor();
+  await page.getByRole('dialog', { name: '通知' }).getByText('validation.ts', { exact: true }).waitFor();
   assert.deepEqual(await app.evaluate(() => globalThis.easyhubAiSmoke.downloads[0]), ['test-owner', 'owned-repo', 1, 'src/validation.ts', '1'.repeat(40)]);
   await page.getByRole('button', { name: '通知', exact: true }).click();
 

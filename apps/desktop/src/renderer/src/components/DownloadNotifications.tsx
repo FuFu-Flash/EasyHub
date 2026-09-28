@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react';
 import type { GitHubRepo } from '@easyhub/github';
-import { ArrowDownToLine, Bell, CheckCircle2, FolderOpen, RotateCw, X } from 'lucide-react';
+import { ArrowDownToLine, Bell, CheckCircle2, ChevronRight, FolderOpen, RotateCw, X } from 'lucide-react';
 import type { useDownloadCenter } from './useDownloadCenter';
 import { downloadAmount, downloadTransferText } from './downloadTransfer';
 
 type Center = ReturnType<typeof useDownloadCenter>;
+export interface ActivityNotice { id: string; title: string; detail: string; onOpen: () => void }
 
-export function DownloadNotifications({ center, savedPublicRepoIds, onAddPublic }: { center: Center; savedPublicRepoIds: number[]; onAddPublic: (repo: GitHubRepo) => void }) {
+export function DownloadNotifications({ center, savedPublicRepoIds, onAddPublic, activity = [] }: { center: Center; savedPublicRepoIds: number[]; onAddPublic: (repo: GitHubRepo) => void; activity?: ActivityNotice[] }) {
   const wrapper = useRef<HTMLDivElement>(null);
   const running = center.items.filter((item) => item.state === 'running').length;
   useEffect(() => {
@@ -19,9 +20,11 @@ export function DownloadNotifications({ center, savedPublicRepoIds, onAddPublic 
   }, [center.open, center.setOpen]);
 
   return <div className="download-notification-anchor" ref={wrapper}>
-    <button className="icon-button download-notification-trigger" aria-label="通知" aria-expanded={center.open} onClick={() => center.setOpen((value) => !value)}><Bell size={20} />{(running > 0 || center.unread > 0) && <span className="download-notification-count">{running || center.unread}</span>}</button>
-    {center.open && <section className="download-notification-panel" role="dialog" aria-label="下载通知">
-      <header><strong>下载</strong><div>{center.items.some((item) => item.state !== 'running') && <button onClick={center.clearFinished}>清除记录</button>}<button aria-label="关闭下载通知" onClick={() => center.setOpen(false)}><X size={17} /></button></div></header>
+    <button className="icon-button download-notification-trigger" aria-label="通知" aria-expanded={center.open} onClick={() => center.setOpen((value) => !value)}><Bell size={20} />{(activity.length > 0 || running > 0 || center.unread > 0) && <span className="download-notification-count">{activity.length + (running || center.unread)}</span>}</button>
+    {center.open && <section className="download-notification-panel" role="dialog" aria-label="通知">
+      <header><strong>通知</strong><div>{center.items.some((item) => item.state !== 'running') && <button onClick={center.clearFinished}>清除下载记录</button>}<button aria-label="关闭通知" onClick={() => center.setOpen(false)}><X size={17} /></button></div></header>
+      {activity.length > 0 && <div className="activity-notification-list"><span className="notification-section-label">项目动态</span>{activity.map((item) => <button key={item.id} className="activity-notification-item" onClick={() => { center.setOpen(false); item.onOpen(); }}><span className="activity-notification-mark" /><span><strong>{item.title}</strong><small>{item.detail}</small></span><ChevronRight size={16} /></button>)}</div>}
+      {center.items.length > 0 && <span className="notification-section-label notification-download-label">下载</span>}
       <div className="download-notification-list">{center.items.length ? center.items.map((item) => <article className="download-notification-item" key={item.id}>
         <span className={`download-notification-symbol ${item.state}`}>{item.state === 'running' ? <RotateCw size={18} className="live-spin" /> : item.state === 'complete' ? <CheckCircle2 size={18} /> : <ArrowDownToLine size={18} />}</span>
         <div className="download-notification-info"><strong title={item.request.fileName}>{item.request.fileName}</strong><small>{item.request.repo.full_name}</small>
@@ -30,7 +33,7 @@ export function DownloadNotifications({ center, savedPublicRepoIds, onAddPublic 
               : <><small className="download-notification-error">{item.error || (item.state === 'cancelled' ? '下载已取消。' : '下载失败。')}</small><div className="download-notification-actions"><button onClick={() => void center.start(item.request, item.id)}>重试</button><button onClick={() => center.dismiss(item.id)}>移除</button></div></>}
           {item.error && item.state === 'complete' && <small className="download-notification-error">{item.error}</small>}
         </div>
-      </article>) : <p className="download-notification-empty">目前没有下载任务。</p>}</div>
+      </article>) : !activity.length ? <p className="download-notification-empty">目前没有通知。</p> : null}</div>
     </section>}
   </div>;
 }

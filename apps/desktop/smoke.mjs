@@ -69,6 +69,14 @@ try {
     assert.deepEqual(remaining, [], `Untranslated text on ${label}`);
   };
   await assertEnglish('Home');
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await page.getByRole('menuitem', { name: 'Starred projects' }).click();
+  await assertEnglish('Starred projects');
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await page.getByRole('menuitem', { name: 'Profile' }).click();
+  await assertEnglish('Profile');
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
   await page.locator('.sidebar-nav').getByRole('button', { name: 'My Projects' }).click();
   await assertEnglish('Projects');
   await page.getByRole('button', { name: 'New Project' }).first().click();
@@ -76,6 +84,8 @@ try {
   await page.locator('.sidebar-nav').getByRole('button', { name: 'My Projects' }).click();
   await page.locator('.project-card .plain-heading').first().click();
   await assertEnglish('Project Details');
+  await page.locator('.detail-actions').getByRole('button', { name: 'Star project' }).click();
+  await page.locator('.detail-actions').getByRole('button', { name: 'Starred' }).waitFor();
   await page.getByRole('button', { name: 'Edit Introduction' }).click();
   await assertEnglish('Introduction Editor');
   await page.getByRole('button', { name: 'Preview', exact: true }).click();
@@ -135,7 +145,7 @@ try {
   assert.equal(settingsOrder.at(-2), 'Hosts repair');
   assert.equal(settingsOrder.at(-1), 'About EasyHub');
   assert.equal(settingsOrder.includes('Data & Sync'), false);
-  await page.getByText('If you cannot reach GitHub, try turning on this switch.').waitFor();
+  await page.getByText('Check login and project connections before changing any addresses.').waitFor();
   await page.getByRole('switch', { name: 'Hosts repair' }).waitFor();
   await page.getByText('GNU GPLv3').waitFor();
   await page.screenshot({ path: 'out/settings-english-smoke.png' });
@@ -154,8 +164,8 @@ try {
   await page.locator('.window-style-option').first().click();
   await page.locator('.topbar-windows .windows-window-controls').waitFor();
   await page.locator('.topbar-brand').click();
-  await page.getByRole('heading', { name: /早上好/ }).waitFor();
-  assert.equal(await page.locator('.mascot-plant').evaluate((image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0), true);
+  await page.getByRole('heading', { name: /(早上好|下午好|晚上好)/ }).waitFor();
+  assert.equal(await page.locator('.v2-feature-art > img').evaluate((image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0), true);
   await page.getByRole('button', { name: '关闭窗口' }).waitFor();
   await page.getByRole('button', { name: '最大化或还原窗口' }).click();
   assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isMaximized()), true);
@@ -298,6 +308,7 @@ try {
     const publicRepo = { ...repo, id: 104, name: 'PublicDemo', full_name: 'another-user/PublicDemo', private: false, owner: { login: 'another-user' }, open_issues_count: 0 };
     const issue = { id: 201, number: 7, title: 'Window bug', body: 'Please fix the window.', state: 'open', created_at: new Date().toISOString(), user: { login: 'visitor' }, comments: 0 };
     let issueState = 'open';
+    let publicStarred = false;
     const commit = { sha: 'a'.repeat(40), commit: { message: 'Fix launch', author: { name: 'demo-user', date: new Date().toISOString() } }, author: { login: 'demo-user' }, stats: { additions: 10, deletions: 2 }, files: [{ filename: 'src/main.ts', status: 'modified' }] };
     ipcMain.removeHandler('easyhub:auth-status');
     ipcMain.handle('easyhub:auth-status', () => ({ user, clientId: 'Ov23lixRW8K0uXzZqwMj' }));
@@ -319,6 +330,9 @@ try {
     ipcMain.removeHandler('easyhub:github');
     ipcMain.handle('easyhub:github', (_event, action, ...args) => {
       if (action === 'repos') return args[0] === 1 ? [otherRepo, repo] : [];
+      if (action === 'starredRepos') return publicStarred ? [publicRepo] : [];
+      if (action === 'isStarred') return publicStarred && args[0] === 'another-user';
+      if (action === 'setStarred') { publicStarred = args[2]; return undefined; }
       if (action === 'activityCounts') return { 101: { issues: issueState === 'open' ? 1 : 0, closedIssues: issueState === 'closed' ? 1 : 0, pullRequests: 0, closedPullRequests: 0 }, 103: { issues: 0, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 }, 104: { issues: 0, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 } };
       if (action === 'searchPublicRepos') return args[0] === 'Public' ? [publicRepo] : [];
       if (action === 'readme') return '# CloudDemo\n\nThis is a GitHub introduction.';
@@ -349,9 +363,16 @@ try {
   await page.evaluate(() => window.localStorage.setItem('easyhub:language', 'zh'));
   await page.reload();
   await page.locator('.live-connected').waitFor();
-  await page.locator('.home-hero').waitFor();
+  await page.locator('.v2-feature-card').waitFor();
   await page.locator('.home-dashboard').waitFor();
   await page.locator('.home-publish').getByText('CloudDemo 有 1 个文件发生变化').waitFor();
+  await page.getByRole('button', { name: '账户菜单' }).click();
+  await page.getByRole('menuitem', { name: '我收藏的项目' }).click();
+  await page.getByRole('heading', { name: '还没有收藏的项目' }).waitFor();
+  await page.getByRole('button', { name: '返回' }).click();
+  await page.locator('.download-notification-trigger').click();
+  await page.locator('.download-notification-panel .activity-notification-item').filter({ hasText: 'CloudDemo' }).first().waitFor();
+  await page.locator('.download-notification-panel').getByRole('button', { name: '关闭通知' }).click();
   const inspectedFolder = await page.evaluate(async () => {
     const path = await window.easyHub?.chooseFolder();
     return path ? window.easyHub?.localInspect(path) : null;
@@ -373,6 +394,14 @@ try {
   await page.locator('.toolbar input').fill('Public');
   await page.getByText('another-user/PublicDemo').waitFor();
   await page.getByText('another-user/PublicDemo').click();
+  await page.getByRole('heading', { name: 'PublicDemo' }).waitFor();
+  await page.locator('.public-browser-hero').getByRole('button', { name: '收藏项目' }).click();
+  await page.locator('.public-browser-hero').getByRole('button', { name: '已收藏' }).waitFor();
+  await page.getByRole('button', { name: '账户菜单' }).click();
+  await page.getByRole('menuitem', { name: '我收藏的项目' }).click();
+  await page.locator('.starred-project-card').first().waitFor();
+  await page.screenshot({ path: 'out/starred-live-smoke.png' });
+  await page.locator('.starred-project-card').getByText('PublicDemo').click();
   await page.getByRole('heading', { name: 'PublicDemo' }).waitFor();
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
   await page.getByRole('button', { name: /我的云端项目/ }).click();
@@ -469,8 +498,8 @@ try {
   await page.locator('.cloud-row').filter({ hasText: 'CloudDemo' }).getByRole('button', { name: 'CloudDemo' }).click();
   await page.getByRole('button', { name: '本地项目与发布源码' }).click();
   await page.getByRole('button', { name: '下载', exact: true }).click();
-  await page.getByRole('dialog', { name: '下载通知' }).getByText('项目已经下载完成。').waitFor();
-  await page.getByRole('button', { name: '关闭下载通知' }).click();
+  await page.getByRole('dialog', { name: '通知' }).getByText('项目已经下载完成。').waitFor();
+  await page.getByRole('button', { name: '关闭通知' }).click();
   await page.getByRole('button', { name: '返回', exact: true }).click();
   await page.getByRole('button', { name: '编辑介绍' }).click();
   await page.getByRole('dialog').getByRole('button', { name: '添加图片' }).click();

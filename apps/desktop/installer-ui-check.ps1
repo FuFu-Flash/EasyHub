@@ -7,71 +7,62 @@ if (-not $Installer) {
 }
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
-Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
-public static class InstallerWindowMessage {
-  [DllImport("user32.dll", CharSet=CharSet.Auto)]
-  public static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+public static class InstallerVisualCheck {
   [DllImport("user32.dll")]
-  public static extern bool SetForegroundWindow(IntPtr window);
-  [DllImport("user32.dll")]
-  public static extern IntPtr GetForegroundWindow();
-  [DllImport("user32.dll")]
-  public static extern uint GetWindowThreadProcessId(IntPtr window, IntPtr processId);
-  [DllImport("kernel32.dll")]
-  public static extern uint GetCurrentThreadId();
-  [DllImport("user32.dll")]
-  public static extern bool AttachThreadInput(uint attach, uint attachTo, bool value);
+  public static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
 }
 '@
 
-$process = [System.Diagnostics.Process]::Start((Resolve-Path -LiteralPath $Installer).Path)
+$process = Start-Process -FilePath (Resolve-Path -LiteralPath $Installer).Path -PassThru
 try {
+  $title = -join ([char[]]@(0x5B89, 0x88C5, 0x20, 0x45, 0x61, 0x73, 0x79, 0x48, 0x75, 0x62))
   $root = [System.Windows.Automation.AutomationElement]::RootElement
-  $condition = [System.Windows.Automation.PropertyCondition]::new(
-    [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $process.Id
-  )
   $window = $null
-  for ($attempt = 0; $attempt -lt 40; $attempt++) {
+  for ($attempt = 0; $attempt -lt 80; $attempt++) {
     Start-Sleep -Milliseconds 250
-    $window = $root.FindFirst([System.Windows.Automation.TreeScope]::Children, $condition)
+    $processes = @(Get-CimInstance Win32_Process)
+    $tree = @($process.Id)
+    for ($depth = 0; $depth -lt 5; $depth++) {
+      $children = @($processes | Where-Object { $tree -contains $_.ParentProcessId -and $tree -notcontains $_.ProcessId } |
+        Select-Object -ExpandProperty ProcessId)
+      if (-not $children.Count) { break }
+      $tree += $children
+    }
+    $windows = $root.FindAll([System.Windows.Automation.TreeScope]::Children,
+      [System.Windows.Automation.Condition]::TrueCondition)
+    foreach ($candidate in $windows) {
+      if ($candidate.Current.Name -eq $title -and $tree -contains $candidate.Current.ProcessId) {
+        $window = $candidate; break
+      }
+    }
     if ($window) { break }
   }
-  if (-not $window) { throw 'Installer window did not open.' }
-
-  $shortcutLabel = -join ([char[]]@(0x521B, 0x5EFA, 0x684C, 0x9762, 0x5FEB, 0x6377, 0x65B9, 0x5F0F))
-  for ($step = 0; $step -lt 5; $step++) {
-    $elements = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants,
-      [System.Windows.Automation.Condition]::TrueCondition)
-    $checkbox = $null
-    $next = $null
-    foreach ($element in $elements) {
-      $name = $element.Current.Name
-      if ($name -eq $shortcutLabel) { $checkbox = $element }
-      if ($name -match '\(N\)|^Next' -and $element.Current.IsEnabled) { $next = $element }
-    }
-    if ($checkbox) {
-      $checked = [InstallerWindowMessage]::SendMessage(
-        [IntPtr]$checkbox.Current.NativeWindowHandle, 0x00F0, [IntPtr]::Zero, [IntPtr]::Zero
-      )
-      if ($checked.ToInt32() -ne 1) { throw 'Desktop shortcut option was not checked by default.' }
-      Write-Output 'Installer shortcut option is visible and checked by default.'
-      exit 0
-    }
-    if (-not $next) { throw "Shortcut option not found; no safe Next button on page $step." }
-
-    $foreground = [InstallerWindowMessage]::GetForegroundWindow()
-    $foregroundThread = [InstallerWindowMessage]::GetWindowThreadProcessId($foreground, [IntPtr]::Zero)
-    $currentThread = [InstallerWindowMessage]::GetCurrentThreadId()
-    [void][InstallerWindowMessage]::AttachThreadInput($currentThread, $foregroundThread, $true)
-    try { [void][InstallerWindowMessage]::SetForegroundWindow([IntPtr]$window.Current.NativeWindowHandle) }
-    finally { [void][InstallerWindowMessage]::AttachThreadInput($currentThread, $foregroundThread, $false) }
-    [System.Windows.Forms.SendKeys]::SendWait('%n')
-    Start-Sleep -Milliseconds 500
-  }
-  throw 'Shortcut option was not found in the installer wizard.'
+  if (-not $window) { throw 'The custom EasyHub installer window did not appear.' }
+  $handle = [IntPtr]$window.Current.NativeWindowHandle
+  [void][InstallerVisualCheck]::SetWindowPos($handle, [IntPtr](-1), 0, 0, 0, 0, 3)
+  Start-Sleep -Milliseconds 300
+  $bounds = $window.Current.BoundingRectangle
+  $bitmap = [System.Drawing.Bitmap]::new([int]$bounds.Width, [int]$bounds.Height)
+  $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+  try {
+    $graphics.CopyFromScreen([int]$bounds.X, [int]$bounds.Y, 0, 0, $bitmap.Size)
+    $bitmap.Save((Join-Path $PSScriptRoot 'out/installer-setup.png'))
+  } finally { $graphics.Dispose(); $bitmap.Dispose() }
+  [void][InstallerVisualCheck]::SetWindowPos($handle, [IntPtr](-2), 0, 0, 0, 0, 3)
+  Write-Output 'Custom setup executable opened; screenshot saved.'
 } finally {
-  if (-not $process.HasExited) { $process.Kill(); $process.WaitForExit() }
+  $all = @(Get-CimInstance Win32_Process)
+  $tree = @($process.Id)
+  for ($depth = 0; $depth -lt 5; $depth++) {
+    $children = @($all | Where-Object { $tree -contains $_.ParentProcessId -and $tree -notcontains $_.ProcessId } |
+      Select-Object -ExpandProperty ProcessId)
+    if (-not $children.Count) { break }
+    $tree += $children
+  }
+  if ($tree.Count -gt 1) { Stop-Process -Id @($tree | Where-Object { $_ -ne $process.Id }) -Force -ErrorAction SilentlyContinue }
+  if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
 }

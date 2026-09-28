@@ -10,14 +10,14 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 
 [访问 EasyHub 官网](https://fufu-flash.github.io/easyhub-website/) · [查看所有发布版本](https://github.com/FuFu-Flash/EasyHub/releases)
 
-**目前提供 Windows 版 1.2.0。** Android 和 iOS 版尚未推出。
+**目前提供 Windows 正式版 1.0.0。** Android 和 iOS 版尚未推出。
 
 ## 下载 EasyHub
 
 | 版本 | 适合谁 | 下载 |
 | --- | --- | --- |
-| 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-setup.exe) |
-| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-portable.exe) |
+| 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-1.0.0-setup.exe) |
+| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-1.0.0-portable.exe) |
 
 这两个版本适用于 Windows 64 位电脑。应用尚未使用商业代码签名证书，首次运行时 Windows 可能显示“未知发布者”。
 

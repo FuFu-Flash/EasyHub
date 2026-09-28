@@ -1,6 +1,6 @@
 {
   "name": "@easyhub/desktop",
-  "version": "1.2.0",
+  "version": "1.0.0",
   "private": true,
   "license": "GPL-3.0-only",
   "description": "EasyHub Windows desktop application",
@@ -25,6 +25,7 @@
     "test:live-translation": "node real-translation-check.mjs",
     "test:danger-ui": "node live-danger-smoke.mjs",
     "test:packaged": "node smoke.mjs --packaged",
+    "test:installer-ui": "node installer-shell-smoke.mjs",
     "test:demo-packaged": "node demo-smoke.mjs",
     "icons": "node generate-icons.mjs",
     "build": "electron-vite build",

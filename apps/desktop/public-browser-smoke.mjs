@@ -179,7 +179,7 @@ try {
   await releaseTranslation.getByText('译文：A downloadable version.', { exact: false }).waitFor();
   assert.equal(await app.evaluate(() => globalThis.easyhubDownloadCount), 0);
   await browser.getByRole('button', { name: /sample-public.exe/ }).click();
-  const notifications = page.getByRole('dialog', { name: '下载通知' });
+  const notifications = page.getByRole('dialog', { name: '通知' });
   await notifications.getByRole('progressbar', { name: /sample-public.exe/ }).waitFor();
   await notifications.getByText('50%', { exact: false }).waitFor();
   await notifications.getByText('75%', { exact: false }).waitFor();
@@ -189,7 +189,7 @@ try {
   assert.match(firstEstimate, /剩余：约 \d+ 秒/);
   await notifications.getByText('78%', { exact: false }).waitFor();
   assert.equal(await transfer.innerText(), firstEstimate, 'Speed and remaining time should remain readable between samples.');
-  await page.getByRole('button', { name: '关闭下载通知' }).click();
+  await page.getByRole('button', { name: '关闭通知' }).click();
   assert.equal(await notifications.count(), 0);
   await page.getByRole('button', { name: '通知' }).click();
   await notifications.getByText('项目已经下载完成。').waitFor();
@@ -209,7 +209,7 @@ try {
   await page.getByRole('heading', { name: '搜索历史' }).waitFor();
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
   await page.getByRole('button', { name: '我的云端项目' }).click();
-  await page.getByRole('heading', { name: '收藏的公开项目' }).waitFor();
+  await page.getByRole('heading', { name: '已添加的公开项目' }).waitFor();
   await page.locator('.saved-public-section').getByRole('button', { name: '浏览' }).click();
   await page.getByTestId('public-project-browser').waitFor();
   await page.getByRole('link', { name: 'Other Releases' }).click();
@@ -221,7 +221,8 @@ try {
   await page.getByRole('button', { name: '清除全部' }).click();
   assert.equal(await page.getByRole('heading', { name: '搜索历史' }).count(), 0);
   await page.getByRole('button', { name: '设置' }).first().click();
-  await page.getByRole('combobox', { name: '翻译目标语言' }).selectOption('zh-CN');
+  await page.getByRole('combobox', { name: '翻译目标语言' }).click();
+  await page.getByRole('option', { name: '简体中文' }).click();
   await page.getByRole('textbox', { name: '不翻译的名称' }).fill('Another Product\nA Custom Organization');
   assert.equal(await page.evaluate(() => window.localStorage.getItem('easyhub:auto-translate')), 'true');
   assert.equal(await page.evaluate(() => window.localStorage.getItem('easyhub:translation-names:test-user')), 'Another Product\nA Custom Organization');
@@ -235,7 +236,8 @@ try {
   assert.ok(latestTranslation.protectedNames.includes('Another Product'));
   assert.ok(latestTranslation.protectedNames.includes('A Custom Organization'));
   await page.getByRole('button', { name: '设置' }).first().click();
-  await page.getByRole('combobox', { name: '翻译目标语言' }).selectOption('en');
+  await page.getByRole('combobox', { name: '翻译目标语言' }).click();
+  await page.getByRole('option', { name: 'English' }).click();
   assert.equal(await page.evaluate(() => window.localStorage.getItem('easyhub:translation-target')), 'en');
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
   await page.locator('.saved-public-section').getByRole('button', { name: '浏览' }).click();

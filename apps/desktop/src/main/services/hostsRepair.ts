@@ -3,6 +3,8 @@ import { isIP } from 'node:net';
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
+import { request } from 'node:https';
+import { GITHUB_CLIENT_ID } from './githubAuthConfig';
 
 export const HOSTS_SOURCE = 'https://api.github.com/repos/maxiaof/github-hosts/contents/hosts?ref=master';
 export const HOSTS_FALLBACK = 'https://cdn.jsdelivr.net/gh/maxiaof/github-hosts@master/hosts';
@@ -22,6 +24,72 @@ const managedDomains = new Set([
 ]);
 
 export interface HostsRepairStatus { enabled: boolean; updatedAt: string | null; source: string }
+
+type LoginHost = 'github.com' | 'api.github.com' | 'raw.githubusercontent.com';
+export type HostProbe = (domain: LoginHost, address: string | null) => Promise<boolean>;
+export type HostCandidates = (domain: LoginHost) => Promise<string[]>;
+
+// Probe the real OAuth POST, not just a successful GET to github.com. Some networks
+// allow the web page but reset or stall POST requests to GitHub's login endpoint.
+export async function probeHost(domain: LoginHost, address: string | null): Promise<boolean> {
+  const oauth = domain === 'github.com';
+  const path = oauth ? '/login/device/code' : domain === 'api.github.com' ? '/rate_limit' : '/robots.txt';
+  const body = oauth ? new URLSearchParams({ client_id: GITHUB_CLIENT_ID, scope: 'read:user' }).toString() : '';
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value: boolean): void => { if (!settled) { settled = true; resolve(value); } };
+    const req = request({ hostname: domain, port: 443, path, method: oauth ? 'POST' : 'GET',
+      headers: oauth ? { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json', 'Content-Length': Buffer.byteLength(body) } : undefined,
+      lookup: address ? (_hostname, _options, callback) => callback(null, address, 4) : undefined,
+      timeout: 7000,
+    }, (response) => { response.resume(); finish((response.statusCode ?? 0) >= 200 && (response.statusCode ?? 0) < 500); });
+    req.on('timeout', () => { req.destroy(); finish(false); });
+    req.on('error', () => finish(false));
+    req.end(body);
+  });
+}
+
+export async function fetchDnsCandidates(domain: LoginHost, fetcher: (url: string, init: RequestInit) => Promise<Response>): Promise<string[]> {
+  const providers = [
+    `https://dns.alidns.com/resolve?name=${domain}&type=A`,
+    `https://cloudflare-dns.com/dns-query?name=${domain}&type=A`,
+  ];
+  const results = await Promise.allSettled(providers.map(async (url) => {
+    const response = await fetcher(url, { method: 'GET', signal: AbortSignal.timeout(7000),
+      headers: { Accept: 'application/dns-json' } });
+    if (!response.ok) return [];
+    const data: unknown = await response.json();
+    if (!data || typeof data !== 'object' || !('Status' in data) || data.Status !== 0 ||
+      !('Answer' in data) || !Array.isArray(data.Answer)) return [];
+    return data.Answer.flatMap((answer: unknown) => {
+      if (!answer || typeof answer !== 'object' || !('type' in answer) || answer.type !== 1 ||
+        !('data' in answer) || typeof answer.data !== 'string' || !safeIPv4(answer.data)) return [];
+      return [answer.data];
+    }).slice(0, 8);
+  }));
+  return [...new Set(results.flatMap((result) => result.status === 'fulfilled' ? result.value : []))].slice(0, 8);
+}
+
+export async function selectUsableMappings(lines: string[], probe: HostProbe, candidates?: HostCandidates,
+  currentMappings: string[] = []): Promise<string[]> {
+  const essential: LoginHost[] = ['github.com', 'api.github.com', 'raw.githubusercontent.com'];
+  const selected = await Promise.all(essential.map(async (domain) => {
+    const mapping = lines.find((line) => line.endsWith(` ${domain}`));
+    // Keep the operating system's regional DNS result whenever it works.
+    if (await probe(domain, null)) {
+      const current = currentMappings.find((line) => line.endsWith(` ${domain}`));
+      return current && safeIPv4(current.split(' ')[0] ?? '') ? current : null;
+    }
+    const addresses = [...new Set([...(await candidates?.(domain) ?? []), ...(mapping ? [mapping.split(' ')[0]!] : [])])];
+    for (const address of addresses) {
+      if (safeIPv4(address) && await probe(domain, address)) return `${address} ${domain}`;
+    }
+    throw new Error(domain === 'github.com'
+        ? '当前网络无法连接 GitHub 登录接口。Hosts 只能更换地址，无法解除网络对登录请求的阻断；请检查网络或使用代理。'
+        : `当前网络无法连接 ${domain}，提供的备用地址也不可用，未修改系统设置。`);
+  }));
+  return selected.filter((line): line is string => line !== null);
+}
 
 function allowedDomain(domain: string): boolean {
   return managedDomains.has(domain) || /^avatars[0-9]\.githubusercontent\.com$/u.test(domain) ||
@@ -108,7 +176,7 @@ export function hostsStatus(input: Buffer): HostsRepairStatus {
   const { text } = decodeHosts(input);
   const block = splitManaged(text).block;
   return { enabled: block !== null, updatedAt: block?.match(/^# Updated: (\d{4}-\d{2}-\d{2}T[^\r\n]+)$/mu)?.[1] ?? null,
-    source: 'maxiaof/github-hosts' };
+    source: 'EasyHub verified DNS' };
 }
 
 export function updateHosts(input: Buffer, lines: string[] | null, updatedAt: string): Buffer {
@@ -119,7 +187,7 @@ export function updateHosts(input: Buffer, lines: string[] | null, updatedAt: st
   const currentBlock = splitManaged(text).block;
   if (currentBlock && lines.every((line) => currentBlock.includes(`${newline}${line}${newline}`)) &&
     currentBlock.split(/\r?\n/u).filter((line) => /^\d+\.\d+\.\d+\.\d+ /u.test(line)).length === lines.length) return input;
-  const block = [START, '# Source: maxiaof/github-hosts', `# Updated: ${updatedAt}`, ...lines, END, ''].join(newline);
+  const block = [START, '# Source: EasyHub verified DNS or github-hosts', `# Updated: ${updatedAt}`, ...lines, END, ''].join(newline);
   return Buffer.from(bom + block + original, 'utf8');
 }
 
@@ -131,7 +199,8 @@ export class HostsRepairService {
   private readonly workDir: string;
   private running = false;
 
-  constructor(private readonly fetcher: (url: string, init: RequestInit) => Promise<Response>, resourcesPath: string, userData: string) {
+  constructor(private readonly fetcher: (url: string, init: RequestInit) => Promise<Response>, resourcesPath: string, userData: string,
+    private readonly probe: HostProbe = probeHost) {
     this.hostsPath = join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'drivers', 'etc', 'hosts');
     this.helperPath = join(resourcesPath, 'hosts-repair.ps1');
     this.workDir = join(userData, 'hosts-repair');
@@ -151,8 +220,16 @@ export class HostsRepairService {
     try {
       const before = await readFile(this.hostsPath).catch(() => { throw new Error('无法读取系统 Hosts 文件。'); });
       let lines: string[] | null = null;
-      if (enabled) lines = await fetchHostMappings(this.fetcher);
-      const after = updateHosts(before, lines, new Date().toISOString());
+      if (enabled) {
+        const upstream = await fetchHostMappings(this.fetcher).catch(() => [] as string[]);
+        const currentBlock = splitManaged(decodeHosts(before).text).block;
+        const currentMappings = currentBlock?.split(/\r?\n/u).filter((line) => /^\d{1,3}(?:\.\d{1,3}){3} (?:github\.com|api\.github\.com|raw\.githubusercontent\.com)$/u.test(line)) ?? [];
+        lines = await selectUsableMappings(upstream, this.probe, (domain) => fetchDnsCandidates(domain, this.fetcher), currentMappings);
+        if (lines.length === 0 && !hostsStatus(before).enabled) {
+          throw new Error('GitHub 登录和项目接口已经可以连接，无需修改系统 Hosts。');
+        }
+      }
+      const after = updateHosts(before, lines?.length ? lines : null, new Date().toISOString());
       if (before.equals(after)) return hostsStatus(before);
       await mkdir(this.workDir, { recursive: true });
       const id = `${process.pid}-${Date.now()}`;

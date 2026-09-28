@@ -33,6 +33,34 @@ describe('GitHubClient', () => {
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer private-token');
   });
 
+  it('loads starred repositories and distinguishes an unstarred project from an API failure', async () => {
+    const transport = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes('/user/starred?')) return Response.json([{ id: 8, name: 'sample' }]);
+      return new Response(null, { status: url.endsWith('/writer/missing') ? 404 : 204 });
+    });
+    const client = new GitHubClient(async () => 'token', transport);
+    expect((await client.starredRepos(2))[0]?.id).toBe(8);
+    expect(await client.isStarred('writer', 'sample')).toBe(true);
+    expect(await client.isStarred('writer', 'missing')).toBe(false);
+    expect(transport.mock.calls[0]?.[0]).toBe('https://api.github.com/user/starred?sort=created&direction=desc&per_page=100&page=2');
+    const unavailable = new GitHubClient(async () => 'token', async () => new Response(null, { status: 403 }));
+    await expect(unavailable.isStarred('writer', 'sample')).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('stars and unstars with the methods required by GitHub', async () => {
+    const transport = vi.fn(async () => new Response(null, { status: 204 }));
+    const client = new GitHubClient(async () => 'token', transport);
+    await client.setStarred('writer', 'sample', true);
+    await client.setStarred('writer', 'sample', false);
+    const requests = transport.mock.calls as unknown as [string, RequestInit][];
+    expect(requests.map(([url, init]) => [url, init.method])).toEqual([
+      ['https://api.github.com/user/starred/writer/sample', 'PUT'],
+      ['https://api.github.com/user/starred/writer/sample', 'DELETE'],
+    ]);
+    expect((requests.at(0)?.[1].headers as Record<string, string>)['Content-Length']).toBe('0');
+  });
+
   it('omits pull requests from the problem list', async () => {
     const transport = vi.fn(async () => Response.json([{ id: 1, number: 1, title: 'Issue' }, { id: 2, number: 2, title: 'PR', pull_request: {} }]));
     const client = new GitHubClient(async () => 'token', transport);

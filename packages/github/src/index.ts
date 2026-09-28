@@ -70,6 +70,24 @@ export class GitHubClient {
   user(signal?: AbortSignal): Promise<GitHubUser> { return this.request('/user', { signal }); }
   profile(login: string, signal?: AbortSignal): Promise<GitHubUser> { return this.request(`/users/${encodePart(login)}`, { signal }); }
   repos(page = 1, signal?: AbortSignal): Promise<GitHubRepo[]> { return this.request(`/user/repos?affiliation=owner,collaborator,organization_member&sort=updated&per_page=100&page=${Math.max(1, Math.floor(page))}`, { signal }); }
+  starredRepos(page = 1, signal?: AbortSignal): Promise<GitHubRepo[]> {
+    return this.request(`/user/starred?sort=created&direction=desc&per_page=100&page=${Math.max(1, Math.floor(page))}`, { signal, cache: 'no-store' });
+  }
+  async isStarred(owner: string, repo: string, signal?: AbortSignal): Promise<boolean> {
+    try {
+      await this.request<void>(`/user/starred/${encodePart(owner)}/${encodePart(repo)}`, { signal, cache: 'no-store' });
+      return true;
+    } catch (error) {
+      if (error instanceof GitHubError && error.status === 404) return false;
+      throw error;
+    }
+  }
+  async setStarred(owner: string, repo: string, starred: boolean): Promise<void> {
+    await this.request<void>(`/user/starred/${encodePart(owner)}/${encodePart(repo)}`, {
+      method: starred ? 'PUT' : 'DELETE',
+      ...(starred ? { headers: { 'Content-Length': '0' } } : {}),
+    });
+  }
   async searchPublicRepos(query: string, signal?: AbortSignal): Promise<GitHubRepo[]> {
     const search = `${query.trim()} is:public`;
     const result = await this.request<{ items: GitHubRepo[] }>(`/search/repositories?q=${encodeURIComponent(search)}&per_page=30`, { signal });

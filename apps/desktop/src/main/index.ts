@@ -4,6 +4,7 @@ import { authStatus, cancelArchive, cancelDeviceLogin, cancelGithubReads, downlo
 import { AsyncEntry } from '@napi-rs/keyring';
 import { AiReviewService } from './services/AiReviewService';
 import { HostsRepairService } from './services/hostsRepair';
+import { GITHUB_CLIENT_ID } from './services/githubAuthConfig';
 import { OpenAiReviewProvider } from './services/OpenAiReviewProvider';
 import type { DownloadTransferProgress } from './services/githubService';
 import { LocalProjectStore } from './git/LocalProjectStore';
@@ -114,7 +115,7 @@ app.whenReady().then(() => {
       const answer = await dialog.showMessageBox(mainWindow!, {
         type: 'warning', title: '开启 Hosts 修复', buttons: ['取消', '继续'], defaultId: 0, cancelId: 0,
         message: '此操作会修改整台电脑的 Windows Hosts 文件。',
-        detail: 'EasyHub 将从 maxiaof/github-hosts 获取 GitHub 地址，并只管理带有 EasyHub 标记的区块。Windows 会要求管理员授权。',
+        detail: 'EasyHub 会检测当前连接和备用地址，仅在备用地址可以访问 GitHub 时修改带有 EasyHub 标记的 Hosts 区块。Windows 会要求管理员授权。',
       });
       if (answer.response !== 1) return hostsRepairService.status();
     }
@@ -201,8 +202,8 @@ app.whenReady().then(() => {
     return aiReviewService.review(input, (progress) => { if (!event.sender.isDestroyed()) event.sender.send('easyhub:ai-review-progress', progress); });
   });
   ipcMain.handle('easyhub:ai-cancel-review', (event, id: unknown) => { assertTrustedSender(event); aiReviewService.cancel(id); });
-  ipcMain.handle('easyhub:auth-start', (event) => { assertTrustedSender(event); return startDeviceLogin('Ov23lixRW8K0uXzZqwMj'); });
-  ipcMain.handle('easyhub:auth-start-delete', (event, owner: unknown, repo: unknown, id: unknown) => { assertTrustedSender(event); return startDeviceLogin('Ov23lixRW8K0uXzZqwMj', true, { owner, repo, id } as { owner: string; repo: string; id: number }); });
+  ipcMain.handle('easyhub:auth-start', (event) => { assertTrustedSender(event); return startDeviceLogin(GITHUB_CLIENT_ID); });
+  ipcMain.handle('easyhub:auth-start-delete', (event, owner: unknown, repo: unknown, id: unknown) => { assertTrustedSender(event); return startDeviceLogin(GITHUB_CLIENT_ID, true, { owner, repo, id } as { owner: string; repo: string; id: number }); });
   ipcMain.handle('easyhub:auth-poll', (event) => { assertTrustedSender(event); return pollDeviceLogin(); });
   ipcMain.handle('easyhub:auth-cancel', (event) => { assertTrustedSender(event); cancelDeviceLogin(); });
   ipcMain.handle('easyhub:auth-logout', (event) => { assertTrustedSender(event); return logout(); });

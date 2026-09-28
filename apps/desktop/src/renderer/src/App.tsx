@@ -4,11 +4,11 @@ import { AiSettingsPanel } from './components/AiSettingsPanel';
 import { HostsRepairPanel } from './components/HostsRepairPanel';
 import type { ChangedFile, CreateReleaseInput, Issue, Project, ProjectHealth, Visibility } from '@easyhub/types';
 import {
-  ArrowDownToLine, ArrowLeft, ArrowRight, Bell, Check, CheckCircle2,
+  ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCircle2,
   ChevronDown, ChevronRight, CircleHelp, Clock3, Cloud, CloudDownload, CloudUpload,
   File, FilePlus2, Folder, FolderOpen, GitCompareArrows, Globe2, Home, Info,
   LockKeyhole, MessageCircle, Minus, MoreHorizontal, Pencil, Plus, RotateCw, Search, Settings2,
-  Send, ShieldCheck, Sparkles, Square, Tag, Trash2, X,
+  Send, ShieldCheck, Sparkles, Square, Star, Tag, Trash2, X,
 } from 'lucide-react';
 import { ReleaseEditor } from './components/ReleaseEditor';
 import { ReleasePreview } from './components/ReleasePreview';
@@ -16,7 +16,6 @@ import { ProjectDangerZone } from './components/ProjectDangerZone';
 import { IntroductionEditor } from './components/IntroductionEditor';
 import { ReadmeMarkdown } from './components/ReadmeMarkdown';
 import appIcon from './assets/easyhub-icon.svg';
-import pottedPlant from './assets/easyhub-potted-plant.svg';
 import minecraftGrassBlock from './assets/minecraft-grass-block.png';
 import { createDomLocalizer, readLanguage, type Language } from './i18n';
 import {
@@ -27,9 +26,16 @@ import { publishRelease } from './stores/releaseStore';
 import { applyDangerAction, type DangerAction } from './stores/dangerStore';
 import type { GitHubUser } from '@easyhub/github';
 import { LiveWorkspace } from './LiveWorkspace';
+import { DemoNotifications } from './components/DemoNotifications';
+import type { ActivityNotice } from './components/DownloadNotifications';
+import { DashboardIntro } from './components/DashboardIntro';
+import { StyledDropdown } from './components/StyledDropdown';
+import { ProfileMenu } from './components/ProfileMenu';
 
 type Route =
   | { name: 'home' }
+  | { name: 'profile' }
+  | { name: 'starred' }
   | { name: 'projects' }
   | { name: 'project'; projectId: string }
   | { name: 'publish'; projectId: string }
@@ -113,6 +119,8 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
   const [route, setRoute] = useState<Route>({ name: 'home' });
+  const [accountReturnRoute, setAccountReturnRoute] = useState<Route>({ name: 'home' });
+  const [demoStarred, setDemoStarred] = useState<string[]>(['minecraft']);
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState<BusyAction>(null);
   const [search, setSearch] = useState('');
@@ -146,7 +154,7 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
     document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
   });
 
-  useLayoutEffect(() => scrollArea.current?.scrollTo(0, 0), [route]);
+  useLayoutEffect(() => { scrollArea.current?.scrollTo(0, 0); }, [route]);
 
   useEffect(() => {
     const root = appRoot.current;
@@ -229,6 +237,10 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
   const issueGroups = data.projects.map((item) => ({ project: item, issues: filteredIssues.filter((entry) => entry.projectId === item.id) }))
     .filter((group) => group.issues.length > 0);
   const pendingProject = localProjects.find((item) => item.health === 'changes' && !item.archived);
+  const demoNotices: ActivityNotice[] = [
+    ...localProjects.filter((item) => item.changedFiles.length > 0).map((item) => ({ id: `project-${item.id}`, title: `${item.name} 有 ${item.changedFiles.length} 个文件还没发布`, detail: '查看修改', onOpen: () => navigate({ name: 'publish', projectId: item.id }) })),
+    ...data.projects.filter((item) => data.issues.some((issue) => issue.projectId === item.id && issue.state === 'open')).map((item) => ({ id: `issue-${item.id}`, title: `${item.name} 收到了新的问题`, detail: '查看问题', onOpen: () => navigate({ name: 'issues', projectId: item.id }) })),
+  ];
   const recentVersions = data.projects.flatMap((item) => item.history.map((itemVersion) => ({ project: item, version: itemVersion })))
     .sort((a, b) => new Date(b.version.createdAt).getTime() - new Date(a.version.createdAt).getTime())
     .slice(0, 4);
@@ -474,9 +486,11 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
               <button aria-pressed={language === 'en'} onClick={() => { setLanguage('en'); setLanguageMenuOpen(false); }}><span>English</span>{language === 'en' && <Check size={16} />}</button>
             </div>}
           </div>
-          <button className="icon-button" aria-label="通知" onClick={() => setToast('演示模式下暂无通知')}><Bell size={20} /></button>
+          <DemoNotifications activity={demoNotices} />
           <button className="icon-button" aria-label="设置" onClick={() => navigate({ name: 'settings' })}><Settings2 size={20} /></button>
-          <button className="topbar-profile" onClick={() => setToast('当前正在使用演示数据')}><span className="topbar-avatar">{language === 'en' ? 'Y' : '你'}</span><ChevronDown size={16} /></button>
+          <ProfileMenu avatar={language === 'en' ? 'Y' : '你'} name={language === 'en' ? 'You · Demo' : '你 · 演示账户'}
+            onProfile={() => { setAccountReturnRoute(route); navigate({ name: 'profile' }); }}
+            onStarred={() => { setAccountReturnRoute(route); navigate({ name: 'starred' }); }} />
         </div>
         {windowControlStyle === 'windows' && (
           <div className="windows-window-controls" aria-label="窗口控制">
@@ -488,12 +502,23 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
       </header>
       <main className="page-content">
         {route.name === 'home' && <>
-          <section className="home-hero"><div className="home-hero-copy"><h1>早上好，<br />今天也来做点有趣的事情吧！ <span className="wave">👋</span></h1><p>你的项目都在这里，随时可以继续创作和发布更新。</p></div><div className="home-mascot" aria-hidden="true"><div className="mascot-cloud" /><div className="mascot-note">记录创意<br />分享给世界<br />从这里开始！</div><div className="mascot-character"><img src={appIcon} alt="" /><div className="mascot-arm left" /><div className="mascot-arm right" /><div className="mascot-laptop"><span>✦</span></div></div><img className="mascot-plant" src={pottedPlant} alt="" /></div></section>
-          <button className="home-create" onClick={() => navigate({ name: 'new-project' })}><span className="home-create-icon"><Plus size={31} /></span><span><strong>新建项目</strong><small>从一个新想法开始</small></span><ChevronRight size={22} /></button>
+          <DashboardIntro projectCount={data.projects.length} unpublishedCount={localProjects.reduce((total, item) => total + item.changedFiles.length, 0)} pendingCount={openIssueCount} projectName={pendingProject?.name} onCreate={() => navigate({ name: 'new-project' })} onContinue={() => navigate(pendingProject ? { name: 'publish', projectId: pendingProject.id } : { name: 'projects' })} />
           {pendingProject ? <form className="home-publish" onSubmit={handleHomePublish}><ProjectLogo project={pendingProject} /><div className="home-publish-content"><strong>{pendingProject.name} 有 {pendingProject.changedFiles.length} 个文件发生变化</strong><label htmlFor="home-update-message">这次改了什么？</label><div className="home-publish-controls"><input id="home-update-message" value={draftMessage} onChange={(event) => setDraftMessage(event.target.value)} placeholder="例如：修复窗口缩放问题" maxLength={120} /><button className="button button-primary" type="submit" disabled={Boolean(busy)}><Send size={17} />发布更新</button></div></div><button className="icon-button home-publish-detail" type="button" aria-label="查看修改" onClick={() => navigate({ name: 'publish', projectId: pendingProject.id })}><ChevronRight size={20} /></button></form> : <div className="home-all-saved"><CheckCircle2 size={20} />目前没有尚未发布的修改。<button onClick={() => navigate({ name: 'projects' })}>查看项目 <ArrowRight size={16} /></button></div>}
           <div className="home-dashboard"><section className="home-panel home-projects-panel"><div className="home-panel-heading"><h2>我的项目</h2><button className="text-link" onClick={() => navigate({ name: 'projects' })}>查看全部 <ChevronRight size={17} /></button></div><div className="home-project-list">{localProjects.slice(0, 3).map(homeProjectRow)}</div></section><section className="home-panel home-recent-panel"><div className="home-panel-heading"><h2>最近更新</h2><button className="text-link" onClick={() => navigate({ name: 'history', projectId: recentVersions[0]?.project.id ?? 'mytool' })}>查看全部 <ChevronRight size={17} /></button></div><div className="home-recent-list">{recentVersions.map(({ project: item, version: itemVersion }) => <button className="home-recent-row" key={`${item.id}-${itemVersion.id}`} onClick={() => navigate({ name: 'version', projectId: item.id, versionId: itemVersion.id })}><ProjectLogo project={item} small /><span><strong>{item.name}</strong><small>{relativeTime(itemVersion.createdAt)}</small><em>{itemVersion.message}</em></span></button>)}</div></section></div>
           <div className="home-shortcuts"><button onClick={() => navigate({ name: 'download' })}><CloudDownload size={17} />从 GitHub 下载项目 <ArrowRight size={15} /></button><button onClick={() => navigate({ name: 'add-folder' })}><FolderOpen size={17} />添加现有文件夹 <ArrowRight size={15} /></button></div>
         </>}
+
+        {route.name === 'profile' && <div className="starred-projects-page">
+          <button className="back-link" onClick={() => navigate(accountReturnRoute)}><ArrowLeft size={17} />返回</button>
+          <div className="page-header"><div><div className="eyebrow">个人空间</div><h1>个人资料</h1><p>这里展示当前账户的项目与收藏。</p></div></div>
+          <section className="panel demo-profile-card"><span className="demo-profile-avatar">{language === 'en' ? 'Y' : '你'}</span><div><h2>演示账户</h2><p>当前使用演示数据。连接 GitHub 后，这里会显示真实头像和贡献记录。</p><button className="text-link" onClick={() => navigate({ name: 'starred' })}>查看我收藏的项目 <ArrowRight size={16} /></button></div></section>
+        </div>}
+
+        {route.name === 'starred' && <div className="starred-projects-page">
+          <button className="back-link" onClick={() => navigate(accountReturnRoute)}><ArrowLeft size={17} />返回</button>
+          <div className="page-header"><div><div className="eyebrow">你的收藏</div><h1>我收藏的项目</h1><p>这里会显示你收藏的项目。当前使用演示数据。</p></div><span className="starred-page-mark"><Star size={23} fill="currentColor" /></span></div>
+          {demoStarred.length ? <div className="starred-projects-grid">{data.projects.filter((item) => demoStarred.includes(item.id)).map((item) => <button className="starred-project-card" key={item.id} onClick={() => navigate({ name: 'project', projectId: item.id })}><ProjectLogo project={item} small /><span className="starred-project-copy"><strong>{item.name}</strong><small>演示项目</small><span>{item.description || '还没有项目简介。'}</span></span><ArrowRight className="starred-project-arrow" size={18} /></button>)}</div> : <div className="starred-projects-empty"><span><FolderOpen size={27} /></span><h2>还没有收藏的项目</h2><p>打开一个项目，点“收藏项目”就能在这里找到它。</p></div>}
+        </div>}
 
         {route.name === 'projects' && <>
           <div className="page-header"><div><div className="eyebrow">你的作品</div><h1>我的项目</h1><p>所有灵感和进展，都在这里。</p></div><button className="button button-primary" onClick={() => navigate({ name: 'new-project' })}><Plus size={18} />新建项目</button></div>
@@ -515,7 +540,7 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
 
         {route.name === 'project' && project && <>
           <button className="back-link" onClick={() => navigate({ name: 'projects' })}><ArrowLeft size={17} />所有项目</button>
-          <section className="detail-hero"><div className="detail-main"><ProjectLogo project={project} /><div><div className="detail-name-row"><h1>{project.name}</h1><span className="visibility-label">{project.visibility === 'private' ? <><LockKeyhole size={13} />只有我</> : <><Cloud size={13} />所有人</>}</span></div><p>{project.description || '还没有项目介绍'}</p><StatusBadge health={project.health} count={project.changedFiles.length} />{project.archived && <span className="archived-chip">已存档 · 只读</span>}</div></div><div className="detail-actions">{project.health === 'changes' ? <button className="button button-primary" disabled={project.archived} onClick={() => navigate({ name: 'publish', projectId: project.id })}><CloudUpload size={18} />发布更新</button> : project.health === 'remote' ? <button className="button button-primary" onClick={() => runOperation('正在获取演示内容', () => setData((current) => syncProject(current, project.id)), '已获取最新内容（演示）')}><CloudDownload size={18} />获取最新</button> : <button className="button button-primary" disabled={project.archived} onClick={() => { setData((current) => addDemoChanges(current, project.id)); setToast('已模拟检测到 3 个修改'); }}><Sparkles size={17} />模拟文件修改</button>}<button className="button button-quiet" disabled={project.archived} onClick={() => navigate({ name: 'new-release', projectId: project.id })}><Tag size={17} />发布新版本</button><button className="button button-quiet" onClick={() => setToast('演示模式不会打开或修改本地文件夹')}><FolderOpen size={17} />打开文件夹</button></div></section>
+          <section className="detail-hero"><div className="detail-main"><ProjectLogo project={project} /><div><div className="detail-name-row"><h1>{project.name}</h1><span className="visibility-label">{project.visibility === 'private' ? <><LockKeyhole size={13} />只有我</> : <><Cloud size={13} />所有人</>}</span></div><p>{project.description || '还没有项目介绍'}</p><StatusBadge health={project.health} count={project.changedFiles.length} />{project.archived && <span className="archived-chip">已存档 · 只读</span>}</div></div><div className="detail-actions"><button type="button" className={`button button-quiet star-project-button ${demoStarred.includes(project.id) ? 'is-starred' : ''}`} aria-pressed={demoStarred.includes(project.id)} onClick={() => setDemoStarred((current) => current.includes(project.id) ? current.filter((id) => id !== project.id) : [...current, project.id])}><Star size={17} fill={demoStarred.includes(project.id) ? 'currentColor' : 'none'} />{demoStarred.includes(project.id) ? '已收藏' : '收藏项目'}</button>{project.health === 'changes' ? <button className="button button-primary" disabled={project.archived} onClick={() => navigate({ name: 'publish', projectId: project.id })}><CloudUpload size={18} />发布更新</button> : project.health === 'remote' ? <button className="button button-primary" onClick={() => runOperation('正在获取演示内容', () => setData((current) => syncProject(current, project.id)), '已获取最新内容（演示）')}><CloudDownload size={18} />获取最新</button> : <button className="button button-primary" disabled={project.archived} onClick={() => { setData((current) => addDemoChanges(current, project.id)); setToast('已模拟检测到 3 个修改'); }}><Sparkles size={17} />模拟文件修改</button>}<button className="button button-quiet" disabled={project.archived} onClick={() => navigate({ name: 'new-release', projectId: project.id })}><Tag size={17} />发布新版本</button><button className="button button-quiet" onClick={() => setToast('演示模式不会打开或修改本地文件夹')}><FolderOpen size={17} />打开文件夹</button></div></section>
           <div className="detail-grid"><div className="detail-primary"><section className="panel"><div className="panel-heading"><h2>项目介绍</h2><button className="text-link" disabled={project.archived || project.health === 'remote'} title={project.health === 'remote' ? '请先获取最新内容' : undefined} onClick={() => beginEditIntroduction(project)}><Pencil size={15} />编辑介绍</button></div><Intro readme={project.readme} onOpenLink={openReleaseLink} /></section><section className="panel"><div className="panel-heading"><h2>发布的版本</h2><button className="text-link" disabled={project.archived} onClick={() => navigate({ name: 'publish', projectId: project.id })}>发布源码 <ArrowRight size={16} /></button></div>{project.releases.length ? <div className="timeline-list">{project.releases.map((item) => <button className="timeline-item" key={item.id} onClick={() => navigate({ name: 'release', projectId: project.id, releaseId: item.id })}><span className="timeline-dot" /><span><strong>{item.title}</strong><small>{item.tagName} · {relativeTime(item.publishedAt)} · {item.assets.length} 个下载文件</small></span><ChevronRight size={17} /></button>)}</div> : <p className="muted">还没有发布可供下载的新版本。</p>}</section><section className="panel"><div className="panel-heading"><h2>历史版本</h2><button className="text-link" onClick={() => navigate({ name: 'history', projectId: project.id })}>查看全部 <ArrowRight size={16} /></button></div><div className="timeline-list">{project.history.slice(0, 3).map((item) => <button className="timeline-item" key={item.id} onClick={() => navigate({ name: 'version', projectId: project.id, versionId: item.id })}><span className="timeline-dot" /><span><strong>{item.message}</strong><small>{relativeTime(item.createdAt)} · 修改了 {item.changedFiles.length} 个文件</small></span><ChevronRight size={17} /></button>)}</div></section></div><div className="detail-side"><section className="panel side-panel"><div className="panel-heading"><h2>问题</h2><span className="count-bubble">{issueCount(project.id)}</span></div><p>看看大家的反馈，一起让项目变得更好。</p><button className="button button-quiet full-width" onClick={() => navigate({ name: 'issues', projectId: project.id })}>查看问题 <ArrowRight size={16} /></button></section><section className="panel side-panel"><div className="panel-heading"><h2>项目状态</h2></div><div className="status-detail"><span className={`big-status-dot ${project.health}`} /><div><strong>{project.health === 'changes' ? getChangeSummary(project.changedFiles) : statusText[project.health]}</strong><small>{project.health === 'changes' ? '准备好后发布你的更新' : `上次更新：${relativeTime(project.updatedAt)}`}</small></div></div>{project.health === 'changes' && <button className="text-link" disabled={project.archived} onClick={() => navigate({ name: 'publish', projectId: project.id })}>查看修改 <ArrowRight size={16} /></button>}</section></div></div>
           <ProjectDangerZone project={project} language={language} onApply={(action, targetOwner) => handleDangerAction(project.id, action, targetOwner)} />
         </>}
@@ -587,7 +612,7 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
             </section>
             <AiSettingsPanel disabled={demoOnly} language={language} />
             <HostsRepairPanel disabled={demoOnly} language={language} />
-            <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>Windows 桌面版</p><span className="settings-version">版本 1.2.0</span><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => { if (window.easyHub) void window.easyHub.openLicense().catch(() => setToast('无法打开许可协议页面')); }}>查看许可协议 <ArrowRight size={15} /></button></div></div></section>
+            <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>Windows 桌面版</p><span className="settings-version">版本 1.0.0</span><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => { if (window.easyHub) void window.easyHub.openLicense().catch(() => setToast('无法打开许可协议页面')); }}>查看许可协议 <ArrowRight size={15} /></button></div></div></section>
           </div>
         </>}
       </main>
@@ -598,7 +623,7 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
 
     {downloadTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDownloadTarget(null); }}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="download-title"><button className="icon-button modal-close" aria-label="关闭" onClick={() => setDownloadTarget(null)}><X size={19} /></button><div className="modal-symbol"><ArrowDownToLine size={24} /></div><h2 id="download-title">{downloadTarget.versionId ? '下载这个版本' : '下载项目'}</h2><p>选择保存位置，EasyHub 会把{downloadTarget.versionId ? '这个历史版本' : '项目'}放到这台电脑。</p><div className="folder-field"><FolderOpen size={18} /><span title={downloadFolder}>{downloadFolder || '还没有选择保存位置'}</span><button className="button button-quiet" onClick={() => void chooseFolder(setDownloadFolder)}>选择位置</button></div><div className="modal-actions"><button className="button button-quiet" onClick={() => setDownloadTarget(null)}>取消</button><button className="button button-primary" disabled={!downloadFolder || Boolean(busy)} onClick={() => { const target = downloadTarget; runOperation('正在准备演示下载', () => { if (!target.versionId) { setData((current) => downloadProject(current, target.projectId, downloadFolder)); navigate({ name: 'project', projectId: target.projectId }); } setDownloadTarget(null); }, target.versionId ? '历史版本下载已演示（没有写入文件）' : '项目已经下载到电脑（演示）'); }}>下载</button></div><small>演示模式不会实际写入文件。</small></div></div>}
 
-    {showIssueForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowIssueForm(false); }}><form className="modal issue-modal" role="dialog" aria-modal="true" aria-labelledby="new-issue-title" onSubmit={handleCreateIssue}><button type="button" className="icon-button modal-close" aria-label="关闭" onClick={() => setShowIssueForm(false)}><X size={19} /></button><div className="modal-symbol"><MessageCircle size={24} /></div><h2 id="new-issue-title">提出问题</h2><p>描述遇到的情况，或分享一个改进想法。</p><label className="field"><span>相关项目</span><select value={newIssueProject} onChange={(event) => setNewIssueProject(event.target.value)}>{data.projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="field"><span>问题标题</span><input value={newIssueTitle} onChange={(event) => setNewIssueTitle(event.target.value)} placeholder="一句话概括问题" maxLength={120} /></label><label className="field"><span>详细描述</span><textarea value={newIssueBody} onChange={(event) => setNewIssueBody(event.target.value)} placeholder="发生了什么？你希望怎样改进？" rows={4} /></label><div className="modal-actions"><button type="button" className="button button-quiet" onClick={() => setShowIssueForm(false)}>取消</button><button type="submit" className="button button-primary" disabled={!newIssueProject || data.projects.find((item) => item.id === newIssueProject)?.archived}>创建问题</button></div></form></div>}
+    {showIssueForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowIssueForm(false); }}><form className="modal issue-modal" role="dialog" aria-modal="true" aria-labelledby="new-issue-title" onSubmit={handleCreateIssue}><button type="button" className="icon-button modal-close" aria-label="关闭" onClick={() => setShowIssueForm(false)}><X size={19} /></button><div className="modal-symbol"><MessageCircle size={24} /></div><h2 id="new-issue-title">提出问题</h2><p>描述遇到的情况，或分享一个改进想法。</p><div className="field"><span>相关项目</span><StyledDropdown label="相关项目" value={newIssueProject} options={data.projects.map((item) => ({ value: item.id, label: item.name }))} onChange={setNewIssueProject} /></div><label className="field"><span>问题标题</span><input value={newIssueTitle} onChange={(event) => setNewIssueTitle(event.target.value)} placeholder="一句话概括问题" maxLength={120} /></label><label className="field"><span>详细描述</span><textarea value={newIssueBody} onChange={(event) => setNewIssueBody(event.target.value)} placeholder="发生了什么？你希望怎样改进？" rows={4} /></label><div className="modal-actions"><button type="button" className="button button-quiet" onClick={() => setShowIssueForm(false)}>取消</button><button type="submit" className="button button-primary" disabled={!newIssueProject || data.projects.find((item) => item.id === newIssueProject)?.archived}>创建问题</button></div></form></div>}
 
     {busy && <div className="busy-overlay"><div className="busy-box"><span className="busy-spin"><RotateCw size={23} /></span><strong>{busy.label}</strong><p>正在处理，请稍候…</p><div className="progress-track"><span style={{ width: `${busy.progress}%` }} /></div><button className="button button-quiet" onClick={cancelOperation}>取消</button></div></div>}
     {toast && <div className="toast" role="status"><CheckCircle2 size={18} />{toast}<button aria-label="关闭提示" onClick={() => setToast(null)}><X size={15} /></button></div>}

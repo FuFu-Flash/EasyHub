@@ -29,10 +29,13 @@ win:
     - portable
   icon: resources/easyhub.ico
 nsis:
-  artifactName: EasyHub-${version}-setup.${ext}
+  artifactName: EasyHub-${version}-core.${ext}
   oneClick: false
-  allowToChangeInstallationDirectory: true
+  allowToChangeInstallationDirectory: false
   createDesktopShortcut: true
+  installerSidebar: resources/installerSidebar.bmp
+  uninstallerSidebar: resources/installerSidebar.bmp
+  installerHeader: resources/installerHeader.bmp
   include: resources/installer.nsh
 portable:
   artifactName: EasyHub-${version}-portable.${ext}

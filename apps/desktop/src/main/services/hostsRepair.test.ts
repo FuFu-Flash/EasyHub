@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fetchHostMappings, HOSTS_FALLBACK, HOSTS_SOURCE, hostsStatus, parseUpstreamHosts, updateHosts } from './hostsRepair';
+import { fetchDnsCandidates, fetchHostMappings, HOSTS_FALLBACK, HOSTS_SOURCE, hostsStatus, parseUpstreamHosts, selectUsableMappings, updateHosts } from './hostsRepair';
 
 const upstream = `#Github Hosts Start
 #Update Time: 2026-09-27
@@ -31,6 +31,45 @@ describe('Hosts repair', () => {
     });
     expect(visited).toEqual([HOSTS_SOURCE, HOSTS_FALLBACK]);
     expect(lines).toContain('140.82.114.4 github.com');
+  });
+
+  it('keeps working regional DNS and writes only reachable replacement addresses', async () => {
+    const lines = parseUpstreamHosts(upstream, new Date('2026-09-27T12:00:00Z')).lines;
+    const checked: string[] = [];
+    const selected = await selectUsableMappings(lines, async (domain, address) => {
+      checked.push(`${domain}:${address ?? 'system'}`);
+      return domain === 'github.com' ? address !== null : address === null;
+    });
+    expect(selected).toEqual(['140.82.114.4 github.com']);
+    expect(checked).toContain('api.github.com:system');
+    expect(checked).not.toContain('api.github.com:140.82.112.6');
+  });
+
+  it('rejects a source address when the OAuth POST cannot reach GitHub', async () => {
+    const lines = parseUpstreamHosts(upstream, new Date('2026-09-27T12:00:00Z')).lines;
+    await expect(selectUsableMappings(lines, async () => false)).rejects.toThrow('Hosts 只能更换地址');
+  });
+
+  it('uses a verified DNS over HTTPS address when the published mapping is stale', async () => {
+    const selected = await selectUsableMappings(parseUpstreamHosts(upstream, new Date('2026-09-27T12:00:00Z')).lines,
+      async (domain, address) => domain === 'github.com' ? address === '20.205.243.166' : address === null,
+      async () => ['20.205.243.166']);
+    expect(selected).toEqual(['20.205.243.166 github.com']);
+  });
+
+  it('keeps an existing working Hosts entry during refresh', async () => {
+    const lines = parseUpstreamHosts(upstream, new Date('2026-09-27T12:00:00Z')).lines;
+    const selected = await selectUsableMappings(lines, async () => true, undefined,
+      ['140.82.114.4 github.com']);
+    expect(selected).toEqual(['140.82.114.4 github.com']);
+  });
+
+  it('accepts only public IPv4 answers for the requested DNS record', async () => {
+    const addresses = await fetchDnsCandidates('api.github.com', async (url) => new Response(JSON.stringify({
+      Status: 0, Answer: [{ type: 1, data: url.includes('alidns') ? '20.205.243.168' : '127.0.0.1' },
+        { type: 1, data: '192.168.1.1' }, { type: 28, data: '2001:db8::1' }],
+    }), { status: 200 }));
+    expect(addresses).toEqual(['20.205.243.168']);
   });
 
   it('adds and removes only the managed block, preserving original bytes', () => {

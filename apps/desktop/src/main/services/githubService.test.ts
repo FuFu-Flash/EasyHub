@@ -15,6 +15,37 @@ vi.mock('electron', () => ({ dialog: { showSaveDialog: desktop.save, showMessage
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); vault.password = undefined; });
 
 describe('GitHub device authorization', () => {
+  it('explains a blocked login POST without leaking a raw network error', async () => {
+    vi.resetModules();
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('net::ERR_CONNECTION_RESET'); }));
+    const service = await import('./githubService');
+    await expect(service.startDeviceLogin('Ov23lixRW8K0uXzZqwMj')).rejects.toThrow('仅修改 Hosts 无法解决');
+  });
+
+  it('keeps starring requests behind validated IPC actions', async () => {
+    vi.resetModules();
+    vault.password = JSON.stringify({ clientId: 'Ov23lixRW8K0uXzZqwMj', accessToken: 'test-token' });
+    const requests: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      requests.push(`${init?.method ?? 'GET'} ${url}`);
+      if (url.includes('/user/starred?')) return Response.json([{ id: 1, name: 'app' }]);
+      return new Response(null, { status: 204 });
+    }));
+    const service = await import('./githubService');
+    await expect(service.githubAction('setStarred', ['owner', 'app', 'yes'])).rejects.toThrow();
+    await expect(service.githubAction('starredRepos', [0])).rejects.toThrow();
+    expect(requests).toEqual([]);
+    expect(await service.githubAction('starredRepos', [1])).toMatchObject([{ id: 1 }]);
+    expect(await service.githubAction('isStarred', ['owner', 'app'])).toBe(true);
+    await service.githubAction('setStarred', ['owner', 'app', true]);
+    expect(requests).toEqual([
+      'GET https://api.github.com/user/starred?sort=created&direction=desc&per_page=100&page=1',
+      'GET https://api.github.com/user/starred/owner/app',
+      'PUT https://api.github.com/user/starred/owner/app',
+    ]);
+  });
+
   it('keeps device and access tokens inside the main service and refreshes expired credentials', async () => {
     vi.resetModules();
     vi.useFakeTimers();
