@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { copyFile, mkdir, readFile, rm } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,20 +29,31 @@ for (const args of [
 }
 
 const { version } = JSON.parse(await readFile(join(desktopDir, 'package.json'), 'utf8'));
-const shellDir = join(desktopDir, 'installer-shell');
-const { version: shellVersion } = JSON.parse(await readFile(join(shellDir, 'package.json'), 'utf8'));
-if (version !== shellVersion) throw new Error('安装器版本与 EasyHub 版本不一致。');
-const payloadDir = join(desktopDir, 'out', 'installer-shell-payload');
-await mkdir(payloadDir, { recursive: true });
 const core = join(desktopDir, 'release', `EasyHub-${version}-core.exe`);
-const payload = join(payloadDir, 'core-installer.exe');
-await copyFile(core, payload);
-const shell = spawnSync(process.execPath, [pnpmEntrypoint, 'exec', 'electron-builder', '--projectDir', shellDir,
-  '--config', join(shellDir, 'electron-builder.yml'), '--win', 'portable', '--x64', '--publish', 'never'], {
-  cwd: desktopDir, stdio: 'inherit', env: environment,
-});
-if (shell.status !== 0) process.exit(shell.status ?? 1);
-await copyFile(join(desktopDir, 'out', 'installer-shell-build', `EasyHub-${version}-setup.exe`),
-  join(desktopDir, 'release', `EasyHub-${version}-setup.exe`));
-await Promise.all([rm(core), rm(`${core}.blockmap`, { force: true }), rm(payload),
-  rm(join(desktopDir, 'release', `EasyHub-${version}-setup.exe.blockmap`), { force: true })]);
+const windows = process.env.WINDIR ?? 'C:\\Windows';
+const framework = join(windows, 'Microsoft.NET', 'Framework64', 'v4.0.30319');
+const gac = join(windows, 'Microsoft.NET', 'assembly');
+const publicKey = 'v4.0_4.0.0.0__31bf3856ad364e35';
+const references = [
+  join(gac, 'GAC_MSIL', 'PresentationFramework', publicKey, 'PresentationFramework.dll'),
+  join(gac, 'GAC_64', 'PresentationCore', publicKey, 'PresentationCore.dll'),
+  join(gac, 'GAC_MSIL', 'WindowsBase', publicKey, 'WindowsBase.dll'),
+  join(framework, 'System.Xaml.dll'),
+  join(framework, 'System.Windows.Forms.dll'),
+];
+const assemblyInfo = join(desktopDir, 'out', 'installer-assembly-info.cs');
+await writeFile(assemblyInfo,
+  `[assembly: System.Reflection.AssemblyTitle("EasyHub 安装程序")]\n` +
+  `[assembly: System.Reflection.AssemblyProduct("EasyHub")]\n` +
+  `[assembly: System.Reflection.AssemblyVersion("${version}.0")]\n` +
+  `[assembly: System.Reflection.AssemblyFileVersion("${version}.0")]\n`);
+const setup = join(desktopDir, 'release', `EasyHub-${version}-setup.exe`);
+const icon = join(desktopDir, 'resources', 'easyhub.ico');
+const compile = spawnSync(join(framework, 'csc.exe'), [
+  '/nologo', '/codepage:65001', '/target:winexe', '/platform:x64', '/optimize+', `/out:${setup}`,
+  `/win32icon:${icon}`, `/resource:${core},EasyHub.CoreInstaller`,
+  `/resource:${icon},EasyHub.Icon`, ...references.map((reference) => `/r:${reference}`),
+  join(desktopDir, 'installer-native', 'Program.cs'), assemblyInfo,
+], { cwd: desktopDir, stdio: 'inherit', windowsHide: true });
+if (compile.status !== 0) process.exit(compile.status ?? 1);
+await Promise.all([rm(core), rm(`${core}.blockmap`, { force: true })]);

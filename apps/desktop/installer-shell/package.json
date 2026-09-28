@@ -1,9 +1,0 @@
-{
-  "name": "easyhub-installer-shell",
-  "productName": "EasyHub 安装程序",
-  "version": "1.0.0",
-  "description": "EasyHub Windows installer interface",
-  "author": "EasyHub",
-  "private": true,
-  "main": "main.cjs"
-}

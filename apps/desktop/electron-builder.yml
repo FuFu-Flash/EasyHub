@@ -23,6 +23,10 @@ extraResources:
     to: hosts-repair.ps1
 asar: true
 npmRebuild: false
+electronLanguages:
+  - en-US
+  - zh-CN
+  - zh-TW
 win:
   target:
     - nsis
