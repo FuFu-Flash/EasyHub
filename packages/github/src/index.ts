@@ -18,6 +18,8 @@ export interface GitHubActivityRepository { id: number; owner: string; name: str
 export interface GitHubPullRepository { id: number; name: string; full_name: string; owner: { login: string } }
 export interface GitHubPullRequest { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; draft: boolean; merged: boolean; merged_at: string | null; created_at: string; html_url: string; user: { login: string } | null; comments: number; changed_files?: number; additions?: number; deletions?: number; mergeable?: boolean | null; mergeable_state?: string; head: { ref: string; label: string; sha?: string; repo?: GitHubPullRepository | null }; base: { ref: string; sha?: string; repo?: GitHubPullRepository | null } }
 export interface GitHubPullFile { filename: string; status: string; additions: number; deletions: number; sha?: string; previous_filename?: string; patch?: string }
+export interface GitHubPullReview { id: number; state: string; body: string | null; submitted_at: string | null; user: { login: string } | null }
+export type GitHubReviewEvent = 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES';
 export function isEmptyAddedPullFile(file: GitHubPullFile): boolean {
   return file.status === 'added' && file.sha === 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391';
 }
@@ -176,6 +178,25 @@ export class GitHubClient {
     if (!response.ok) throw new GitHubError(response.status, 'GitHub README request failed');
     return response.text();
   }
+  async renderMarkdown(markdown: string, owner: string, repo: string, signal?: AbortSignal): Promise<string> {
+    const response = await this.transport('https://api.github.com/markdown', {
+      method: 'POST', signal,
+      headers: { Accept: 'text/html', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28', Authorization: `Bearer ${await this.token()}` },
+      body: JSON.stringify({ text: markdown, mode: 'gfm', context: `${owner}/${repo}` }),
+    });
+    if (!response.ok) throw new GitHubError(response.status, 'GitHub Markdown request failed');
+    return response.text();
+  }
+  async readmeImage(owner: string, repo: string, branch: string, path: string, signal?: AbortSignal): Promise<string | null> {
+    if (!path || path.split('/').some((part) => !part || part === '.' || part === '..')) return null;
+    const extension = path.split('.').pop()?.toLowerCase();
+    const mime = ({ svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' } as Record<string, string>)[extension || ''];
+    if (!mime) return null;
+    const encodedPath = path.split('/').map(encodePart).join('/');
+    const result = await this.request<{ content?: string; encoding?: string; size?: number }>(`${repoPath(owner, repo)}/contents/${encodedPath}?ref=${encodePart(branch)}`, { signal });
+    if (result.encoding !== 'base64' || !result.content || !result.size || result.size > 1_000_000) return null;
+    return `data:${mime};base64,${result.content.replace(/\s/g, '')}`;
+  }
   async issuePage(owner: string, repo: string, state: 'open' | 'closed' | 'all' = 'all', page = 1, signal?: AbortSignal): Promise<GitHubIssuePage> {
     const items: GitHubIssue[] = [];
     let currentPage = page;
@@ -190,6 +211,18 @@ export class GitHubClient {
   }
   async issues(owner: string, repo: string, state: 'open' | 'closed' | 'all' = 'all', signal?: AbortSignal): Promise<GitHubIssue[]> {
     return (await this.issuePage(owner, repo, state, 1, signal)).items;
+  }
+  issue(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubIssue> {
+    if (!Number.isInteger(number) || number < 1) throw new Error('Invalid issue number');
+    return this.request(`${repoPath(owner, repo)}/issues/${number}`, { signal });
+  }
+  async openIssueCount(owner: string, repo: string, signal?: AbortSignal): Promise<number> {
+    const query = 'query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){issues(states:OPEN){totalCount}}}';
+    const result = await this.request<{ data?: { repository: { issues: { totalCount: number } } | null }; errors?: { message: string }[] }>('/graphql', {
+      method: 'POST', body: JSON.stringify({ query, variables: { owner, repo } }), signal,
+    });
+    if (result.errors?.length || !Number.isSafeInteger(result.data?.repository?.issues.totalCount)) throw new GitHubError(502, 'GitHub issue count unavailable');
+    return result.data!.repository!.issues.totalCount;
   }
   async activityCounts(repositories: GitHubActivityRepository[], signal?: AbortSignal): Promise<Record<number, GitHubActivityCount>> {
     const counts: Record<number, GitHubActivityCount> = {};
@@ -234,6 +267,18 @@ export class GitHubClient {
   }
   pullRequest(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubPullRequest> {
     return this.request(`${repoPath(owner, repo)}/pulls/${number}`, { signal });
+  }
+  pullReviews(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubPullReview[]> {
+    return this.request(`${repoPath(owner, repo)}/pulls/${number}/reviews?per_page=100`, { signal });
+  }
+  createPullReview(owner: string, repo: string, number: number, event: GitHubReviewEvent, body: string, commitId: string | undefined): Promise<GitHubPullReview> {
+    if (!Number.isInteger(number) || number < 1 || !/^[a-f0-9]{40}$/i.test(commitId ?? '')) throw new Error('Invalid pull request review');
+    if (event !== 'APPROVE' && event !== 'COMMENT' && event !== 'REQUEST_CHANGES') throw new Error('Invalid review event');
+    return this.request(`${repoPath(owner, repo)}/pulls/${number}/reviews`, { method: 'POST', body: JSON.stringify({ event, body, commit_id: commitId }) });
+  }
+  pullFilesPage(owner: string, repo: string, number: number, page = 1, signal?: AbortSignal): Promise<GitHubPullFile[]> {
+    if (!Number.isInteger(page) || page < 1) throw new Error('Invalid file page');
+    return this.request(`${repoPath(owner, repo)}/pulls/${number}/files?per_page=100&page=${page}`, { signal });
   }
   async pullFiles(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubPullFile[]> {
     const files: GitHubPullFile[] = [];

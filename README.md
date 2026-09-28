@@ -6,24 +6,26 @@
 
 <p align="center">让 GitHub 像发布一条动态一样简单。</p>
 
-EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了哪些文件、写一句更新说明，然后点击“发布源码”。收到别人提交的代码改进时，还可以先用 AI 辅助审查。不需要安装 Git，也不需要学习复杂的命令。
+EasyHub 让你更轻松地使用 GitHub。用 Windows 版创作和发布作品，用 Android 版随时查看项目、回复问题、下载版本和审阅别人提交的改进。不需要学习复杂的 Git 命令。
 
 [访问 EasyHub 官网](https://fufu-flash.github.io/easyhub-website/) · [查看所有发布版本](https://github.com/FuFu-Flash/EasyHub/releases)
 
-**目前提供 Windows 正式版 1.0.0。** Android 和 iOS 版尚未推出。
+**Windows 与 Android 正式版均为 1.0.0，放在同一个发行版中。** iOS 版尚未推出。
 
 ## 下载 EasyHub
 
-| 版本 | 适合谁 | 下载 |
-| --- | --- | --- |
-| 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-1.0.0-setup.exe) |
-| 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-1.0.0-portable.exe) |
+| 平台 | 版本 | 适合谁 | 下载 |
+| --- | --- | --- | --- |
+| Windows | 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-1.0.0-setup.exe) |
+| Windows | 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-1.0.0-portable.exe) |
+| Android | 精简安装包 | 适合大多数较新的 Android 手机 | [下载 Android 安装包](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-arm64.apk) |
+| Android | 通用安装包 | 精简安装包无法安装时尝试 | [下载通用安装包](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk) |
 
-这两个版本适用于 Windows 64 位电脑。应用尚未使用商业代码签名证书，首次运行时 Windows 可能显示“未知发布者”。
+两个 Windows 版本适用于 64 位电脑。应用尚未使用商业代码签名证书，首次运行时 Windows 可能显示“未知发布者”。Android 版适用于 Android 7.0 及以上；从 GitHub 下载安装包后打开，按系统提示确认安装权限。如果之前装过测试版，需要先卸载测试版，再安装这个正式版并重新登录 GitHub。
 
 安装版的“创建桌面快捷方式”默认勾选，可以在安装时取消。
 
-## 从一个项目开始
+## 在 Windows 上创作和发布
 
 1. 打开 EasyHub，在设置中选择“使用 GitHub 登录”，按照提示在浏览器中完成授权。还没准备登录，可以先体验模拟项目。
 2. 下载 GitHub 上已有的项目，或者选择电脑上的文件夹。也可以从一个新文件夹创建公开或仅自己可见的项目。
@@ -34,17 +36,25 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 
 ## 用 AI 辅助审查代码改进
 
-别人向项目提交改进后，你可以在“改进请求”中查看说明和修改文件，按需点击“AI 审查”。EasyHub 会帮你整理可能存在的问题、对应文件及修改建议。你也可以下载修改文件自行检查，再决定批准并合入，或拒绝并关闭这次请求。**AI 不会替你作出合入决定。**
+别人向项目提交改进后，你可以在“改进请求”中查看说明和修改文件，按需点击“AI 审查”。EasyHub 会帮你整理可能存在的问题、对应文件及修改建议。Windows 版还可以下载修改文件自行检查，再决定批准并合入，或拒绝并关闭这次请求。**AI 不会替你作出合入决定。**
 
-在安装版或便携版中，开始使用只需三步：
+在 Windows 或 Android 版中，开始使用只需三步：
 
-1. 在“设置 → AI API 授权”选择 OpenAI、DeepSeek、OpenRouter 或 SiliconFlow，填写你自己的 API Key。
+1. 在设置中选择 OpenAI、DeepSeek、OpenRouter 或 SiliconFlow，填写你自己的 API Key。
 2. 打开一个改进请求，点击“AI 审查”。EasyHub 会先显示将使用的服务，并说明要发送的内容；确认后才开始审查。
 3. 查看审查摘要、风险提示和修改建议。
 
-审查只覆盖这次请求中可读取的文字修改，不会运行程序或测试；文件太多时，页面会说明哪些内容未被审查。结果仅供参考，AI 服务商可能收取费用。你的 API Key 保存在这台电脑的系统安全存储中。
+审查只覆盖这次请求中可读取的文字修改，不会运行程序或测试；文件太多时，页面会说明哪些内容未被审查。结果仅供参考，AI 服务商可能收取费用。你的 API Key 保存在当前设备的安全存储中。
 
-## 现在可以做什么
+## 在 Android 上随时查看
+
+使用 GitHub 登录后，可以查看自己的项目、项目介绍、问题、历史版本和发行版；创建项目、提出或回复问题，并下载需要的版本。也可以搜索公开项目和用户、浏览“EasyHub 热门”、查看用户资料与贡献记录。设置里可以切换语言，并按需翻译公开项目简介和问题标题。
+
+收到代码改进请求时，可以查看修改文件、发表审查意见，或在确认后批准并合入、拒绝并关闭。Android 版也提供自愿开启的 AI 审查，使用你自己配置的 AI 服务。
+
+Android 版目前以浏览和管理为主。**选择本地文件夹、检测文件变化、发布源码以及上传新版本仍在 Windows 版完成。** 在 Windows 上发布的内容会通过 GitHub 出现在手机上。
+
+## Windows 版还可以做什么
 
 **管理自己的作品**
 
@@ -77,7 +87,7 @@ EasyHub 帮你把作品保存到 GitHub。选择项目文件夹、查看改了�
 
 ## 关于数据
 
-EasyHub 不需要另注册账号，也没有自己的云端服务器。作品、问题和历史版本保存在 GitHub；登录凭证保存在这台电脑的系统安全存储中。
+EasyHub 不需要另注册账号，也没有自己的云端服务器。作品、问题和历史版本保存在 GitHub；登录凭证保存在当前设备的安全存储中。
 
 翻译功能会把**公开项目**中需要翻译的文字发送给第三方翻译服务；不会发送私有项目的内容。服务不可用时显示原文，翻译也不会修改 GitHub 上的内容。
 

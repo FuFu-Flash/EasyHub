@@ -6,6 +6,10 @@
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "dev": "node scripts/run-desktop.mjs dev",
+    "dev:mobile": "node scripts/run-mobile.mjs start",
+    "typecheck:mobile": "node scripts/run-mobile.mjs typecheck",
+    "lint:mobile": "node scripts/run-mobile.mjs lint",
+    "test:mobile": "node scripts/run-mobile.mjs test",
     "typecheck": "node scripts/run-desktop.mjs typecheck",
     "lint": "node scripts/run-desktop.mjs lint",
     "test": "node scripts/run-desktop.mjs test",
