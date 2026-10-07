@@ -28,6 +28,8 @@
     "test:notifications-ui": "node scripts/run-desktop.mjs test:notifications-ui",
     "test:github-proxy-ui": "node scripts/run-desktop.mjs test:github-proxy-ui",
     "test:github-proxy-network": "node scripts/run-desktop.mjs test:github-proxy-network",
+    "test:github-system-proxy": "node scripts/run-desktop.mjs test:github-system-proxy",
+    "test:single-instance": "node scripts/run-desktop.mjs test:single-instance",
     "test:translation-ui": "node scripts/run-desktop.mjs test:translation-ui",
     "test:live-download": "node scripts/run-desktop.mjs test:live-download",
     "test:live-local": "node scripts/run-desktop.mjs test:live-local",

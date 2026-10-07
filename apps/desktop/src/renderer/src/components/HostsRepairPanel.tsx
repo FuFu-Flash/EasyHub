@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Circle, Globe2, LoaderCircle, RotateCw, X } from 'lucide-react';
 import type { GitHubProxyStatus } from '@easyhub/types';
 import type { Language } from '../i18n';
@@ -39,9 +39,9 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
     return () => { active = false; };
   }, [disabled, language]);
 
-  // Show individual connection results as they become available.
+  // Show connection results and notice when another app takes over the system proxy.
   useEffect(() => {
-    if ((!busy && status?.state !== 'checking') || busy === 'cleanup' || disabled || !window.easyHub) return;
+    if ((!busy && status?.state !== 'checking' && !status?.enabled) || busy === 'cleanup' || disabled || !window.easyHub) return;
     let active = true;
     let pending = false;
     const timer = window.setInterval(() => {
@@ -49,9 +49,9 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
       pending = true;
       void window.easyHub?.githubProxyStatus().then((value) => { if (active && value) setStatus(value); })
         .catch(() => undefined).finally(() => { pending = false; });
-    }, 600);
+    }, busy || status?.state === 'checking' ? 600 : 5000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [busy, disabled, status?.state]);
+  }, [busy, disabled, status?.enabled, status?.state]);
 
   useEffect(() => {
     if (!confirmCleanup) return;
@@ -93,9 +93,19 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
       }
       if (mounted.current && operation.current === id) setStatus(value);
     } catch {
+      if (!mounted.current || operation.current !== id) return;
+      let latest: GitHubProxyStatus | null = null;
+      try {
+        latest = await bridge.githubProxyStatus();
+        if (mounted.current && operation.current === id) setStatus(latest);
+      } catch { /* Keep the last known state when reading the updated settings fails. */ }
       if (mounted.current && operation.current === id) setError(kind === 'cleanup'
         ? t('旧版修复未能移除，请允许 Windows 授权后重试。', 'Could not remove the previous repair. Allow Windows approval and try again.')
-        : t('暂时无法连接 GitHub，请检查网络后重试。', 'Could not connect to GitHub. Check your connection and try again.'));
+        : kind === 'toggle'
+          ? latest?.enabled && latest.system?.mode === 'unavailable'
+            ? t('系统代理设置尚未恢复，代理仍保持开启。请再次关闭以重试恢复。', 'System proxy settings have not been restored and the proxy is still on. Turn it off again to retry restoration.')
+            : t('无法更新系统代理设置，请检查系统代理设置后重试。', 'Could not update the system proxy. Check your system proxy settings and try again.')
+          : t('暂时无法连接 GitHub，请检查网络后重试。', 'Could not connect to GitHub. Check your connection and try again.'));
     } finally {
       if (mounted.current && operation.current === id) setBusy(null);
     }
@@ -121,10 +131,16 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
     : busy === 'cleanup' ? t('正在移除旧版修复…', 'Removing the previous repair…')
     : checking ? t('正在检查连接…', 'Checking connection…')
     : !status ? t('连接状态暂不可用', 'Connection status unavailable')
+    : status.system?.mode === 'unavailable' ? t('系统代理暂不可用', 'System proxy unavailable')
+    : status.enabled && status.system?.mode === 'existing' ? t('使用现有系统代理', 'Using the existing system proxy')
+    : status.enabled && status.system?.mode === 'external' ? t('其他代理已接管', 'Another proxy has taken over')
+    : status.enabled && status.system?.mode === 'managed' ? t('已启用系统代理', 'System proxy enabled')
     : status.state === 'error' ? t('连接未成功', 'Connection unsuccessful')
     : status.enabled && status.state === 'ready' ? t('已开启，连接正常', 'On · Connected')
     : status.enabled ? t('已开启', 'On') : t('已关闭', 'Off');
-  const connectionError = error || (status?.state === 'error'
+  const connectionError = error || (status?.system?.error || status?.system?.mode === 'unavailable'
+    ? t('无法更新系统代理设置，请检查系统代理设置后重试。', 'Could not update the system proxy. Check your system proxy settings and try again.')
+    : status?.state === 'error'
     ? t('暂时无法连接 GitHub，请检查网络后重试。', 'Could not connect to GitHub. Check your connection and try again.') : '');
   const targets = [
     { target: 'login', label: t('登录', 'Sign in') },
@@ -136,15 +152,15 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
     <div className="settings-icon blue"><Globe2 size={22} /></div>
     <div className="settings-panel-content">
       <div className="github-proxy-heading">
-        <div><h2>{t('GitHub 代理', 'GitHub proxy')}</h2>
-          <p>{t('帮助 EasyHub 连接 GitHub，浏览项目和下载文件。', 'Help EasyHub connect to GitHub to browse projects and download files.')}</p></div>
-        <button type="button" role="switch" aria-label={t('GitHub 代理', 'GitHub proxy')} aria-checked={status?.enabled ?? false}
+        <div><h2>{t('GitHub 系统代理', 'GitHub system proxy')}</h2>
+          <p>{t('让 EasyHub 和使用 Windows 系统代理设置的浏览器访问 GitHub 相关网站。', 'Connect EasyHub and browsers that use Windows system proxy settings to GitHub websites.')}</p></div>
+        <button type="button" role="switch" aria-label={t('GitHub 系统代理', 'GitHub system proxy')} aria-checked={status?.enabled ?? false}
           className={`easyhub-switch ${status?.enabled ? 'is-on' : ''}`} disabled={disabled || Boolean(busy) || loading || !status}
           onClick={() => void act('toggle')}><span /></button>
       </div>
-      <p className="github-proxy-explain">{t('仅用于 EasyHub，不改变电脑中其他应用的网络设置。', 'Only applies to EasyHub. Other apps keep their network settings.')}</p>
+      <p className="github-proxy-explain">{t('已有系统代理时优先复用。关闭或退出后恢复 EasyHub 修改的设置，其他代理接管时自动让出。', 'Reuse an existing system proxy. Turning this off or exiting restores settings changed by EasyHub. EasyHub yields when another proxy takes over.')}</p>
       <div className="github-proxy-connection">
-        <span className={`github-proxy-status ${!checking && status?.state === 'ready' ? 'is-ready' : ''}`} role="status" aria-live="polite">
+        <span className={`github-proxy-status ${!checking && status?.state === 'ready' && status.system?.mode !== 'unavailable' && status.system?.mode !== 'external' ? 'is-ready' : ''}`} role="status" aria-live="polite">
           {checking ? <LoaderCircle size={15} className="live-spin" /> : <span className="github-proxy-status-dot" />}{stateText}
         </span>
         {!disabled && status && (checking || status.checks.length > 0) && <ul className="github-proxy-checks" aria-label={t('连接检查', 'Connection checks')}>

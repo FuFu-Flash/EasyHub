@@ -1,7 +1,8 @@
 import { resolve4 } from 'node:dns/promises';
 import { Agent } from 'node:https';
 import type { RequestOptions } from 'node:https';
-import { isIP } from 'node:net';
+import { isIP, connect as connectTcp } from 'node:net';
+import type { Socket } from 'node:net';
 import { checkServerIdentity, connect } from 'node:tls';
 import type { ConnectionOptions, TLSSocket } from 'node:tls';
 import type { Duplex } from 'node:stream';
@@ -47,6 +48,7 @@ export interface OriginRule { addresses?: string[]; dnsName?: string; servername
 interface OriginOptions {
   fetchDns?: (url: string, init: RequestInit) => Promise<Response>;
   connectTls?: typeof connect;
+  connectTcp?: typeof connectTcp;
   connectTimeoutMs?: number;
   rules?: Record<string, OriginRule>;
 }
@@ -73,9 +75,11 @@ function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
 export class GitHubOriginAgent extends Agent {
   private readonly fetchDns: NonNullable<OriginOptions['fetchDns']>;
   private readonly connectTls: typeof connect;
+  private readonly connectTcp: typeof connectTcp;
   private readonly connectTimeout: number;
   private readonly dnsCache = new Map<string, DnsRoute>();
   private readonly routes = new Map<string, Route>();
+  private readonly browserRoutes = new Map<string, { address: string; expires: number }>();
   private readonly dnsJobs = new Map<string, Promise<string[]>>();
   private readonly pending = new Set<AbortController>();
   private rules = new Map<string, OriginRule>();
@@ -86,6 +90,7 @@ export class GitHubOriginAgent extends Agent {
     super({ keepAlive: true, maxSockets: 16, maxFreeSockets: 4, maxCachedSessions: 0 });
     this.fetchDns = options.fetchDns ?? ((url, init) => fetch(url, init));
     this.connectTls = options.connectTls ?? connect;
+    this.connectTcp = options.connectTcp ?? connectTcp;
     this.connectTimeout = Math.max(10, Math.min(options.connectTimeoutMs ?? 3000, 3000));
     if (options.rules) this.setRules(options.rules);
   }
@@ -107,7 +112,7 @@ export class GitHubOriginAgent extends Agent {
   }
 
   clearRoutes(): void {
-    this.generation++; this.dnsCache.clear(); this.routes.clear(); this.dnsJobs.clear();
+    this.generation++; this.dnsCache.clear(); this.routes.clear(); this.browserRoutes.clear(); this.dnsJobs.clear();
     for (const sockets of Object.values(this.freeSockets)) sockets?.forEach(socket => socket.destroy());
   }
 
@@ -136,6 +141,73 @@ export class GitHubOriginAgent extends Agent {
       clearTimeout(timer); options.signal?.removeEventListener('abort', externalAbort); this.pending.delete(controller);
     });
     return undefined;
+  }
+
+  /** A browser supplies its own TLS handshake. Verify a route with its real SNI,
+   * then return a new, raw TCP socket; never reuse our already encrypted socket. */
+  async openBrowserTunnel(rawHost: string, externalSignal: AbortSignal): Promise<Socket> {
+    const host = rawHost.toLowerCase();
+    if (this.stopped || !isGitHubHost(host) || externalSignal.aborted) throw unavailable();
+    const controller = new AbortController();
+    this.pending.add(controller);
+    const abort = (): void => controller.abort();
+    externalSignal.addEventListener('abort', abort, { once: true });
+    const timer = setTimeout(abort, TOTAL_MS);
+    const generation = this.generation;
+    try {
+      const cached = this.browserRoutes.get(host);
+      if (cached && cached.expires > Date.now()) {
+        try { return await this.rawConnection(cached.address, controller.signal); }
+        catch { this.browserRoutes.delete(host); if (controller.signal.aborted) throw unavailable(); }
+      }
+      const probe = async (addresses: string[]): Promise<string> => {
+        const races = new AbortController();
+        const onAbort = (): void => races.abort();
+        controller.signal.addEventListener('abort', onAbort, { once: true });
+        if (controller.signal.aborted) races.abort();
+        try {
+          return await Promise.any(addresses.map(async address => {
+            const socket = await this.handshake(host, address, host, races.signal);
+            socket.destroy();
+            return address;
+          }));
+        } finally { races.abort(); controller.signal.removeEventListener('abort', onAbort); }
+      };
+      let address: string | undefined;
+      const fixed = this.rules.get(host)?.addresses;
+      if (fixed?.length) {
+        try { address = await probe(fixed); }
+        catch { if (controller.signal.aborted) throw unavailable(); }
+      }
+      if (!address) {
+        const discovered = await abortable(this.addresses(host), controller.signal);
+        if (!discovered.length || controller.signal.aborted) throw unavailable();
+        address = await probe(discovered);
+      }
+      const socket = await this.rawConnection(address, controller.signal);
+      if (generation === this.generation && !this.stopped) this.browserRoutes.set(host, { address, expires: Date.now() + CACHE_MS });
+      return socket;
+    } catch { throw unavailable(); }
+    finally { clearTimeout(timer); externalSignal.removeEventListener('abort', abort); this.pending.delete(controller); }
+  }
+
+  private rawConnection(address: string, signal: AbortSignal): Promise<Socket> {
+    return new Promise((resolve, reject) => {
+      if (signal.aborted || !publicIPv4(address)) { reject(unavailable()); return; }
+      let socket: Socket;
+      let done = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const cleanup = (): void => { clearTimeout(timer); signal.removeEventListener('abort', failed); };
+      const failed = (): void => { if (done) return; done = true; cleanup(); socket?.destroy(); reject(unavailable()); };
+      try {
+        socket = this.connectTcp({ host: address, port: 443 });
+        socket.on('error', failed);
+        socket.once('connect', () => { if (done) return; done = true; cleanup(); resolve(socket); });
+        signal.addEventListener('abort', failed, { once: true });
+        if (signal.aborted) { failed(); return; }
+        timer = setTimeout(failed, this.connectTimeout);
+      } catch { failed(); }
+    });
   }
 
   private addresses(host: string): Promise<string[]> {

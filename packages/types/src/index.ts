@@ -250,4 +250,8 @@ export interface GitHubProxyStatus {
   error: string | null;
   checks: { target: 'login' | 'api' | 'download'; ok: boolean }[];
   legacyHosts: boolean;
+  system?: {
+    mode: 'off' | 'managed' | 'existing' | 'external' | 'unavailable';
+    error?: string | null;
+  };
 }

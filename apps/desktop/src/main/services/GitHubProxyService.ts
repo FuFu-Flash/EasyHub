@@ -8,6 +8,8 @@ import { GitHubOriginAgent, isGitHubHost } from './githubProxyOrigin';
 import type { OriginRule } from './githubProxyOrigin';
 import { DEFAULT_GITHUB_RULES, parseSteamGitHubRules } from './steamGitHubRules';
 import { GITHUB_CLIENT_ID } from './githubAuthConfig';
+import type { WindowsSystemProxy } from './WindowsSystemProxy';
+import type { GitHubSystemRelay } from './GitHubSystemRelay';
 
 interface ProxyDependencies {
   nativeFetch: (request: Request) => Promise<Response>;
@@ -15,6 +17,8 @@ interface ProxyDependencies {
   legacyHosts: () => Promise<boolean>;
   closeConnections?: () => Promise<void>;
   originFetch?: (request: Request, agent: GitHubOriginAgent) => Promise<Response>;
+  systemProxy?: Pick<WindowsSystemProxy, 'initialize' | 'acquire' | 'release' | 'status' | 'destroy'>;
+  systemRelay?: Pick<GitHubSystemRelay, 'start' | 'stop' | 'ownsProxyChoice'>;
 }
 
 const RULES_URL = 'https://api.steampp.net/accelerator/projectgroups';
@@ -106,6 +110,14 @@ export class GitHubProxyService {
   private checks: GitHubProxyStatus['checks'] = [];
   private rules: Record<string, OriginRule> = DEFAULT_GITHUB_RULES;
   private checkJob: AbortController | null = null;
+  private systemState: GitHubProxyStatus['system'];
+  private monitor: ReturnType<typeof setInterval> | undefined;
+  private operationTail: Promise<void> = Promise.resolve();
+  private destroyed = false;
+  private systemRead: Promise<void> | null = null;
+  private systemCheckedAt = 0;
+  private systemVersion = 0;
+  private destroyJob: Promise<void> | null = null;
   readonly agent: GitHubOriginAgent;
 
   constructor(private readonly settingsPath: string, private readonly deps: ProxyDependencies) {
@@ -119,26 +131,111 @@ export class GitHubProxyService {
       this.enabled = !!saved && typeof saved === 'object' && 'enabled' in saved && saved.enabled === true;
     } catch { this.enabled = false; }
     this.state = 'off';
+    if (this.deps.systemProxy) {
+      try {
+        this.systemState = await this.deps.systemProxy.initialize();
+        if (this.enabled) await this.activateSystem();
+      } catch {
+        this.state = 'error'; this.error = '无法设置系统代理，请关闭后重试。';
+        this.systemState = { mode: 'unavailable' };
+      }
+    }
   }
 
   isEnabled(): boolean { return this.enabled; }
   originRules(): Record<string, OriginRule> { return structuredClone(this.rules); }
 
   async status(): Promise<GitHubProxyStatus> {
+    if (this.deps.systemProxy && Date.now() - this.systemCheckedAt >= 1500) {
+      const version = this.systemVersion;
+      this.systemRead ??= this.deps.systemProxy.status().then(async value => {
+        if (version !== this.systemVersion || this.destroyed) return;
+        this.systemState = value;
+        if (value.mode === 'external') await this.deps.systemRelay?.stop();
+      }).catch(() => {
+        if (version === this.systemVersion && !this.destroyed) this.systemState = { mode: 'unavailable' };
+      }).finally(() => {
+        if (version === this.systemVersion) this.systemCheckedAt = Date.now();
+        this.systemRead = null;
+      });
+      await this.systemRead;
+    }
     return { enabled: this.enabled, state: this.state, checkedAt: this.checkedAt, error: this.error,
-      checks: this.checks.map(check => ({ ...check })), legacyHosts: await this.deps.legacyHosts().catch(() => false) };
+      checks: this.checks.map(check => ({ ...check })), legacyHosts: await this.deps.legacyHosts().catch(() => false),
+      ...(this.systemState ? { system: { ...this.systemState } } : {}) };
   }
 
-  async setEnabled(enabled: boolean): Promise<GitHubProxyStatus> {
+  setEnabled(enabled: boolean): Promise<GitHubProxyStatus> {
+    const next = this.operationTail.then(() => this.changeEnabled(enabled));
+    this.operationTail = next.then(() => undefined, () => undefined);
+    return next;
+  }
+
+  private async activateSystem(): Promise<void> {
+    if (!this.deps.systemProxy || !this.deps.systemRelay) return;
+    const endpoint = await this.deps.systemRelay.start();
+    try {
+      this.systemState = await this.deps.systemProxy.acquire(endpoint.pacUrl);
+      this.systemVersion++;
+      this.systemCheckedAt = Date.now();
+      if (this.systemState.mode === 'unavailable') throw new Error('无法设置系统代理，请关闭后重试。');
+      if (this.systemState.mode !== 'managed') await this.deps.systemRelay.stop();
+    } catch {
+      if (!await this.releaseSystem()) throw new Error(this.error!);
+      throw new Error('无法设置系统代理，请关闭后重试。');
+    }
+    clearInterval(this.monitor);
+    let reading = false;
+    this.monitor = setInterval(() => {
+      if (reading || this.destroyed) return;
+      reading = true;
+      void this.status().catch(() => undefined).finally(() => { reading = false; });
+    }, 5000);
+    this.monitor.unref();
+  }
+
+  /** Keep serving the PAC until Windows has confirmed that it no longer points here. */
+  private async releaseSystem(): Promise<boolean> {
+    if (this.deps.systemProxy) {
+      try { this.systemState = await this.deps.systemProxy.release(); }
+      catch { this.systemState = { mode: 'unavailable' }; }
+      this.systemVersion++;
+      this.systemCheckedAt = Date.now();
+      if (this.systemState.mode === 'unavailable') {
+        this.enabled = true;
+        this.state = 'error'; this.error = '系统代理还未恢复，请重试关闭。';
+        return false;
+      }
+    }
+    await this.deps.systemRelay?.stop();
+    return true;
+  }
+
+  private async changeEnabled(enabled: boolean): Promise<GitHubProxyStatus> {
+    if (this.destroyed) throw new Error('应用正在退出，请稍后再试。');
+    this.systemVersion++;
     this.cancel();
-    await mkdir(dirname(this.settingsPath), { recursive: true });
-    const pending = `${this.settingsPath}.tmp`;
-    await writeFile(pending, JSON.stringify({ enabled }), { mode: 0o600 });
-    await rename(pending, this.settingsPath);
+    if (enabled) await this.activateSystem();
+    else {
+      clearInterval(this.monitor);
+      if (!await this.releaseSystem()) throw new Error(this.error!);
+    }
+    try {
+      await mkdir(dirname(this.settingsPath), { recursive: true });
+      const pending = `${this.settingsPath}.tmp`;
+      await writeFile(pending, JSON.stringify({ enabled }), { mode: 0o600 });
+      await rename(pending, this.settingsPath);
+    } catch {
+      if (enabled && this.deps.systemProxy) {
+        if (!await this.releaseSystem()) throw new Error(this.error!);
+      }
+      throw new Error('无法保存代理设置，请检查应用数据目录后重试。');
+    }
     this.enabled = enabled;
     this.state = 'off'; this.error = null; this.checks = [];
     this.agent.clearRoutes();
     await this.deps.closeConnections?.();
+    if (this.destroyed) return this.status();
     return enabled ? this.refresh() : this.status();
   }
 
@@ -148,7 +245,7 @@ export class GitHubProxyService {
         (url.port && url.port !== '443')) return this.deps.nativeFetch(request);
     // Existing SteamTools, VPN and system proxy configuration takes priority.
     const choice = await this.deps.resolveProxy(url.href);
-    if (/(?:^|;)\s*(?:PROXY|HTTPS|SOCKS|SOCKS4|SOCKS5)\s+/iu.test(choice)) return this.deps.nativeFetch(request);
+    if (!this.ownsProxyChoice(choice) && /(?:^|;)\s*(?:PROXY|HTTPS|SOCKS|SOCKS4|SOCKS5)\s+/iu.test(choice)) return this.deps.nativeFetch(request);
     return (this.deps.originFetch ?? fetchGitHubOrigin)(request, this.agent);
   }
 
@@ -189,7 +286,12 @@ export class GitHubProxyService {
       ];
       await Promise.all(probes.map(async probe => {
         let ok = false;
-        try { const response = await this.fetch(probe.request); ok = probe.valid(response.status); await response.body?.cancel(); }
+        try {
+          // The system route is tested exactly as a browser would use it, rather
+          // than letting our app-only TLS route hide a browser connection failure.
+          const response = await (this.systemState?.mode === 'managed' ? this.deps.nativeFetch(probe.request) : this.fetch(probe.request));
+          ok = probe.valid(response.status); await response.body?.cancel();
+        }
         catch { /* Return a natural connection result, never a transport exception. */ }
         if (this.checkJob === controller && !controller.signal.aborted) this.checks = [...this.checks, { target: probe.target, ok }];
       }));
@@ -209,10 +311,23 @@ export class GitHubProxyService {
     this.checkJob?.abort(); this.checkJob = null;
     if (this.state === 'checking') { this.state = 'off'; this.error = null; }
   }
-  destroy(): void { this.cancel(); this.agent.destroy(); }
+  ownsProxyChoice(choice: string): boolean { return this.deps.systemRelay?.ownsProxyChoice(choice) ?? false; }
+  destroy(): Promise<void> {
+    if (this.destroyJob) return this.destroyJob;
+    this.destroyed = true; this.cancel(); clearInterval(this.monitor);
+    this.systemVersion++;
+    this.destroyJob = this.operationTail.then(async () => {
+      this.cancel(); clearInterval(this.monitor);
+      try { await this.deps.systemProxy?.destroy(); }
+      // The guardian retains the recovery lease if Windows cannot restore at exit.
+      finally { await this.deps.systemRelay?.stop(); this.agent.destroy(); }
+    });
+    return this.destroyJob;
+  }
 }
 
 let activeService: GitHubProxyService | undefined;
 export function useGitHubProxy(service: GitHubProxyService): void { activeService = service; }
 export function githubOriginAgent(): GitHubOriginAgent | undefined { return activeService?.isEnabled() ? activeService.agent : undefined; }
 export function githubOriginRules(): Record<string, OriginRule> | undefined { return activeService?.isEnabled() ? activeService.originRules() : undefined; }
+export function isEasyHubProxyChoice(choice: string): boolean { return activeService?.ownsProxyChoice(choice) ?? false; }

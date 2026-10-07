@@ -10,6 +10,8 @@ allowed.add('test:v2-live-ui');
 allowed.add('test:notifications-ui');
 allowed.add('test:github-proxy-ui');
 allowed.add('test:github-proxy-network');
+allowed.add('test:github-system-proxy');
+allowed.add('test:single-instance');
 allowed.add('test:binary-analysis-ui');
 allowed.add('test:live-binary-analysis');
 if (!allowed.has(task)) {

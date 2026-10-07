@@ -10,7 +10,7 @@ import { GitHubClient, GitHubError, friendlyGitHubError } from '@easyhub/github'
 import type { GitHubCreatedRelease, GitHubReleaseAsset } from '@easyhub/github';
 import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, PublishReleaseRequest, ReleaseProgress, RemoveReleaseAssetRequest } from '@easyhub/types';
 import { githubAccessToken, gitHubIdentity } from './githubService';
-import { githubOriginAgent } from './GitHubProxyService';
+import { githubOriginAgent, isEasyHubProxyChoice } from './GitHubProxyService';
 import type { GitHubOriginAgent } from './githubProxyOrigin';
 
 const MAX_FILES = 1000;
@@ -87,6 +87,7 @@ export function releaseAssetUrl(owner: string, repo: string, tag: string, name: 
 
 async function proxyAgent(url: string): Promise<HttpsProxyAgent<string> | GitHubOriginAgent | undefined> {
   const choices = await session.defaultSession.resolveProxy(url);
+  if (isEasyHubProxyChoice(choices)) return githubOriginAgent();
   for (const choice of choices.split(';')) {
     const match = choice.trim().match(/^(PROXY|HTTPS)\s+([^\s]+)$/i);
     if (match?.[2]) return new HttpsProxyAgent(`${match[1]?.toUpperCase() === 'HTTPS' ? 'https' : 'http'}://${match[2]}`);

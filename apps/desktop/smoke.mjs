@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { mkdtemp, rmdir } from 'node:fs/promises';
+import { mkdtemp, realpath, rm, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { createServer } from 'node:http';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
@@ -15,13 +15,16 @@ const imageServer = createServer((_request, response) => {
 await new Promise((resolve) => imageServer.listen(0, '127.0.0.1', resolve));
 const imageUrl = `http://127.0.0.1:${imageServer.address().port}/intro.png`;
 const selectedFolder = await mkdtemp(join(tmpdir(), 'easyhub-ui-smoke-'));
+const profile = await mkdtemp(join(tmpdir(), 'easyhub-ui-profile-'));
 const packagedExecutable = join(process.cwd(), 'release/win-unpacked/EasyHub.exe');
 const app = await electron.launch({
   executablePath: packaged ? packagedExecutable : electronPath,
-  args: packaged ? [] : ['.'],
+  args: [...(packaged ? [] : ['.']), `--user-data-dir=${profile}`],
   cwd: process.cwd(),
+  env: { ...process.env, EASYHUB_PROXY_APP_ONLY_TEST: '1' },
 });
 try {
+  assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
   await app.evaluate(({ dialog, ipcMain }, path) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] });
     ipcMain.removeHandler('easyhub:auth-status');
@@ -142,11 +145,11 @@ try {
   await assertEnglish('Settings');
   const settingsOrder = await page.locator('.settings-stack > *').evaluateAll((panels) => panels.map((panel) => panel.querySelector('h2')?.textContent?.trim()));
   assert.deepEqual(settingsOrder.slice(0, 3), ['Account & Connection', 'Window Controls', 'AI API Access']);
-  assert.equal(settingsOrder.at(-2), 'GitHub proxy');
+  assert.equal(settingsOrder.at(-2), 'GitHub system proxy');
   assert.equal(settingsOrder.at(-1), 'About EasyHub');
   assert.equal(settingsOrder.includes('Data & Sync'), false);
-  await page.getByText('Only applies to EasyHub. Other apps keep their network settings.').waitFor();
-  await page.getByRole('switch', { name: 'GitHub proxy' }).waitFor();
+  await page.getByText('Reuse an existing system proxy. Turning this off or exiting restores settings changed by EasyHub. EasyHub yields when another proxy takes over.').waitFor();
+  await page.getByRole('switch', { name: 'GitHub system proxy' }).waitFor();
   await page.getByText('GNU GPLv3').waitFor();
   await page.screenshot({ path: 'out/settings-english-smoke.png' });
   await page.getByRole('button', { name: 'Choose language' }).click();
@@ -443,7 +446,7 @@ try {
   await page.screenshot({ path: 'out/live-project-smoke.png' });
   for (const name of ['Home', 'My Projects', 'Issues', 'Settings']) { await page.locator('.sidebar-nav').getByRole('button', { name }).click(); assert.deepEqual(await untranslatedLive(), [], `Untranslated text in English live ${name}`); }
   const liveSettingsOrder = await page.locator('.settings-stack > *').evaluateAll((panels) => panels.map((panel) => panel.querySelector('h2')?.textContent?.trim()));
-  assert.equal(liveSettingsOrder.at(-2), 'GitHub proxy');
+  assert.equal(liveSettingsOrder.at(-2), 'GitHub system proxy');
   assert.equal(liveSettingsOrder.at(-1), 'About EasyHub');
   assert.equal(liveSettingsOrder.includes('Data & Sync'), false);
   await page.locator('.sidebar-nav').getByRole('button', { name: 'Home' }).click();
@@ -522,4 +525,7 @@ try {
   await app.close().catch(() => {});
   imageServer.close();
   await rmdir(selectedFolder).catch(() => {});
+  const absoluteProfile = await realpath(profile);
+  assert.ok(absoluteProfile.startsWith(`${await realpath(tmpdir())}${sep}`) && absoluteProfile.includes('easyhub-ui-profile-'));
+  await rm(absoluteProfile, { recursive: true, force: true });
 }

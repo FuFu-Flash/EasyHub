@@ -19,6 +19,7 @@ globalThis.easyHubProxyTestWorker=require('node:worker_threads').Worker;
 const fixtureWorkerDirectory=${JSON.stringify(mainDirectory)};
 globalThis.easyHubProxyTestWorkerPath=require('node:path').join(fixtureWorkerDirectory,require('node:fs').readdirSync(fixtureWorkerDirectory).find(name=>/^gitWorker-.+\\.js$/.test(name)));
 app.setPath('userData',${JSON.stringify(profile)});
+process.env.EASYHUB_PROXY_APP_ONLY_TEST='1';
 process.env.ELECTRON_RENDERER_URL='data:text/html,<title>GitHub proxy connection test</title>';
 require(${JSON.stringify(join(mainDirectory, 'index.js'))});
 `, 'utf8');

@@ -91,7 +91,7 @@ Click the translation toggle at the top to translate public project introduction
 
 **Connections and notifications**
 
-- If GitHub connections are unreliable, enable “GitHub proxy” in Settings and check connection status for sign-in, projects, and downloads. It affects only EasyHub and does not change other apps' network settings.
+- If GitHub connections are unreliable, enable “GitHub system proxy” in Settings and check connection status for sign-in, projects, and downloads. Browsers that use Windows system proxy settings can also access GitHub through it; other websites keep their existing connection route. EasyHub reuses existing system proxies without overwriting their configuration, restores its own changes when disabled or closed, and yields control if another proxy app takes over.
 - The bell in the upper right shows the unread notification count, which clears when you open the notifications. Project tasks you have already seen remain available, and changes to pending tasks or download results trigger new notifications.
 - The app and installer use consistent rounded corners and progress indicators. The mouse keeps its default arrow, while text input and content selection work as usual.
 

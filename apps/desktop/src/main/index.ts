@@ -5,6 +5,8 @@ import { AsyncEntry } from '@napi-rs/keyring';
 import { AiReviewService } from './services/AiReviewService';
 import { HostsRepairService } from './services/hostsRepair';
 import { GitHubProxyService, useGitHubProxy } from './services/GitHubProxyService';
+import { WindowsSystemProxy } from './services/WindowsSystemProxy';
+import { GitHubSystemRelay } from './services/GitHubSystemRelay';
 import { GITHUB_CLIENT_ID } from './services/githubAuthConfig';
 import { OpenAiReviewProvider } from './services/OpenAiReviewProvider';
 import type { DownloadTransferProgress } from './services/githubService';
@@ -19,6 +21,11 @@ import { analysisElectronFetch } from './analysis/analysisElectronFetch';
 import { BinaryAnalysisService } from './analysis/BinaryAnalysisService';
 import { GhidraBackend } from './analysis/GhidraBackend';
 
+// The system proxy lease belongs to this profile. A second process must not
+// mistake its live owner's lease for crash recovery data or initialize services.
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.exit(0);
+
 let mainWindow: BrowserWindow | null = null;
 let localService: LocalProjectService;
 let translationService: TranslationService;
@@ -28,6 +35,13 @@ let hostsRepairService: HostsRepairService;
 let githubProxyService: GitHubProxyService;
 let binaryAnalysisService: BinaryAnalysisService;
 const translationJobs = new Map<string, AbortController>();
+
+if (primaryInstance) app.on('second-instance', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
 
 function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
   if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
@@ -69,7 +83,7 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(async () => {
+if (primaryInstance) app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   localService = new LocalProjectService(new LocalProjectStore(join(app.getPath('userData'), 'local-projects.json')),
@@ -111,6 +125,14 @@ app.whenReady().then(async () => {
     resolveProxy: url => session.defaultSession.resolveProxy(url),
     legacyHosts: async () => (await hostsRepairService.status()).enabled,
     closeConnections: () => session.defaultSession.closeAllConnections(),
+    // Read-only transport regressions explicitly opt out of OS configuration.
+    ...(process.env.EASYHUB_PROXY_APP_ONLY_TEST === '1' ? {} : {
+      systemProxy: new WindowsSystemProxy(join(app.getPath('userData'), 'system-proxy-lease.json'), {
+        scriptPath: app.isPackaged ? join(process.resourcesPath, 'windows-system-proxy.ps1') : join(__dirname, '../../resources/windows-system-proxy.ps1'),
+        resolveExistingProxy: url => session.defaultSession.resolveProxy(url),
+      }),
+      systemRelay: new GitHubSystemRelay({ connect: (host, signal) => githubProxyService.agent.openBrowserTunnel(host, signal) }),
+    }),
   });
   await githubProxyService.initialize();
   useGitHubProxy(githubProxyService);
@@ -291,13 +313,12 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', () => githubProxyService?.destroy());
-let analysisStoppedForQuit = false;
+let servicesStoppedForQuit = false;
 app.on('before-quit', (event) => {
   localService?.stopWatching(); aiReviewService?.cancelAll();
-  if (!analysisStoppedForQuit && binaryAnalysisService) {
+  if (!servicesStoppedForQuit && (binaryAnalysisService || githubProxyService)) {
     event.preventDefault();
-    analysisStoppedForQuit = true;
-    void binaryAnalysisService.shutdown().finally(() => app.quit());
+    servicesStoppedForQuit = true;
+    void Promise.allSettled([githubProxyService?.destroy(), binaryAnalysisService?.shutdown()]).finally(() => app.quit());
   }
 });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GitHubProxyService } from './GitHubProxyService';
@@ -8,6 +8,21 @@ import type { GitHubOriginAgent } from './githubProxyOrigin';
 type Dependencies = ConstructorParameters<typeof GitHubProxyService>[1];
 const roots: string[] = [];
 const services: GitHubProxyService[] = [];
+
+function systemDependencies() {
+  const systemProxy = {
+    initialize: vi.fn(async () => ({ mode: 'off' as const })),
+    acquire: vi.fn<NonNullable<Dependencies['systemProxy']>['acquire']>(async () => ({ mode: 'managed' })),
+    release: vi.fn<NonNullable<Dependencies['systemProxy']>['release']>(async () => ({ mode: 'off' })),
+    status: vi.fn<NonNullable<Dependencies['systemProxy']>['status']>(async () => ({ mode: 'managed' })),
+    destroy: vi.fn<NonNullable<Dependencies['systemProxy']>['destroy']>(async () => ({ mode: 'off' })),
+  };
+  const systemRelay = {
+    start: vi.fn(async () => ({ pacUrl: 'http://127.0.0.1:49123/fixture.pac', proxyUrl: 'http://127.0.0.1:49123' })),
+    stop: vi.fn(async () => undefined), ownsProxyChoice: vi.fn(() => false),
+  };
+  return { systemProxy, systemRelay };
+}
 
 async function fixture(overrides: Partial<Dependencies> = {}) {
   const root = await mkdtemp(join(tmpdir(), 'easyhub-proxy-service-test-'));
@@ -26,7 +41,7 @@ async function fixture(overrides: Partial<Dependencies> = {}) {
 }
 
 afterEach(async () => {
-  for (const service of services.splice(0)) service.destroy();
+  await Promise.all(services.splice(0).map(service => service.destroy()));
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
   vi.restoreAllMocks();
 });
@@ -223,5 +238,131 @@ describe('GitHub application proxy', () => {
     await restarted.initialize();
     expect(restarted.isEnabled()).toBe(false);
     expect((await restarted.status()).state).toBe('off');
+  });
+
+  it('checks the managed system route as browsers see it and avoids looping app traffic through its relay', async () => {
+    const systemProxy = {
+      initialize: vi.fn(async () => ({ mode: 'off' as const })),
+      acquire: vi.fn(async () => ({ mode: 'managed' as const })),
+      release: vi.fn(async () => ({ mode: 'off' as const })),
+      status: vi.fn(async () => ({ mode: 'managed' as const })),
+      destroy: vi.fn(async () => ({ mode: 'off' as const })),
+    };
+    const systemRelay = {
+      start: vi.fn(async () => ({ pacUrl: 'http://127.0.0.1:49123/fixture.pac', proxyUrl: 'http://127.0.0.1:49123' })),
+      stop: vi.fn(async () => undefined),
+      ownsProxyChoice: vi.fn((choice: string) => choice === 'PROXY 127.0.0.1:49123; DIRECT'),
+    };
+    const f = await fixture({ systemProxy, systemRelay, resolveProxy: async () => 'PROXY 127.0.0.1:49123; DIRECT' });
+    expect(await f.service.setEnabled(true)).toMatchObject({ enabled: true, state: 'ready', system: { mode: 'managed' } });
+    expect(systemProxy.acquire).toHaveBeenCalledExactlyOnceWith('http://127.0.0.1:49123/fixture.pac');
+    expect(f.originFetch).not.toHaveBeenCalled();
+    expect(f.nativeFetch).toHaveBeenCalledTimes(4);
+    await f.service.fetch(new Request('https://api.github.com/user'));
+    expect(f.originFetch).toHaveBeenCalledOnce();
+    await f.service.setEnabled(false);
+    expect(systemProxy.release).toHaveBeenCalledOnce();
+    expect(systemRelay.stop).toHaveBeenCalledOnce();
+  });
+
+  it('reuses an existing system proxy and stops its unused local listener', async () => {
+    const systemProxy = {
+      initialize: vi.fn(async () => ({ mode: 'off' as const })),
+      acquire: vi.fn(async () => ({ mode: 'existing' as const })),
+      release: vi.fn(async () => ({ mode: 'off' as const })),
+      status: vi.fn(async () => ({ mode: 'existing' as const })),
+      destroy: vi.fn(async () => ({ mode: 'off' as const })),
+    };
+    const systemRelay = { start: vi.fn(async () => ({ pacUrl: 'http://127.0.0.1:49123/fixture.pac', proxyUrl: 'http://127.0.0.1:49123' })),
+      stop: vi.fn(async () => undefined), ownsProxyChoice: vi.fn(() => false) };
+    const f = await fixture({ systemProxy, systemRelay, resolveProxy: async () => 'PROXY 127.0.0.1:7890' });
+    expect(await f.service.setEnabled(true)).toMatchObject({ system: { mode: 'existing' } });
+    expect(systemRelay.stop).toHaveBeenCalledOnce();
+    expect(f.originFetch).not.toHaveBeenCalled();
+    await f.service.setEnabled(false);
+    expect(systemProxy.release).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the listener alive and the switch enabled when restoring OS settings fails', async () => {
+    const systemProxy = {
+      initialize: vi.fn(async () => ({ mode: 'off' as const })),
+      acquire: vi.fn(async () => ({ mode: 'managed' as const })),
+      release: vi.fn(async () => ({ mode: 'unavailable' as const })),
+      status: vi.fn(async () => ({ mode: 'managed' as const })),
+      destroy: vi.fn(async () => ({ mode: 'off' as const })),
+    };
+    const systemRelay = { start: vi.fn(async () => ({ pacUrl: 'http://127.0.0.1:49123/fixture.pac', proxyUrl: 'http://127.0.0.1:49123' })),
+      stop: vi.fn(async () => undefined), ownsProxyChoice: vi.fn(() => false) };
+    const f = await fixture({ systemProxy, systemRelay });
+    await f.service.setEnabled(true);
+    await expect(f.service.setEnabled(false)).rejects.toThrow('还未恢复');
+    expect(f.service.isEnabled()).toBe(true);
+    expect(systemRelay.stop).not.toHaveBeenCalled();
+    expect(JSON.parse(await readFile(f.settingsPath, 'utf8'))).toEqual({ enabled: true });
+  });
+
+  it('keeps serving a partially applied PAC if enabling and the subsequent rollback both fail', async () => {
+    const deps = systemDependencies();
+    deps.systemProxy.acquire.mockResolvedValue({ mode: 'unavailable' });
+    deps.systemProxy.release.mockResolvedValue({ mode: 'unavailable' });
+    const f = await fixture(deps);
+    await expect(f.service.setEnabled(true)).rejects.toThrow('还未恢复');
+    expect(f.service.isEnabled()).toBe(true);
+    expect(deps.systemRelay.stop).not.toHaveBeenCalled();
+    expect(await f.service.status()).toMatchObject({ enabled: true, state: 'error', system: { mode: 'unavailable' } });
+    deps.systemProxy.release.mockResolvedValue({ mode: 'off' });
+    expect(await f.service.setEnabled(false)).toMatchObject({ enabled: false, system: { mode: 'off' } });
+    expect(deps.systemRelay.stop).toHaveBeenCalledOnce();
+    expect(JSON.parse(await readFile(f.settingsPath, 'utf8'))).toEqual({ enabled: false });
+  });
+
+  it('keeps the listener and switch enabled when saving preferences fails and restoring Windows also fails', async () => {
+    const deps = systemDependencies();
+    deps.systemProxy.release.mockResolvedValue({ mode: 'unavailable' });
+    const f = await fixture(deps);
+    await mkdir(`${f.settingsPath}.tmp`, { recursive: true });
+    await expect(f.service.setEnabled(true)).rejects.toThrow('还未恢复');
+    expect(f.service.isEnabled()).toBe(true);
+    expect(deps.systemRelay.stop).not.toHaveBeenCalled();
+    expect(await f.service.status()).toMatchObject({ enabled: true, state: 'error', system: { mode: 'unavailable' } });
+    await rm(`${f.settingsPath}.tmp`, { recursive: true });
+    deps.systemProxy.release.mockResolvedValue({ mode: 'off' });
+    expect(await f.service.setEnabled(false)).toMatchObject({ enabled: false });
+    expect(deps.systemRelay.stop).toHaveBeenCalledOnce();
+  });
+
+  it('ignores an earlier ownership poll after a newer enable has acquired its PAC', async () => {
+    const deps = systemDependencies();
+    const f = await fixture(deps);
+    await f.service.setEnabled(true);
+    const later = Date.now() + 2000;
+    vi.spyOn(Date, 'now').mockReturnValue(later);
+    let finishPoll: ((value: { mode: 'external' }) => void) | undefined;
+    deps.systemProxy.status.mockImplementationOnce(() => new Promise(resolve => { finishPoll = resolve; }));
+    const poll = f.service.status();
+    await f.service.setEnabled(true);
+    finishPoll!({ mode: 'external' });
+    expect(await poll).toMatchObject({ system: { mode: 'managed' } });
+    expect(deps.systemRelay.stop).not.toHaveBeenCalled();
+  });
+
+  it('waits for an in-flight enable during shutdown, starts no late probes, and destroys services once', async () => {
+    const deps = systemDependencies();
+    let finishAcquire: ((value: { mode: 'managed' }) => void) | undefined;
+    deps.systemProxy.acquire.mockImplementationOnce(() => new Promise(resolve => { finishAcquire = resolve; }));
+    deps.systemProxy.destroy.mockResolvedValue({ mode: 'unavailable' });
+    const f = await fixture(deps);
+    const enabling = f.service.setEnabled(true);
+    await vi.waitFor(() => expect(finishAcquire).toBeDefined());
+    const stopping = f.service.destroy();
+    expect(f.service.destroy()).toBe(stopping);
+    finishAcquire!({ mode: 'managed' });
+    await Promise.all([enabling, stopping]);
+    expect(f.nativeFetch).not.toHaveBeenCalled();
+    expect(f.originFetch).not.toHaveBeenCalled();
+    expect(deps.systemProxy.destroy).toHaveBeenCalledOnce();
+    expect(deps.systemRelay.stop).toHaveBeenCalledOnce();
+    await f.service.destroy();
+    expect(deps.systemRelay.stop).toHaveBeenCalledOnce();
   });
 });

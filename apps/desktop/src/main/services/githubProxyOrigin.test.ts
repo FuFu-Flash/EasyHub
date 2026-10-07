@@ -3,6 +3,8 @@ import { Duplex } from 'node:stream';
 import { request } from 'node:https';
 import type { ConnectionOptions, TLSSocket } from 'node:tls';
 import { connect, checkServerIdentity } from 'node:tls';
+import { connect as connectTcp } from 'node:net';
+import type { Socket as TcpSocket } from 'node:net';
 import { GitHubOriginAgent, isGitHubHost, parseDnsAnswers } from './githubProxyOrigin';
 import type { OriginRule } from './githubProxyOrigin';
 import { DEFAULT_GITHUB_RULES } from './steamGitHubRules';
@@ -221,5 +223,49 @@ describe('GitHub app-local origin routing', () => {
   it('accepts the complete shipped SteamTools GitHub rules snapshot', () => {
     const agent = new GitHubOriginAgent({ rules: DEFAULT_GITHUB_RULES }); agents.push(agent);
     expect(agent).toBeInstanceOf(GitHubOriginAgent);
+  });
+
+  it('returns fresh raw TCP for browsers after checking the actual hostname and SNI', async () => {
+    const tcpSockets: Socket[] = [];
+    const tcp = vi.fn(() => {
+      const socket = new Socket(); tcpSockets.push(socket);
+      queueMicrotask(() => socket.emit('connect'));
+      return socket as unknown as TcpSocket;
+    }) as unknown as typeof connectTcp;
+    const agent = new GitHubOriginAgent({ connectTls: connector((_options, socket) => socket.emit('secureConnect')),
+      connectTcp: tcp, rules: { 'github.com': { addresses: ['140.82.114.4'], servername: '' } } });
+    agents.push(agent);
+    const tunnel = await agent.openBrowserTunnel('github.com', new AbortController().signal);
+    expect(optionsSeen[0]!.servername).toBe('github.com');
+    expect(optionsSeen[0]!.rejectUnauthorized).toBe(true);
+    expect(created.every(socket => socket.destroyed)).toBe(true);
+    expect(tunnel).toBe(tcpSockets[0]);
+    expect(tcp).toHaveBeenCalledExactlyOnceWith({ host: '140.82.114.4', port: 443 });
+    tunnel.destroy();
+  });
+
+  it('does not advertise an alternate-SNI-only route as usable by browsers', async () => {
+    const tcp = vi.fn() as unknown as typeof connectTcp;
+    const agent = new GitHubOriginAgent({ fetchDns, connectTcp: tcp,
+      connectTls: connector((options, socket) => {
+        if (options.servername === 'github.com') socket.emit('error', new Error('Original SNI unavailable'));
+        else socket.emit('secureConnect');
+      }), rules: { 'github.com': { addresses: ['140.82.114.4'], servername: '' } } });
+    agents.push(agent);
+    await expect(agent.openBrowserTunnel('github.com', new AbortController().signal)).rejects.toThrow();
+    expect(optionsSeen.every(options => options.servername === 'github.com')).toBe(true);
+    expect(tcp).not.toHaveBeenCalled();
+  });
+
+  it('rejects browser destinations outside GitHub and cancels TLS probes on shutdown', async () => {
+    const agent = makeAgent(connector(() => undefined));
+    await expect(agent.openBrowserTunnel('127.0.0.1', new AbortController().signal)).rejects.toThrow();
+    expect(created).toHaveLength(0);
+    const pending = agent.openBrowserTunnel('github.com', new AbortController().signal);
+    const rejected = expect(pending).rejects.toThrow();
+    await vi.waitFor(() => expect(created.length).toBeGreaterThan(0), { interval: 1 });
+    agent.destroy();
+    await rejected;
+    expect(created.every(socket => socket.destroyed)).toBe(true);
   });
 });

@@ -26,6 +26,8 @@
     "test:notifications-ui": "node notifications-cursor-smoke.mjs",
     "test:github-proxy-ui": "node github-proxy-smoke.mjs",
     "test:github-proxy-network": "node github-proxy-network-smoke.mjs",
+    "test:github-system-proxy": "node github-system-proxy-smoke.mjs",
+    "test:single-instance": "node single-instance-smoke.mjs",
     "test:translation-ui": "node paragraph-translation-smoke.mjs",
     "test:live-download": "node real-download-check.mjs",
     "test:live-local": "node real-local-project-check.mjs",

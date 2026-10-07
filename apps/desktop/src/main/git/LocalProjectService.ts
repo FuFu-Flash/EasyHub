@@ -13,7 +13,7 @@ import type { LocalProjectRecord } from './LocalProjectStore';
 import { runGitTask } from './gitTaskRunner';
 import type { GitJob, GitTask } from './gitTaskRunner';
 import { DiscoveryRootsStore, findGitProjects } from './LocalProjectDiscovery';
-import { githubOriginRules } from '../services/GitHubProxyService';
+import { githubOriginRules, isEasyHubProxyChoice } from '../services/GitHubProxyService';
 
 function validName(value: unknown): value is string { return typeof value === 'string' && /^[A-Za-z0-9_.-]{1,100}$/.test(value) && value !== '.' && value !== '..'; }
 function repository(repo: GitHubRepo): GitRepository { return { owner: repo.owner.login, name: repo.name, defaultBranch: repo.default_branch || 'main' }; }
@@ -23,6 +23,7 @@ function author(user: { id?: number; login: string; name: string | null }): { na
 
 async function githubProxy(): Promise<string | undefined> {
   const choices = await session.defaultSession.resolveProxy('https://github.com');
+  if (isEasyHubProxyChoice(choices)) return undefined;
   for (const choice of choices.split(';')) {
     const match = choice.trim().match(/^(PROXY|HTTPS)\s+([^\s]+)$/i);
     if (match?.[1] && match[2]) return `${match[1].toUpperCase() === 'HTTPS' ? 'https' : 'http'}://${match[2]}`;
