@@ -12,14 +12,14 @@ EasyHub makes GitHub easier to use. Create and publish your work on Windows, the
 
 [Visit the EasyHub website](https://fufu-flash.github.io/easyhub-website/) · [View all releases](https://github.com/FuFu-Flash/EasyHub/releases)
 
-**The latest Windows version is 1.0.1, and the Android version is 1.0.0.** An iOS version is not yet available.
+**The latest Windows version is 1.1.0, and the Android version is 1.0.0.** An iOS version is not yet available.
 
 ## Download EasyHub
 
 | Platform | Edition | Best for | Download |
 | --- | --- | --- | --- |
-| Windows | Installer | Regular use; choose the installation folder and whether to create a desktop shortcut during setup | [Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.1/EasyHub-1.0.1-setup.exe) |
-| Windows | Portable | Running directly after downloading, without installation | [Download portable edition](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.1/EasyHub-1.0.1-portable.exe) |
+| Windows | Installer | Regular use; choose the installation folder and whether to create a desktop shortcut during setup | [Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.1.0/EasyHub-1.1.0-setup.exe) |
+| Windows | Portable | Running directly after downloading, without installation | [Download portable edition](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.1.0/EasyHub-1.1.0-portable.exe) |
 | Android | Smaller package | Most newer Android phones | [Download Android package](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-arm64.apk) |
 | Android | Universal package | Try this if the smaller package will not install | [Download universal package](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk) |
 
@@ -48,7 +48,7 @@ Getting started on Windows or Android takes three steps:
 
 **The Windows edition can also review program files.** To get started, expand “Program file review” in AI settings and follow the prompts to install the optional components. The download size is shown in advance. Once installed, you can review program files in pull requests, select program files on your computer, or review release attachments such as EXE and DLL files. These components are not needed for ordinary code reviews.
 
-The Apple Silicon Mac client's analysis modules also use slim components: Ghidra 12.1.2, Java 21.0.12.1+1 and Ghidra MCP 6.0.0, totaling about 276.6 MB. New Mac installations use this repository's [pinned component release](https://github.com/FuFu-Flash/EasyHub/releases/tag/analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1), while validated older full installations remain usable. All processors and function identification databases are retained. See the [Mac component guide](apps/desktop/scripts/README-MAC-ANALYSIS-COMPONENTS.md) for preparation scripts, asset checksums, notices and corresponding source.
+A packaged Mac application is not yet available.
 
 **How are program files reviewed?** EasyHub first reads the files on your computer. It converts portions of the program's logic into text resembling code and extracts text from the program along with information about the functions it references. After you confirm, this material is sent to your chosen AI service to help explain what the program may do and suggest issues and further checks supported by that material.
 
@@ -74,7 +74,7 @@ The Android edition currently focuses on browsing and managing projects. **Selec
 - “Issues” and “Code Reviews” each show their pending counts, so you can check feedback and review contributions by project.
 - Add existing folders, see added, modified, deleted, and renamed files, and publish changes that have not yet been saved to GitHub.
 - In “My Projects”, choose a location on your computer to find folders already connected to your GitHub projects and add them automatically to this computer's project list. Only the selected location is checked, and project files are not modified.
-- Edit and preview project introductions, insert image and web links, and select and copy content while reading. Introductions for real projects are saved locally first and updated on GitHub when you click “Publish Source”.
+- Edit project introductions using “Edit”, “Preview”, or “Live preview”. Combine Markdown and HTML, insert image and web links, and see images, centered content, tables, and collapsible sections update as you write. In narrow windows, the editor and preview are stacked vertically. You can select and copy content while reading. Introductions for real projects are saved locally first and updated on GitHub when you click “Publish Source”.
 - Use “Edit Releases” to update the description of a published release and add or remove download attachments.
 - Browse available releases, select attachments such as installers, or download the project files for a particular version. Download notifications show progress, speed, and time remaining, and downloads can be canceled.
 
