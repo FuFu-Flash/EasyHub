@@ -48,7 +48,7 @@ Getting started on Windows or Android takes three steps:
 
 **The Windows edition can also review program files.** To get started, expand “Program file review” in AI settings and follow the prompts to install the optional components. The download size is shown in advance. Once installed, you can review program files in pull requests, select program files on your computer, or review release attachments such as EXE and DLL files. These components are not needed for ordinary code reviews.
 
-A packaged Mac application is not yet available.
+This checkout also provides a local macOS build; see “Local macOS build” below.
 
 **How are program files reviewed?** EasyHub first reads the files on your computer. It converts portions of the program's logic into text resembling code and extracts text from the program along with information about the functions it references. After you confirm, this material is sent to your chosen AI service to help explain what the program may do and suggest issues and further checks supported by that material.
 
@@ -118,6 +118,6 @@ EasyHub is licensed under [GNU GPLv3](LICENSE).
 
 This checkout also contains macOS 1.1.0 (16), aligned with upstream `30c65310`: live README editing, Markdown/HTML preview and responsive layout, with native traffic lights, menus, the default dot style and the GitHub system proxy retained.
 
-[Open the local DMG](../build/macOS-1.1.0-build16/EasyHub-macOS.dmg) and drag EasyHub into Applications. Build with `pnpm package:mac`. The local bundle is ad hoc signed.
+[Open the local DMG](../build/EasyHub-macOS.dmg) and drag EasyHub into Applications. Build with `pnpm package:mac`. The local bundle is ad hoc signed.
 
 Optional ARM64 slim analysis components use the [same fixed release as Windows](https://github.com/FuFu-Flash/EasyHub/releases/tag/analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1). See the [Mac build and license guide](apps/desktop/scripts/README-MAC-ANALYSIS-COMPONENTS.md) for pinned sizes, hashes and corresponding sources.
