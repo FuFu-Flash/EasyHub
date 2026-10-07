@@ -53,6 +53,41 @@ export const RUNTIME_ARTIFACTS: readonly RuntimeArtifact[] = [
   LEGACY_RUNTIME_ARTIFACTS[2]!,
 ];
 
+// Previous macOS installations use these exact upstream archives. Recognize
+// their existing manifests without downloading them again or relabeling as slim.
+export const MAC_LEGACY_RUNTIME_ARTIFACTS: readonly RuntimeArtifact[] = [
+  LEGACY_RUNTIME_ARTIFACTS[0]!,
+  {
+    id: 'java', repository: 'adoptium/temurin21-binaries', tag: 'jdk-21.0.12.1+1',
+    name: 'OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.12.1_1.tar.gz', directory: 'jdk-21.0.12.1+1',
+    sha256: '3623232f33a9c3baadf304480b2535f9a3cba8a58d42ecbb438ba267315d9998',
+    size: 200073404, unpackedLimit: 1024 ** 3,
+  },
+  LEGACY_RUNTIME_ARTIFACTS[2]!,
+];
+// Fixed macOS ARM64 slim redistributions preserve the same analysis engine,
+// processors, native decompiler and Java compiler. Never select Windows images.
+export const MAC_RUNTIME_ARTIFACTS: readonly RuntimeArtifact[] = [
+  {
+    id: 'ghidra', repository: SLIM_REPOSITORY, tag: SLIM_TAG,
+    name: 'easyhub-ghidra-12.1.2-mac-arm64-v1.zip', directory: 'ghidra-12.1.2-mac-arm64-v1',
+    sha256: 'c195aa703e8f9465f25eaaa5c396696967c56f4d12120f75d24e5b1501bb857e',
+    size: 226376392, unpackedLimit: 768 * 1024 ** 2,
+  },
+  {
+    id: 'java', repository: SLIM_REPOSITORY, tag: SLIM_TAG,
+    name: 'easyhub-java-21.0.12.1-mac-arm64-v1.tar.gz', directory: 'java-21.0.12.1-mac-arm64-v1',
+    sha256: 'd2d0e014593c25d2e22c40ad3a30115acfebf19cf6bb5d2af746a8c99f877dbe',
+    size: 49510546, unpackedLimit: 128 * 1024 ** 2,
+  },
+  LEGACY_RUNTIME_ARTIFACTS[2]!,
+];
+export function runtimeArtifacts(platform: NodeJS.Platform, arch: string): readonly RuntimeArtifact[] {
+  if (platform === 'darwin' && arch === 'arm64') return MAC_RUNTIME_ARTIFACTS;
+  if (platform === 'win32' && arch === 'x64') return RUNTIME_ARTIFACTS;
+  throw new Error('分析组件支持 Apple 芯片的 macOS 和 Windows x64');
+}
+
 export const RUNTIME_DOWNLOAD_BYTES = RUNTIME_ARTIFACTS.reduce((sum, artifact) => sum + artifact.size, 0);
 export type RuntimeFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 const DOWNLOAD_HOSTS = new Set(['github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com']);

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AnalysisRuntime, INSTALLATION_NAME, LEGACY_INSTALLATION_NAME } from './AnalysisRuntime';
@@ -12,7 +12,7 @@ import {
 
 const directories: string[] = [];
 async function temporary(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), 'easyhub-analysis-runtime-test-'));
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'easyhub-analysis-runtime-test-')));
   directories.push(directory);
   return directory;
 }
@@ -60,7 +60,7 @@ describe('optional analysis installation', () => {
     expect(await runtime.status()).toEqual({ state: 'ready', paths, downloadBytes: 0 });
     expect(await readdir(join(root, 'analysis-runtime'))).toHaveLength(1);
     const fetch = vi.fn(() => { throw new Error('should not fetch'); });
-    const restored = new AnalysisRuntime(root, { fetch });
+    const restored = new AnalysisRuntime(root, { platform: 'win32', arch: 'x64', fetch });
     expect(await restored.status()).toEqual({ state: 'ready', paths, downloadBytes: 0 });
     expect(fetch).not.toHaveBeenCalled();
   });

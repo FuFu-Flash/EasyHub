@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { lstat, mkdir, realpath } from 'node:fs/promises';
 import { throwIfAborted } from './analysisDownloads';
+import { extractMacRuntimeArchive } from './analysisMacArchive';
 
 // Paths are passed through environment variables, never interpolated into executable code.
 const EXTRACTION_SCRIPT = String.raw`
@@ -84,6 +85,10 @@ export async function extractRuntimeArchive(
   const archiveInfo = await lstat(archive);
   if (!archiveInfo.isFile() || archiveInfo.isSymbolicLink()) throw new Error('分析组件归档路径不安全');
   const canonicalArchive = await realpath(archive);
+  if (process.platform === 'darwin') {
+    await extractMacRuntimeArchive(canonicalArchive, canonical, maximumUnpackedBytes, signal);
+    return;
+  }
   const executable = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   await new Promise<void>((resolvePromise, reject) => {
     let aborted = false;

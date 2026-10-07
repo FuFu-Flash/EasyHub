@@ -3,7 +3,7 @@ import { isAbsolute, join, resolve, sep } from 'node:path';
 import { extractRuntimeArchive } from './analysisArchive';
 import { GHIDRA_MCP_LICENSE } from './analysisLicenses';
 import {
-  downloadVerifiedArchive, LEGACY_RUNTIME_ARTIFACTS, RUNTIME_ARTIFACTS, RUNTIME_DOWNLOAD_BYTES, throwIfAborted, verifyReleaseMetadata,
+  downloadVerifiedArchive, LEGACY_RUNTIME_ARTIFACTS, MAC_LEGACY_RUNTIME_ARTIFACTS, MAC_RUNTIME_ARTIFACTS, RUNTIME_ARTIFACTS, runtimeArtifacts, throwIfAborted, verifyReleaseMetadata,
   type RuntimeArtifact, type RuntimeFetch,
 } from './analysisDownloads';
 
@@ -31,17 +31,26 @@ interface RuntimeDependencies {
   downloadArchive?: typeof downloadVerifiedArchive;
 }
 export const INSTALLATION_NAME = 'ghidra-12.1.2-mcp-6.0.0-java-21.0.12.1-slim-r1';
+export const MAC_INSTALLATION_NAME = 'ghidra-12.1.2-mcp-6.0.0-java-21.0.12.1-mac-arm64-slim-r1';
+export const MAC_LEGACY_INSTALLATION_NAME = 'ghidra-12.1.2-mcp-6.0.0-java-21.0.12.1-mac-arm64-r1';
 export const LEGACY_INSTALLATION_NAME = 'ghidra-12.1.2-mcp-6.0.0-java-21.0.12.1';
 const MANIFEST = { schema: 1, installation: INSTALLATION_NAME,
   artifacts: RUNTIME_ARTIFACTS.map(({ id, sha256 }) => ({ id, sha256 })) };
 const LEGACY_MANIFEST = { schema: 1, installation: LEGACY_INSTALLATION_NAME,
   artifacts: LEGACY_RUNTIME_ARTIFACTS.map(({ id, sha256 }) => ({ id, sha256 })) };
+const MAC_MANIFEST = { schema: 1, installation: MAC_INSTALLATION_NAME,
+  artifacts: MAC_RUNTIME_ARTIFACTS.map(({ id, sha256 }) => ({ id, sha256 })) };
+const MAC_LEGACY_MANIFEST = { schema: 1, installation: MAC_LEGACY_INSTALLATION_NAME,
+  artifacts: MAC_LEGACY_RUNTIME_ARTIFACTS.map(({ id, sha256 }) => ({ id, sha256 })) };
 const activeRoots = new Set<string>();
 
 /** Optional local analysis components. Only the main process supplies userDataPath. */
 export class AnalysisRuntime {
   private readonly root: string;
   private readonly target: string;
+  private readonly artifacts: readonly RuntimeArtifact[];
+  private readonly manifest: typeof MANIFEST;
+  private readonly downloadBytes: number;
   private readonly deps: Required<RuntimeDependencies>;
   private progress?: RuntimeProgress;
   private error?: string;
@@ -50,24 +59,28 @@ export class AnalysisRuntime {
   constructor(private readonly userDataPath: string, dependencies: RuntimeDependencies = {}) {
     if (!isAbsolute(userDataPath)) throw new Error('分析组件必须使用主进程的绝对用户数据目录');
     this.root = join(resolve(userDataPath), 'analysis-runtime');
-    this.target = join(this.root, INSTALLATION_NAME);
     this.deps = { fetch: dependencies.fetch ?? globalThis.fetch,
       platform: dependencies.platform ?? process.platform, arch: dependencies.arch ?? process.arch,
       extractArchive: dependencies.extractArchive ?? extractRuntimeArchive,
       downloadArchive: dependencies.downloadArchive ?? downloadVerifiedArchive };
+    const mac = this.deps.platform === 'darwin';
+    this.artifacts = mac ? MAC_RUNTIME_ARTIFACTS : RUNTIME_ARTIFACTS;
+    this.manifest = mac ? MAC_MANIFEST : MANIFEST;
+    this.downloadBytes = this.artifacts.reduce((sum, artifact) => sum + artifact.size, 0);
+    this.target = join(this.root, this.manifest.installation);
   }
 
   async status(): Promise<RuntimeStatus> {
-    if (this.installing) return { state: 'installing', progress: this.progress, downloadBytes: RUNTIME_DOWNLOAD_BYTES };
+    if (this.installing) return { state: 'installing', progress: this.progress, downloadBytes: this.downloadBytes };
     const paths = await this.readInstalled();
     if (paths) return { state: 'ready', paths, downloadBytes: 0 };
-    return this.error ? { state: 'error', error: this.error, downloadBytes: RUNTIME_DOWNLOAD_BYTES }
-      : { state: 'missing', downloadBytes: RUNTIME_DOWNLOAD_BYTES };
+    return this.error ? { state: 'error', error: this.error, downloadBytes: this.downloadBytes }
+      : { state: 'missing', downloadBytes: this.downloadBytes };
   }
 
   async install(options: RuntimeInstallOptions = {}): Promise<RuntimePaths> {
     throwIfAborted(options.signal);
-    if (this.deps.platform !== 'win32' || this.deps.arch !== 'x64') throw new Error('分析组件目前支持 Windows x64');
+    runtimeArtifacts(this.deps.platform, this.deps.arch);
     if (activeRoots.has(this.root.toLowerCase())) throw new Error('分析组件安装正在进行');
     const existing = await this.readInstalled();
     if (existing) return existing;
@@ -80,7 +93,7 @@ export class AnalysisRuntime {
     let lastReportedAt = 0;
     let lastReportedStage = '';
     const report = (stage: RuntimeProgress['stage'], component: RuntimeArtifact['id'], message: string, bytes = downloadedBytes) => {
-      this.progress = { stage, component, downloadedBytes: bytes, totalBytes: RUNTIME_DOWNLOAD_BYTES, message };
+      this.progress = { stage, component, downloadedBytes: bytes, totalBytes: this.downloadBytes, message };
       const currentStage = `${component}:${stage}`;
       const now = Date.now();
       if (stage === 'downloading' && lastReportedStage === currentStage && now - lastReportedAt < 75) return;
@@ -95,7 +108,7 @@ export class AnalysisRuntime {
       temporary = await mkdtemp(join(this.root, '.install-'));
       const prepared = join(temporary, 'prepared');
       await mkdir(prepared);
-      for (const artifact of RUNTIME_ARTIFACTS) {
+      for (const artifact of this.artifacts) {
         throwIfAborted(options.signal);
         report('checking', artifact.id, `核对组件发布：${artifact.id}`);
         await verifyReleaseMetadata(artifact, this.deps.fetch, options.signal);
@@ -116,7 +129,7 @@ export class AnalysisRuntime {
       // The upstream extension ZIP omits its project-specific Apache license and attribution.
       await writeFile(join(prepared, 'extension', 'LICENSE'), GHIDRA_MCP_LICENSE, { flag: 'wx' });
       await this.validatePaths(prepared);
-      await writeFile(join(prepared, 'installation.json'), JSON.stringify(MANIFEST), { flag: 'wx' });
+      await writeFile(join(prepared, 'installation.json'), JSON.stringify(this.manifest), { flag: 'wx' });
       throwIfAborted(options.signal);
       report('activating', 'extension', '激活分析组件');
       // Same-volume rename publishes the complete installation in one operation.
@@ -139,7 +152,9 @@ export class AnalysisRuntime {
   }
 
   private paths(directory: string): RuntimePaths {
-    return { ghidraPath: join(directory, 'ghidra'), javaPath: join(directory, 'java'), extensionPath: join(directory, 'extension') };
+    return { ghidraPath: join(directory, 'ghidra'),
+      javaPath: this.deps.platform === 'darwin' ? join(directory, 'java', 'Contents', 'Home') : join(directory, 'java'),
+      extensionPath: join(directory, 'extension') };
   }
 
   private async exists(path: string): Promise<boolean> {
@@ -161,8 +176,12 @@ export class AnalysisRuntime {
   }
 
   private async readInstalled(): Promise<RuntimePaths | undefined> {
-    const slim = await this.readInstallation(this.target, MANIFEST);
-    return slim ?? this.readInstallation(join(this.root, LEGACY_INSTALLATION_NAME), LEGACY_MANIFEST);
+    const slim = await this.readInstallation(this.target, this.manifest);
+    if (slim) return slim;
+    if (this.deps.platform === 'darwin' && this.deps.arch === 'arm64') {
+      return this.readInstallation(join(this.root, MAC_LEGACY_INSTALLATION_NAME), MAC_LEGACY_MANIFEST);
+    }
+    return this.deps.platform === 'win32' ? this.readInstallation(join(this.root, LEGACY_INSTALLATION_NAME), LEGACY_MANIFEST) : undefined;
   }
 
   private async readInstallation(target: string, expected: typeof MANIFEST): Promise<RuntimePaths | undefined> {
@@ -179,8 +198,10 @@ export class AnalysisRuntime {
 
   private async validatePaths(directory: string): Promise<void> {
     const paths = this.paths(directory);
-    const files = [join(paths.javaPath, 'bin', 'java.exe'), join(paths.ghidraPath, 'support', 'analyzeHeadless.bat'),
+    const files = [join(paths.javaPath, 'bin', this.deps.platform === 'darwin' ? 'java' : 'java.exe'),
+      join(paths.ghidraPath, 'support', this.deps.platform === 'darwin' ? 'analyzeHeadless' : 'analyzeHeadless.bat'),
       join(paths.extensionPath, 'lib', 'GhidraMCP-6.0.0.jar')];
+    if (this.deps.platform === 'darwin') files.push(join(paths.ghidraPath, 'Ghidra', 'Features', 'Decompiler', 'os', 'mac_arm_64', 'decompile'));
     const base = await realpath(directory);
     for (const file of [...Object.values(paths), ...files]) {
       const info = await lstat(file);

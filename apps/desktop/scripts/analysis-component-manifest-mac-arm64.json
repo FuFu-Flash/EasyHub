@@ -1,0 +1,165 @@
+{
+  "schema": 1,
+  "repository": "FuFu-Flash/EasyHub",
+  "tag": "analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1",
+  "platform": "darwin",
+  "arch": "arm64",
+  "componentRevision": 1,
+  "downloadBytes": 276615058,
+  "assets": [
+    {
+      "id": "ghidra",
+      "name": "easyhub-ghidra-12.1.2-mac-arm64-v1.zip",
+      "size": 226376392,
+      "sha256": "c195aa703e8f9465f25eaaa5c396696967c56f4d12120f75d24e5b1501bb857e",
+      "directory": "ghidra-12.1.2-mac-arm64-v1",
+      "unpackedBytes": 502503378,
+      "unpackedLimit": 805306368,
+      "localSourceName": "ghidra-12.1.2-mac-arm64-v1.zip"
+    },
+    {
+      "id": "java",
+      "name": "easyhub-java-21.0.12.1-mac-arm64-v1.tar.gz",
+      "size": 49510546,
+      "sha256": "d2d0e014593c25d2e22c40ad3a30115acfebf19cf6bb5d2af746a8c99f877dbe",
+      "directory": "java-21.0.12.1-mac-arm64-v1",
+      "javaHome": "Contents/Home",
+      "unpackedBytes": 74347071,
+      "unpackedLimit": 134217728,
+      "localSourceName": "easyhub-java-21.0.12.1-mac-arm64-v1.tar.gz"
+    }
+  ],
+  "extension": {
+    "repository": "bethington/ghidra-mcp",
+    "tag": "v6.0.0",
+    "name": "GhidraMCP-6.0.0.zip",
+    "size": 728120,
+    "sha256": "867731de27d5143632a010943b907a6485dd54d0e19729e2f85ee9f692c99873",
+    "directory": "GhidraMCP"
+  },
+  "upstream": {
+    "ghidra": {
+      "name": "ghidra_12.1.2_PUBLIC_20260605.zip",
+      "size": 572803866,
+      "sha256": "b62e81a0390618466c019c60d8c2f796ced2509c4c1aea4a37644a77272cf99d",
+      "url": "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.1.2_build/ghidra_12.1.2_PUBLIC_20260605.zip"
+    },
+    "java": {
+      "archive": "OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.12.1_1.tar.gz",
+      "bytes": 200073404,
+      "sha256": "3623232f33a9c3baadf304480b2535f9a3cba8a58d42ecbb438ba267315d9998",
+      "sourceTag": "jdk-21.0.12.1+1",
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.12.1_1.tar.gz"
+    }
+  },
+  "correspondingJavaSource": {
+    "name": "OpenJDK21U-jdk-sources_21.0.12.1_1.tar.gz",
+    "bytes": 115126841,
+    "sha256": "573057d03584ae793fb7ec9a14c76d826d9187a53efeefd99da47403a5308234",
+    "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk-sources_21.0.12.1_1.tar.gz",
+    "existingReleaseUrl": "https://github.com/FuFu-Flash/EasyHub/releases/download/analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1/OpenJDK21U-jdk-sources_21.0.12.1_1.tar.gz",
+    "delivery": "Reuse the complete source asset already present on this release; do not replace or re-upload it.",
+    "upstreamSourceCommit": "1c417fbfc2f7",
+    "upstreamBuildCommit": "e6ba7dec3d07654074559310376a3ae89da5f4ac"
+  },
+  "preserved": {
+    "ghidraProcessors": 39,
+    "functionIdentificationDatabases": 10,
+    "functionIdentificationDataBytes": 204144640,
+    "ghidraRuntimeJars": 136,
+    "ghidraModuleManifests": 84,
+    "ghidraOriginalLegalFiles": 156,
+    "ghidraGplSourceFiles": 68,
+    "macNativeTools": 5,
+    "javaModules": [
+      "java.base",
+      "java.compiler",
+      "java.datatransfer",
+      "java.desktop",
+      "java.instrument",
+      "java.logging",
+      "java.management",
+      "java.naming",
+      "java.net.http",
+      "java.prefs",
+      "java.rmi",
+      "java.scripting",
+      "java.security.jgss",
+      "java.security.sasl",
+      "java.sql",
+      "java.transaction.xa",
+      "java.xml",
+      "jdk.attach",
+      "jdk.charsets",
+      "jdk.compiler",
+      "jdk.crypto.ec",
+      "jdk.httpserver",
+      "jdk.internal.ed",
+      "jdk.internal.jvmstat",
+      "jdk.internal.le",
+      "jdk.internal.opt",
+      "jdk.jdi",
+      "jdk.jdwp.agent",
+      "jdk.jshell",
+      "jdk.localedata",
+      "jdk.net",
+      "jdk.security.auth",
+      "jdk.unsupported",
+      "jdk.zipfs"
+    ],
+    "javaSelectedModuleLegalFiles": 130
+  },
+  "licensing": {
+    "ghidra": "Original LICENSE, legal files, matching-tag NOTICE, BOM and GPL corresponding sources are retained. Refer to the included per-component licenses.",
+    "java": "Unchanged selected-module upstream legal files, NOTICE and source provenance are included; complete corresponding Java source is available alongside the binary on the same release.",
+    "application": "EasyHub application GPL v3 remains separate from third-party component terms."
+  },
+  "preparation": {
+    "existingArtifactsImmutable": true,
+    "ghidraRenameChangesBytes": false,
+    "publishedJavaEmbeddedRecipe": "build-support/prepare-mac-java.mjs",
+    "publishedJavaEmbeddedRecipeSHA256": "db414c0d8c72b2a0ffa14dd0579132265b6144b793f1fb8247f0d870c9c78c5b",
+    "repositoryRecipes": [
+      "apps/desktop/scripts/prepare-mac-ghidra.py",
+      "apps/desktop/scripts/prepare-mac-java.mjs"
+    ],
+    "portableRecipesApplyToFuturePreparation": true,
+    "independentJlinkByteReproducibilityClaimed": false,
+    "deterministicCompressionScope": "Same already-linked Java image was compressed twice; ZIP Ghidra selection was independently recompressed."
+  },
+  "verification": {
+    "allOriginalGhidraStreamHashesAndPermissions": true,
+    "sameImageDeterministicArchive": true,
+    "nativeMachOArchitectureAndStrictSignature": true,
+    "productionArchiveExtraction": true,
+    "allRoundtripFileHashesAndExecutePermissions": true,
+    "threeFormats": [
+      {
+        "format": "Mach-O ARM64",
+        "functions": 4,
+        "decompiledFunctions": 2,
+        "fullRuntimeOutputParity": true
+      },
+      {
+        "format": "ELF x86_64",
+        "functions": 4,
+        "decompiledFunctions": 2,
+        "fullRuntimeOutputParity": true
+      },
+      {
+        "format": "PE x86_64",
+        "functions": 2,
+        "decompiledFunctions": 2,
+        "fullRuntimeOutputParity": true
+      }
+    ],
+    "analysisCancellation": true,
+    "dataScope": "Real sample parity establishes those samples; complete retained processors/data are verified by inventory, not execution of every supported format."
+  },
+  "publishing": {
+    "performedByThisScript": false,
+    "newBinaryAssets": 2,
+    "existingWindowsAssetsRemainUnchanged": true,
+    "sourceAssetAlreadyOnSameTag": true
+  }
+}
