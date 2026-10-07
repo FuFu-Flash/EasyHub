@@ -457,7 +457,9 @@ app.on('before-quit', (event) => {
     quitting = true;
     void Promise.allSettled([githubProxyService?.destroy(), binaryAnalysisService?.shutdown()]).finally(() => {
       servicesStoppedForQuit = true;
-      app.quit();
+      // Let macOS finish cancelling the original native terminate event before
+      // starting a new quit cycle; a Promise microtask can re-enter that stack.
+      setImmediate(() => app.quit());
     });
   }
 });
