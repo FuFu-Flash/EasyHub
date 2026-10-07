@@ -48,7 +48,7 @@ Windows 安装版会识别之前的安装位置。“创建桌面快捷方式”
 
 **Windows 版还可以审查程序文件。** 首次使用时，在 AI 设置中展开“程序文件审查”，按提示安装可选组件；下载大小会提前显示。安装后，可以审查改进请求中的程序文件，也可以选择电脑上的程序文件，或审查发行版里的 EXE、DLL 等附件。普通代码审查无需安装这些组件。
 
-Mac 版暂未提供正式应用安装包。
+此目录另提供 macOS 本机版本，安装方式见下方“macOS 本机版本”。
 
 **程序文件是怎样审查的？** EasyHub 先在你的电脑上读取文件，将其中的部分程序逻辑整理成接近代码的文字，并提取程序里的文字内容和引用的功能信息。经你确认后，这些资料会交给你选择的 AI 服务，帮助解释程序可能做什么，并提示有依据的问题和检查建议。
 
@@ -118,6 +118,6 @@ EasyHub 采用 [GNU GPLv3 许可](LICENSE)。
 
 本目录同时保留 macOS 1.1.0（16）移植：已同步上游 `30c65310` 的项目介绍实时编辑、Markdown/HTML 预览与响应式布局，并保留原生红绿灯、菜单、默认圆点风格和 GitHub 系统代理。
 
-[打开本机 DMG](../build/macOS-1.1.0-build16/EasyHub-macOS.dmg)，将 EasyHub 拖到 Applications。构建入口为 `pnpm package:mac`。本机发布包使用 ad hoc 签名。
+[打开本机 DMG](../build/EasyHub-macOS.dmg)，将 EasyHub 拖到 Applications。构建入口为 `pnpm package:mac`。本机发布包使用 ad hoc 签名。
 
 Mac 程序文件审查按需下载固定的 ARM64 精简组件，沿用与 Windows 共用的[组件发布](https://github.com/FuFu-Flash/EasyHub/releases/tag/analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1)。版本、大小、SHA 与对应源码见[Mac 构建及许可说明](apps/desktop/scripts/README-MAC-ANALYSIS-COMPONENTS.md)。
