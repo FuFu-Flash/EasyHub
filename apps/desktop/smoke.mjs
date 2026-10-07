@@ -16,12 +16,16 @@ await new Promise((resolve) => imageServer.listen(0, '127.0.0.1', resolve));
 const imageUrl = `http://127.0.0.1:${imageServer.address().port}/intro.png`;
 const selectedFolder = await mkdtemp(join(tmpdir(), 'easyhub-ui-smoke-'));
 const profile = await mkdtemp(join(tmpdir(), 'easyhub-ui-profile-'));
-const packagedExecutable = join(process.cwd(), 'release/win-unpacked/EasyHub.exe');
+const isMac = process.platform === 'darwin';
+const referenceWindowControls = isMac ? '.topbar-reference .native-window-controls' : '.topbar-reference .window-controls';
+const defaultWindowControls = isMac ? referenceWindowControls : '.topbar-windows .windows-window-controls';
+const defaultWindowButtons = `${defaultWindowControls} button`;
+const packagedExecutable = isMac ? (process.env.EASYHUB_PACKAGED_EXECUTABLE || '/tmp/easyhub-desktop-release/mac-arm64/EasyHub.app/Contents/MacOS/EasyHub') : join(process.cwd(), 'release/win-unpacked/EasyHub.exe');
 const app = await electron.launch({
   executablePath: packaged ? packagedExecutable : electronPath,
   args: [...(packaged ? [] : ['.']), `--user-data-dir=${profile}`],
   cwd: process.cwd(),
-  env: { ...process.env, EASYHUB_PROXY_APP_ONLY_TEST: '1' },
+  env: { ...process.env, EASYHUB_PROXY_APP_ONLY_TEST: '1', EASYHUB_TEST_MODE: '1', EASYHUB_TEST_USER_DATA: profile },
 });
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
@@ -32,6 +36,32 @@ try {
   }, selectedFolder);
 
   const page = await app.firstWindow();
+  page.setDefaultTimeout(15000);
+  page.setDefaultNavigationTimeout(20000);
+  async function assertWindowState(method, expected) {
+    let actual;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      actual = await app.evaluate(({ BrowserWindow }, action) => BrowserWindow.getAllWindows()[0]?.[action](), method);
+      if (actual === expected) return;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert.equal(actual, expected, method);
+  }
+  async function assertNativeWindowControls() {
+    if (!isMac) return;
+    const placeholder = page.locator(referenceWindowControls);
+    await placeholder.waitFor();
+    assert.equal(await placeholder.evaluate((element) => element.tagName), 'SPAN');
+    assert.equal(await placeholder.getAttribute('aria-hidden'), 'true');
+    assert.equal(await placeholder.locator('button').count(), 0, 'macOS system controls must not be simulated with DOM buttons');
+    assert.equal(await page.locator('.topbar-reference .window-dot').count(), 0);
+    const nativeWindow = await app.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0];
+      return { position: window.getWindowButtonPosition(), fullScreenable: window.isFullScreenable() };
+    });
+    assert.deepEqual(nativeWindow.position, { x: 25, y: 29 });
+    assert.equal(nativeWindow.fullScreenable, true, 'The native green button must support full screen');
+  }
   const security = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getLastWebPreferences());
   assert.equal(security?.contextIsolation, true);
   assert.equal(security?.nodeIntegration, false);
@@ -39,18 +69,21 @@ try {
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined');
   assert.equal(await page.evaluate(() => typeof window.easyHub?.openLicense), 'function');
   assert.equal(await page.evaluate(() => typeof window.easyHub?.authStatus), 'function');
+  assert.equal(await page.evaluate(() => typeof window.easyHub?.setWindowControlStyle), 'function');
   assert.equal('clientId' in (await page.evaluate(() => window.easyHub?.authStatus())), true);
   assert.equal(await page.locator('.app-shell h1').first().evaluate((element) => getComputedStyle(element).userSelect), 'none');
-  const iconPath = packaged ? join(process.cwd(), 'release/win-unpacked/resources/easyhub.ico') : join(process.cwd(), 'resources/easyhub.ico');
+  const packagedResources = isMac ? join(packagedExecutable, '../../Resources') : join(process.cwd(), 'release/win-unpacked/resources');
+  const iconPath = packaged ? join(packagedResources, isMac ? 'easyhub.png' : 'easyhub.ico') : join(process.cwd(), 'resources', isMac ? 'easyhub.png' : 'easyhub.ico');
   assert.equal(await app.evaluate(({ nativeImage }, path) => nativeImage.createFromPath(path).isEmpty(), iconPath), false);
-  const licensePath = packaged ? join(process.cwd(), 'release/win-unpacked/resources/LICENSE') : join(process.cwd(), '../../LICENSE');
+  const licensePath = packaged ? join(packagedResources, 'LICENSE') : join(process.cwd(), '../../LICENSE');
   assert.equal(existsSync(licensePath), true);
   await page.evaluate(() => {
     window.localStorage.removeItem('easyhub:window-control-style');
     window.localStorage.removeItem('easyhub:language');
   });
   await page.reload();
-  await page.locator('.topbar-windows .windows-window-controls').waitFor();
+  await page.locator(defaultWindowControls).waitFor();
+  await assertNativeWindowControls();
   await page.getByRole('button', { name: '选择语言' }).click();
   await page.getByRole('button', { name: 'English' }).click();
   await page.locator('.sidebar-nav').getByRole('button', { name: 'Home' }).waitFor();
@@ -152,31 +185,59 @@ try {
   await page.getByRole('switch', { name: 'GitHub system proxy' }).waitFor();
   await page.getByText('GNU GPLv3').waitFor();
   await page.screenshot({ path: 'out/settings-english-smoke.png' });
+  console.log('Demo routes, dialogs, translations, and settings passed.');
   await page.getByRole('button', { name: 'Choose language' }).click();
   await page.getByRole('button', { name: '中文' }).click();
   await page.getByRole('button', { name: '选择语言' }).waitFor();
   await page.locator('.topbar-brand').click();
   await page.locator('button[aria-label="设置"]').click();
-  assert.equal(await page.locator('.window-style-option').first().getAttribute('aria-pressed'), 'true');
-  await page.locator('.window-style-option').nth(1).click();
-  await page.locator('.topbar-reference .window-controls').waitFor();
+  const windowStyleOptions = page.getByRole('group', { name: '窗口控件样式' });
+  const windowsStyleOption = windowStyleOptions.getByRole('button', { name: /Windows 风格/ });
+  const roundStyleOption = windowStyleOptions.getByRole('button', { name: /圆点风格/ });
+  assert.equal(await windowsStyleOption.getAttribute('aria-pressed'), String(!isMac));
+  assert.equal(await roundStyleOption.getAttribute('aria-pressed'), String(isMac));
+  await windowsStyleOption.click();
+  await page.locator('.topbar-windows .windows-window-controls').waitFor();
   await page.reload();
-  await page.locator('.topbar-reference .window-controls').waitFor();
+  await page.locator('.topbar-windows .windows-window-controls').waitFor();
+  assert.equal(await page.evaluate(() => window.localStorage.getItem('easyhub:window-control-style')), 'windows');
+  await page.locator('button[aria-label="设置"]').click();
+  await roundStyleOption.click();
+  await page.locator(referenceWindowControls).waitFor();
+  await page.reload();
+  await page.locator(referenceWindowControls).waitFor();
   assert.equal(await page.evaluate(() => window.localStorage.getItem('easyhub:window-control-style')), 'reference');
   await page.locator('button[aria-label="设置"]').click();
-  await page.locator('.window-style-option').first().click();
-  await page.locator('.topbar-windows .windows-window-controls').waitFor();
+  await (isMac ? roundStyleOption : windowsStyleOption).click();
+  await page.locator(defaultWindowControls).waitFor();
+  await assertNativeWindowControls();
   await page.locator('.topbar-brand').click();
   await page.getByRole('heading', { name: /(早上好|下午好|晚上好)/ }).waitFor();
   assert.equal(await page.locator('.v2-feature-art > img').evaluate((image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0), true);
+  if (isMac) {
+    // DOM clicks exercise the retained Windows controls and their IPC. Native traffic
+    // lights are verified through window properties here and real system clicks separately.
+    await page.locator('button[aria-label="设置"]').click();
+    await windowsStyleOption.click();
+    await page.locator('.topbar-windows .windows-window-controls').waitFor();
+    await page.locator('.topbar-brand').click();
+  }
   await page.getByRole('button', { name: '关闭窗口' }).waitFor();
   await page.getByRole('button', { name: '最大化或还原窗口' }).click();
-  assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isMaximized()), true);
+  await assertWindowState('isMaximized', true);
   await page.getByRole('button', { name: '最大化或还原窗口' }).click();
-  assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isMaximized()), false);
+  await assertWindowState('isMaximized', false);
   await page.getByRole('button', { name: '最小化窗口' }).click();
-  assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isMinimized()), true);
+  await assertWindowState('isMinimized', true);
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.restore());
+  await assertWindowState('isMinimized', false);
+  if (isMac) {
+    await page.locator('button[aria-label="设置"]').click();
+    await roundStyleOption.click();
+    await assertNativeWindowControls();
+    await page.locator('.topbar-brand').click();
+    await page.getByRole('heading', { name: /(早上好|下午好|晚上好)/ }).waitFor();
+  }
   await page.setViewportSize({ width: 1060, height: 700 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.equal(await page.locator('.main-column').evaluate((element) => getComputedStyle(element).scrollbarWidth), 'none');
@@ -188,6 +249,7 @@ try {
   await page.getByRole('button', { name: '向下滚动' }).waitFor();
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.screenshot({ path: 'out/home-smoke.png' });
+  console.log('Window controls and minimum-size homepage passed.');
   await page.locator('#home-update-message').fill('整理首页布局');
   await page.locator('.home-publish').getByRole('button', { name: '发布更新' }).click();
   await page.getByText('目前没有尚未发布的修改').waitFor();
@@ -355,6 +417,7 @@ try {
   await page.getByRole('button', { name: '使用 GitHub 登录' }).click();
   await page.getByText('ABCD-EFGH').waitFor();
   await page.locator('.live-connected').waitFor({ timeout: 8000 });
+  console.log('Browser login and live workspace fixture passed.');
   await page.locator('.sidebar-refresh').waitFor();
   assert.equal(await page.locator('.sidebar-refresh').evaluate((button) => button.nextElementSibling?.classList.contains('live-connected')), true);
   await app.evaluate(({ ipcMain }) => {
@@ -381,8 +444,10 @@ try {
     return path ? window.easyHub?.localInspect(path) : null;
   });
   assert.equal(inspectedFolder?.state, 'new');
-  await page.locator('.topbar-windows .windows-control-button').first().waitFor();
-  assert.equal(await page.locator('.topbar-windows .windows-control-button').count(), 3);
+  await page.locator(defaultWindowControls).waitFor();
+  if (isMac) await assertNativeWindowControls();
+  else await page.locator(defaultWindowButtons).first().waitFor();
+  assert.equal(await page.locator(defaultWindowButtons).count(), isMac ? 0 : 3);
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
   await page.getByRole('button', { name: /这台电脑/ }).click();
   await page.getByRole('heading', { name: '查找已有项目' }).waitFor();
@@ -517,9 +582,18 @@ try {
   await page.getByRole('checkbox', { name: '我确认替换这个项目的本地介绍文件' }).check();
   await page.getByRole('dialog').getByRole('button', { name: '保存介绍' }).click();
   await page.getByText('介绍已保存到本地，发布源码后同步到 GitHub。').waitFor();
-  const closed = page.waitForEvent('close');
-  await page.locator('.windows-window-controls button').last().click();
-  await closed;
+  if (isMac) {
+    await assertNativeWindowControls();
+    await Promise.all([
+      page.waitForEvent('close'),
+      app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close()),
+    ]);
+  } else {
+    await Promise.all([
+      page.waitForEvent('close'),
+      page.getByRole('button', { name: '关闭窗口', exact: true }).click(),
+    ]);
+  }
   process.stdout.write(`${packaged ? 'Packaged' : 'Electron'} UI smoke test passed.\n`);
 } finally {
   await app.close().catch(() => {});

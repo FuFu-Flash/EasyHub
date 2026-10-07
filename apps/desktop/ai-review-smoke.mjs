@@ -1,15 +1,18 @@
 import assert from 'node:assert/strict';
-import { isAbsolute, join } from 'node:path';
+import { join } from 'node:path';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { smokeExecutable, smokeEnvironment } from './smoke-runtime.mjs';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
 
-const executableArgument = process.argv.find((argument) => argument.startsWith('--executable='));
-const executable = executableArgument?.slice('--executable='.length);
-if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
-const profileArgument = `--user-data-dir=${join(process.cwd(), 'out/ai-review-smoke-profile')}`;
-const app = await electron.launch({ executablePath: executable || electronPath, args: executable ? [profileArgument] : ['.', profileArgument], cwd: process.cwd() });
+const executable = smokeExecutable(process.cwd());
+const profile = await mkdtemp(join(tmpdir(), 'easyhub-ai-review-smoke-'));
+const app = await electron.launch({ executablePath: executable || electronPath, args: executable ? [] : ['.'], cwd: process.cwd(), env: smokeEnvironment(profile) });
 try {
-  await app.evaluate(({ ipcMain }) => {
+  assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
+  await app.evaluate(({ ipcMain, session }) => {
+    session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_details, callback) => callback({ cancel: true }));
     const owned = { id: 901, name: 'owned-repo', full_name: 'test-owner/owned-repo', description: 'Review example', private: false, archived: false, permissions: { admin: true, push: true, pull: true }, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'test-owner' }, open_issues_count: 0 };
     const external = { ...owned, id: 902, name: 'external-repo', full_name: 'someone/external-repo', owner: { login: 'someone' }, permissions: { admin: false, push: false, pull: true } };
     let release = { id: 77, tag_name: 'v1.0.0', name: 'Original release', body: 'Original notes', draft: false, prerelease: false, published_at: new Date().toISOString(), assets: [{ id: 88, name: 'old-file.zip', label: null, size: 12, content_type: 'application/zip', download_count: 0, state: 'uploaded' }] };
@@ -93,6 +96,7 @@ try {
   page.setDefaultTimeout(15_000);
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
+  page.setDefaultNavigationTimeout(20000);
   await page.evaluate(() => { localStorage.setItem('easyhub:language', 'zh'); localStorage.removeItem('easyhub:auto-translate'); });
   await page.reload();
   await page.locator('.live-connected').waitFor();
@@ -165,7 +169,7 @@ try {
   assert.match(await page.evaluate(() => window.getSelection()?.toString() ?? ''), /next parag/);
   await page.screenshot({ path: 'out/readme-preview-smoke.png' });
   await page.getByRole('button', { name: '查看问题' }).click();
-  await page.getByRole('tab', { name: '代码提交审查' }).click();
+  await page.getByRole('tab', { name: '合并请求审查' }).click();
   const pulls = page.locator('.pull-requests-panel');
   await pulls.getByRole('button').filter({ hasText: 'Improve validation' }).click();
   await pulls.getByRole('button', { name: '批准并合入', exact: true }).waitFor();
@@ -336,7 +340,7 @@ try {
   assert.equal(await page.getByRole('button', { name: '提出问题', exact: true }).count(), 0);
   await page.getByRole('tab', { name: '问题 0' }).waitFor();
   assert.equal(await page.getByRole('button', { name: '审阅改进请求' }).count(), 0);
-  await page.getByRole('tab', { name: '代码提交审查 7' }).click();
+  await page.getByRole('tab', { name: '合并请求审查 7' }).click();
   await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByText('7 个待审查的改进请求').waitFor();
   await page.screenshot({ path: 'out/issues-reviews-smoke.png' });
   await page.setViewportSize({ width: 800, height: 760 });
@@ -351,7 +355,7 @@ try {
   const issueGroup = page.locator('.issue-project-group').filter({ hasText: 'owned-repo' });
   if (await issueGroup.count() && await issueGroup.getByRole('button', { name: /owned-repo/ }).getAttribute('aria-expanded') !== 'true') await issueGroup.getByRole('button', { name: /owned-repo/ }).click();
   assert.equal(await issueGroup.getByRole('button', { name: '审阅改进请求' }).count(), 0);
-  await page.getByRole('tab', { name: '代码提交审查 7' }).click();
+  await page.getByRole('tab', { name: '合并请求审查 7' }).click();
   await page.locator('.issue-project-header').filter({ hasText: 'owned-repo' }).click();
   await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByRole('button', { name: /Trojan test/ }).click();
   await pulls.getByText('python.py').waitFor();
@@ -361,10 +365,10 @@ try {
   await page.getByRole('button', { name: /我的云端项目/ }).click();
   await page.locator('.cloud-row').filter({ hasText: 'owned-repo' }).getByRole('button', { name: '查看', exact: true }).click();
   await page.getByRole('button', { name: '查看问题' }).click();
-  await page.getByRole('tab', { name: '代码提交审查 7' }).click();
+  await page.getByRole('tab', { name: '合并请求审查 7' }).click();
   await pulls.getByRole('button').filter({ hasText: 'Trojan test' }).waitFor();
   await page.getByRole('tab', { name: '问题 0' }).click();
-  await page.getByRole('tab', { name: '代码提交审查 7' }).waitFor();
+  await page.getByRole('tab', { name: '合并请求审查 7' }).waitFor();
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目', exact: true }).click();
   await page.getByRole('button', { name: /我的云端项目/ }).click();
   await page.locator('.cloud-row').filter({ hasText: 'owned-repo' }).getByRole('button', { name: '查看', exact: true }).click();

@@ -1,6 +1,7 @@
 import * as git from 'isomorphic-git';
 import nodeHttp from 'isomorphic-git/http/node';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 import { GitHubOriginAgent } from '../services/githubProxyOrigin';
 import type { OriginRule } from '../services/githubProxyOrigin';
 import fs from 'node:fs';
@@ -94,7 +95,7 @@ export class GitEngine {
   private readonly http: git.HttpClient;
 
   constructor(proxy?: string, githubRules?: Record<string, OriginRule>) {
-    const agent = proxy ? new HttpsProxyAgent(proxy) : githubRules ? new GitHubOriginAgent({ rules: githubRules }) : undefined;
+    const agent = proxy ? (/^socks[45]h?:/i.test(proxy) ? new SocksProxyAgent(proxy) : new HttpsProxyAgent(proxy)) : githubRules ? new GitHubOriginAgent({ rules: githubRules }) : undefined;
     this.http = agent ? { request: (options) => nodeHttp.request({ ...options, agent }) } : nodeHttp;
   }
 

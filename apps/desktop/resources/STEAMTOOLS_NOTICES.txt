@@ -1,0 +1,26 @@
+EasyHub macOS — SteamTools compatibility notice
+
+EasyHub's Swift helper implements a local SOCKS5 and GitHub PAC service using
+SteamTools public GitHub rules and DNSPod DNS-over-HTTPS. It preserves GitHub's
+original TLS hostname validation. The helper source is supplied in this project
+under GNU GPL version 3; the complete EasyHub license is bundled in LICENSE.
+
+Referenced upstream projects:
+SteamTools (GNU GPL v3)
+https://github.com/BeyondDimension/SteamTools
+Reviewed revision: d04213147e77a8d73277fa8b86eeecfa444df071
+Legacy Android local VPN implementation reviewed at:
+6a5f8db69f92a98a0503234f3b34433e2924c1c1
+
+Public rules API protocol reference:
+WTTS.MicroServices.ClientSDK (GNU AGPL v3)
+https://github.com/BeyondDimension/WTTS.MicroServices.ClientSDK
+Reviewed revision: 380d1ab71d835490e26398af0067a2672d9fb772
+
+This Electron macOS bundle does not link .NET, YARP, the ClientSDK, HEV or lwIP.
+The full iOS/Packet Tunnel sources elsewhere in the workspace have separate
+third-party notices for their included C libraries.
+
+Mac helper sources: EasyHubDesktop/mac-helper and the explicitly referenced
+Shared, GitHubTunnel and EasyHubMac/Proxy Swift files listed in build-helper.sh.
+Protocol and implementation review: docs/STEAMTOOLS_PROXY.md.

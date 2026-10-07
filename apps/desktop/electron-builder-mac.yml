@@ -1,0 +1,47 @@
+appId: app.easyhub.mac
+productName: EasyHub
+buildVersion: '15'
+extraMetadata:
+  version: 1.0.1
+directories:
+  output: /tmp/easyhub-desktop-release
+  buildResources: resources
+files:
+  - out/main/**/*
+  - out/preload/**/*
+  - out/renderer/**/*
+  - package.json
+extraResources:
+  - from: resources/easyhub.png
+    to: easyhub.png
+  - from: resources/licenses
+    to: licenses
+  - from: ../../LICENSE
+    to: LICENSE
+  - from: ../../UPSTREAM.txt
+    to: UPSTREAM.txt
+  - from: ../../THIRD_PARTY_NOTICES.md
+    to: THIRD_PARTY_NOTICES.md
+asar: true
+asarUnpack:
+  - '**/*.node'
+npmRebuild: false
+afterPack: scripts/clean-mac-package-xattrs.cjs
+electronDist: node_modules/electron/dist
+electronLanguages:
+  - en-US
+  - zh-CN
+  - zh-TW
+mac:
+  target:
+    - target: dir
+      arch:
+        - arm64
+  icon: resources/easyhub.icns
+  category: public.app-category.developer-tools
+  minimumSystemVersion: '27.0'
+  bundleVersion: '15'
+  identity: '-'
+  hardenedRuntime: false
+  notarize: false
+  gatekeeperAssess: false

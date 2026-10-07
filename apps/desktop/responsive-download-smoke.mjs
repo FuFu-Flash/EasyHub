@@ -1,8 +1,17 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
 
-const app = await electron.launch({ executablePath: electronPath, args: ['.'], cwd: process.cwd() });
+const testUserData = await mkdtemp(join(tmpdir(), 'easyhub-responsive-smoke-'));
+const app = await electron.launch({
+  executablePath: electronPath,
+  args: ['.'],
+  cwd: process.cwd(),
+  env: { ...process.env, EASYHUB_TEST_MODE: '1', EASYHUB_TEST_USER_DATA: testUserData },
+}).catch(async (error) => { await rm(testUserData, { recursive: true, force: true }); throw error; });
 try {
   await app.evaluate(({ ipcMain }) => {
     const repo = { id: 77, name: 'wide-readme', full_name: 'tester/wide-readme', description: 'A test project', private: false, archived: false, default_branch: 'main', owner: { login: 'tester', avatar_url: '' }, open_issues_count: 0, updated_at: new Date().toISOString(), pushed_at: new Date().toISOString() };
@@ -27,6 +36,27 @@ try {
     ipcMain.handle('easyhub:cancel-translation', () => undefined);
   });
   const page = await app.firstWindow();
+  // All repository actions use the local IPC fixture; remote README images
+  // must not make this layout-only regression test contact external hosts.
+  await page.route(/^https?:\/\//, (route) => route.abort());
+  page.setDefaultTimeout(15000);
+  page.setDefaultNavigationTimeout(20000);
+  const settleLayout = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  async function assertScrollCueDoesNotCoverControls(context) {
+    const covered = await page.evaluate(() => {
+      const cue = document.querySelector('.scroll-down-cue');
+      if (!cue) return [];
+      const cueBox = cue.getBoundingClientRect();
+      return [...document.querySelectorAll('.page-content button, .page-content a, .page-content input, .page-content textarea, .page-content select')]
+        .filter((control) => {
+          const box = control.getBoundingClientRect();
+          return box.width > 0 && box.height > 0 && box.top < innerHeight && box.bottom > 0
+            && box.left < cueBox.right && box.right > cueBox.left && box.top < cueBox.bottom && box.bottom > cueBox.top;
+        })
+        .map((control) => (control.textContent || control.getAttribute('aria-label') || control.tagName).trim());
+    });
+    assert.deepEqual(covered, [], `Scroll hint covers controls in ${context}: ${covered.join(', ')}`);
+  }
   await page.evaluate(() => { window.localStorage.removeItem('easyhub:auto-translate'); window.localStorage.removeItem('easyhub:translation-target'); });
   await page.reload();
   await page.locator('.live-connected').waitFor();
@@ -39,6 +69,7 @@ try {
   await page.getByRole('button', { name: '关闭翻译' }).click();
   for (const width of [1600, 1250, 1100, 900, 700, 600]) {
     await page.setViewportSize({ width, height: 800 });
+    await settleLayout();
     const sizes = await page.evaluate(() => {
       const primary = document.querySelector('.detail-primary .panel').getBoundingClientRect();
       const side = document.querySelector('.detail-side .panel').getBoundingClientRect();
@@ -50,8 +81,20 @@ try {
     assert.equal(overlaps, false, `Project cards overlap at ${width}px: ${JSON.stringify(sizes)}`);
     assert.ok(sizes.primary.right <= sizes.grid.right + 1, `README panel escapes its grid at ${width}px: ${JSON.stringify(sizes)}`);
     assert.ok(sizes.main.right <= width + 1, `Main column exceeds viewport at ${width}px: ${JSON.stringify(sizes)}`);
+    if (width <= 700) {
+      const actionButtons = await page.locator('.detail-actions button').evaluateAll((buttons) => buttons.map((button) => ({ label: button.textContent.trim(), height: button.getBoundingClientRect().height })));
+      assert.ok(actionButtons.length >= 3, 'The project detail actions must be present for the size check');
+      for (const button of actionButtons) assert.ok(button.height >= 36 && button.height <= 68, `${button.label} has an unusable ${button.height}px height at ${width}px`);
+      await page.getByRole('button', { name: '向下滚动', exact: true }).waitFor();
+    }
+    await assertScrollCueDoesNotCoverControls(`${width}px project detail`);
     if (width === 700) await page.screenshot({ path: 'out/responsive-detail-smoke.png' });
+    if (width === 600) await page.screenshot({ path: 'out/responsive-detail-600-smoke.png' });
   }
+  const scrollBeforeHint = await page.locator('.main-column').evaluate((area) => area.scrollTop);
+  await page.getByRole('button', { name: '向下滚动', exact: true }).click();
+  await page.waitForFunction((before) => document.querySelector('.main-column').scrollTop > before + 20, scrollBeforeHint);
+  await page.locator('.main-column').evaluate((area) => area.scrollTo({ top: 0, behavior: 'instant' }));
   assert.equal(await page.getByRole('button', { name: '开启翻译' }).isVisible(), true, 'The translation switch should remain visible in a narrow window');
   await page.getByRole('link', { name: 'Releases' }).click();
   await page.getByRole('heading', { name: '下载发行版或源码' }).waitFor();
@@ -65,6 +108,17 @@ try {
   await page.getByRole('heading', { name: '编辑发行版', exact: true }).waitFor();
   await page.getByTestId('release-edit-panel').waitFor();
   await page.getByRole('button', { name: '下载源码 ZIP' }).waitFor();
+  const previewButton = page.getByRole('button', { name: '预览效果', exact: true });
+  await previewButton.evaluate((button) => {
+    const area = document.querySelector('.main-column');
+    area.scrollTo({ top: area.scrollTop + button.getBoundingClientRect().top - (innerHeight - 65), behavior: 'instant' });
+  });
+  await settleLayout();
+  await page.getByRole('button', { name: '向下滚动', exact: true }).waitFor();
+  await assertScrollCueDoesNotCoverControls('release editor footer');
+  await previewButton.click();
+  await page.locator('.release-edit-preview').waitFor();
+  await page.getByRole('button', { name: '继续编辑', exact: true }).click();
   await page.screenshot({ path: 'out/release-downloads-smoke.png' });
   await page.locator('.sidebar-nav button').filter({ hasText: '发现' }).click();
   await page.locator('.discover-search input').fill('wide');
@@ -84,5 +138,5 @@ try {
     const boxes = await page.locator('.user-search-card').evaluateAll((cards) => cards.slice(0, 2).map((card) => card.getBoundingClientRect().top));
     assert.equal(boxes[0], boxes[1], `${label} user results should form columns`);
   }
-  process.stdout.write('Responsive detail, download navigation, and search grid smoke test passed.\n');
-} finally { await app.close(); }
+  process.stdout.write('Responsive detail button sizes, unobstructed scroll hint, download navigation, and search grid smoke test passed.\n');
+} finally { await app.close(); await rm(testUserData, { recursive: true, force: true }); }

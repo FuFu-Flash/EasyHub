@@ -1,13 +1,15 @@
 import { AsyncEntry } from '@napi-rs/keyring';
 import { GitHubClient, GitHubError, friendlyGitHubError } from '@easyhub/github';
 import type { GitHubActivityRepository, GitHubPullFile, GitHubPullRequest, GitHubRepo, GitHubUser } from '@easyhub/github';
-import { dialog, net, shell } from 'electron';
+import { app, dialog, net, shell } from 'electron';
 import { constants, createWriteStream } from 'node:fs';
 import { existsSync } from 'node:fs';
-import { copyFile, link, rm, rename } from 'node:fs/promises';
+import { copyFile, link, mkdir, rm, rename, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
+import { GITHUB_CLIENT_ID } from './githubAuthConfig';
 import type { BinaryAnalysisSource } from '@easyhub/types';
 import type { BinaryRemoteFile } from '../analysis/BinaryAnalysisService';
 
@@ -15,7 +17,27 @@ interface Credential { clientId: string; accessToken: string; refreshToken?: str
 interface DeviceCode { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval?: number }
 interface TokenReply { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; interval?: number; scope?: string }
 
-const vault = new AsyncEntry('EasyHub GitHub OAuth', 'default');
+interface CredentialVault {
+  getPassword(): Promise<string | null | undefined>;
+  setPassword(value: string): Promise<unknown>;
+  deleteCredential(): Promise<unknown>;
+}
+const isolatedTestMode = process.env.EASYHUB_TEST_MODE === '1';
+let memoryPassword: string | undefined;
+const vault: CredentialVault = isolatedTestMode ? {
+  async getPassword() { return memoryPassword; },
+  async setPassword(value) { memoryPassword = value; },
+  async deleteCredential() { memoryPassword = undefined; },
+} : new AsyncEntry('EasyHub GitHub OAuth', 'default');
+let nativeMigration: Promise<Credential | null> | undefined;
+let credentialGeneration = 0;
+let credentialWrites: Promise<void> = Promise.resolve();
+
+function writeCredentialSerially<T>(operation: () => Promise<T>): Promise<T> {
+  const next = credentialWrites.then(operation);
+  credentialWrites = next.then(() => undefined, () => undefined);
+  return next;
+}
 let credential: Credential | null | undefined;
 interface DeletionTarget { owner: string; repo: string; id: number }
 let pending: { code: string; clientId: string; expiresAt: number; interval: number; expectedLogin?: string; deleteAuthorization?: boolean; deletionTarget?: DeletionTarget } | null = null;
@@ -44,21 +66,89 @@ class PullRequestOperationError extends Error {}
 class DangerOperationError extends Error {}
 const staleRequestMessage = '这个改进请求已经有新修改，请刷新后重新查看。';
 
+function nativeMigrationMarker(): string | null {
+  if (isolatedTestMode || process.platform !== 'darwin' || typeof app?.getPath !== 'function') return null;
+  return join(app.getPath('userData'), 'native-github-migration-v1');
+}
+
+function readElectronCredential(raw: string): Credential | null {
+  const stored: unknown = JSON.parse(raw);
+  if (typeof stored === 'object' && stored !== null && 'clientId' in stored && 'accessToken' in stored
+    && validClientId(stored.clientId) && typeof stored.accessToken === 'string') return stored as Credential;
+  return null;
+}
+
+function readNativeCredential(raw: string): Credential | null {
+  const value: unknown = JSON.parse(raw);
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const token = (candidate: unknown): candidate is string => typeof candidate === 'string'
+    && candidate.length > 0 && candidate.length <= 8192 && !/[\x00-\x20\x7f]/u.test(candidate);
+  if (!token(record.accessToken)) return null;
+  if (record.refreshToken !== undefined && record.refreshToken !== null && !token(record.refreshToken)) return null;
+  const refreshToken = token(record.refreshToken) ? record.refreshToken : undefined;
+  let expiresAt: number | undefined;
+  if (record.expiresAt !== undefined && record.expiresAt !== null) {
+    if (typeof record.expiresAt !== 'number' || !Number.isFinite(record.expiresAt)) return null;
+    // Swift's default Date Codable representation is seconds since 2001-01-01.
+    expiresAt = (record.expiresAt + 978307200) * 1000;
+    if (!Number.isFinite(expiresAt) || expiresAt <= 0 || (expiresAt <= Date.now() + 60000 && !refreshToken)) return null;
+  }
+  return { clientId: GITHUB_CLIENT_ID, accessToken: record.accessToken, refreshToken, expiresAt };
+}
+
+async function migrateNativeCredential(): Promise<Credential | null> {
+  if (isolatedTestMode || process.platform !== 'darwin') return null;
+  nativeMigration ??= (async () => {
+    const generation = credentialGeneration;
+    try {
+      const marker = nativeMigrationMarker();
+      if (!marker || existsSync(marker)) return null;
+      await mkdir(app.getPath('userData'), { recursive: true });
+      // Claim the one-time attempt before requesting Keychain access. The marker
+      // contains no credential data, and concurrent callers share this promise.
+      await writeFile(marker, 'attempted\n', { flag: 'wx', mode: 0o600 });
+      const previous = new AsyncEntry('app.easyhub.mac', 'github.credential');
+      const raw = await previous.getPassword();
+      if (!raw) return null;
+      const migrated = readNativeCredential(raw);
+      if (!migrated) return null;
+      // Never overwrite an Electron credential created during the Keychain read,
+      // and never change or delete the original native Keychain record.
+      return await writeCredentialSerially(async () => {
+        const existing = await vault.getPassword();
+        if (generation !== credentialGeneration) return credential ?? null;
+        if (existing) return readElectronCredential(existing);
+        await vault.setPassword(JSON.stringify(migrated));
+        return migrated;
+      });
+    } catch { return null; }
+  })();
+  return nativeMigration;
+}
+
+async function preventNativeMigrationAfterLogout(): Promise<void> {
+  const marker = nativeMigrationMarker();
+  if (!marker) return;
+  try {
+    await mkdir(app.getPath('userData'), { recursive: true });
+    await writeFile(marker, 'signed-out\n', { mode: 0o600 });
+  } catch { throw new Error('无法保存退出登录状态，请重试。'); }
+}
+
 async function loadCredential(): Promise<Credential | null> {
   if (credential !== undefined) return credential;
   const raw = await vault.getPassword();
-  if (!raw) return credential = null;
+  if (!raw) return credential = await migrateNativeCredential();
   try {
-    const stored: unknown = JSON.parse(raw);
-    if (typeof stored === 'object' && stored !== null && 'clientId' in stored && 'accessToken' in stored && validClientId(stored.clientId) && typeof stored.accessToken === 'string') {
-      return credential = stored as Credential;
-    }
+    return credential = readElectronCredential(raw);
   } catch { /* Ignore invalid old credential records. */ }
   return credential = null;
 }
 
 async function saveCredential(next: Credential): Promise<void> {
-  await vault.setPassword(JSON.stringify(next));
+  credentialGeneration += 1;
+  await writeCredentialSerially(() => vault.setPassword(JSON.stringify(next)));
   credential = next;
 }
 
@@ -224,7 +314,12 @@ export async function pollDeviceLogin(): Promise<{ state: 'waiting' | 'complete'
 
 export function cancelDeviceLogin(): void { pending = null; oneTimeDeletion = null; }
 export function cancelGithubReads(): void { for (const controller of readControllers) controller.abort(); }
-export async function logout(): Promise<void> { pending = null; oneTimeDeletion = null; await vault.deleteCredential(); credential = null; }
+export async function logout(): Promise<void> {
+  credentialGeneration += 1;
+  pending = null; oneTimeDeletion = null;
+  await preventNativeMigrationAfterLogout();
+  await writeCredentialSerially(() => vault.deleteCredential()); credential = null;
+}
 
 export async function githubAction(action: unknown, args: unknown[]): Promise<unknown> {
   if (typeof action !== 'string' || !Array.isArray(args) || args.length > 4) invalid();

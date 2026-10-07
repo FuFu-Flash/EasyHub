@@ -15,6 +15,9 @@ import { PullRequestsPanel } from './components/PullRequestsPanel';
 import { PullReviewGroups } from './components/PullReviewGroups';
 import { AiSettingsPanel } from './components/AiSettingsPanel';
 import { HostsRepairPanel } from './components/HostsRepairPanel';
+import { WindowControlStyleOptions } from './components/WindowControlStyleOptions';
+import { WindowTrafficLights } from './components/WindowTrafficLights';
+import { readWindowControlStyle, synchronizeWindowControlStyle, windowControlStyleKey, type WindowControlStyle } from './windowControlStyle';
 import { ForkContributionPanel } from './components/ForkContributionPanel';
 import { ForksOverview } from './components/ForksOverview';
 import { LocalDiscoveryPanel } from './components/LocalDiscoveryPanel';
@@ -36,6 +39,8 @@ import { createDomLocalizer, readLanguage, type Language } from './i18n';
 import { historyKey, readSearchHistory, rememberSearch, type SearchEntry, type SearchScope } from './searchHistory';
 import { publicBookmarksKey, readPublicBookmarks } from './publicBookmarks';
 import { parseProjectAddress } from './projectAddress';
+import { useApplicationMenu } from './useApplicationMenu';
+import type { MenuCommand } from '../../shared/applicationMenu';
 import { projectPresentation } from './projectPresentation';
 
 type View = 'home' | 'projects' | 'discover' | 'profile' | 'starred' | 'project' | 'public-project' | 'downloads' | 'new-release' | 'issues' | 'issue' | 'pulls' | 'history' | 'recent-history' | 'version' | 'new-project' | 'local' | 'settings';
@@ -138,7 +143,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   const [publicSearchError, setPublicSearchError] = useState('');
   const [reply, setReply] = useState('');
   const [language, setLanguage] = useState<Language>(readLanguage);
-  const [windowStyle, setWindowStyle] = useState<'windows' | 'reference'>(() => window.localStorage.getItem('easyhub:window-control-style') === 'reference' ? 'reference' : 'windows');
+  const [windowStyle, setWindowStyle] = useState<WindowControlStyle>(readWindowControlStyle);
   const [automaticTranslation, setAutomaticTranslation] = useState(() => window.localStorage.getItem('easyhub:auto-translate') === 'true');
   const [translationTarget, setTranslationTarget] = useState<TranslationTargetLanguage>(() => window.localStorage.getItem('easyhub:translation-target') === 'en' ? 'en' : 'zh-CN');
   const [translationNamesText, setTranslationNamesText] = useState(() => window.localStorage.getItem(`easyhub:translation-names:${user.login}`) ?? '');
@@ -154,6 +159,10 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   const focusDiscoverSearch = useRef(false);
   const localizer = useRef(createDomLocalizer());
   const cancelled = useRef(false);
+  const [menuFocusRequest, setMenuFocusRequest] = useState<{ target: 'proxy' | 'add-folder' | 'download-project'; id: number } | null>(null);
+  const menuFocusRevision = useRef(0);
+
+  useApplicationMenu({ language, signedIn: true, busy: busy || releaseBusy, demoOnly: false }, handleApplicationMenuCommand);
   const projectLoad = useRef(0);
   const currentView = useRef<View>(view);
 
@@ -283,6 +292,28 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
     if (appRoot.current) localizer.current.apply(appRoot.current, language);
     document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
   });
+  useLayoutEffect(() => {
+    if (!menuFocusRequest) return;
+    const expectedView = menuFocusRequest.target === 'proxy' ? 'settings' : 'local';
+    if (view !== expectedView) return;
+    const selector = menuFocusRequest.target === 'proxy' ? '.settings-panel.github-proxy-panel'
+      : menuFocusRequest.target === 'add-folder' ? '.local-workspace > section.panel.live-section:first-of-type'
+      : '.local-workspace > section.panel.live-section:last-child';
+    const area = scrollArea.current;
+    const target = area?.querySelector<HTMLElement>(selector);
+    if (!area || !target) return;
+    target.scrollIntoView({ block: 'start' });
+    const topbar = appRoot.current?.querySelector<HTMLElement>('.topbar');
+    const coveredHeight = topbar ? Math.max(0, topbar.getBoundingClientRect().bottom - area.getBoundingClientRect().top) : 0;
+    area.scrollTop = Math.max(0, area.scrollTop - coveredHeight);
+    const action = target.querySelector<HTMLButtonElement>('button:not(:disabled)');
+    if (action) action.focus({ preventScroll: true });
+    else {
+      target.tabIndex = -1;
+      target.focus({ preventScroll: true });
+    }
+    setMenuFocusRequest(null);
+  }, [view, menuFocusRequest]);
   useEffect(() => {
     const root = appRoot.current;
     if (!root) return;
@@ -291,7 +322,10 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
     return () => observer.disconnect();
   }, [language]);
   useEffect(() => { window.localStorage.setItem('easyhub:language', language); }, [language]);
-  useEffect(() => { window.localStorage.setItem('easyhub:window-control-style', windowStyle); }, [windowStyle]);
+  useLayoutEffect(() => {
+    void synchronizeWindowControlStyle(windowStyle).catch(() => setError('无法更新窗口控件，请重新启动 EasyHub。'));
+  }, [windowStyle]);
+  useEffect(() => { window.localStorage.setItem(windowControlStyleKey, windowStyle); }, [windowStyle]);
   useEffect(() => { window.localStorage.setItem('easyhub:auto-translate', String(automaticTranslation)); }, [automaticTranslation]);
   useEffect(() => { window.localStorage.setItem('easyhub:translation-target', translationTarget); }, [translationTarget]);
   useEffect(() => { window.localStorage.setItem(`easyhub:translation-names:${user.login}`, translationNamesText); }, [translationNamesText, user.login]);
@@ -589,6 +623,60 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
 
   function cancelReads(): void { cancelled.current = true; void window.easyHub?.cancelGithubReads(); }
 
+  function clearMenuNavigation(): void {
+    setSelected(null); setSearch(''); setSearchScope('mine');
+    setPullReturn(null); setPullInitialRequest(null);
+    setPublicSelected(null); setPublicInitialDownload(null);
+    setStarredOriginProjectId(null);
+    discoverScrollPosition.current = null;
+  }
+
+  function requestMenuFocus(target: 'proxy' | 'add-folder' | 'download-project'): void {
+    menuFocusRevision.current += 1;
+    setMenuFocusRequest({ target, id: menuFocusRevision.current });
+  }
+
+  function focusProjectSearch(): void {
+    focusDiscoverSearch.current = true;
+    setSearchScope('public'); setView('discover');
+    if (view === 'discover') {
+      const input = appRoot.current?.querySelector<HTMLInputElement>('.discover-search input');
+      input?.focus(); input?.select(); focusDiscoverSearch.current = false;
+    }
+  }
+
+  function handleApplicationMenuCommand(command: MenuCommand): void {
+    setMenuFocusRequest(null);
+    switch (command) {
+      case 'home':
+      case 'projects':
+      case 'issues':
+        clearMenuNavigation(); setView(command); break;
+      case 'discover':
+        clearMenuNavigation(); setSearchScope('public'); setDiscoverScope('projects'); setDiscoverPage(1); setView('discover'); break;
+      case 'reviews':
+        clearMenuNavigation(); setView('pulls'); break;
+      case 'profile':
+        rememberDiscoverPosition(); setProfileUser(user); setProfileReturnView('home'); setView('profile'); break;
+      case 'starred':
+        rememberDiscoverPosition(); setStarredReturnView('home'); setStarredOriginProjectId(null); setView('starred'); break;
+      case 'settings':
+        rememberDiscoverPosition(); setView('settings'); break;
+      case 'new-project':
+        clearMenuNavigation(); setHomeSyncReview(null); setView('new-project'); break;
+      case 'add-folder':
+      case 'download-project':
+        clearMenuNavigation(); setHomeSyncReview(null); setView('local'); requestMenuFocus(command); break;
+      case 'search': {
+        focusProjectSearch(); break;
+      }
+      case 'refresh':
+        void refreshCurrent(); break;
+      case 'proxy-settings':
+        rememberDiscoverPosition(); setView('settings'); requestMenuFocus('proxy'); break;
+    }
+  }
+
   async function publishFromHome(event: FormEvent): Promise<void> {
     event.preventDefault();
     if (!pendingLocal || !homeUpdateMessage.trim() || !window.easyHub) return;
@@ -655,15 +743,15 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   for (const repo of orderedIssueRepos) {
     const count = activityCounts[repo.id];
     if (count?.issues) activityNotices.push({ id: `issues-${repo.id}`, title: `${repo.name} 有 ${count.issues} 个待处理的问题`, detail: '查看问题', onOpen: () => { setSelected(null); setView('issues'); void toggleIssueGroup(repo); } });
-    if (count?.pullRequests) activityNotices.push({ id: `pulls-${repo.id}`, title: `${repo.name} 有 ${count.pullRequests} 个改进请求`, detail: '代码提交审查', onOpen: () => { setSelected(repo); setPullReturn(null); setView('pulls'); } });
+    if (count?.pullRequests) activityNotices.push({ id: `pulls-${repo.id}`, title: `${repo.name} 有 ${count.pullRequests} 个改进请求`, detail: language === 'en' ? 'Pull request reviews' : '合并请求审查', onOpen: () => { setSelected(repo); setPullReturn(null); setView('pulls'); } });
   }
   const nav = view === 'issue' || view === 'issues' || view === 'pulls' ? 'issues' : view === 'settings' ? 'settings' : view === 'home' ? 'home' : view === 'discover' || view === 'public-project' && publicReturnView === 'discover' ? 'discover' : view === 'profile' || view === 'starred' || view === 'public-project' && (publicReturnView === 'profile' || publicReturnView === 'starred') ? 'profile' : 'projects';
   const canEditSelectedRelease = Boolean(selected && !selected.archived && (selected.permissions?.push || selected.permissions?.admin || selected.owner.login.toLowerCase() === user.login.toLowerCase()));
 
   function issueSectionTabs(active: 'issues' | 'pulls') {
-    return <div className="issue-section-tabs" role="tablist" aria-label={language === 'en' ? 'Issues and code reviews' : '问题与代码提交审查'}>
+    return <div className="issue-section-tabs" role="tablist" aria-label={language === 'en' ? 'Issues and pull request reviews' : '问题与合并请求审查'}>
       <button type="button" role="tab" aria-selected={active === 'issues'} className={active === 'issues' ? 'selected' : ''} onClick={() => { if (active === 'pulls') { setSelected(pullReturn); setPullInitialRequest(null); setView('issues'); } }}>问题 <span>{selected ? activityCounts[selected.id]?.issues ?? '…' : totalPendingIssues ?? '…'}</span></button>
-      <button type="button" role="tab" aria-selected={active === 'pulls'} className={active === 'pulls' ? 'selected' : ''} onClick={() => { if (active === 'issues') { setPullReturn(selected); setPullInitialRequest(null); setView('pulls'); } }}>代码提交审查 <span>{selected ? activityCounts[selected.id]?.pullRequests ?? '…' : totalPendingPulls ?? '…'}</span></button>
+      <button type="button" role="tab" aria-selected={active === 'pulls'} className={active === 'pulls' ? 'selected' : ''} onClick={() => { if (active === 'issues') { setPullReturn(selected); setPullInitialRequest(null); setView('pulls'); } }}>{language === 'en' ? 'Pull request reviews' : '合并请求审查'} <span>{selected ? activityCounts[selected.id]?.pullRequests ?? '…' : totalPendingPulls ?? '…'}</span></button>
     </div>;
   }
 
@@ -690,7 +778,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
       <button className={nav === 'settings' ? 'active' : ''} onClick={() => { rememberDiscoverPosition(); setView('settings'); }}><Settings2 size={19} />设置</button>
     </nav><div className="sidebar-bottom live-sidebar-bottom"><button type="button" className="sidebar-refresh" aria-label={language === 'en' ? 'Refresh GitHub data' : '刷新 GitHub 数据'} title={language === 'en' ? 'Refresh GitHub data' : '刷新 GitHub 数据'} disabled={busy} onClick={() => void refreshCurrent()}><RotateCw size={15} className={busy ? 'live-spin' : undefined} /></button><span className="sidebar-demo live-connected"><span />{language === 'en' ? 'Connected to GitHub' : '已连接 GitHub'} · {user.login}</span></div></aside>
     <div className="main-column" ref={scrollArea}><header className={`topbar topbar-${windowStyle}`}>
-      {windowStyle === 'reference' && <div className="window-controls" aria-label="窗口控制"><button className="window-dot window-close" aria-label="关闭窗口" onClick={() => void window.easyHub?.closeWindow()} /><button className="window-dot window-minimize" aria-label="最小化窗口" onClick={() => void window.easyHub?.minimizeWindow()} /><button className="window-dot window-maximize" aria-label="最大化或还原窗口" onClick={() => void window.easyHub?.toggleMaximizeWindow()} /></div>}
+      {windowStyle === 'reference' && <WindowTrafficLights onAction={(action) => { void window.easyHub?.[action](); }} />}
       <button className="topbar-brand" onClick={() => { rememberDiscoverPosition(); setView('home'); }}><img src={appIcon} alt="" /><span>EasyHub</span></button>
       {view === 'discover' ? <div className="topbar-context">发现 / 搜索</div> : <label className="topbar-search"><Search size={20} /><input aria-label="搜索项目/用户" placeholder="搜索项目/用户…" value={search} onChange={(event) => { if (event.nativeEvent instanceof InputEvent && event.nativeEvent.isComposing) setSearch(event.target.value); else continueSearch(event.target.value); }} onCompositionEnd={(event) => continueSearch(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) submitProjectSearch(search); }} /></label>}
       <div className="topbar-actions">
@@ -762,7 +850,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
       </TranslationPreferencesContext.Provider>}
 
       {view === 'pulls' && <>
-        <div className="page-header"><div><div className="eyebrow">一起完善作品</div><h1>代码提交审查</h1><p>查看大家提交的改进，检查修改并决定是否合入项目。</p></div></div>
+        <div className="page-header"><div><div className="eyebrow">一起完善作品</div><h1>{language === 'en' ? 'Pull request reviews' : '合并请求审查'}</h1><p>查看大家提交的改进，检查修改并决定是否合入项目。</p></div></div>
         {issueSectionTabs('pulls')}
         {activityError && <p className="live-error" role="alert">{activityError}</p>}
         {selected ? <>
@@ -802,10 +890,10 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
 
       {view === 'settings' && <>
         <div className="page-header"><div><div className="eyebrow">个性化体验</div><h1>设置</h1><p>调整 EasyHub 的外观并管理 GitHub 连接。</p></div></div>
-        <div className="settings-stack"><section className="panel settings-panel"><div className="settings-icon"><Globe2 size={22} /></div><div><h2>账户与连接</h2><p>已连接 GitHub：{user.login}。你的项目仍保存在 GitHub。</p><button className="button button-quiet" onClick={onLogout}>退出登录</button></div></section><section className="panel settings-panel"><div className="settings-icon blue"><Square size={22} /></div><div className="settings-panel-content"><h2>窗口控件</h2><p>选择窗口顶部按钮的外观。更改会立即生效，并保存在这台电脑上。</p><div className="window-style-options" role="group" aria-label="窗口控件样式"><button className={`window-style-option ${windowStyle === 'windows' ? 'selected' : ''}`} aria-pressed={windowStyle === 'windows'} onClick={() => setWindowStyle('windows')}><span className="window-style-preview windows-preview" aria-hidden="true"><span /><span /><span /></span><span><strong>Windows 风格</strong><small>默认 · 右上角按钮</small></span>{windowStyle === 'windows' && <Check size={18} className="window-style-check" />}</button><button className={`window-style-option ${windowStyle === 'reference' ? 'selected' : ''}`} aria-pressed={windowStyle === 'reference'} onClick={() => setWindowStyle('reference')}><span className="window-style-preview reference-preview" aria-hidden="true"><span /><span /><span /></span><span><strong>圆点风格</strong><small>参考图 · 左上角圆点</small></span>{windowStyle === 'reference' && <Check size={18} className="window-style-check" />}</button></div></div></section><AiSettingsPanel language={language} />
+        <div className="settings-stack"><section className="panel settings-panel"><div className="settings-icon"><Globe2 size={22} /></div><div><h2>账户与连接</h2><p>已连接 GitHub：{user.login}。你的项目仍保存在 GitHub。</p><button className="button button-quiet" onClick={onLogout}>退出登录</button></div></section><section className="panel settings-panel"><div className="settings-icon blue"><Square size={22} /></div><div className="settings-panel-content"><h2>窗口控件</h2><p>选择窗口顶部按钮的外观。更改会立即生效，并保存在这台电脑上。</p><WindowControlStyleOptions value={windowStyle} onChange={setWindowStyle} /></div></section><AiSettingsPanel language={language} />
         <section className="panel settings-panel"><div className="settings-icon blue"><Languages size={22} /></div><div className="translation-settings"><div><h2>内容翻译</h2><p>使用顶部的翻译开关查看译文，再次关闭即可查看原文。公开文本由第三方服务翻译，译文保存在这台电脑上。</p></div><div className="translation-target-row"><span>目标语言</span><StyledDropdown label="翻译目标语言" value={translationTarget} options={[{ value: 'zh-CN', label: '简体中文' }, { value: 'en', label: 'English' }]} onChange={(value) => setTranslationTarget(value as TranslationTargetLanguage)} /></div><label className="translation-names-label" htmlFor="translation-names">不翻译的名称</label><p className="translation-names-help">当前项目、作者和链接中的 GitHub 项目名称会自动保留。其他产品名或专有名称可在这里补充，每行一个。</p><textarea id="translation-names" aria-label="不翻译的名称" rows={4} maxLength={8000} value={translationNamesText} onChange={(event) => setTranslationNamesText(event.target.value)} placeholder="每行输入一个需要保留的名称" /><small className="muted">已保存 {translationNames.length} 个名称，仅保存在这台电脑上。</small></div></section>
         <HostsRepairPanel language={language} />
-        <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>Windows 桌面版 · 直接连接 GitHub</p><span className="settings-version">版本 1.0.1</span><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => void window.easyHub?.openLicense()}>查看许可协议 <ArrowRight size={15} /></button></div></div></section></div>
+        <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>{window.easyHub?.platform === 'darwin' ? language === 'en' ? 'macOS desktop · Connect directly to GitHub' : 'macOS 桌面版 · 直接连接 GitHub' : 'Windows 桌面版 · 直接连接 GitHub'}</p><span className="settings-version">版本 1.0.1</span><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => void window.easyHub?.openLicense()}>查看许可协议 <ArrowRight size={15} /></button></div></div></section></div>
       </>}
     </div></main>{canScrollDown && <button className="scroll-down-cue" aria-label="向下滚动" onClick={() => scrollArea.current?.scrollBy({ top: Math.max(300, scrollArea.current.clientHeight * 0.75), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })}><ChevronRight size={27} strokeWidth={2.6} style={{ transform: 'rotate(90deg)' }} /></button>}</div>
 

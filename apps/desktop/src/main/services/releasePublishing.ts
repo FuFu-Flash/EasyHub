@@ -6,6 +6,7 @@ import { request as httpsRequest } from 'node:https';
 import { pipeline } from 'node:stream/promises';
 import { dialog, net, session } from 'electron';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 import { GitHubClient, GitHubError, friendlyGitHubError } from '@easyhub/github';
 import type { GitHubCreatedRelease, GitHubReleaseAsset } from '@easyhub/github';
 import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, PublishReleaseRequest, ReleaseProgress, RemoveReleaseAssetRequest } from '@easyhub/types';
@@ -85,12 +86,14 @@ export function releaseAssetUrl(owner: string, repo: string, tag: string, name: 
   return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(name)}`;
 }
 
-async function proxyAgent(url: string): Promise<HttpsProxyAgent<string> | GitHubOriginAgent | undefined> {
+async function proxyAgent(url: string): Promise<HttpsProxyAgent<string> | SocksProxyAgent | GitHubOriginAgent | undefined> {
   const choices = await session.defaultSession.resolveProxy(url);
   if (isEasyHubProxyChoice(choices)) return githubOriginAgent();
   for (const choice of choices.split(';')) {
     const match = choice.trim().match(/^(PROXY|HTTPS)\s+([^\s]+)$/i);
     if (match?.[2]) return new HttpsProxyAgent(`${match[1]?.toUpperCase() === 'HTTPS' ? 'https' : 'http'}://${match[2]}`);
+    const socks = choice.trim().match(/^(SOCKS5|SOCKS4|SOCKS)\s+([^\s]+)$/i);
+    if (socks?.[2]) return new SocksProxyAgent(`socks${socks[1]?.toUpperCase() === 'SOCKS4' ? '4a' : '5h'}://${socks[2]}`);
   }
   return githubOriginAgent();
 }

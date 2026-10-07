@@ -28,6 +28,8 @@ try {
     });
   });
   const page = await app.firstWindow();
+  page.setDefaultTimeout(15000);
+  page.setDefaultNavigationTimeout(20000);
   await page.locator('.live-connected').waitFor();
   await page.locator('.sidebar-nav button').filter({ hasText: '发现' }).click();
   await page.locator('.trending-card').nth(25).scrollIntoViewIfNeeded();

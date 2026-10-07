@@ -5,9 +5,11 @@ import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
+import { smokeExecutable, smokeEnvironment, smokeRenderer } from './smoke-runtime.mjs';
 
 const fixture = await mkdtemp(join(tmpdir(), 'easyhub-local-introduction-'));
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
+const executable = smokeExecutable(desktopDirectory);
 const profile = join(fixture, 'profile');
 const first = join(fixture, 'first-checkout');
 const second = join(fixture, 'second-checkout');
@@ -39,10 +41,11 @@ require(${JSON.stringify(join(desktopDirectory, 'out', 'main', 'index.js'))});
 `, 'utf8');
 let app;
 try {
-  app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktopDirectory });
+  app = await electron.launch({ executablePath: executable || electronPath, args: executable ? [] : [launcher], cwd: desktopDirectory, env: smokeEnvironment(profile) });
   assert.equal(await app.evaluate(({ app: runningApp }) => runningApp.getPath('userData')), profile);
   // Keep every read local and prevent GitHub writes while driving the real renderer and preload.
   await app.evaluate(({ BrowserWindow, ipcMain, session }, { first, second }) => {
+    globalThis.easyHubIntroductionStartupGuards ??= { hostsReads: 0 };
     const window = BrowserWindow.getAllWindows()[0];
     if (!window) throw new Error('Missing local introduction fixture window');
     const control = globalThis.easyHubIntroductionFixture = { errors: {}, held: { 'local-1': true }, waiters: {}, forbidden: [], network: [], reads: [] };
@@ -104,7 +107,7 @@ try {
   page.on('pageerror', (error) => errors.push(error.message));
   await app.evaluate(async ({ BrowserWindow }, renderer) => {
     await BrowserWindow.getAllWindows()[0].loadFile(renderer);
-  }, join(desktopDirectory, 'out', 'renderer', 'index.html'));
+  }, smokeRenderer(desktopDirectory, executable));
   await page.locator('.live-connected').waitFor();
   const openLocal = async (index) => {
     await page.locator('.sidebar-nav button').filter({ hasText: /我的项目|My Projects/u }).click();

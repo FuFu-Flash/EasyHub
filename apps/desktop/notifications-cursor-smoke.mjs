@@ -4,6 +4,7 @@ import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
+import { smokeExecutable, smokeEnvironment, smokeRenderer } from './smoke-runtime.mjs';
 
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
 const outputDirectory = join(desktopDirectory, 'out', 'notifications-cursor-smoke');
@@ -11,9 +12,7 @@ await mkdir(outputDirectory, { recursive: true });
 const runDirectory = await mkdtemp(join(outputDirectory, 'isolated-'));
 const profileDirectory = join(runDirectory, 'profile');
 await mkdir(profileDirectory);
-const executableArgument = process.argv.find(value => value.startsWith('--executable='));
-const executable = executableArgument?.slice('--executable='.length);
-if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
+const executable = smokeExecutable(desktopDirectory, ['--repro-running-only']);
 const runningOnly = process.argv.includes('--repro-running-only');
 const launcher = join(runDirectory, 'launch.cjs');
 if (!executable) await writeFile(launcher, `
@@ -30,7 +29,7 @@ require(${JSON.stringify(join(desktopDirectory, 'out/main/index.js'))});
 `, 'utf8');
 const started = Date.now();
 const app = await electron.launch({ executablePath: executable || electronPath,
-  args: executable ? ['--user-data-dir=' + profileDirectory] : [launcher], cwd: desktopDirectory });
+  args: executable ? [] : [launcher], cwd: desktopDirectory, env: smokeEnvironment(profileDirectory) });
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profileDirectory, 'The smoke must use only its newly created isolated profile');
   await app.evaluate(({ ipcMain, session }) => {
@@ -83,7 +82,8 @@ try {
   page.setDefaultTimeout(12_000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  if (!executable) await app.evaluate(async ({ BrowserWindow }, renderer) => { await BrowserWindow.getAllWindows()[0].loadFile(renderer); }, join(desktopDirectory, 'out/renderer/index.html'));
+  if (!executable) await app.evaluate(async ({ BrowserWindow }, renderer) => { await BrowserWindow.getAllWindows()[0].loadFile(renderer); }, smokeRenderer(desktopDirectory, executable));
+  await page.locator('.app-shell').waitFor();
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('easyhub:language', 'zh'); localStorage.setItem('easyhub:auto-translate', 'false'); });
   await page.reload();
   await page.locator('.live-connected').waitFor();

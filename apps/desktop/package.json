@@ -3,7 +3,7 @@
   "version": "1.0.1",
   "private": true,
   "license": "GPL-3.0-only",
-  "description": "EasyHub Windows desktop application",
+  "description": "EasyHub desktop application for macOS and Windows",
   "author": "EasyHub",
   "main": "./out/main/index.js",
   "scripts": {
@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:ui": "node smoke.mjs",
+    "test:menu-ui": "node application-menu-smoke.mjs",
     "test:public-ui": "node public-browser-smoke.mjs",
     "test:ai-review-ui": "node ai-review-smoke.mjs",
     "test:binary-analysis-ui": "node binary-analysis-smoke.mjs",
@@ -38,7 +39,8 @@
     "test:installer-ui": "node installer-native-smoke.mjs",
     "icons": "node generate-icons.mjs",
     "build": "electron-vite build",
-    "package:win": "node package-win.mjs"
+    "package:win": "node package-win.mjs",
+    "package:mac": "node package-mac.mjs"
   },
   "dependencies": {
     "@easyhub/github": "workspace:*",
@@ -53,6 +55,7 @@
     "remark-gfm": "^4.0.1",
     "remark-parse": "11.0.0",
     "remark-stringify": "11.0.0",
+    "socks-proxy-agent": "^8.0.5",
     "tar": "7.5.22",
     "unified": "11.0.5",
     "yauzl": "2.10.0"

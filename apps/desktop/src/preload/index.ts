@@ -1,6 +1,24 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { isMenuCommand, type MenuCommand, type MenuState } from '../shared/applicationMenu';
 
 contextBridge.exposeInMainWorld('easyHub', {
+  platform: process.platform,
+  setMenuState: (state: MenuState): Promise<void> => ipcRenderer.invoke('easyhub:menu-state', state),
+  onMenuCommand: (callback: (command: MenuCommand) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, command: unknown): void => {
+      if (isMenuCommand(command)) callback(command);
+    };
+    ipcRenderer.on('easyhub:menu-command', handler);
+    return (): void => { ipcRenderer.removeListener('easyhub:menu-command', handler); };
+  },
+  macProxy: {
+    status: () => ipcRenderer.invoke('easyhub:mac-proxy-status'),
+    setEnabled: (enabled: boolean) => ipcRenderer.invoke('easyhub:mac-proxy-set-enabled', enabled),
+    probe: () => ipcRenderer.invoke('easyhub:mac-proxy-probe'),
+    openSettings: () => ipcRenderer.invoke('easyhub:mac-proxy-open-settings'),
+    onChanged: (callback: (value: unknown) => void) => { const handler = (_event: Electron.IpcRendererEvent, value: unknown): void => callback(value); ipcRenderer.on('easyhub:mac-proxy-changed', handler); return (): void => { ipcRenderer.removeListener('easyhub:mac-proxy-changed', handler); }; },
+  },
+  copyPairingCode: (code: string): Promise<boolean> => ipcRenderer.invoke('easyhub:copy-pairing-code', code),
   chooseFolder: (): Promise<string | null> => ipcRenderer.invoke('easyhub:choose-folder'),
   localList: () => ipcRenderer.invoke('easyhub:local-list'),
   localDiscoveryRoots: () => ipcRenderer.invoke('easyhub:local-discovery-roots'),
@@ -25,6 +43,7 @@ contextBridge.exposeInMainWorld('easyHub', {
   onLocalProgress: (callback: (value: unknown) => void) => { const handler = (_event: Electron.IpcRendererEvent, value: unknown): void => callback(value); ipcRenderer.on('easyhub:local-progress', handler); return (): void => { ipcRenderer.removeListener('easyhub:local-progress', handler); }; },
   onLocalStatus: (callback: (value: unknown) => void) => { const handler = (_event: Electron.IpcRendererEvent, value: unknown): void => callback(value); ipcRenderer.on('easyhub:local-status', handler); return (): void => { ipcRenderer.removeListener('easyhub:local-status', handler); }; },
   minimizeWindow: (): Promise<void> => ipcRenderer.invoke('easyhub:window-minimize'),
+  setWindowControlStyle: (style: 'windows' | 'reference'): Promise<void> => ipcRenderer.invoke('easyhub:window-set-style', style),
   toggleMaximizeWindow: (): Promise<void> => ipcRenderer.invoke('easyhub:window-toggle-maximize'),
   closeWindow: (): Promise<void> => ipcRenderer.invoke('easyhub:window-close'),
   openLicense: (): Promise<void> => ipcRenderer.invoke('easyhub:open-license'),

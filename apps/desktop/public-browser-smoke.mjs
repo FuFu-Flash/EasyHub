@@ -61,6 +61,8 @@ try {
     ipcMain.handle('easyhub:cancel-translation', () => undefined);
   });
   const page = await app.firstWindow();
+  page.setDefaultTimeout(15000);
+  page.setDefaultNavigationTimeout(20000);
   await page.evaluate(() => {
     window.localStorage.removeItem('easyhub:search-history:test-user');
     window.localStorage.removeItem('easyhub:public-bookmarks:test-user');

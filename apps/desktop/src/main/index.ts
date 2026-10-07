@@ -1,11 +1,12 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, net, session, shell } from 'electron';
-import { join } from 'node:path';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, net, session, shell } from 'electron';
+import { isAbsolute, join } from 'node:path';
 import { authStatus, cancelArchive, cancelDeviceLogin, cancelGithubReads, downloadArchive, downloadReleaseAsset, downloadPullRequestFile, getPullRequestReviewContext, githubAction, loadBinaryAnalysisFile, logout, openDownloadedFile, pollDeviceLogin, revealDownloadedArchive, startDeviceLogin } from './services/githubService';
 import { AsyncEntry } from '@napi-rs/keyring';
-import { AiReviewService } from './services/AiReviewService';
+import { AiReviewService, type AiCredentialStore } from './services/AiReviewService';
 import { HostsRepairService } from './services/hostsRepair';
 import { GitHubProxyService, useGitHubProxy } from './services/GitHubProxyService';
 import { WindowsSystemProxy } from './services/WindowsSystemProxy';
+import { MacSystemProxy } from './services/MacSystemProxy';
 import { GitHubSystemRelay } from './services/GitHubSystemRelay';
 import { GITHUB_CLIENT_ID } from './services/githubAuthConfig';
 import { OpenAiReviewProvider } from './services/OpenAiReviewProvider';
@@ -16,32 +17,67 @@ import { DiscoveryRootsStore } from './git/LocalProjectDiscovery';
 import { ReleasePublishingService } from './services/releasePublishing';
 import { FallbackTranslationProvider, GoogleWebTranslationProvider, MyMemoryTranslationProvider, TranslationService } from './services/TranslationService';
 import type { TranslationRequest } from '@easyhub/types';
+import { canRunMenuCommand, isMenuState, type MenuCommand, type MenuState } from '../shared/applicationMenu';
+import { createApplicationMenuTemplate } from './applicationMenu';
 import { AnalysisRuntime } from './analysis/AnalysisRuntime';
 import { analysisElectronFetch } from './analysis/analysisElectronFetch';
 import { BinaryAnalysisService } from './analysis/BinaryAnalysisService';
 import { GhidraBackend } from './analysis/GhidraBackend';
 
-// The system proxy lease belongs to this profile. A second process must not
-// mistake its live owner's lease for crash recovery data or initialize services.
-const primaryInstance = app.requestSingleInstanceLock();
-if (!primaryInstance) app.exit(0);
-
 let mainWindow: BrowserWindow | null = null;
+let windowControlStyle: 'reference' | 'windows' = process.platform === 'darwin' ? 'reference' : 'windows';
 let localService: LocalProjectService;
 let translationService: TranslationService;
 let releaseService: ReleasePublishingService;
 let aiReviewService: AiReviewService;
-let hostsRepairService: HostsRepairService;
+let hostsRepairService: HostsRepairService | undefined;
 let githubProxyService: GitHubProxyService;
 let binaryAnalysisService: BinaryAnalysisService;
+let quitting = false;
+let servicesStoppedForQuit = false;
+let pairingCode: { value: string; expiresAt: number } | null = null;
+let pairingRequest = 0;
+let menuState: MenuState = { language: 'zh', signedIn: false, busy: false, modalOpen: false, demoOnly: false };
+let rendererMenuReady = false;
+let pendingMenuCommand: MenuCommand | null = null;
 const translationJobs = new Map<string, AbortController>();
 
-if (primaryInstance) app.on('second-instance', () => {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (mainWindow.isMinimized()) mainWindow.restore();
-  mainWindow.show();
-  mainWindow.focus();
-});
+app.setName('EasyHub');
+if (process.env.EASYHUB_TEST_MODE === '1' && process.env.EASYHUB_TEST_USER_DATA && isAbsolute(process.env.EASYHUB_TEST_USER_DATA)) {
+  app.setPath('userData', process.env.EASYHUB_TEST_USER_DATA);
+}
+
+// The profile owns its system-proxy lease; a second process must not recover it.
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.exit(0);
+if (primaryInstance) app.on('second-instance', () => showMainWindow());
+
+function aiCredentialStore(): AiCredentialStore {
+  if (process.env.EASYHUB_TEST_MODE !== '1') return new AsyncEntry('EasyHub AI API', 'default');
+  // UI fixtures must never read or modify the user's AI Keychain entry.
+  let value: string | null = null;
+  return { getPassword: async () => value, setPassword: async (next) => { value = next; } };
+}
+
+function copyPairingCode(value: unknown): boolean {
+  if (typeof value !== 'string' || !pairingCode || value !== pairingCode.value || pairingCode.expiresAt <= Date.now()) return false;
+  try { clipboard.writeText(value); return true; } catch { return false; }
+}
+
+async function loginWithCopiedCode(includeDeleteScope = false, deletionTarget?: { owner: string; repo: string; id: number }): Promise<Awaited<ReturnType<typeof startDeviceLogin>> & { codeCopied: boolean }> {
+  const request = ++pairingRequest;
+  pairingCode = null;
+  const flow = await startDeviceLogin(GITHUB_CLIENT_ID, includeDeleteScope, deletionTarget);
+  if (request !== pairingRequest || quitting) return { ...flow, codeCopied: false };
+  pairingCode = { value: flow.userCode, expiresAt: flow.expiresAt };
+  // The renderer opens the browser only after this response, so copying happens first.
+  return { ...flow, codeCopied: copyPairingCode(flow.userCode) };
+}
+
+function requireWindowsHosts(): HostsRepairService {
+  if (!hostsRepairService) throw new Error('Hosts 修复仅适用于 Windows；请使用 Mac GitHub 代理。');
+  return hostsRepairService;
+}
 
 function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
   if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
@@ -49,21 +85,76 @@ function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
   }
 }
 
+function rebuildApplicationMenu(): void {
+  if (process.platform !== 'darwin') return;
+  Menu.setApplicationMenu(Menu.buildFromTemplate(createApplicationMenuTemplate(menuState, rendererMenuReady, {
+    command: dispatchMenuCommand,
+    showWindow: showMainWindow,
+    openExternal: (url) => {
+      void shell.openExternal(url).catch(() => {
+        const english = menuState.language === 'en';
+        dialog.showErrorBox(english ? 'Could not open the browser' : '无法打开浏览器',
+          english ? 'Check your default browser and try again.' : '请检查默认浏览器设置，然后重试。');
+      });
+    },
+  })));
+}
+
+function resetRendererMenuState(): void {
+  rendererMenuReady = false;
+  menuState = { ...menuState, signedIn: false, busy: false, modalOpen: false };
+  rebuildApplicationMenu();
+}
+
+function showMainWindow(): void {
+  if (quitting) return;
+  if (!mainWindow || mainWindow.isDestroyed()) createWindow();
+  if (mainWindow!.isMinimized()) mainWindow!.restore();
+  mainWindow!.show();
+  mainWindow!.focus();
+}
+
+function dispatchMenuCommand(command: MenuCommand): void {
+  if (process.platform !== 'darwin' || quitting || !canRunMenuCommand(command, menuState)) return;
+  if (!rendererMenuReady) {
+    // Settings can reopen a closed window; only the latest request is retained.
+    if (command !== 'settings' && command !== 'proxy-settings') return;
+    pendingMenuCommand = command;
+    showMainWindow();
+    return;
+  }
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  showMainWindow();
+  mainWindow.webContents.send('easyhub:menu-command', command);
+}
+
+function flushPendingMenuCommand(): void {
+  if (!pendingMenuCommand || !rendererMenuReady || !canRunMenuCommand(pendingMenuCommand, menuState)) return;
+  const command = pendingMenuCommand;
+  pendingMenuCommand = null;
+  dispatchMenuCommand(command);
+}
+
 function createWindow(): void {
+  resetRendererMenuState();
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 1060,
     minHeight: 700,
-    frame: false,
+    frame: process.platform === 'darwin',
+    ...(process.platform === 'darwin' ? {
+      titleBarStyle: 'hidden' as const,
+      trafficLightPosition: { x: 25, y: 29 },
+    } : {}),
     roundedCorners: true,
     thickFrame: true,
     show: false,
     backgroundColor: '#f5f7fb',
     title: 'EasyHub',
     icon: app.isPackaged
-      ? join(process.resourcesPath, 'easyhub.ico')
-      : join(__dirname, '../../resources/easyhub.ico'),
+      ? join(process.resourcesPath, process.platform === 'darwin' ? 'easyhub.png' : 'easyhub.ico')
+      : join(__dirname, '../../resources', process.platform === 'darwin' ? 'easyhub.png' : 'easyhub.ico'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -71,8 +162,22 @@ function createWindow(): void {
       sandbox: true,
     },
   });
+  const window = mainWindow;
 
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  if (process.platform === 'darwin') {
+    mainWindow.setWindowButtonVisibility(windowControlStyle === 'reference');
+  }
+
+  window.once('ready-to-show', () => { if (mainWindow === window && !window.isDestroyed()) window.show(); });
+  window.on('closed', () => {
+    if (mainWindow !== window) return;
+    mainWindow = null;
+    pendingMenuCommand = null;
+    resetRendererMenuState();
+  });
+  window.webContents.on('did-start-navigation', (_event, _url, inPlace, isMainFrame) => {
+    if (mainWindow === window && isMainFrame && !inPlace) resetRendererMenuState();
+  });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event) => event.preventDefault());
 
@@ -84,7 +189,11 @@ function createWindow(): void {
 }
 
 if (primaryInstance) app.whenReady().then(async () => {
-  Menu.setApplicationMenu(null);
+  if (process.platform === 'darwin') {
+    app.setAboutPanelOptions({ applicationName: 'EasyHub', applicationVersion: app.getVersion(),
+      copyright: 'EasyHub contributors', credits: 'GNU GPLv3 · FuFu-Flash/EasyHub' });
+    rebuildApplicationMenu();
+  } else Menu.setApplicationMenu(null);
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   localService = new LocalProjectService(new LocalProjectStore(join(app.getPath('userData'), 'local-projects.json')),
     (channel, value) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, value); },
@@ -107,7 +216,7 @@ if (primaryInstance) app.whenReady().then(async () => {
       return { analyze: (path, signal, progress, language) => backend.analyze(path, { signal, language, maxFunctions: 16, maxStrings: 80, onProgress: (value) => progress(value.completed ?? 0, value.total ?? 0) }), stop: () => backend.stop() };
     },
   }, loadBinaryAnalysisFile);
-  aiReviewService = new AiReviewService(new AsyncEntry('EasyHub AI API', 'default'),
+  aiReviewService = new AiReviewService(aiCredentialStore(),
     new OpenAiReviewProvider((url, init) => net.fetch(url, init)), getPullRequestReviewContext, {
       status: () => binaryAnalysisService.status(),
       analyze: (input, file, signal, progress) => binaryAnalysisService.analyze({ requestId: input.requestId, language: input.language ?? 'zh',
@@ -118,19 +227,25 @@ if (primaryInstance) app.whenReady().then(async () => {
             : en ? `Analyzed ${file.filename}` : `${file.filename} 分析完成`);
       }, signal),
     });
-  hostsRepairService = new HostsRepairService((url, init) => net.fetch(url, init),
-    app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources'), app.getPath('userData'));
+  const resourcesPath = app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources');
+  if (process.platform === 'win32') {
+    hostsRepairService = new HostsRepairService((url, init) => net.fetch(url, init), resourcesPath, app.getPath('userData'));
+  }
   githubProxyService = new GitHubProxyService(join(app.getPath('userData'), 'github-proxy.json'), {
     nativeFetch: request => net.fetch(request, { bypassCustomProtocolHandlers: true }),
     resolveProxy: url => session.defaultSession.resolveProxy(url),
-    legacyHosts: async () => (await hostsRepairService.status()).enabled,
+    legacyHosts: async () => hostsRepairService ? (await hostsRepairService.status()).enabled : false,
     closeConnections: () => session.defaultSession.closeAllConnections(),
-    // Read-only transport regressions explicitly opt out of OS configuration.
-    ...(process.env.EASYHUB_PROXY_APP_ONLY_TEST === '1' ? {} : {
-      systemProxy: new WindowsSystemProxy(join(app.getPath('userData'), 'system-proxy-lease.json'), {
-        scriptPath: app.isPackaged ? join(process.resourcesPath, 'windows-system-proxy.ps1') : join(__dirname, '../../resources/windows-system-proxy.ps1'),
-        resolveExistingProxy: url => session.defaultSession.resolveProxy(url),
-      }),
+    // Tests never acquire or restore production OS network settings.
+    ...(process.env.EASYHUB_PROXY_APP_ONLY_TEST === '1' || process.env.EASYHUB_TEST_MODE === '1' ? {} : {
+      systemProxy: process.platform === 'darwin'
+        ? new MacSystemProxy(join(app.getPath('userData'), 'mac-system-proxy-lease.json'), {
+          resolveExistingProxy: (url: string) => session.defaultSession.resolveProxy(url),
+        })
+        : new WindowsSystemProxy(join(app.getPath('userData'), 'system-proxy-lease.json'), {
+          scriptPath: join(resourcesPath, 'windows-system-proxy.ps1'),
+          resolveExistingProxy: (url: string) => session.defaultSession.resolveProxy(url),
+        }),
       systemRelay: new GitHubSystemRelay({ connect: (host, signal) => githubProxyService.agent.openBrowserTunnel(host, signal) }),
     }),
   });
@@ -140,9 +255,29 @@ if (primaryInstance) app.whenReady().then(async () => {
   if (githubProxyService.isEnabled()) void githubProxyService.refresh();
   void localService.startWatching();
 
+  ipcMain.handle('easyhub:menu-state', (event, value: unknown) => {
+    assertTrustedSender(event);
+    if (!isMenuState(value)) throw new Error('菜单状态无效。');
+    // Copy only the validated fields instead of retaining an IPC object.
+    menuState = { language: value.language, signedIn: value.signedIn, busy: value.busy,
+      modalOpen: value.modalOpen, demoOnly: value.demoOnly };
+    rendererMenuReady = true;
+    rebuildApplicationMenu();
+    flushPendingMenuCommand();
+  });
+
   ipcMain.handle('easyhub:window-minimize', (event) => {
     assertTrustedSender(event);
     mainWindow?.minimize();
+  });
+
+  ipcMain.handle('easyhub:window-set-style', (event, style: unknown) => {
+    assertTrustedSender(event);
+    if (style !== 'reference' && style !== 'windows') throw new Error('窗口控件样式无效。');
+    windowControlStyle = style;
+    if (process.platform === 'darwin') {
+      mainWindow!.setWindowButtonVisibility(style === 'reference');
+    }
   });
 
   ipcMain.handle('easyhub:window-toggle-maximize', (event) => {
@@ -161,12 +296,12 @@ if (primaryInstance) app.whenReady().then(async () => {
     await shell.openExternal('https://www.gnu.org/licenses/gpl-3.0.html');
   });
 
-  ipcMain.handle('easyhub:hosts-status', (event) => { assertTrustedSender(event); return hostsRepairService.status(); });
+  ipcMain.handle('easyhub:hosts-status', (event) => { assertTrustedSender(event); return requireWindowsHosts().status(); });
   ipcMain.handle('easyhub:hosts-set-enabled', async (event, enabled: unknown) => {
     assertTrustedSender(event);
     if (typeof enabled !== 'boolean') throw new Error('Hosts 修复设置无效。');
     if (enabled) throw new Error('请使用设置中的 GitHub 代理。');
-    const status = await hostsRepairService.setEnabled(enabled);
+    const status = await requireWindowsHosts().setEnabled(enabled);
     await session.defaultSession.clearHostResolverCache();
     return status;
   });
@@ -275,11 +410,12 @@ if (primaryInstance) app.whenReady().then(async () => {
     assertTrustedSender(event);
     return aiReviewService.reviewBinary(input, (id) => binaryAnalysisService.evidence(id), (value) => { if (!event.sender.isDestroyed()) event.sender.send('easyhub:ai-review-progress', value); });
   });
-  ipcMain.handle('easyhub:auth-start', (event) => { assertTrustedSender(event); return startDeviceLogin(GITHUB_CLIENT_ID); });
-  ipcMain.handle('easyhub:auth-start-delete', (event, owner: unknown, repo: unknown, id: unknown) => { assertTrustedSender(event); return startDeviceLogin(GITHUB_CLIENT_ID, true, { owner, repo, id } as { owner: string; repo: string; id: number }); });
+  ipcMain.handle('easyhub:auth-start', (event) => { assertTrustedSender(event); return loginWithCopiedCode(); });
+  ipcMain.handle('easyhub:auth-start-delete', (event, owner: unknown, repo: unknown, id: unknown) => { assertTrustedSender(event); return loginWithCopiedCode(true, { owner, repo, id } as { owner: string; repo: string; id: number }); });
+  ipcMain.handle('easyhub:copy-pairing-code', (event, value: unknown) => { assertTrustedSender(event); return copyPairingCode(value); });
   ipcMain.handle('easyhub:auth-poll', (event) => { assertTrustedSender(event); return pollDeviceLogin(); });
-  ipcMain.handle('easyhub:auth-cancel', (event) => { assertTrustedSender(event); cancelDeviceLogin(); });
-  ipcMain.handle('easyhub:auth-logout', (event) => { assertTrustedSender(event); return logout(); });
+  ipcMain.handle('easyhub:auth-cancel', (event) => { assertTrustedSender(event); ++pairingRequest; pairingCode = null; cancelDeviceLogin(); });
+  ipcMain.handle('easyhub:auth-logout', (event) => { assertTrustedSender(event); ++pairingRequest; pairingCode = null; return logout(); });
   ipcMain.handle('easyhub:release-choose-files', (event, inline: unknown) => { assertTrustedSender(event); return releaseService.chooseFiles(inline as boolean); });
   ipcMain.handle('easyhub:release-publish', (event, input: unknown) => { assertTrustedSender(event); return releaseService.publish(input, (value) => event.sender.send('easyhub:release-progress', value)); });
   ipcMain.handle('easyhub:release-edit', (event, input: unknown) => { assertTrustedSender(event); return releaseService.edit(input); });
@@ -305,20 +441,23 @@ if (primaryInstance) app.whenReady().then(async () => {
 
   createWindow();
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    showMainWindow();
   });
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
-
-let servicesStoppedForQuit = false;
 app.on('before-quit', (event) => {
   localService?.stopWatching(); aiReviewService?.cancelAll();
+  for (const controller of translationJobs.values()) controller.abort();
   if (!servicesStoppedForQuit && (binaryAnalysisService || githubProxyService)) {
     event.preventDefault();
-    servicesStoppedForQuit = true;
-    void Promise.allSettled([githubProxyService?.destroy(), binaryAnalysisService?.shutdown()]).finally(() => app.quit());
+    if (quitting) return;
+    quitting = true;
+    void Promise.allSettled([githubProxyService?.destroy(), binaryAnalysisService?.shutdown()]).finally(() => {
+      servicesStoppedForQuit = true;
+      app.quit();
+    });
   }
 });
