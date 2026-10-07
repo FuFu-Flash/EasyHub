@@ -4,6 +4,8 @@
 
 <h1 align="center">EasyHub</h1>
 
+<p align="center"><strong>简体中文</strong> | <a href="README.en.md">English</a></p>
+
 <p align="center">让 GitHub 像发布一条动态一样简单。</p>
 
 EasyHub 让你更轻松地使用 GitHub。用 Windows 版创作和发布作品，用 Android 版随时查看项目、回复问题、下载版本和审阅别人提交的改进。不需要学习复杂的 Git 命令。
