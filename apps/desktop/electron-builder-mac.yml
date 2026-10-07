@@ -1,8 +1,8 @@
 appId: app.easyhub.mac
 productName: EasyHub
-buildVersion: '15'
+buildVersion: '16'
 extraMetadata:
-  version: 1.0.1
+  version: 1.1.0
 directories:
   output: /tmp/easyhub-desktop-release
   buildResources: resources
@@ -40,7 +40,7 @@ mac:
   icon: resources/easyhub.icns
   category: public.app-category.developer-tools
   minimumSystemVersion: '27.0'
-  bundleVersion: '15'
+  bundleVersion: '16'
   identity: '-'
   hardenedRuntime: false
   notarize: false

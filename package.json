@@ -2,7 +2,7 @@
   "name": "easyhub",
   "private": true,
   "license": "GPL-3.0-only",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "dev": "node scripts/run-desktop.mjs dev",
@@ -23,6 +23,7 @@
     "test:discovery-navigation": "node scripts/run-desktop.mjs test:discovery-navigation",
     "test:responsive-ui": "node scripts/run-desktop.mjs test:responsive-ui",
     "test:local-introduction-ui": "node scripts/run-desktop.mjs test:local-introduction-ui",
+    "test:readme-editor-ui": "node scripts/run-desktop.mjs test:readme-editor-ui",
     "test:release-downloads-ui": "node scripts/run-desktop.mjs test:release-downloads-ui",
     "test:v2-live-ui": "node scripts/run-desktop.mjs test:v2-live-ui",
     "test:notifications-ui": "node scripts/run-desktop.mjs test:notifications-ui",
@@ -40,6 +41,7 @@
     "test:installer-ui": "node scripts/run-desktop.mjs test:installer-ui",
     "icons": "node scripts/run-desktop.mjs icons",
     "build": "node scripts/run-desktop.mjs build",
-    "package:win": "node scripts/run-desktop.mjs package:win"
+    "package:win": "node scripts/run-desktop.mjs package:win",
+    "package:mac": "node scripts/run-desktop.mjs package:mac"
   }
 }

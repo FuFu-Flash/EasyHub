@@ -17,11 +17,13 @@ if (!pnpmEntrypoint || !isAbsolute(pnpmEntrypoint)) {
 }
 if (!isAbsolute(releaseDirectory)) throw new Error('EASYHUB_DESKTOP_RELEASE_DIR 必须是绝对路径。');
 const metadata = JSON.parse(await readFile(join(desktopDir, 'package.json'), 'utf8'));
-if (metadata.version !== '1.0.1') throw new Error('此构建配置对应 EasyHub 1.0.1 (15)。');
+if (metadata.version !== '1.1.0') throw new Error('此构建配置对应 EasyHub 1.1.0 (16)。');
 
 const environment = { ...process.env,
   PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
-  CSC_IDENTITY_AUTO_DISCOVERY: 'false' };
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false',
+  // Reuse the verified workspace dependencies; packaging must not auto-install.
+  pnpm_config_verify_deps_before_run: 'warn' };
 // Test-only isolation and fixtures must never become release launch defaults.
 delete environment.EASYHUB_TEST_MODE;
 delete environment.EASYHUB_TEST_USER_DATA;
@@ -64,4 +66,4 @@ await access(join(contents, 'Resources/app.asar.unpacked'), constants.R_OK);
 await access(join(contents, 'Resources/UPSTREAM.txt'), constants.R_OK);
 await access(join(contents, 'Resources/LICENSE'), constants.R_OK);
 run('/usr/bin/codesign', ['--verify', '--deep', '--strict', application]);
-process.stdout.write(`EasyHub 1.0.1 (15) macOS arm64 app: ${application}\n`);
+process.stdout.write(`EasyHub 1.1.0 (16) macOS arm64 app: ${application}\n`);

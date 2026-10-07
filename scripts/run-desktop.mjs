@@ -5,6 +5,8 @@ const task = process.argv[2];
 allowed.add('test:ai-review-ui');
 allowed.add('test:live-pull-download');
 allowed.add('test:local-introduction-ui');
+allowed.add('test:readme-editor-ui');
+allowed.add('package:mac');
 allowed.add('test:release-downloads-ui');
 allowed.add('test:v2-live-ui');
 allowed.add('test:notifications-ui');

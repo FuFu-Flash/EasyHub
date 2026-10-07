@@ -12,14 +12,14 @@ EasyHub 让你更轻松地使用 GitHub。用 Windows 版创作和发布作品�
 
 [访问 EasyHub 官网](https://fufu-flash.github.io/easyhub-website/) · [查看所有发布版本](https://github.com/FuFu-Flash/EasyHub/releases)
 
-**Windows 最新版为 1.0.1，Android 版为 1.0.0。** iOS 版尚未推出。
+**Windows 最新版为 1.1.0，Android 版为 1.0.0。** iOS 版尚未推出。
 
 ## 下载 EasyHub
 
 | 平台 | 版本 | 适合谁 | 下载 |
 | --- | --- | --- | --- |
-| Windows | 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.1/EasyHub-1.0.1-setup.exe) |
-| Windows | 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.1/EasyHub-1.0.1-portable.exe) |
+| Windows | 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.1.0/EasyHub-1.1.0-setup.exe) |
+| Windows | 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.1.0/EasyHub-1.1.0-portable.exe) |
 | Android | 精简安装包 | 适合大多数较新的 Android 手机 | [下载 Android 安装包](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-arm64.apk) |
 | Android | 通用安装包 | 精简安装包无法安装时尝试 | [下载通用安装包](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk) |
 
@@ -48,6 +48,8 @@ Windows 安装版会识别之前的安装位置。“创建桌面快捷方式”
 
 **Windows 版还可以审查程序文件。** 首次使用时，在 AI 设置中展开“程序文件审查”，按提示安装可选组件；下载大小会提前显示。安装后，可以审查改进请求中的程序文件，也可以选择电脑上的程序文件，或审查发行版里的 EXE、DLL 等附件。普通代码审查无需安装这些组件。
 
+Mac 版暂未提供正式应用安装包。
+
 **程序文件是怎样审查的？** EasyHub 先在你的电脑上读取文件，将其中的部分程序逻辑整理成接近代码的文字，并提取程序里的文字内容和引用的功能信息。经你确认后，这些资料会交给你选择的 AI 服务，帮助解释程序可能做什么，并提示有依据的问题和检查建议。
 
 整个过程**不会启动被审查的程序，也不会替你运行测试**；原始程序文件不会上传给 AI 服务商。因为只检查部分内容，不能完整还原原始源码，也不能保证找出所有问题或证明程序安全。
@@ -72,7 +74,7 @@ Android 版目前以浏览和管理为主。**选择本地文件夹、检测文�
 - “问题”和“代码提交审查”分别显示待处理数量，按项目查看反馈或审阅别人提交的改进。
 - 添加已有文件夹，查看新增、修改、删除和重命名的文件，发布尚未保存到 GitHub 的修改。
 - 在“我的项目”选择电脑上的查找位置，识别已连接到自己 GitHub 项目的文件夹，并自动加入这台电脑的项目列表。只检查选择的位置，不修改项目文件。
-- 编辑并预览项目介绍，插入图片链接和网页链接；查看时可以框选、复制内容。真实项目的介绍会先保存在本地，点击“发布源码”后才会更新到 GitHub。
+- 编辑项目介绍时，可以选择“编辑”“预览”或“边写边看”。支持 Markdown 和常见 HTML 排版，输入时即可看到图片、居中标题、表格和折叠内容的效果；窄窗口会自动上下排列。可以插入图片链接和网页链接，查看时也能框选、复制内容。介绍先保存在本地，点击“发布源码”后才会更新到 GitHub。
 - 通过“编辑发行版”修改已发布版本的介绍，增加或删除下载附件。
 - 查看可下载的版本，选择安装包等附件，或下载某个版本的项目文件。下载通知显示进度、速度和剩余时间，也可以取消。
 

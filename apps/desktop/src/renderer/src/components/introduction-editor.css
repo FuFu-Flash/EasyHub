@@ -1,0 +1,187 @@
+.modal.intro-modal {
+  --intro-window-gap: 50px;
+  display: flex;
+  flex-direction: column;
+  width: min(900px, 100%);
+  height: min(820px, calc(100dvh - var(--intro-window-gap)));
+  max-height: calc(100dvh - var(--intro-window-gap));
+  min-width: 0;
+  padding: clamp(16px, 2vw, 28px);
+  overflow: hidden;
+}
+
+.intro-modal.intro-modal-split {
+  width: min(1600px, 100%);
+  height: min(1040px, calc(100dvh - var(--intro-window-gap)));
+}
+
+.intro-modal .intro-editor-header,
+.intro-modal .intro-editor-footer {
+  flex: none;
+  min-width: 0;
+}
+
+.intro-modal .intro-editor-header h2 {
+  padding-right: 28px;
+}
+
+.intro-modal .intro-editor-header > p,
+.intro-modal .intro-editor-footer > p {
+  margin: 0;
+  color: #9798a8;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.intro-modal .intro-editor-tabs {
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.intro-modal .intro-editor-body {
+  container: intro-editor / inline-size;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.intro-modal .intro-media-toolbar,
+.intro-modal .intro-media-form {
+  flex: none;
+  margin: 0;
+}
+
+.intro-modal .intro-editor-layout {
+  display: grid;
+  flex: 1 0 200px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 200px;
+  margin: 0;
+}
+
+.intro-modal .intro-editor-layout.is-split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.intro-modal .intro-editor-layout .intro-editor-source,
+.intro-modal .intro-editor-live-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.intro-modal .intro-editor-source > span,
+.intro-modal .intro-editor-live-preview > span {
+  flex: none;
+  color: #4c4d65;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.intro-modal .intro-editor-layout .intro-editor-source textarea,
+.intro-modal .intro-editor-preview {
+  box-sizing: border-box;
+  flex: 1 1 0;
+  width: 100%;
+  height: 0;
+  min-width: 0;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.intro-modal .intro-editor-layout .intro-editor-source textarea {
+  resize: none;
+}
+
+.intro-modal .intro-editor-preview {
+  overflow-wrap: anywhere;
+}
+
+.intro-modal .intro-editor-body > .intro-editor-preview {
+  flex: 1 0 200px;
+  min-height: 200px;
+}
+
+.intro-modal .intro-editor-footer {
+  padding-top: 12px;
+}
+
+/* Keep both panes visible in short windows; an open media form still scrolls. */
+.intro-modal .intro-editor-body:not(:has(.intro-media-form)) .intro-editor-layout {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.intro-modal .intro-overwrite-confirm {
+  margin: 10px 0;
+  align-items: flex-start;
+  line-height: 1.5;
+}
+
+.intro-modal .intro-overwrite-confirm input {
+  flex: none;
+}
+
+.intro-modal .modal-actions {
+  margin: 12px 0 0;
+}
+
+@container intro-editor (max-width: 760px) {
+  .intro-modal .intro-editor-layout.is-split {
+    flex-basis: 220px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    min-height: 220px;
+    gap: 14px;
+  }
+}
+
+@media (max-width: 760px) {
+  .modal.intro-modal {
+    padding: 16px;
+  }
+}
+
+@media (max-height: 600px) {
+  .modal-backdrop:has(.intro-modal) {
+    padding: 12px;
+  }
+
+  .modal.intro-modal {
+    --intro-window-gap: 24px;
+    padding: 12px;
+  }
+
+  .intro-modal .intro-editor-tabs {
+    margin: 8px 0;
+  }
+
+  .intro-modal .intro-editor-body {
+    gap: 8px;
+  }
+
+  .intro-modal .intro-editor-layout.is-split {
+    gap: 10px;
+  }
+
+  .intro-modal .intro-editor-footer {
+    padding-top: 8px;
+  }
+
+  .intro-modal .intro-overwrite-confirm {
+    margin: 6px 0;
+  }
+}

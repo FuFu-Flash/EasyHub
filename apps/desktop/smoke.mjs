@@ -96,7 +96,8 @@ try {
       const walker = document.createTreeWalker(document.querySelector('.app-shell'), NodeFilter.SHOW_TEXT);
       const found = new Set();
       while (walker.nextNode()) {
-        if (walker.currentNode.parentElement?.closest('textarea')) continue;
+        // Authored README content is preserved; only interface copy is localized.
+        if (walker.currentNode.parentElement?.closest('textarea, [data-content-original]')) continue;
         const value = walker.currentNode.textContent?.trim();
         if (value && /[\u3400-\u9fff]/u.test(value)) found.add(value);
       }

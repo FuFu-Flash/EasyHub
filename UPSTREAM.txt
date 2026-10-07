@@ -1,5 +1,5 @@
 Source: https://github.com/FuFu-Flash/EasyHub
-Commit: 94817d04135e1690a44b2a1a76b73f8eebe8842b
-Version: 1.0.1
+Commit: 30c65310ca85ecdb9cce25267a0e2b8afda0a571
+Version: 1.1.0
 License: GPL-3.0-only
 The original desktop renderer, features and GitHub proxy framework are reused for macOS.

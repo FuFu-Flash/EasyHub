@@ -1,4 +1,4 @@
-﻿import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { AiSettingsPanel } from './components/AiSettingsPanel';
 import { HostsRepairPanel } from './components/HostsRepairPanel';
@@ -628,7 +628,7 @@ function DemoApp({ onLogin, demoOnly = false, menuReady = true }: { onLogin: () 
             </section>
             <AiSettingsPanel disabled={demoOnly} language={language} />
             <HostsRepairPanel disabled={demoOnly} language={language} />
-            <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>{window.easyHub?.platform === 'darwin' ? 'macOS 桌面版' : 'Windows 桌面版'}</p><span className="settings-version">版本 1.0.1</span><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => { if (window.easyHub) void window.easyHub.openLicense().catch(() => setToast('无法打开许可协议页面')); }}>查看许可协议 <ArrowRight size={15} /></button></div></div></section>
+            <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>{window.easyHub?.platform === 'darwin' ? 'macOS 桌面版' : 'Windows 桌面版'}</p><span className="settings-version">版本 1.1.0</span><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => { if (window.easyHub) void window.easyHub.openLicense().catch(() => setToast('无法打开许可协议页面')); }}>查看许可协议 <ArrowRight size={15} /></button></div></div></section>
           </div>
         </>}
       </div></main>
