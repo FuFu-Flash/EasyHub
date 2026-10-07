@@ -500,7 +500,7 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
           </div>
         )}
       </header>
-      <main className="page-content">
+      <main className="page-content"><div className="v2-page-transition" key={route.name}>
         {route.name === 'home' && <>
           <DashboardIntro projectCount={data.projects.length} unpublishedCount={localProjects.reduce((total, item) => total + item.changedFiles.length, 0)} pendingCount={openIssueCount} projectName={pendingProject?.name} onCreate={() => navigate({ name: 'new-project' })} onContinue={() => navigate(pendingProject ? { name: 'publish', projectId: pendingProject.id } : { name: 'projects' })} />
           {pendingProject ? <form className="home-publish" onSubmit={handleHomePublish}><ProjectLogo project={pendingProject} /><div className="home-publish-content"><strong>{pendingProject.name} 有 {pendingProject.changedFiles.length} 个文件发生变化</strong><label htmlFor="home-update-message">这次改了什么？</label><div className="home-publish-controls"><input id="home-update-message" value={draftMessage} onChange={(event) => setDraftMessage(event.target.value)} placeholder="例如：修复窗口缩放问题" maxLength={120} /><button className="button button-primary" type="submit" disabled={Boolean(busy)}><Send size={17} />发布更新</button></div></div><button className="icon-button home-publish-detail" type="button" aria-label="查看修改" onClick={() => navigate({ name: 'publish', projectId: pendingProject.id })}><ChevronRight size={20} /></button></form> : <div className="home-all-saved"><CheckCircle2 size={20} />目前没有尚未发布的修改。<button onClick={() => navigate({ name: 'projects' })}>查看项目 <ArrowRight size={16} /></button></div>}
@@ -612,11 +612,11 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
             </section>
             <AiSettingsPanel disabled={demoOnly} language={language} />
             <HostsRepairPanel disabled={demoOnly} language={language} />
-            <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>Windows 桌面版</p><span className="settings-version">版本 1.0.0</span><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => { if (window.easyHub) void window.easyHub.openLicense().catch(() => setToast('无法打开许可协议页面')); }}>查看许可协议 <ArrowRight size={15} /></button></div></div></section>
+            <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>Windows 桌面版</p><span className="settings-version">版本 1.0.1</span><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => { if (window.easyHub) void window.easyHub.openLicense().catch(() => setToast('无法打开许可协议页面')); }}>查看许可协议 <ArrowRight size={15} /></button></div></div></section>
           </div>
         </>}
-      </main>
-      {canScrollDown && !downloadTarget && !showIssueForm && !introEditProject && !busy && <button className="scroll-down-cue" aria-label="向下滚动" title="向下滚动" onClick={() => scrollArea.current?.scrollBy({ top: Math.max(300, scrollArea.current.clientHeight * 0.75), behavior: 'smooth' })}><ChevronDown size={27} strokeWidth={2.6} aria-hidden="true" /></button>}
+      </div></main>
+      {canScrollDown && !downloadTarget && !showIssueForm && !introEditProject && !busy && <button className="scroll-down-cue" aria-label="向下滚动" title="向下滚动" onClick={() => scrollArea.current?.scrollBy({ top: Math.max(300, scrollArea.current.clientHeight * 0.75), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })}><ChevronDown size={27} strokeWidth={2.6} aria-hidden="true" /></button>}
     </div>
 
     {introEditProject && <IntroductionEditor key={introEditProject.id} initialMarkdown={introEditProject.readme} onSave={saveIntroduction} onCancel={() => setIntroEditProjectId(null)} onOpenLink={openReleaseLink} />}

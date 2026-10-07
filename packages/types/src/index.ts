@@ -179,6 +179,8 @@ export interface AiReviewFinding {
   severity: 'high' | 'medium' | 'low';
   file: string;
   line?: number;
+  address?: string;
+  analysisId?: string;
   description: string;
   suggestion: string;
 }
@@ -189,5 +191,63 @@ export interface AiReviewResult {
   limitations: string[];
   reviewedFiles: number;
   totalFiles: number;
+  binaryAnalyses?: { file: string; analysis: BinaryAnalysisResult }[];
 }
 export interface AiReviewProgress { requestId: string; phase: string; completed: number; total: number }
+
+export type BinaryAnalysisSource =
+  | { kind: 'local'; fileId: string; name: string; size: number }
+  | { kind: 'pull'; owner: string; repo: string; number: number; headSha: string; path: string }
+  | { kind: 'release'; owner: string; repo: string; assetId: number; name: string };
+export interface BinaryAnalysisSettingsStatus {
+  installed: boolean;
+  state: 'missing' | 'ready' | 'installing' | 'analyzing' | 'error';
+  engineVersion: string;
+  downloadBytes?: number;
+  error?: string;
+}
+export interface BinaryAnalysisProgress {
+  requestId: string;
+  phase: 'installing' | 'preparing' | 'analyzing' | 'complete';
+  completed: number;
+  total: number;
+  unit?: 'bytes' | 'steps';
+}
+export interface BinaryAnalysisRequest { requestId: string; source: BinaryAnalysisSource; language: 'zh' | 'en' }
+export interface BinaryAnalysisFunction { name: string; address: string; code: string }
+export interface BinaryAnalysisResult {
+  id: string;
+  fileName: string;
+  size: number;
+  sha256: string;
+  format: string;
+  architecture: string;
+  functionCount: number;
+  functions: BinaryAnalysisFunction[];
+  imports: string[];
+  strings: string[];
+  summary: string;
+  limitations: string[];
+}
+export interface BinaryAiReviewRequest {
+  requestId: string;
+  analysisId: string;
+  providerBaseUrl: string;
+  consentToSend: true;
+  language: 'zh' | 'en';
+}
+export interface BinaryAiReviewResult {
+  analysisId: string;
+  summary: string;
+  findings: { severity: 'high' | 'medium' | 'low'; address?: string; description: string; suggestion: string }[];
+  limitations: string[];
+}
+
+export interface GitHubProxyStatus {
+  enabled: boolean;
+  state: 'off' | 'checking' | 'ready' | 'error';
+  checkedAt: string | null;
+  error: string | null;
+  checks: { target: 'login' | 'api' | 'download'; ok: boolean }[];
+  legacyHosts: boolean;
+}

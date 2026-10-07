@@ -13,6 +13,7 @@ import type { LocalProjectRecord } from './LocalProjectStore';
 import { runGitTask } from './gitTaskRunner';
 import type { GitJob, GitTask } from './gitTaskRunner';
 import { DiscoveryRootsStore, findGitProjects } from './LocalProjectDiscovery';
+import { githubOriginRules } from '../services/GitHubProxyService';
 
 function validName(value: unknown): value is string { return typeof value === 'string' && /^[A-Za-z0-9_.-]{1,100}$/.test(value) && value !== '.' && value !== '..'; }
 function repository(repo: GitHubRepo): GitRepository { return { owner: repo.owner.login, name: repo.name, defaultBranch: repo.default_branch || 'main' }; }
@@ -266,7 +267,8 @@ export class LocalProjectService {
     try {
       const needsNetwork = task.action === 'create' || task.action === 'download' || task.action === 'publish' || task.action === 'check-sync' || task.action === 'sync';
       this.cancelSafe = true;
-      const job = runGitTask<T>({ ...task, proxy: needsNetwork ? await githubProxy() : undefined },
+      const job = runGitTask<T>({ ...task, proxy: needsNetwork ? await githubProxy() : undefined,
+        githubRules: needsNetwork ? githubOriginRules() : undefined },
         (value: GitProgress) => { if (value.cancelable === false) this.cancelSafe = false; this.send('easyhub:local-progress', value); });
       this.active = job;
       try { return await job.result; }

@@ -2,7 +2,7 @@
   "name": "easyhub",
   "private": true,
   "license": "GPL-3.0-only",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "dev": "node scripts/run-desktop.mjs dev",
@@ -16,10 +16,18 @@
     "test:ui": "node scripts/run-desktop.mjs test:ui",
     "test:public-ui": "node scripts/run-desktop.mjs test:public-ui",
     "test:ai-review-ui": "node scripts/run-desktop.mjs test:ai-review-ui",
+    "test:binary-analysis-ui": "node scripts/run-desktop.mjs test:binary-analysis-ui",
+    "test:live-binary-analysis": "node scripts/run-desktop.mjs test:live-binary-analysis",
     "test:live-pull-download": "node scripts/run-desktop.mjs test:live-pull-download",
     "test:discovery-ui": "node scripts/run-desktop.mjs test:discovery-ui",
     "test:discovery-navigation": "node scripts/run-desktop.mjs test:discovery-navigation",
     "test:responsive-ui": "node scripts/run-desktop.mjs test:responsive-ui",
+    "test:local-introduction-ui": "node scripts/run-desktop.mjs test:local-introduction-ui",
+    "test:release-downloads-ui": "node scripts/run-desktop.mjs test:release-downloads-ui",
+    "test:v2-live-ui": "node scripts/run-desktop.mjs test:v2-live-ui",
+    "test:notifications-ui": "node scripts/run-desktop.mjs test:notifications-ui",
+    "test:github-proxy-ui": "node scripts/run-desktop.mjs test:github-proxy-ui",
+    "test:github-proxy-network": "node scripts/run-desktop.mjs test:github-proxy-network",
     "test:translation-ui": "node scripts/run-desktop.mjs test:translation-ui",
     "test:live-download": "node scripts/run-desktop.mjs test:live-download",
     "test:live-local": "node scripts/run-desktop.mjs test:live-local",
@@ -28,10 +36,8 @@
     "test:danger-ui": "node scripts/run-desktop.mjs test:danger-ui",
     "test:packaged": "node scripts/run-desktop.mjs test:packaged",
     "test:installer-ui": "node scripts/run-desktop.mjs test:installer-ui",
-    "test:demo-packaged": "node scripts/run-desktop.mjs test:demo-packaged",
     "icons": "node scripts/run-desktop.mjs icons",
     "build": "node scripts/run-desktop.mjs build",
-    "package:win": "node scripts/run-desktop.mjs package:win",
-    "package:demo": "node scripts/run-desktop.mjs package:demo"
+    "package:win": "node scripts/run-desktop.mjs package:win"
   }
 }

@@ -71,7 +71,7 @@ try {
   await page.reload();
   await page.locator('.live-connected').waitFor();
   await page.locator('.topbar-search input').fill('https://github.com/another-author/sample-public');
-  await page.locator('.topbar-search input').press('Enter');
+  await page.locator('.discover-search input').press('Enter');
   await page.getByTestId('public-project-browser').waitFor();
   const browser = page.getByTestId('public-project-browser');
   assert.equal(await browser.locator('.public-browser-hero .public-owner-avatar img').getAttribute('src'), 'https://avatars.githubusercontent.com/u/12345?v=4');

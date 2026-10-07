@@ -17,10 +17,13 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
   const [pages, setPages] = useState<Record<string, Page>>({});
   const [loading, setLoading] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showOthers, setShowOthers] = useState(false);
   const keyFor = (repo: GitHubRepo, state: Filter): string => `${repo.id}:${state}`;
   const countFor = (repo: GitHubRepo): number => (filter === 'open' ? counts[repo.id]?.pullRequests : counts[repo.id]?.closedPullRequests) ?? -1;
   const ordered = [...repos].sort((a, b) => countFor(b) - countFor(a) || a.name.localeCompare(b.name));
   const total = repos.every((repo) => counts[repo.id]) ? repos.reduce((sum, repo) => sum + (counts[repo.id]?.pullRequests ?? 0), 0) : null;
+  const emptyRepos = ordered.filter((repo) => countFor(repo) === 0);
+  const visibleRepos = ordered.filter((repo) => showOthers || countFor(repo) !== 0);
 
   async function load(repo: GitHubRepo, state: Filter, page: number): Promise<void> {
     const key = keyFor(repo, state);
@@ -51,7 +54,8 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
 
   return <>
     <div className="toolbar"><div className="segmented"><button className={filter === 'open' ? 'selected' : ''} onClick={() => chooseFilter('open')}>待审查 <span>{total ?? '…'}</span></button><button className={filter === 'closed' ? 'selected' : ''} onClick={() => chooseFilter('closed')}>已处理</button></div></div>
-    <div className="issue-project-list">{ordered.map((repo) => {
+    {visibleRepos.length === 0 && <div className="empty-state"><span className="empty-icon"><GitPullRequest size={28} /></span><h3>{filter === 'open' ? '没有待审查的改进请求' : '还没有已处理的改进请求'}</h3></div>}
+    <div className="issue-project-list">{visibleRepos.map((repo) => {
       const key = keyFor(repo, filter);
       const page = pages[key];
       const count = counts[repo.id];
@@ -71,5 +75,6 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
         </>}</div>
       </section>;
     })}</div>
+    {emptyRepos.length > 0 && <button className="text-link other-projects-toggle" aria-expanded={showOthers} onClick={() => setShowOthers((value) => !value)}>{showOthers ? '收起其他项目' : '查看其他项目'} <span>{emptyRepos.length}</span><ChevronDown size={16} /></button>}
   </>;
 }

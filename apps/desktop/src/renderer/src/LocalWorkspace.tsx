@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { GitHubRepo } from '@easyhub/github';
 import type { FolderInspection, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
 import { ArrowLeft, Check, CheckCircle2, Download, FolderOpen, Globe2, LockKeyhole, Plus, RotateCw, Send } from 'lucide-react';
+import { ReadmeMarkdown } from './components/ReadmeMarkdown';
 
 interface Props {
   mode: 'list' | 'create';
   repos: GitHubRepo[];
   selectedRepo: GitHubRepo | null;
+  initialLocalId?: string | null;
   onBack: () => void;
   onCreated: () => Promise<void>;
   onDownloadProject: (repo: GitHubRepo) => Promise<void>;
@@ -19,9 +21,11 @@ interface Props {
 const fileVerb = { added: '新增', modified: '修改', deleted: '删除', renamed: '重命名' } as const;
 function errorText(error: unknown): string { return error instanceof Error ? error.message : '操作失败，请稍后重试。'; }
 
-export function LocalWorkspace({ mode, repos, selectedRepo, onBack, onCreated, onDownloadProject, downloadBusy, initialSyncReview, onSyncReviewOpened }: Props) {
+export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, onBack, onCreated, onDownloadProject, downloadBusy, initialSyncReview, onSyncReviewOpened }: Props) {
   const [links, setLinks] = useState<LocalProjectLink[]>([]);
   const [statuses, setStatuses] = useState<Record<string, LocalProjectStatus>>({});
+  const [introductions, setIntroductions] = useState<Record<string, { content: string; error: string }>>({});
+  const [introductionRefresh, setIntroductionRefresh] = useState(0);
   const [inspection, setInspection] = useState<FolderInspection | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -38,6 +42,9 @@ export function LocalWorkspace({ mode, repos, selectedRepo, onBack, onCreated, o
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const api = window.easyHub;
+  const visibleLinks = useMemo(() => initialLocalId ? links.filter((item) => item.id === initialLocalId)
+    : selectedRepo ? links.filter((item) => item.repositoryId === selectedRepo.id) : links, [initialLocalId, links, selectedRepo]);
+  const selectedLink = initialLocalId ? visibleLinks[0] : null;
 
   const refresh = useCallback(async () => {
     if (!api) return;
@@ -50,6 +57,19 @@ export function LocalWorkspace({ mode, repos, selectedRepo, onBack, onCreated, o
   }, [api]);
 
   useEffect(() => { void refresh().catch((cause) => setError(errorText(cause))); }, [refresh]);
+  useEffect(() => {
+    if (!api || mode === 'create') return;
+    let active = true;
+    setIntroductions({});
+    for (const item of visibleLinks) {
+      void api.localReadIntroduction(item.id).then((content) => {
+        if (active) setIntroductions((old) => ({ ...old, [item.id]: { content, error: '' } }));
+      }).catch((cause: unknown) => {
+        if (active) setIntroductions((old) => ({ ...old, [item.id]: { content: '', error: errorText(cause) } }));
+      });
+    }
+    return () => { active = false; };
+  }, [api, mode, visibleLinks, introductionRefresh]);
   useEffect(() => {
     if (!initialSyncReview) return;
     setSyncReview({ id: initialSyncReview.id, preview: initialSyncReview.preview });
@@ -146,11 +166,10 @@ export function LocalWorkspace({ mode, repos, selectedRepo, onBack, onCreated, o
     });
   }
 
-  const visibleLinks = selectedRepo ? links.filter((item) => item.repositoryId === selectedRepo.id) : links;
-  const visibleRepos = selectedRepo ? [selectedRepo] : repos;
+  const visibleRepos = selectedRepo ? [selectedRepo] : selectedLink ? repos.filter((repo) => repo.id === selectedLink.repositoryId) : repos;
   return <div className="local-workspace">
     <button className="back-link" onClick={onBack}><ArrowLeft size={17} />返回</button>
-    <div className="page-header"><div><h1>{mode === 'create' ? '新建项目' : selectedRepo?.name ?? '本地项目'}</h1><p>{mode === 'create' ? '选择一个文件夹，EasyHub 会把它保存到 GitHub。' : '查看本地文件的修改并发布源码。'}</p></div></div>
+    <div className="page-header"><div><h1>{mode === 'create' ? '新建项目' : selectedLink?.name ?? selectedRepo?.name ?? '本地项目'}</h1><p>{mode === 'create' ? '选择一个文件夹，EasyHub 会把它保存到 GitHub。' : '查看本地文件的修改并发布源码。'}</p></div></div>
     {error && <div className="live-error" role="alert">{error}</div>}
     {notice && <div className="live-notice" role="status">{notice}</div>}
     {busy && <div className="live-loading" role="status"><RotateCw size={16} className="live-spin" />{progress?.phase ?? '正在处理…'}{progress?.total ? ` ${Math.round(100 * (progress.loaded ?? 0) / progress.total)}%` : ''}{progress?.cancelable !== false && <button className="text-link" onClick={() => void api?.localCancel()}>取消</button>}</div>}
@@ -163,9 +182,10 @@ export function LocalWorkspace({ mode, repos, selectedRepo, onBack, onCreated, o
       <div className="field"><span>谁能看到？</span><div className="choice-grid" role="group" aria-label="谁能看到？"><button type="button" className={`choice ${isPrivate ? 'chosen' : ''}`} aria-pressed={isPrivate} onClick={() => setIsPrivate(true)}><span className="choice-circle">{isPrivate && <Check size={13} />}</span><LockKeyhole size={18} /><strong>只有我</strong><small>仅自己可见</small></button><button type="button" className={`choice ${!isPrivate ? 'chosen' : ''}`} aria-pressed={!isPrivate} onClick={() => setIsPrivate(false)}><span className="choice-circle">{!isPrivate && <Check size={13} />}</span><Globe2 size={18} /><strong>所有人</strong><small>可以分享给别人</small></button></div></div>
       <button className="button button-primary submit-button" disabled={busy || !name.trim() || !inspection || inspection.state === 'github'} type="submit"><Plus size={17} />创建项目</button>
     </form>}
-    {visibleLinks.map((item) => { const status = statuses[item.id]; return <section className="panel live-section local-project-card" key={item.id}>
+    {visibleLinks.map((item) => { const status = statuses[item.id]; const introduction = introductions[item.id]; const repo = selectedRepo?.id === item.repositoryId ? selectedRepo : repos.find((candidate) => candidate.id === item.repositoryId); return <section className="panel live-section local-project-card" key={item.id}>
       <div className="panel-heading"><h2>{item.name}</h2><span className="muted">{status ? status.files.length ? `${status.files.length} 个文件还没发布` : '已保存' : '正在检查文件'}</span></div>
       <p className="muted">{item.localPath}</p>
+      {mode !== 'create' && <section aria-label="项目介绍"><div className="panel-heading"><h3>项目介绍</h3></div>{!introduction ? <p className="muted" role="status">正在读取项目介绍…</p> : introduction.error ? <div><p className="live-error" role="alert">{introduction.error}</p><button className="text-link" onClick={() => setIntroductionRefresh((value) => value + 1)}>重新读取</button></div> : introduction.content ? <ReadmeMarkdown markdown={introduction.content} repository={{ owner: item.owner, name: item.name, branch: repo?.default_branch || 'main' }} onOpenLink={(url) => { void api?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} /> : <p className="muted">这个项目还没有介绍。</p>}</section>}
       <div className="local-actions"><button className="button button-quiet" disabled={busy} onClick={() => void api?.localOpenFolder(item.id)}><FolderOpen size={16} />打开文件夹</button><button className="button button-quiet" disabled={busy} onClick={() => { setExpandedRepoId(item.repositoryId); void task(async () => { if (api) { const next = await api.localStatus(item.id); setStatuses((old) => ({ ...old, [item.id]: next })); } }); }}><RotateCw size={16} />查看修改</button><button className="button button-quiet" disabled={busy} onClick={() => void checkLatest(item)}><RotateCw size={16} />获取最新</button>{status?.files.length ? <button className="button button-primary" disabled={busy} onClick={() => { setExpandedRepoId(item.repositoryId); setPublishId(item.id); setUpdateMessage(''); }}><Send size={16} />发布源码</button> : null}</div>
       {expandedRepoId === item.repositoryId && status && <div className="local-changes"><div className="local-changes-heading"><strong>尚未发布的修改</strong><span>{status.files.filter((file) => file.kind === 'modified').length} 个修改 · {status.files.filter((file) => file.kind === 'added').length} 个新增 · {status.files.filter((file) => file.kind === 'deleted').length} 个删除{status.files.some((file) => file.kind === 'renamed') ? ` · ${status.files.filter((file) => file.kind === 'renamed').length} 个重命名` : ''}</span></div>{status.files.length ? <div className="local-file-list">{status.files.map((file) => <div key={file.path}><span>{fileVerb[file.kind]}</span>{file.previousPath ? `${file.previousPath} → ` : ''}{file.path}</div>)}</div> : <p className="muted">目前没有尚未发布的修改。</p>}</div>}
       {status?.needsReview && <p className="live-error">这个文件夹有其他工具准备的修改，请先在该工具中完成或取消。</p>}

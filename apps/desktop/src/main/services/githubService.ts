@@ -8,6 +8,8 @@ import { copyFile, link, rm, rename } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
+import type { BinaryAnalysisSource } from '@easyhub/types';
+import type { BinaryRemoteFile } from '../analysis/BinaryAnalysisService';
 
 interface Credential { clientId: string; accessToken: string; refreshToken?: string; expiresAt?: number; scopes?: string[] }
 interface DeviceCode { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval?: number }
@@ -64,7 +66,7 @@ async function exchange(form: Record<string, string>): Promise<TokenReply> {
   const response = await net.fetch('https://github.com/login/oauth/access_token', {
     method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(form),
     signal: AbortSignal.timeout(15000),
-  }).catch(() => { throw new Error('无法连接 GitHub 登录接口。请检查网络连接；如果当前网络阻断登录请求，仅修改 Hosts 无法解决。'); });
+  }).catch(() => { throw new Error('无法连接 GitHub，请检查网络，或在设置中开启 GitHub 代理后重试。'); });
   if (!response.ok) throw new Error('GitHub 登录暂时不可用，请稍后重试。');
   return response.json() as Promise<TokenReply>;
 }
@@ -124,6 +126,32 @@ export async function getPullRequestReviewContext(owner: string, repo: string, n
   }
 }
 
+/** Resolves a verified GitHub snapshot; no renderer-provided download URL is followed. */
+export async function loadBinaryAnalysisFile(source: Exclude<BinaryAnalysisSource, { kind: 'local' }>, signal: AbortSignal): Promise<BinaryRemoteFile> {
+  if (!validRepoPart(source.owner) || !validRepoPart(source.repo)) invalid();
+  try {
+    if (source.kind === 'pull') {
+      if (!Number.isSafeInteger(source.number) || source.number <= 0 || !validSha(source.headSha) || !validPullPath(source.path)) invalid();
+      const context = await getPullRequestReviewContext(source.owner, source.repo, source.number, source.headSha, signal);
+      const file = context.files.find((entry) => entry.filename === source.path);
+      if (!file || file.status === 'removed' || !validSha(file.sha)) throw new PullRequestOperationError('这个文件不在当前改进请求中，请刷新后重试。');
+      const repository = context.pullRequest.head.repo ?? context.repository;
+      if (!validRepoPart(repository.owner.login) || !validRepoPart(repository.name)) invalid();
+      return { name: file.filename.split('/').at(-1)!, gitSha: file.sha, response: await client.downloadBlob(repository.owner.login, repository.name, file.sha, signal) };
+    }
+    if (source.kind !== 'release' || !Number.isSafeInteger(source.assetId) || source.assetId <= 0) invalid();
+    const asset = await client.releaseAsset(source.owner, source.repo, source.assetId, signal);
+    if (asset.id !== source.assetId || asset.name !== source.name || asset.state !== 'uploaded') throw new PullRequestOperationError('这个发行版文件已经改变，请刷新后重新选择。');
+    if (asset.size <= 0 || asset.size > 128 * 1024 * 1024) throw new PullRequestOperationError('请选择不超过 128 MB 的程序文件。');
+    const digest = 'digest' in asset && typeof asset.digest === 'string' && /^sha256:[a-f0-9]{64}$/u.test(asset.digest) ? asset.digest.slice(7) : undefined;
+    return { name: asset.name, size: asset.size, sha256: digest, response: await client.downloadReleaseAsset(source.owner, source.repo, source.assetId, signal) };
+  } catch (cause) {
+    if (signal.aborted) throw new Error('分析已取消。');
+    if (cause instanceof PullRequestOperationError) throw cause;
+    throw new Error(friendlyGitHubError(cause));
+  }
+}
+
 export async function gitHubIdentity(): Promise<{ token: string; user: GitHubUser }> {
   const token = await accessToken();
   const user = await client.user();
@@ -156,7 +184,7 @@ export async function startDeviceLogin(clientId: unknown, includeDeleteScope = f
     method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: clientId, scope: includeDeleteScope ? 'repo read:user delete_repo' : 'repo read:user' }),
     signal: AbortSignal.timeout(15000),
-  }).catch(() => { throw new Error('无法连接 GitHub 登录接口。请检查网络连接；如果当前网络阻断登录请求，仅修改 Hosts 无法解决。'); });
+  }).catch(() => { throw new Error('无法连接 GitHub，请检查网络，或在设置中开启 GitHub 代理后重试。'); });
   if (!response.ok) throw new Error('GitHub 登录暂时不可用，请稍后重试。');
   const result = await response.json() as DeviceCode & { error?: string };
   if (!result.device_code || !result.user_code || result.error) throw new Error('无法开始 GitHub 登录，请检查 Client ID 和 Device Flow 设置。');

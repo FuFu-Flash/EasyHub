@@ -9,6 +9,7 @@ export function readLanguage(): Language {
 }
 
 const english: Record<string, string> = {
+  '分析程序文件': 'Analyze program file', '分析': 'Analyze',
   '账户菜单': 'Account menu', '当前账户': 'Current account', '个人资料': 'Profile',
   '我收藏的项目': 'Starred projects', '收藏项目': 'Star project', '已收藏': 'Starred',
   '查看我收藏的项目': 'View starred projects',
@@ -165,6 +166,8 @@ const english: Record<string, string> = {
   '取消': 'Cancel', '添加项目': 'Add Project', '所有项目': 'All Projects',
   '还没有项目介绍': 'No project description yet', '模拟文件修改': 'Simulate File Changes',
   '打开文件夹': 'Open Folder', '项目介绍': 'Project Introduction',
+  '正在读取项目介绍…': 'Loading project introduction…', '重新读取': 'Read Again',
+  '这个项目还没有介绍。': 'This project has no introduction yet.',
   '让别人了解你的项目': 'Tell others about your project',
   '历史版本': 'Version History', '修改了': 'changed', '个文件': 'files',
   '查看问题': 'View Issues', '项目状态': 'Project Status',
@@ -211,7 +214,7 @@ const english: Record<string, string> = {
   '使用 GitHub 登录': 'Sign in with GitHub', '数据与同步': 'Data & Sync',
   '演示项目数据只保存在当前窗口，重新启动后会恢复初始状态。窗口控件和语言偏好会保留。': 'Demo projects live only in this window and reset on restart. Window control and language preferences are kept.',
   '重置演示数据': 'Reset Demo Data', '关于 EasyHub': 'About EasyHub',
-  'Windows 桌面版': 'Windows desktop app', '版本 1.0.0': 'Version 1.0.0',
+  'Windows 桌面版': 'Windows desktop app', '版本 1.0.1': 'Version 1.0.1',
   '本应用采用 GNU General Public License 第 3 版。': 'This application is licensed under GNU General Public License version 3.',
   '查看许可协议': 'View License', '无法打开许可协议页面': 'Could not open the license page',
   '选择保存位置，EasyHub 会把': 'Choose where to save it. EasyHub will put',
@@ -472,6 +475,25 @@ const english: Record<string, string> = {
   'GitHub 用户名': 'GitHub username',
   '先把修改保存到 GitHub，再选择包含这些修改的来源。': 'Save your changes to GitHub first, then choose the source containing them.',
   '来源必须是 GitHub 上已有的修改版本。对于他人的项目，先在自己的同名项目副本中准备修改。': 'The source must already exist on GitHub. For someone else’s project, prepare the change in your own fork first.',
+  '展开完整说明': 'Show full release notes', '收起说明': 'Hide release notes',
+  '下载当前默认版本的完整源码。安装包或其他文件请从下方发布的版本中选择。': 'Download the complete source of the current default branch. Choose installers or other files from the releases below.',
+  '查看项目进展，继续创作你的下一个想法。': 'See your project progress and keep creating.',
+  '正在检查项目状态…': 'Checking project status…', '暂时无法确认项目状态': 'Project status is temporarily unavailable',
+  '本地没有待发布修改': 'No unpublished local changes', '有项目需要检查。': 'Some projects need your attention.',
+  'GitHub 上有新内容。': 'New content is available on GitHub.',
+  '把想法变成下一个作品。': 'Turn an idea into your next project.',
+  '检查完成后，这里会显示尚未发布的修改。': 'Unpublished changes will appear here after the check.',
+  '查看项目，获取 GitHub 上的最新内容。': 'Open a project to get the latest content from GitHub.',
+  '打开本地项目，确认文件夹和连接状态。': 'Open local projects to check their folders and connection.',
+  '添加电脑上的项目，或从 GitHub 下载后继续创作。': 'Add a local project or download one from GitHub to keep creating.',
+  '添加本地项目，开始创作。': 'Add a local project to start creating.',
+  '项目介绍暂时无法加载，请重试。': 'The project introduction could not be loaded. Please retry.',
+  '部分反馈或历史版本暂时无法加载，请刷新重试。': 'Some feedback or version history could not be loaded. Please refresh to retry.',
+  '部分项目的更新暂时无法加载。': 'Updates for some projects could not be loaded.',
+  '正在获取最近更新…': 'Loading recent updates…', '最近项目的更新说明和历史版本。': 'Update notes and history from recent projects.',
+  '查看其他项目': 'Show other projects', '收起其他项目': 'Hide other projects',
+  '查看改进说明和修改文件，再决定是否采纳。': 'Read the proposed changes and files before deciding whether to accept.',
+  '项目待办': 'Project tasks', '… 个问题': '… issues',
 };
 
 export function translateText(source: string, language: Language): string {

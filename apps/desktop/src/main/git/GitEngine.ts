@@ -1,6 +1,8 @@
 import * as git from 'isomorphic-git';
 import nodeHttp from 'isomorphic-git/http/node';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import { GitHubOriginAgent } from '../services/githubProxyOrigin';
+import type { OriginRule } from '../services/githubProxyOrigin';
 import fs from 'node:fs';
 import { chmod, lstat, mkdir, readFile, realpath, stat, writeFile, rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
@@ -91,8 +93,9 @@ async function previewFile(dir: string, path: string, remoteHead: string): Promi
 export class GitEngine {
   private readonly http: git.HttpClient;
 
-  constructor(proxy?: string) {
-    this.http = proxy ? { request: (options) => nodeHttp.request({ ...options, agent: new HttpsProxyAgent(proxy) }) } : nodeHttp;
+  constructor(proxy?: string, githubRules?: Record<string, OriginRule>) {
+    const agent = proxy ? new HttpsProxyAgent(proxy) : githubRules ? new GitHubOriginAgent({ rules: githubRules }) : undefined;
+    this.http = agent ? { request: (options) => nodeHttp.request({ ...options, agent }) } : nodeHttp;
   }
 
   async openProject(path: string): Promise<GitProjectInfo> {

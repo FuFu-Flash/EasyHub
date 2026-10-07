@@ -4,6 +4,8 @@ import type { TranslationProgress, TranslationRequest } from '@easyhub/types';
 import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, PublishReleaseRequest, ReleaseProgress, RemoveReleaseAssetRequest } from '@easyhub/types';
 import type { GitHubCreatedRelease } from '@easyhub/github';
 import type { AiSettingsInput, AiSettingsStatus, AiReviewRequest, AiReviewResult, AiReviewProgress } from '@easyhub/types';
+import type { GitHubProxyStatus } from '@easyhub/types';
+import type { BinaryAnalysisSettingsStatus, BinaryAnalysisSource, BinaryAnalysisRequest, BinaryAnalysisResult, BinaryAnalysisProgress, BinaryAiReviewRequest, BinaryAiReviewResult } from '@easyhub/types';
 
 interface HostsRepairStatus { enabled: boolean; updatedAt: string | null; source: string }
 
@@ -42,6 +44,10 @@ declare global {
       hostsStatus: () => Promise<HostsRepairStatus>;
       hostsSetEnabled: (enabled: boolean) => Promise<HostsRepairStatus>;
       hostsRefresh: () => Promise<HostsRepairStatus>;
+      githubProxyStatus: () => Promise<GitHubProxyStatus>;
+      githubProxySetEnabled: (enabled: boolean) => Promise<GitHubProxyStatus>;
+      githubProxyRefresh: () => Promise<GitHubProxyStatus>;
+      githubProxyCancel: () => Promise<void>;
       openExternalLink: (url: string) => Promise<void>;
       authStatus: () => Promise<{ user: GitHubUser | null; clientId: string | null }>;
       aiSettings: () => Promise<AiSettingsStatus>;
@@ -50,6 +56,13 @@ declare global {
       aiTestConnection: () => Promise<void>;
       aiReviewPull: (input: AiReviewRequest) => Promise<AiReviewResult>;
       aiCancelReview: (id: string) => Promise<void>;
+      binaryAnalysisStatus: () => Promise<BinaryAnalysisSettingsStatus>;
+      binaryAnalysisInstall: (id: string) => Promise<BinaryAnalysisSettingsStatus>;
+      binaryAnalysisChooseFile: () => Promise<Extract<BinaryAnalysisSource, { kind: 'local' }> | null>;
+      binaryAnalyze: (input: BinaryAnalysisRequest) => Promise<BinaryAnalysisResult>;
+      binaryAnalysisCancel: (id: string) => Promise<void>;
+      binaryAiReview: (input: BinaryAiReviewRequest) => Promise<BinaryAiReviewResult>;
+      onBinaryAnalysisProgress: (callback: (value: BinaryAnalysisProgress) => void) => () => void;
       onAiReviewProgress: (callback: (value: AiReviewProgress) => void) => () => void;
       authStart: () => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;
       authStartDeletion: (owner: string, repo: string, id: number) => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;

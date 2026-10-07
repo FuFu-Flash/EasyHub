@@ -2,8 +2,9 @@ import { Worker } from 'node:worker_threads';
 import workerPath from './gitWorker?modulePath';
 import type { GitAuthor, GitProgress, GitRepository } from './GitEngine';
 import type { SyncDecision } from '@easyhub/types';
+import type { OriginRule } from '../services/githubProxyOrigin';
 
-export interface GitTask { action: 'inspect' | 'status' | 'create' | 'download' | 'publish' | 'check-sync' | 'sync'; path: string; repo?: GitRepository; author?: GitAuthor; token?: string; message?: string; proxy?: string; revision?: string; decisions?: SyncDecision[] }
+export interface GitTask { action: 'inspect' | 'status' | 'create' | 'download' | 'publish' | 'check-sync' | 'sync'; path: string; repo?: GitRepository; author?: GitAuthor; token?: string; message?: string; proxy?: string; githubRules?: Record<string, OriginRule>; revision?: string; decisions?: SyncDecision[] }
 export interface GitJob<T> { result: Promise<T>; cancel: () => void }
 
 export function runGitTask<T>(task: GitTask, onProgress?: (progress: GitProgress) => void): GitJob<T> {

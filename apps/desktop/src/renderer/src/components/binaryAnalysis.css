@@ -1,0 +1,54 @@
+.binary-settings-details[hidden] { display: none; }
+.binary-settings-panel { min-width: 0; border-top: 1px solid #e1e8f3; margin-top: 22px; padding-top: 20px; }
+.binary-settings-panel .ai-settings-toggle h3 { margin: 0 0 5px; color: #3a506f; font-size: 14px; }
+.binary-settings-details { margin-top: 18px; }
+.binary-analysis-panel { min-width: 0; }
+.binary-component-status { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 13px; }
+.binary-status { display: inline-flex; align-items: center; gap: 7px; color: #73859f; font-size: 12px; font-weight: 650; }
+.binary-status.is-ready { color: #228551; }
+.binary-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.binary-install-entry { display: flex; align-items: center; gap: 16px; padding: 15px 16px; border: 1px solid #e1eafa; background: #f4f8fe; border-radius: 11px; margin-bottom: 16px; }
+.binary-install-entry > div { min-width: 0; flex: 1; }
+.binary-install-entry strong { color: #3a506f; font-size: 13px; }
+.binary-install-entry p { color: #74869e; font-size: 12px; line-height: 1.7; margin: 5px 0 0; }
+.binary-file-entry { padding-top: 3px; }
+.binary-file-entry > .ai-settings-note { color: #74869e; font-size: 12px; line-height: 1.7; margin: 9px 0; }
+.binary-selected-file { display: flex; align-items: center; gap: 11px; color: #5277a4; margin-bottom: 13px; }
+.binary-selected-file > svg { flex: none; }
+.binary-selected-file > span { display: grid; min-width: 0; gap: 4px; }
+.binary-selected-file strong { color: #3a506f; font-size: 13px; overflow-wrap: anywhere; }
+.binary-selected-file small { color: #7a8aa2; font-size: 11px; }
+.binary-file-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.binary-release-asset { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.binary-release-asset > .release-asset { min-width: 0; }
+.binary-analysis-progress { margin: 17px 0; }
+.binary-analysis-progress > .button { margin-top: 12px; }
+.binary-report-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.binary-analysis-panel h3 { font-size: 14px; color: #3a506f; margin: 0 0 11px; }
+.binary-report-heading h3 { margin: 0; }
+.binary-file-metadata { display: grid; gap: 8px; padding: 13px 15px; border: 1px solid #e1e8f3; border-radius: 10px; background: #fff; font-size: 12px; }
+.binary-file-metadata > div { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px; }
+.binary-file-metadata dt { color: #7a8aa2; }
+.binary-file-metadata dd { color: #3a506f; margin: 0; overflow-wrap: anywhere; }
+.binary-extracted-details { margin-top: 18px; color: #536b8a; font-size: 12px; }
+.binary-extracted-details summary { cursor: pointer; line-height: 1.8; }
+.binary-extracted-details summary:focus-visible { outline: 3px solid #dce9ff; outline-offset: 3px; border-radius: 3px; }
+.binary-extracted-details > details { margin-top: 10px; }
+.binary-extracted-details > .ai-review-report > details { margin-top: 10px; }
+.binary-functions { margin-top: 13px; }
+.binary-functions h4 { font-size: 12px; margin: 0 0 8px; }
+.binary-functions > details { border-top: 1px solid #e1e8f3; padding: 8px 0; }
+.binary-functions summary span { color: #7a8aa2; margin-left: 11px; }
+.binary-functions summary code { overflow-wrap: anywhere; }
+.binary-functions pre { max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: #fff; border: 1px solid #e1e8f3; border-radius: 8px; padding: 12px; line-height: 1.6; font-size: 11px; }
+.binary-extracted-list { padding-left: 22px; max-height: 280px; overflow-y: auto; overflow-wrap: anywhere; }
+.binary-extracted-list li { margin: 4px 0; }
+.binary-consent-modal .modal-actions { flex-wrap: wrap; }
+@media (max-width: 700px) {
+  .binary-release-asset { grid-template-columns: minmax(0, 1fr); }
+  .binary-release-asset > .button { justify-self: end; }
+  .binary-install-entry { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .binary-file-metadata > div { grid-template-columns: 70px minmax(0, 1fr); gap: 8px; }
+  .binary-analysis-progress p { flex-wrap: wrap; }
+  .binary-analysis-progress p span { width: 100%; margin-left: 25px; }
+}

@@ -1,9 +1,10 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, net, session, shell } from 'electron';
 import { join } from 'node:path';
-import { authStatus, cancelArchive, cancelDeviceLogin, cancelGithubReads, downloadArchive, downloadReleaseAsset, downloadPullRequestFile, getPullRequestReviewContext, githubAction, logout, openDownloadedFile, pollDeviceLogin, revealDownloadedArchive, startDeviceLogin } from './services/githubService';
+import { authStatus, cancelArchive, cancelDeviceLogin, cancelGithubReads, downloadArchive, downloadReleaseAsset, downloadPullRequestFile, getPullRequestReviewContext, githubAction, loadBinaryAnalysisFile, logout, openDownloadedFile, pollDeviceLogin, revealDownloadedArchive, startDeviceLogin } from './services/githubService';
 import { AsyncEntry } from '@napi-rs/keyring';
 import { AiReviewService } from './services/AiReviewService';
 import { HostsRepairService } from './services/hostsRepair';
+import { GitHubProxyService, useGitHubProxy } from './services/GitHubProxyService';
 import { GITHUB_CLIENT_ID } from './services/githubAuthConfig';
 import { OpenAiReviewProvider } from './services/OpenAiReviewProvider';
 import type { DownloadTransferProgress } from './services/githubService';
@@ -13,6 +14,10 @@ import { DiscoveryRootsStore } from './git/LocalProjectDiscovery';
 import { ReleasePublishingService } from './services/releasePublishing';
 import { FallbackTranslationProvider, GoogleWebTranslationProvider, MyMemoryTranslationProvider, TranslationService } from './services/TranslationService';
 import type { TranslationRequest } from '@easyhub/types';
+import { AnalysisRuntime } from './analysis/AnalysisRuntime';
+import { analysisElectronFetch } from './analysis/analysisElectronFetch';
+import { BinaryAnalysisService } from './analysis/BinaryAnalysisService';
+import { GhidraBackend } from './analysis/GhidraBackend';
 
 let mainWindow: BrowserWindow | null = null;
 let localService: LocalProjectService;
@@ -20,6 +25,8 @@ let translationService: TranslationService;
 let releaseService: ReleasePublishingService;
 let aiReviewService: AiReviewService;
 let hostsRepairService: HostsRepairService;
+let githubProxyService: GitHubProxyService;
+let binaryAnalysisService: BinaryAnalysisService;
 const translationJobs = new Map<string, AbortController>();
 
 function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
@@ -38,7 +45,7 @@ function createWindow(): void {
     roundedCorners: true,
     thickFrame: true,
     show: false,
-    backgroundColor: '#f7f8fc',
+    backgroundColor: '#f5f7fb',
     title: 'EasyHub',
     icon: app.isPackaged
       ? join(process.resourcesPath, 'easyhub.ico')
@@ -62,7 +69,7 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   localService = new LocalProjectService(new LocalProjectStore(join(app.getPath('userData'), 'local-projects.json')),
@@ -73,17 +80,42 @@ app.whenReady().then(() => {
     new MyMemoryTranslationProvider(translateFetch), new GoogleWebTranslationProvider(translateFetch)),
   join(app.getPath('userData'), 'translations.json'));
   releaseService = new ReleasePublishingService();
+  const analysisRuntime = new AnalysisRuntime(app.getPath('userData'), { fetch: analysisElectronFetch });
+  binaryAnalysisService = new BinaryAnalysisService(join(app.getPath('userData'), 'analysis-sessions'), {
+    status: async () => { const status = await analysisRuntime.status(); return { installed: status.state === 'ready', downloadBytes: status.downloadBytes,
+      error: status.error ? '分析组件尚未准备好，请重新安装。' : undefined }; },
+    install: async (signal, progress) => { await analysisRuntime.install({ signal, onProgress: (value) => progress(value.downloadedBytes, value.totalBytes) }); },
+    analyzer: async (workspace) => {
+      const status = await analysisRuntime.status();
+      if (!status.paths) throw new Error('请先安装分析组件。');
+      const backend = new GhidraBackend({ mode: 'managed', javaPath: status.paths.javaPath, ghidraHome: status.paths.ghidraPath,
+        pluginJar: status.paths.extensionPath, workspaceRoot: workspace });
+      return { analyze: (path, signal, progress, language) => backend.analyze(path, { signal, language, maxFunctions: 16, maxStrings: 80, onProgress: (value) => progress(value.completed ?? 0, value.total ?? 0) }), stop: () => backend.stop() };
+    },
+  }, loadBinaryAnalysisFile);
   aiReviewService = new AiReviewService(new AsyncEntry('EasyHub AI API', 'default'),
-    new OpenAiReviewProvider((url, init) => net.fetch(url, init)), getPullRequestReviewContext);
+    new OpenAiReviewProvider((url, init) => net.fetch(url, init)), getPullRequestReviewContext, {
+      status: () => binaryAnalysisService.status(),
+      analyze: (input, file, signal, progress) => binaryAnalysisService.analyze({ requestId: input.requestId, language: input.language ?? 'zh',
+        source: { kind: 'pull', owner: input.owner, repo: input.repo, number: input.number, headSha: input.headSha, path: file.filename } }, (value) => {
+        const en = input.language === 'en';
+        progress(value.phase === 'preparing' ? en ? `Preparing ${file.filename}…` : `正在准备 ${file.filename}…`
+          : value.phase === 'analyzing' ? en ? `Analyzing ${file.filename}…` : `正在分析 ${file.filename}…`
+            : en ? `Analyzed ${file.filename}` : `${file.filename} 分析完成`);
+      }, signal),
+    });
   hostsRepairService = new HostsRepairService((url, init) => net.fetch(url, init),
     app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources'), app.getPath('userData'));
-  const refreshHostsIfDue = (): void => { void hostsRepairService.status().then((status) => {
-    if (status.enabled && (!status.updatedAt || Date.now() - Date.parse(status.updatedAt) > 86400000)) {
-      void hostsRepairService.refresh().then(() => session.defaultSession.clearHostResolverCache()).catch(() => undefined);
-    }
-  }).catch(() => undefined); };
-  refreshHostsIfDue();
-  setInterval(refreshHostsIfDue, 6 * 60 * 60 * 1000).unref();
+  githubProxyService = new GitHubProxyService(join(app.getPath('userData'), 'github-proxy.json'), {
+    nativeFetch: request => net.fetch(request, { bypassCustomProtocolHandlers: true }),
+    resolveProxy: url => session.defaultSession.resolveProxy(url),
+    legacyHosts: async () => (await hostsRepairService.status()).enabled,
+    closeConnections: () => session.defaultSession.closeAllConnections(),
+  });
+  await githubProxyService.initialize();
+  useGitHubProxy(githubProxyService);
+  session.defaultSession.protocol.handle('https', request => githubProxyService.fetch(request));
+  if (githubProxyService.isEnabled()) void githubProxyService.refresh();
   void localService.startWatching();
 
   ipcMain.handle('easyhub:window-minimize', (event) => {
@@ -111,24 +143,23 @@ app.whenReady().then(() => {
   ipcMain.handle('easyhub:hosts-set-enabled', async (event, enabled: unknown) => {
     assertTrustedSender(event);
     if (typeof enabled !== 'boolean') throw new Error('Hosts 修复设置无效。');
-    if (enabled) {
-      const answer = await dialog.showMessageBox(mainWindow!, {
-        type: 'warning', title: '开启 Hosts 修复', buttons: ['取消', '继续'], defaultId: 0, cancelId: 0,
-        message: '此操作会修改整台电脑的 Windows Hosts 文件。',
-        detail: 'EasyHub 会检测当前连接和备用地址，仅在备用地址可以访问 GitHub 时修改带有 EasyHub 标记的 Hosts 区块。Windows 会要求管理员授权。',
-      });
-      if (answer.response !== 1) return hostsRepairService.status();
-    }
+    if (enabled) throw new Error('请使用设置中的 GitHub 代理。');
     const status = await hostsRepairService.setEnabled(enabled);
     await session.defaultSession.clearHostResolverCache();
     return status;
   });
   ipcMain.handle('easyhub:hosts-refresh', async (event) => {
     assertTrustedSender(event);
-    const status = await hostsRepairService.refresh();
-    await session.defaultSession.clearHostResolverCache();
-    return status;
+    throw new Error('请使用设置中的 GitHub 代理。');
   });
+  ipcMain.handle('easyhub:github-proxy-status', (event) => { assertTrustedSender(event); return githubProxyService.status(); });
+  ipcMain.handle('easyhub:github-proxy-set-enabled', (event, enabled: unknown) => {
+    assertTrustedSender(event);
+    if (typeof enabled !== 'boolean') throw new Error('GitHub 代理设置无效。');
+    return githubProxyService.setEnabled(enabled);
+  });
+  ipcMain.handle('easyhub:github-proxy-refresh', (event) => { assertTrustedSender(event); return githubProxyService.refresh(); });
+  ipcMain.handle('easyhub:github-proxy-cancel', (event) => { assertTrustedSender(event); githubProxyService.cancel(); return githubProxyService.status(); });
 
   ipcMain.handle('easyhub:open-external-link', async (event, rawUrl: unknown) => {
     assertTrustedSender(event);
@@ -202,6 +233,26 @@ app.whenReady().then(() => {
     return aiReviewService.review(input, (progress) => { if (!event.sender.isDestroyed()) event.sender.send('easyhub:ai-review-progress', progress); });
   });
   ipcMain.handle('easyhub:ai-cancel-review', (event, id: unknown) => { assertTrustedSender(event); aiReviewService.cancel(id); });
+  ipcMain.handle('easyhub:binary-analysis-status', (event) => { assertTrustedSender(event); return binaryAnalysisService.status(); });
+  ipcMain.handle('easyhub:binary-analysis-install', (event, id: unknown) => {
+    assertTrustedSender(event);
+    return binaryAnalysisService.install(id, (value) => { if (!event.sender.isDestroyed()) event.sender.send('easyhub:binary-analysis-progress', value); });
+  });
+  ipcMain.handle('easyhub:binary-analysis-choose-file', async (event) => {
+    assertTrustedSender(event);
+    const result = await dialog.showOpenDialog(mainWindow!, { title: '选择要分析的程序文件', properties: ['openFile'],
+      filters: [{ name: '程序文件', extensions: ['exe', 'dll', 'sys', 'elf', 'so', 'dylib', 'bin'] }, { name: '所有文件', extensions: ['*'] }] });
+    return result.canceled || !result.filePaths[0] ? null : binaryAnalysisService.grantLocal(result.filePaths[0]);
+  });
+  ipcMain.handle('easyhub:binary-analyze', (event, input: unknown) => {
+    assertTrustedSender(event);
+    return binaryAnalysisService.analyze(input, (value) => { if (!event.sender.isDestroyed()) event.sender.send('easyhub:binary-analysis-progress', value); });
+  });
+  ipcMain.handle('easyhub:binary-analysis-cancel', (event, id: unknown) => { assertTrustedSender(event); return binaryAnalysisService.cancel(id); });
+  ipcMain.handle('easyhub:binary-ai-review', (event, input: unknown) => {
+    assertTrustedSender(event);
+    return aiReviewService.reviewBinary(input, (id) => binaryAnalysisService.evidence(id), (value) => { if (!event.sender.isDestroyed()) event.sender.send('easyhub:ai-review-progress', value); });
+  });
   ipcMain.handle('easyhub:auth-start', (event) => { assertTrustedSender(event); return startDeviceLogin(GITHUB_CLIENT_ID); });
   ipcMain.handle('easyhub:auth-start-delete', (event, owner: unknown, repo: unknown, id: unknown) => { assertTrustedSender(event); return startDeviceLogin(GITHUB_CLIENT_ID, true, { owner, repo, id } as { owner: string; repo: string; id: number }); });
   ipcMain.handle('easyhub:auth-poll', (event) => { assertTrustedSender(event); return pollDeviceLogin(); });
@@ -239,4 +290,14 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
-app.on('before-quit', () => { localService?.stopWatching(); aiReviewService?.cancelAll(); });
+
+app.on('before-quit', () => githubProxyService?.destroy());
+let analysisStoppedForQuit = false;
+app.on('before-quit', (event) => {
+  localService?.stopWatching(); aiReviewService?.cancelAll();
+  if (!analysisStoppedForQuit && binaryAnalysisService) {
+    event.preventDefault();
+    analysisStoppedForQuit = true;
+    void binaryAnalysisService.shutdown().finally(() => app.quit());
+  }
+});

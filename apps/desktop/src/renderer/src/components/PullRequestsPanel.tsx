@@ -5,6 +5,8 @@ import remarkGfm from 'remark-gfm';
 import { isEmptyAddedPullFile, type GitHubComment, type GitHubPullFile, type GitHubPullRequest, type GitHubRepo } from '@easyhub/github';
 import type { AiReviewProgress, AiReviewResult, AiSettingsStatus } from '@easyhub/types';
 import { ArrowLeft, ArrowRight, Check, Download, GitPullRequest, Plus, RotateCw, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { BinaryAnalysisEvidence } from './BinaryAnalysisPanel';
+import { isProgramFileName } from '../../../shared/programFiles';
 import { TranslatableContent } from './TranslatableContent';
 import type { Language } from '../i18n';
 import './aiReview.css';
@@ -50,24 +52,28 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   const [aiSettings, setAiSettings] = useState<AiSettingsStatus | null>(null);
   const [aiConfirm, setAiConfirm] = useState(false);
   const [aiPreparing, setAiPreparing] = useState(false);
+  const [aiCanceling, setAiCanceling] = useState(false);
   const [aiProgress, setAiProgress] = useState<AiReviewProgress | null>(null);
   const [aiReview, setAiReview] = useState<AiReviewResult | null>(null);
   const [aiError, setAiError] = useState('');
   const aiRequestId = useRef<string | null>(null);
+  const canceledAiRequestId = useRef<string | null>(null);
   const previousLanguage = useRef(language);
   const viewVersion = useRef(0);
+  const reviewVersion = useRef(0);
   const mounted = useRef(false);
   const owner = repo.owner.login;
   const t = (zh: string, en: string): string => language === 'en' ? en : zh;
   const canManage = snapshotReady && snapshotRepo !== null && !snapshotRepo.archived && (snapshotRepo.permissions?.admin === true || snapshotRepo.permissions?.push === true || snapshotRepo.owner.login.toLowerCase() === currentUser.toLowerCase());
   const hasRevision = Boolean(selected?.head.sha);
   const hasDecisionRevision = hasRevision && Boolean(selected?.base.ref && selected.base.sha);
+  const hasProgramFiles = files.some((file) => file.status !== 'removed' && !file.patch && !isEmptyAddedPullFile(file) && isProgramFileName(file.filename));
   const markdown = (value: string) => <div className="intro-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{value}</ReactMarkdown></div>;
 
   useEffect(() => {
     mounted.current = true;
     const unsubscribe = window.easyHub?.onAiReviewProgress((value) => {
-      if (value.requestId === aiRequestId.current) setAiProgress(value);
+      if (value.requestId === aiRequestId.current && value.requestId !== canceledAiRequestId.current) setAiProgress(value);
     });
     return () => {
       mounted.current = false;
@@ -79,9 +85,13 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   }, []);
 
   function resetReview(): void {
-    if (aiRequestId.current) void window.easyHub?.aiCancelReview(aiRequestId.current).catch(() => undefined);
-    aiRequestId.current = null;
-    setAiProgress(null); setAiReview(null); setAiError(''); setAiConfirm(false); setAiPreparing(false);
+    reviewVersion.current += 1;
+    const requestId = aiRequestId.current;
+    if (requestId) {
+      canceledAiRequestId.current = requestId; setAiCanceling(true);
+      void window.easyHub?.aiCancelReview(requestId).catch(() => undefined);
+    } else { setAiProgress(null); setAiCanceling(false); canceledAiRequestId.current = null; }
+    setAiReview(null); setAiError(''); setAiConfirm(false); setAiPreparing(false);
   }
 
   useEffect(() => {
@@ -181,7 +191,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
 
   async function prepareAiReview(): Promise<void> {
     if (!selected?.head.sha || !snapshotReady || aiRequestId.current || aiPreparing || busy) return;
-    if (!filesTruncated && files.length > 0 && files.every((file) => !file.patch)) {
+    if (!filesTruncated && !hasProgramFiles && files.length > 0 && files.every((file) => !file.patch)) {
       const empty = files.filter(isEmptyAddedPullFile);
       const summary = empty.length === 1 && files.length === 1
         ? t(`${empty[0]!.filename} 是新建的空文件，没有代码内容可供审查。`, `${empty[0]!.filename} is a newly added empty file. There is no code to review.`)
@@ -191,40 +201,51 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
       return;
     }
     const version = viewVersion.current;
+    const reviewGeneration = reviewVersion.current;
     setAiPreparing(true); setAiError('');
     try {
       const settings = await window.easyHub!.aiSettings();
-      if (!mounted.current || version !== viewVersion.current) return;
+      if (!mounted.current || version !== viewVersion.current || reviewGeneration !== reviewVersion.current) return;
       setAiSettings(settings);
       if (!settings.hasApiKey || !settings.model) setAiError(t('请先在设置中连接你的 AI 服务。', 'Connect your AI service in Settings first.'));
       else setAiConfirm(true);
-    } catch (cause) { if (mounted.current && version === viewVersion.current) setAiError(errorText(cause)); }
-    finally { if (mounted.current && version === viewVersion.current) setAiPreparing(false); }
+    } catch (cause) { if (mounted.current && version === viewVersion.current && reviewGeneration === reviewVersion.current) setAiError(errorText(cause)); }
+    finally { if (mounted.current && version === viewVersion.current && reviewGeneration === reviewVersion.current) setAiPreparing(false); }
   }
 
   async function startAiReview(): Promise<void> {
     if (!selected?.head.sha || !snapshotReady || !aiSettings || !aiConfirm || aiRequestId.current) return;
     const requestId = crypto.randomUUID();
     const version = viewVersion.current;
+    const reviewGeneration = reviewVersion.current;
     aiRequestId.current = requestId;
+    canceledAiRequestId.current = null; setAiCanceling(false);
     setAiConfirm(false); setAiError(''); setAiReview(null);
-    setAiProgress({ requestId, phase: '正在准备审查…', completed: 0, total: 0 });
+    setAiProgress({ requestId, phase: t('正在准备审查…', 'Preparing review…'), completed: 0, total: 0 });
     try {
       const result = await window.easyHub!.aiReviewPull({ owner, repo: repo.name, number: selected.number, headSha: selected.head.sha, requestId, consentToSend: true, providerBaseUrl: aiSettings.baseUrl, language });
-      if (!mounted.current || version !== viewVersion.current || aiRequestId.current !== requestId) return;
+      if (!mounted.current || version !== viewVersion.current || reviewGeneration !== reviewVersion.current || aiRequestId.current !== requestId || canceledAiRequestId.current === requestId) return;
       if (result.headSha !== selected.head.sha) throw new Error(t('修改内容已更新，请刷新后重新审查。', 'The changes have been updated. Refresh and review them again.'));
       setAiReview(result);
     } catch (cause) {
-      if (mounted.current && version === viewVersion.current && aiRequestId.current === requestId) setAiError(errorText(cause));
+      if (mounted.current && version === viewVersion.current && reviewGeneration === reviewVersion.current && aiRequestId.current === requestId && canceledAiRequestId.current !== requestId) setAiError(errorText(cause));
     } finally {
-      if (mounted.current && aiRequestId.current === requestId) { aiRequestId.current = null; setAiProgress(null); }
+      if (mounted.current && aiRequestId.current === requestId) {
+        if (version === viewVersion.current && reviewGeneration === reviewVersion.current && canceledAiRequestId.current === requestId) setNotice(t('已取消审查。', 'Review canceled.'));
+        aiRequestId.current = null; canceledAiRequestId.current = null; setAiProgress(null); setAiCanceling(false);
+      }
     }
   }
 
   function cancelAiReview(): void {
     const requestId = aiRequestId.current;
-    aiRequestId.current = null; setAiProgress(null);
-    if (requestId) void window.easyHub!.aiCancelReview(requestId).catch(() => undefined);
+    if (!requestId || aiCanceling) return;
+    canceledAiRequestId.current = requestId; setAiCanceling(true);
+    void window.easyHub!.aiCancelReview(requestId).catch((cause) => {
+      if (mounted.current && aiRequestId.current === requestId) {
+        canceledAiRequestId.current = null; setAiCanceling(false); setAiError(errorText(cause));
+      }
+    });
   }
 
   async function create(event: FormEvent): Promise<void> {
@@ -264,18 +285,20 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
           {!busy && files.length === 0 && <p className="muted">{t('没有可显示的文件修改。', 'There are no file changes to display.')}</p>}
         </div>
         {(aiProgress || aiReview || aiError) && <section className="ai-review-result" aria-label={t('AI 审查结果', 'AI review results')}>
-          <div className="pull-files-heading"><h3><ShieldCheck size={18} />{t('AI 审查', 'AI review')}</h3>{aiProgress && <button className="button button-quiet small-button" onClick={cancelAiReview}>{t('取消审查', 'Cancel review')}</button>}</div>
-          {aiProgress && <div className="ai-review-progress" role="status"><p><RotateCw size={16} className="live-spin" />{t('正在审查修改…', 'Reviewing changes…')}{aiProgress.total > 0 && <span>{aiProgress.completed} / {aiProgress.total}</span>}</p>{aiProgress.total > 0 && <progress value={aiProgress.completed} max={aiProgress.total} aria-label={t('审查进度', 'Review progress')} />}</div>}
+          <div className="pull-files-heading"><h3><ShieldCheck size={18} />{t('AI 审查', 'AI review')}</h3>{aiProgress && <button className="button button-quiet small-button" disabled={aiCanceling} onClick={cancelAiReview}>{aiCanceling ? t('正在取消…', 'Canceling…') : t('取消审查', 'Cancel review')}</button>}</div>
+          {aiProgress && <div className="ai-review-progress" role="status" aria-live="polite"><p><RotateCw size={16} className="live-spin" />{aiCanceling ? t('正在取消审查…', 'Canceling review…') : aiProgress.phase || t('正在审查修改…', 'Reviewing changes…')}{!aiCanceling && aiProgress.total > 0 && <span>{aiProgress.completed} / {aiProgress.total}</span>}</p><progress value={!aiCanceling && aiProgress.total > 0 ? aiProgress.completed : undefined} max={!aiCanceling && aiProgress.total > 0 ? aiProgress.total : undefined} aria-label={t('审查进度', 'Review progress')} /></div>}
           {aiError && <><p className="live-error" role="alert">{aiError}</p>{(!aiSettings?.hasApiKey || !aiSettings.model) && onOpenAiSettings && <button className="text-link" onClick={onOpenAiSettings}>{t('打开 AI 设置', 'Open AI settings')}<ArrowRight size={15} /></button>}</>}
           {aiReview && <div className="ai-review-report" data-content-original>
             <p className="ai-review-summary">{aiReview.summary}</p>
             <p className="ai-review-scope">{t(`已审查 ${aiReview.reviewedFiles} / ${aiReview.totalFiles} 个文件。结果仅供参考，请结合实际修改确认。`, `Reviewed ${aiReview.reviewedFiles} of ${aiReview.totalFiles} files. Use these suggestions together with your own review.`)}</p>
             <div className="ai-findings">{aiReview.findings.map((finding, index) => <article className="ai-finding" key={`${finding.file}:${finding.line ?? 0}:${index}`}>
-              <div className="ai-finding-heading"><span className={`ai-severity ai-severity-${finding.severity}`}>{finding.severity === 'high' ? t('高风险', 'High risk') : finding.severity === 'medium' ? t('需要留意', 'Needs attention') : t('建议', 'Suggestion')}</span><code>{finding.file}{finding.line !== undefined ? `:${finding.line}` : ''}</code></div>
+              <div className="ai-finding-heading"><span className={`ai-severity ai-severity-${finding.severity}`}>{finding.severity === 'high' ? t('高风险', 'High risk') : finding.severity === 'medium' ? t('需要留意', 'Needs attention') : t('建议', 'Suggestion')}</span><code>{finding.file}{finding.address ? ` @ ${finding.address}` : finding.line !== undefined ? `:${finding.line}` : ''}</code>{finding.analysisId && <span className="ai-review-scope">{t('当前程序内容', 'Current program content')}</span>}</div>
               <p>{finding.description}</p><p className="ai-finding-suggestion"><strong>{t('建议：', 'Suggestion: ')}</strong>{finding.suggestion}</p>
             </article>)}</div>
             {aiReview.findings.length === 0 && <p className="ai-no-findings">{t('本次审查没有提出具体问题。', 'This review did not report specific issues.')}</p>}
             {aiReview.limitations.length > 0 && <div className="ai-limitations"><strong>{t('本次审查范围', 'Review coverage')}</strong><ul>{aiReview.limitations.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
+            {aiReview.binaryAnalyses?.map(({ file, analysis }) => <BinaryAnalysisEvidence key={analysis.id} analysis={analysis} fileLabel={file} language={language} />)}
+            {hasProgramFiles && onOpenAiSettings && <button className="text-link" onClick={onOpenAiSettings}>{t('管理程序文件审查组件', 'Manage program review components')}<ArrowRight size={15} /></button>}
           </div>}
         </section>}
       </div>
@@ -301,6 +324,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
       <button type="button" className="icon-button modal-close" aria-label={t('关闭', 'Close')} onClick={() => setAiConfirm(false)}><X size={19} /></button>
       <div className="modal-symbol"><Sparkles size={25} /></div><h2 id="ai-consent-title">{t('使用 AI 审查这次改进？', 'Use AI to review these changes?')}</h2>
       <p>{t('将向你配置的 AI 服务发送这次改进的标题、描述、文件名和修改内容。', 'The title, description, file names, and changes will be sent to your configured AI service.')}</p>
+      {hasProgramFiles && <p>{t('程序文件将先在本机提取内容，再一起交给 AI 审查；会发送文件信息、提取的函数代码、导入项和文本片段。只读取文件，不运行程序。', 'Program content is extracted locally and included in this AI review. File information, extracted function code, imports, and text excerpts are sent. Files are read without running the program.')}</p>}
       <dl className="ai-consent-service"><div><dt>{t('服务地址', 'Service address')}</dt><dd data-content-original>{aiSettings.baseUrl}</dd></div><div><dt>{t('模型名称', 'Model name')}</dt><dd data-content-original>{aiSettings.model}</dd></div><div><dt>{t('项目', 'Project')}</dt><dd data-content-original>{repo.full_name}</dd></div></dl>
       {repo.private && <p className="ai-private-notice">{t('这是私有项目。请确认你愿意将本次修改内容发送给此服务。', 'This project is private. Confirm that you want to send these changes to this service.')}</p>}
       <p>{t('服务商可能收取费用。审查结果仅在 EasyHub 中展示，是否合入由你决定。', 'Your provider may charge for this request. The review is shown in EasyHub, and you decide whether to merge.')}</p>

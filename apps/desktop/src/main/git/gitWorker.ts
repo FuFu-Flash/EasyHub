@@ -2,11 +2,12 @@ import { parentPort, workerData } from 'node:worker_threads';
 import { GitEngine, GitEngineError } from './GitEngine';
 import type { GitAuthor, GitProgress, GitRepository } from './GitEngine';
 import type { SyncDecision } from '@easyhub/types';
+import type { OriginRule } from '../services/githubProxyOrigin';
 
-interface WorkItem { action: 'inspect' | 'status' | 'create' | 'download' | 'publish' | 'check-sync' | 'sync'; path: string; repo?: GitRepository; author?: GitAuthor; token?: string; message?: string; proxy?: string; revision?: string; decisions?: SyncDecision[] }
+interface WorkItem { action: 'inspect' | 'status' | 'create' | 'download' | 'publish' | 'check-sync' | 'sync'; path: string; repo?: GitRepository; author?: GitAuthor; token?: string; message?: string; proxy?: string; githubRules?: Record<string, OriginRule>; revision?: string; decisions?: SyncDecision[] }
 
 const task = workerData as WorkItem;
-const engine = new GitEngine(task.proxy);
+const engine = new GitEngine(task.proxy, task.githubRules);
 const progress = (value: GitProgress): void => { parentPort?.postMessage({ type: 'progress', value }); };
 
 async function run(): Promise<unknown> {

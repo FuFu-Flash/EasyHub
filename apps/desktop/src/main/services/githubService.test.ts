@@ -14,12 +14,56 @@ vi.mock('electron', () => ({ dialog: { showSaveDialog: desktop.save, showMessage
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); vault.password = undefined; });
 
+describe('binary analysis snapshots', () => {
+  it('downloads the pinned file from a verified contributor snapshot', async () => {
+    vi.resetModules();
+    vault.password = JSON.stringify({ clientId: 'test_client', accessToken: 'test-token' });
+    const headSha = 'a'.repeat(40);
+    const blobSha = 'b'.repeat(40);
+    const repository = { id: 11, name: 'app', owner: { login: 'owner' } };
+    const pull = { number: 4, head: { sha: headSha, repo: { name: 'copy', owner: { login: 'contributor' } } }, base: { sha: 'c'.repeat(40), ref: 'main', repo: repository }, changed_files: 1 };
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL) => {
+      const url = String(input); calls.push(url);
+      if (url.endsWith('/repos/owner/app')) return Response.json(repository);
+      if (url.endsWith('/pulls/4')) return Response.json(pull);
+      if (url.includes('/pulls/4/files?')) return Response.json([{ filename: 'bin/tool.exe', status: 'added', sha: blobSha }]);
+      if (url.endsWith(`/repos/contributor/copy/git/blobs/${blobSha}`)) return new Response('MZbinary');
+      throw new Error('unexpected request');
+    }));
+    const { loadBinaryAnalysisFile } = await import('./githubService');
+    const result = await loadBinaryAnalysisFile({ kind: 'pull', owner: 'owner', repo: 'app', number: 4, headSha, path: 'bin/tool.exe' }, new AbortController().signal);
+    expect(result.name).toBe('tool.exe'); expect(result.gitSha).toBe(blobSha);
+    expect(await result.response.text()).toBe('MZbinary');
+    expect(calls.at(-1)).toContain('/contributor/copy/git/blobs/');
+    await expect(loadBinaryAnalysisFile({ kind: 'pull', owner: 'owner', repo: 'app', number: 4, headSha: 'd'.repeat(40), path: 'bin/tool.exe' }, new AbortController().signal)).rejects.toThrow('新修改');
+  });
+
+  it('validates release identity and size before obtaining the download body', async () => {
+    vi.resetModules();
+    vault.password = JSON.stringify({ clientId: 'test_client', accessToken: 'test-token' });
+    const sha256 = 'd'.repeat(64);
+    let size = 1024;
+    const fetcher = vi.fn(async (_input: string | URL, init?: RequestInit) => init?.headers && new Headers(init.headers).get('Accept') === 'application/octet-stream'
+      ? new Response('MZsample') : Response.json({ id: 7, name: 'tool.exe', state: 'uploaded', size, digest: `sha256:${sha256}` }));
+    vi.stubGlobal('fetch', fetcher);
+    const { loadBinaryAnalysisFile } = await import('./githubService');
+    const source = { kind: 'release', owner: 'owner', repo: 'app', assetId: 7, name: 'tool.exe' } as const;
+    const file = await loadBinaryAnalysisFile(source, new AbortController().signal);
+    expect(file).toMatchObject({ size: 1024, sha256 }); expect(fetcher).toHaveBeenCalledTimes(2);
+    await expect(loadBinaryAnalysisFile({ ...source, name: 'other.exe' }, new AbortController().signal)).rejects.toThrow('已经改变');
+    size = 129 * 1024 * 1024;
+    await expect(loadBinaryAnalysisFile(source, new AbortController().signal)).rejects.toThrow('128 MB');
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+});
+
 describe('GitHub device authorization', () => {
   it('explains a blocked login POST without leaking a raw network error', async () => {
     vi.resetModules();
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('net::ERR_CONNECTION_RESET'); }));
     const service = await import('./githubService');
-    await expect(service.startDeviceLogin('Ov23lixRW8K0uXzZqwMj')).rejects.toThrow('仅修改 Hosts 无法解决');
+    await expect(service.startDeviceLogin('Ov23lixRW8K0uXzZqwMj')).rejects.toThrow('设置中开启 GitHub 代理');
   });
 
   it('keeps starring requests behind validated IPC actions', async () => {

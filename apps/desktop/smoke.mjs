@@ -142,11 +142,11 @@ try {
   await assertEnglish('Settings');
   const settingsOrder = await page.locator('.settings-stack > *').evaluateAll((panels) => panels.map((panel) => panel.querySelector('h2')?.textContent?.trim()));
   assert.deepEqual(settingsOrder.slice(0, 3), ['Account & Connection', 'Window Controls', 'AI API Access']);
-  assert.equal(settingsOrder.at(-2), 'Hosts repair');
+  assert.equal(settingsOrder.at(-2), 'GitHub proxy');
   assert.equal(settingsOrder.at(-1), 'About EasyHub');
   assert.equal(settingsOrder.includes('Data & Sync'), false);
-  await page.getByText('Check login and project connections before changing any addresses.').waitFor();
-  await page.getByRole('switch', { name: 'Hosts repair' }).waitFor();
+  await page.getByText('Only applies to EasyHub. Other apps keep their network settings.').waitFor();
+  await page.getByRole('switch', { name: 'GitHub proxy' }).waitFor();
   await page.getByText('GNU GPLv3').waitFor();
   await page.screenshot({ path: 'out/settings-english-smoke.png' });
   await page.getByRole('button', { name: 'Choose language' }).click();
@@ -387,7 +387,7 @@ try {
   await page.getByText('已添加 0 个项目；1 个此前已添加。').waitFor();
   await page.screenshot({ path: 'out/local-discovery-smoke.png' });
   await page.locator('.topbar-search input').fill('https://github.com/demo-user/CloudDemo');
-  await page.locator('.topbar-search input').press('Enter');
+  await page.locator('.discover-search input').press('Enter');
   await page.locator('.detail-hero').getByRole('heading', { name: 'CloudDemo' }).waitFor();
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
   await page.getByRole('button', { name: '所有公开项目' }).click();
@@ -443,7 +443,7 @@ try {
   await page.screenshot({ path: 'out/live-project-smoke.png' });
   for (const name of ['Home', 'My Projects', 'Issues', 'Settings']) { await page.locator('.sidebar-nav').getByRole('button', { name }).click(); assert.deepEqual(await untranslatedLive(), [], `Untranslated text in English live ${name}`); }
   const liveSettingsOrder = await page.locator('.settings-stack > *').evaluateAll((panels) => panels.map((panel) => panel.querySelector('h2')?.textContent?.trim()));
-  assert.equal(liveSettingsOrder.at(-2), 'Hosts repair');
+  assert.equal(liveSettingsOrder.at(-2), 'GitHub proxy');
   assert.equal(liveSettingsOrder.at(-1), 'About EasyHub');
   assert.equal(liveSettingsOrder.includes('Data & Sync'), false);
   await page.locator('.sidebar-nav').getByRole('button', { name: 'Home' }).click();

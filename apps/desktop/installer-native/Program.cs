@@ -2,12 +2,14 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
@@ -24,9 +26,9 @@ namespace EasyHubInstaller
             {
                 var application = new Application();
                 var window = new InstallerWindow();
-                if (args.Length == 2 && args[0] == "--screenshot")
+                if (args.Length == 2 && (args[0] == "--screenshot" || args[0] == "--screenshot-progress"))
                 {
-                    window.SaveScreenshot(args[1]);
+                    window.SaveScreenshot(args[1], args[0] == "--screenshot-progress");
                     return 0;
                 }
                 application.Run(window);
@@ -48,6 +50,7 @@ namespace EasyHubInstaller
         private static readonly Brush Blue = ColorBrush("#287AF0");
         private static readonly Brush PaleBlue = ColorBrush("#EAF3FF");
         private readonly Canvas root = new Canvas();
+        private readonly Border shell = new Border();
         private readonly Canvas form = new Canvas();
         private readonly Canvas progress = new Canvas();
         private readonly Canvas done = new Canvas();
@@ -62,6 +65,23 @@ namespace EasyHubInstaller
         private string chosenPath = "";
         private bool shortcutChecked = true;
         private bool installing;
+        private bool useCornerRegion;
+        private TranslateTransform progressTransform;
+        private DoubleAnimationUsingKeyFrames progressAnimation;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativeRect { public int Left, Top, Right, Bottom; }
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr window, out NativeRect bounds);
+        [DllImport("user32.dll")]
+        private static extern int SetWindowRgn(IntPtr window, IntPtr region, bool redraw);
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateRoundRectRgn(int left, int top, int right, int bottom, int width, int height);
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteObject(IntPtr value);
 
         internal InstallerWindow()
         {
@@ -71,6 +91,8 @@ namespace EasyHubInstaller
             MinHeight = 620;
             ResizeMode = ResizeMode.NoResize;
             WindowStyle = WindowStyle.None;
+            Cursor = Cursors.Arrow;
+            ForceCursor = true;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Background = Brushes.White;
             Title = "安装 EasyHub";
@@ -80,7 +102,38 @@ namespace EasyHubInstaller
             previousPath = PreviousPath();
             Icon = EmbeddedIcon();
             BuildWindow();
+            SourceInitialized += (sender, args) =>
+            {
+                var handle = new WindowInteropHelper(this).Handle;
+                var preference = 2; // DWMWCP_ROUND: the same system corner style as the app.
+                try { useCornerRegion = DwmSetWindowAttribute(handle, 33, ref preference, sizeof(int)) < 0; }
+                catch (DllNotFoundException) { useCornerRegion = true; }
+                catch (EntryPointNotFoundException) { useCornerRegion = true; }
+                UpdateCornerRegion();
+                HwndSource.FromHwnd(handle).AddHook((IntPtr window, int message, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+                {
+                    if (useCornerRegion && message == 0x02E0) // WM_DPICHANGED
+                        Dispatcher.BeginInvoke(new Action(UpdateCornerRegion));
+                    return IntPtr.Zero;
+                });
+            };
+            SizeChanged += (sender, args) => UpdateCornerRegion();
             Closing += (sender, eventArgs) => { if (installing) eventArgs.Cancel = true; };
+        }
+
+        private void UpdateCornerRegion()
+        {
+            if (!useCornerRegion || WindowState == WindowState.Minimized) return;
+            var handle = new WindowInteropHelper(this).Handle;
+            NativeRect bounds;
+            if (handle == IntPtr.Zero || !GetWindowRect(handle, out bounds)) return;
+            var source = PresentationSource.FromVisual(this);
+            var scale = source == null || source.CompositionTarget == null ? 1 : source.CompositionTarget.TransformToDevice.M11;
+            var diameter = (int)Math.Round(16 * scale);
+            var region = CreateRoundRectRgn(0, 0, bounds.Right - bounds.Left + 1,
+                bounds.Bottom - bounds.Top + 1, diameter, diameter);
+            // Windows takes ownership on success. Release the region only if applying it fails.
+            if (region != IntPtr.Zero && SetWindowRgn(handle, region, true) == 0) DeleteObject(region);
         }
 
         private static Brush ColorBrush(string hex)
@@ -127,7 +180,7 @@ namespace EasyHubInstaller
             var button = new Button { Width = width, Height = height, Content = label,
                 Background = ColorBrush(background), Foreground = ColorBrush(foreground),
                 FontFamily = new FontFamily("Microsoft YaHei UI"), FontWeight = FontWeights.SemiBold,
-                FontSize = size, BorderThickness = new Thickness(0), Cursor = Cursors.Hand };
+                FontSize = size, BorderThickness = new Thickness(0), Cursor = Cursors.Arrow };
             var border = new FrameworkElementFactory(typeof(Border));
             border.SetValue(Border.CornerRadiusProperty, new CornerRadius(10));
             border.SetBinding(Border.BackgroundProperty, new Binding("Background") { RelativeSource = RelativeSource.TemplatedParent });
@@ -141,12 +194,19 @@ namespace EasyHubInstaller
 
         private void BuildWindow()
         {
-            var shell = new Border { Width = 900, Height = 620, BorderThickness = new Thickness(1),
-                BorderBrush = ColorBrush("#D6E2F3"), Child = root, Background = Brushes.White };
+            shell.Width = 900;
+            shell.Height = 620;
+            shell.BorderThickness = new Thickness(1);
+            shell.BorderBrush = ColorBrush("#D6E2F3");
+            shell.CornerRadius = new CornerRadius(8);
+            shell.Clip = new RectangleGeometry(new Rect(0, 0, 900, 620), 8, 8);
+            shell.Child = root;
+            shell.Background = Brushes.White;
             Content = shell;
             root.Width = 898;
             root.Height = 618;
             root.Background = Brushes.White;
+            root.Clip = new RectangleGeometry(new Rect(0, 0, 898, 618), 7, 7);
             BuildHeader();
             BuildIllustration();
             BuildForm();
@@ -253,7 +313,7 @@ namespace EasyHubInstaller
             shortcutBox.BorderThickness = new Thickness(1);
             shortcutBox.BorderBrush = ColorBrush("#A9C9F3");
             shortcutBox.Background = ColorBrush("#FBFDFF");
-            shortcutBox.Cursor = Cursors.Hand;
+            shortcutBox.Cursor = Cursors.Arrow;
             shortcutBox.Focusable = true;
             var shortcutContent = new Canvas { Width = 420, Height = 70 };
             shortcutBox.Child = shortcutContent;
@@ -315,14 +375,21 @@ namespace EasyHubInstaller
             progressText.TextAlignment = TextAlignment.Center;
             progressText.Width = 422;
             Add(progress, progressText, 54, 333);
-            Add(progress, Panel(422, 8, "#E9F0FA", 4), 54, 394);
-            var indicator = Add(progress, Panel(120, 8, "#287AF0", 4), 54, 394);
-            var animation = new DoubleAnimation(0, 302, TimeSpan.FromSeconds(1.7));
-            animation.AutoReverse = true;
-            animation.RepeatBehavior = RepeatBehavior.Forever;
-            var transform = new TranslateTransform();
-            indicator.RenderTransform = transform;
-            transform.BeginAnimation(TranslateTransform.XProperty, animation);
+            // Match the original Web installer: 35% fill, clipped capsule and CSS ease-in-out.
+            const double trackWidth = 422;
+            const double indicatorWidth = trackWidth * 0.35;
+            var track = Add(progress, Panel(trackWidth, 8, "#E9F0FA", 4), 54, 394);
+            var trackContent = new Canvas { Width = trackWidth, Height = 8,
+                Clip = new RectangleGeometry(new Rect(0, 0, trackWidth, 8), 4, 4) };
+            track.Child = trackContent;
+            var indicator = Add(trackContent, Panel(indicatorWidth, 8, "#287AF0", 4), 0, 0);
+            progressTransform = new TranslateTransform((trackWidth - indicatorWidth) / 2, 0);
+            indicator.RenderTransform = progressTransform;
+            progressAnimation = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromSeconds(1.7),
+                AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever };
+            progressAnimation.KeyFrames.Add(new DiscreteDoubleKeyFrame(-0.6 * indicatorWidth, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+            progressAnimation.KeyFrames.Add(new SplineDoubleKeyFrame(2.45 * indicatorWidth,
+                KeyTime.FromTimeSpan(TimeSpan.FromSeconds(1.7)), new KeySpline(0.42, 0, 0.58, 1)));
             Add(progress, Text("安装期间请保持窗口打开。", 11,
                 ColorBrush("#A0ACC0"), FontWeights.Normal, 300), 163, 438);
         }
@@ -401,6 +468,7 @@ namespace EasyHubInstaller
             ShowError("");
             form.Visibility = Visibility.Collapsed;
             progress.Visibility = Visibility.Visible;
+            progressTransform.BeginAnimation(TranslateTransform.XProperty, progressAnimation);
             try
             {
                 progressText.Text = "正在准备安装文件…";
@@ -417,7 +485,11 @@ namespace EasyHubInstaller
                 form.Visibility = Visibility.Visible;
                 ShowError("安装没有完成，请检查磁盘空间或安装位置后重试。");
             }
-            finally { installing = false; }
+            finally
+            {
+                progressTransform.BeginAnimation(TranslateTransform.XProperty, null);
+                installing = false;
+            }
         }
 
         private void ShowError(string message)
@@ -506,13 +578,18 @@ namespace EasyHubInstaller
             return Path.Combine(full, "EasyHub");
         }
 
-        internal void SaveScreenshot(string filename)
+        internal void SaveScreenshot(string filename, bool showProgress)
         {
-            root.Measure(new Size(898, 618));
-            root.Arrange(new Rect(0, 0, 898, 618));
-            root.UpdateLayout();
-            var bitmap = new RenderTargetBitmap(898, 618, 96, 96, PixelFormats.Pbgra32);
-            bitmap.Render(root);
+            if (showProgress)
+            {
+                form.Visibility = Visibility.Collapsed;
+                progress.Visibility = Visibility.Visible;
+            }
+            shell.Measure(new Size(900, 620));
+            shell.Arrange(new Rect(0, 0, 900, 620));
+            shell.UpdateLayout();
+            var bitmap = new RenderTargetBitmap(900, 620, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(shell);
             var encoder = new PngBitmapEncoder();
             encoder.Frames.Add(BitmapFrame.Create(bitmap));
             using (var file = new FileStream(filename, FileMode.Create, FileAccess.Write)) encoder.Save(file);

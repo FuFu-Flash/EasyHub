@@ -56,6 +56,7 @@ try {
   await page.getByRole('link', { name: 'Releases' }).click();
   await page.getByRole('heading', { name: '下载发行版或源码' }).waitFor();
   await page.getByText('README 提到的版本').waitFor();
+  await page.getByTestId('release-downloads').getByRole('button', { name: '展开完整说明', exact: true }).first().click();
   const ownRelease = page.locator('.release-download-card .translatable-content').first();
   await page.getByRole('button', { name: '开启翻译' }).click();
   await ownRelease.getByText('译文：Release notes for testers.', { exact: false }).waitFor();

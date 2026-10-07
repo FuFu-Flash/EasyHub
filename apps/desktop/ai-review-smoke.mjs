@@ -13,16 +13,28 @@ try {
     const owned = { id: 901, name: 'owned-repo', full_name: 'test-owner/owned-repo', description: 'Review example', private: false, archived: false, permissions: { admin: true, push: true, pull: true }, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'test-owner' }, open_issues_count: 0 };
     const external = { ...owned, id: 902, name: 'external-repo', full_name: 'someone/external-repo', owner: { login: 'someone' }, permissions: { admin: false, push: false, pull: true } };
     let release = { id: 77, tag_name: 'v1.0.0', name: 'Original release', body: 'Original notes', draft: false, prerelease: false, published_at: new Date().toISOString(), assets: [{ id: 88, name: 'old-file.zip', label: null, size: 12, content_type: 'application/zip', download_count: 0, state: 'uploaded' }] };
-    const requests = [1, 2, 3, 4, 5].map((number) => ({ id: 100 + number, number, title: ['Improve validation', 'Remove obsolete option', 'Updated by author', 'Missing target version', 'Trojan test'][number - 1], body: 'Please review these changes.', state: 'open', draft: false, merged: false, merged_at: null, created_at: new Date().toISOString(), html_url: `https://github.com/test-owner/owned-repo/pull/${number}`, user: { login: 'contributor' }, comments: 0, changed_files: number === 5 ? 1 : 2, head: { ref: 'improvement', label: 'contributor:improvement', sha: String(number).repeat(40) }, base: { ref: 'main', ...(number === 4 ? {} : { sha: 'a'.repeat(40) }) } }));
+    const requests = [1, 2, 3, 4, 5, 6, 7].map((number) => ({ id: 100 + number, number, title: ['Improve validation', 'Remove obsolete option', 'Updated by author', 'Missing target version', 'Trojan test', 'Mixed program and text', 'Program only'][number - 1], body: 'Please review these changes.', state: 'open', draft: false, merged: false, merged_at: null, created_at: new Date().toISOString(), html_url: `https://github.com/test-owner/owned-repo/pull/${number}`, user: { login: 'contributor' }, comments: 0, changed_files: number === 5 || number === 7 ? 1 : 2, head: { ref: 'improvement', label: 'contributor:improvement', sha: String(number).repeat(40) }, base: { ref: 'main', ...(number === 4 ? {} : { sha: 'a'.repeat(40) }) } }));
+    let emptyAddedName = 'python.py';
+    globalThis.setEmptyProgramFixture = (enabled) => { emptyAddedName = enabled ? 'empty.exe' : 'python.py'; };
+    const filesFor = (number) => number === 5 ? [{ filename: emptyAddedName, status: 'added', additions: 0, deletions: 0, sha: 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391' }]
+      : number === 7 ? [{ filename: 'bin/helper.dll', status: 'added', additions: 0, deletions: 0, sha: 'c'.repeat(40) }]
+      : number === 6 ? [{ filename: 'src/validation.ts', status: 'modified', additions: 1, deletions: 0, patch: '@@ -1 +1 @@\n+validateInput()' }, { filename: 'bin/helper.dll', status: 'added', additions: 0, deletions: 0, sha: 'c'.repeat(40) }]
+      : [{ filename: 'src/validation.ts', status: 'modified', additions: 4, deletions: 1, patch: '@@ -1 +1 @@\n-old()\n+new()' }, { filename: 'old-option.txt', status: 'removed', additions: 0, deletions: 8, patch: '@@ -1 +0,0 @@\n-old option' }];
     const handledRequest = { ...requests[0], id: 199, number: 9, title: 'Already handled', state: 'closed', merged_at: new Date().toISOString() };
     const providers = { openai: 'https://api.openai.com/v1', deepseek: 'https://api.deepseek.com', openrouter: 'https://openrouter.ai/api/v1', siliconflow: 'https://api.siliconflow.cn/v1' };
     let aiSettings = { providerId: 'openai', baseUrl: providers.openai, model: 'gpt-4.1-mini', hasApiKey: false };
     let aiSlow = false;
-    globalThis.easyhubAiSmoke = { saves: [], tests: 0, reviews: [], downloads: [], decisions: [], cancels: [], releaseEdits: [], releaseAdds: [], releaseRemovals: [] };
+    globalThis.easyhubAiSmoke = { saves: [], tests: 0, reviews: [], downloads: [], decisions: [], cancels: [], releaseEdits: [], releaseAdds: [], releaseRemovals: [], directProgramCalls: 0 };
+    globalThis.setAiReviewSlow = (value) => { aiSlow = value; };
     const handle = (channel, callback) => { ipcMain.removeHandler(channel); ipcMain.handle(channel, callback); };
     handle('easyhub:auth-status', () => ({ user: { login: 'test-owner', name: 'Owner', avatar_url: '', html_url: '' }, clientId: 'test-client' }));
     handle('easyhub:local-list', () => []);
     handle('easyhub:local-discovery-roots', () => []);
+    handle('easyhub:binary-analysis-status', () => ({ installed: true, state: 'ready', engineVersion: '12.1.2' }));
+    for (const channel of ['easyhub:binary-analyze', 'easyhub:binary-ai-review']) handle(channel, () => {
+      globalThis.easyhubAiSmoke.directProgramCalls += 1;
+      throw new Error('A PR review must use the combined ai-review-pull IPC, not separate program actions.');
+    });
     handle('easyhub:release-choose-files', () => [{ id: '00000000-0000-0000-0000-000000000001', name: 'new-file.zip', size: 24, mimeType: 'application/zip' }]);
     handle('easyhub:release-edit', (_event, input) => { globalThis.easyhubAiSmoke.releaseEdits.push(input); release = { ...release, name: input.title, body: input.body, prerelease: input.prerelease }; return release; });
     handle('easyhub:release-add-assets', (_event, input) => { globalThis.easyhubAiSmoke.releaseAdds.push(input); release = { ...release, assets: [...release.assets, { id: 89, name: 'new-file.zip', label: null, size: 24, content_type: 'application/zip', download_count: 0, state: 'uploaded' }] }; return release; });
@@ -34,9 +46,18 @@ try {
     handle('easyhub:ai-cancel-review', (_event, id) => { globalThis.easyhubAiSmoke.cancels.push(id); });
     handle('easyhub:ai-review-pull', async (event, input) => {
       globalThis.easyhubAiSmoke.reviews.push(input);
+      const slow = aiSlow;
       event.sender.send('easyhub:ai-review-progress', { requestId: input.requestId, phase: 'reviewing', completed: 1, total: 2 });
-      await new Promise((resolve) => setTimeout(resolve, aiSlow ? 2200 : 300));
-      return { headSha: input.headSha, summary: aiSlow ? 'This cancelled review must stay hidden.' : 'Input validation needs one additional check.', reviewedFiles: 1, totalFiles: 2, findings: [{ severity: 'medium', file: 'src/validation.ts', line: 8, description: 'Empty strings currently pass validation.', suggestion: 'Trim the value and check its length.' }], limitations: ['The deleted file was not reviewed.'] };
+      await new Promise((resolve) => setTimeout(resolve, slow ? 2200 : 300));
+      if (input.number === 6 || input.number === 7) {
+        const analysisId = 'program-analysis-' + input.requestId;
+        const analysis = { id: analysisId, fileName: 'helper.dll', size: 4096, sha256: 'd'.repeat(64), format: 'Portable Executable (PE)', architecture: 'x86:LE:64:default', functionCount: 3,
+          functions: [{ name: 'entry', address: '00401000', code: 'int entry(void) { return 0; }' }], imports: ['KERNEL32.dll:CreateFileW'], strings: ['configuration'], summary: 'Three program functions were extracted.', limitations: ['The program was not run.'] };
+        const programFinding = { severity: 'medium', file: 'bin/helper.dll', address: '00401000', analysisId, description: 'Program input path needs validation.', suggestion: 'Inspect the extracted entry function.' };
+        return { headSha: input.headSha, summary: slow ? 'This cancelled review must stay hidden.' : input.language === 'en' ? 'The program and available text were reviewed together.' : '已统一审查程序文件及可用文本修改。', reviewedFiles: input.number === 6 ? 2 : 1, totalFiles: input.number === 6 ? 2 : 1,
+          findings: input.number === 6 ? [{ severity: 'medium', file: 'src/validation.ts', line: 8, description: 'Empty strings currently pass validation.', suggestion: 'Trim the value.' }, programFinding] : [programFinding], limitations: ['The program was not run.'], binaryAnalyses: [{ file: 'bin/helper.dll', analysis }] };
+      }
+      return { headSha: input.headSha, summary: slow ? 'This cancelled review must stay hidden.' : 'Input validation needs one additional check.', reviewedFiles: 1, totalFiles: 2, findings: [{ severity: 'medium', file: 'src/validation.ts', line: 8, description: 'Empty strings currently pass validation.', suggestion: 'Trim the value and check its length.' }], limitations: ['The deleted file was not reviewed.'] };
     });
     handle('easyhub:download-pull-file', async (event, ...args) => {
       globalThis.easyhubAiSmoke.downloads.push(args);
@@ -46,7 +67,7 @@ try {
     });
     handle('easyhub:github', (_event, action, ...args) => {
       if (action === 'repos') return [owned];
-      if (action === 'activityCounts') return { 901: { issues: 0, closedIssues: 0, pullRequests: 5, closedPullRequests: 1 } };
+      if (action === 'activityCounts') return { 901: { issues: 0, closedIssues: 0, pullRequests: 7, closedPullRequests: 1 } };
       if (action === 'readme') return '<p align="center"><img src="https://raw.githubusercontent.com/FuFu-Flash/EasyHub/main/apps/desktop/src/renderer/src/assets/easyhub-icon.svg" alt="EasyHub" width="72" height="72"></p>\n\n<h1 align="center">Review example</h1>\n\n| Version | Download |\n| --- | --- |\n| 1.2.0 | [Get it](https://github.com/FuFu-Flash/EasyHub/releases) |\n\nThe next paragraph.';
       if (action === 'releases') return args[0] === 'test-owner' ? [release] : [];
       if (action === 'issues' || action === 'commits' || action === 'comments') return [];
@@ -54,8 +75,8 @@ try {
       if (action === 'pullRequests') return requests;
       if (action === 'pullRequestsPage') return args[2] === 'open' ? requests.filter((request) => request.state === 'open') : [handledRequest];
       if (action === 'pullRequest') return requests.find((request) => request.number === args[2]);
-      if (action === 'pullReviewContext') return { repository: args[0] === 'someone' ? external : owned, pullRequest: requests.find((request) => request.number === args[2]), filesTruncated: false, files: args[2] === 5 ? [{ filename: 'python.py', status: 'added', additions: 0, deletions: 0, sha: 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391' }] : [{ filename: 'src/validation.ts', status: 'modified', additions: 4, deletions: 1, patch: '@@ -1 +1 @@\n-old()\n+new()' }, { filename: 'old-option.txt', status: 'removed', additions: 0, deletions: 8, patch: '@@ -1 +0,0 @@\n-old option' }] };
-      if (action === 'pullFiles') return [{ filename: 'src/validation.ts', status: 'modified', additions: 4, deletions: 1 }, { filename: 'old-option.txt', status: 'removed', additions: 0, deletions: 8 }];
+      if (action === 'pullReviewContext') return { repository: args[0] === 'someone' ? external : owned, pullRequest: requests.find((request) => request.number === args[2]), filesTruncated: false, files: filesFor(args[2]) };
+      if (action === 'pullFiles') return filesFor(args[2]);
       if (action === 'publicRepo' || action === 'repository') { aiSlow = true; return external; }
       if (action === 'acceptPullRequest' || action === 'rejectPullRequest') {
         globalThis.easyhubAiSmoke.decisions.push({ action, args });
@@ -69,6 +90,9 @@ try {
     });
   });
   const page = await app.firstWindow();
+  page.setDefaultTimeout(15_000);
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.evaluate(() => { localStorage.setItem('easyhub:language', 'zh'); localStorage.removeItem('easyhub:auto-translate'); });
   await page.reload();
   await page.locator('.live-connected').waitFor();
@@ -170,6 +194,71 @@ try {
   assert.equal(overflow, false, 'Review panel must fit a narrow window');
   await page.screenshot({ path: 'out/ai-review-smoke.png' });
   await page.setViewportSize({ width: 1440, height: 900 });
+  // Mixed and program-only changes use the same consent and AI review entry.
+  await pulls.getByRole('button', { name: '返回改进请求' }).click();
+  await pulls.getByRole('button').filter({ hasText: 'Mixed program and text' }).click();
+  await pulls.getByText('bin/helper.dll', { exact: true }).waitFor();
+  assert.equal(await pulls.getByRole('button', { name: /分析程序文件|Analyze program file/ }).count(), 0);
+  assert.equal(await pulls.getByRole('button', { name: 'AI 审查', exact: true }).count(), 1);
+  const mixedBefore = await app.evaluate(() => globalThis.easyhubAiSmoke.reviews.length);
+  await pulls.getByRole('button', { name: 'AI 审查', exact: true }).click();
+  await consent.getByText(/提取.*程序|程序.*提取/).waitFor();
+  assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.reviews.length), mixedBefore);
+  await consent.getByRole('button', { name: '同意并开始审查' }).click();
+  const combined = pulls.getByRole('region', { name: 'AI 审查结果', exact: true });
+  await combined.getByText('已统一审查程序文件及可用文本修改。', { exact: true }).waitFor();
+  assert.equal(await combined.count(), 1);
+  await combined.getByText('bin/helper.dll @ 00401000', { exact: true }).waitFor();
+  await combined.getByText('src/validation.ts:8', { exact: true }).waitFor();
+  await combined.getByText('程序文件提取证据 · bin/helper.dll', { exact: true }).click();
+  assert.ok((await combined.locator('.binary-functions pre code').allTextContents()).some(code => code.includes('int entry(void)')));
+  assert.equal(await page.getByRole('dialog').count(), 0, 'PR program review must not request a second consent');
+  const mixedInput = await app.evaluate(() => globalThis.easyhubAiSmoke.reviews.at(-1));
+  assert.equal(mixedInput.number, 6);
+  assert.equal(mixedInput.headSha, '6'.repeat(40));
+  assert.equal(mixedInput.consentToSend, true);
+  assert.equal(mixedInput.providerBaseUrl, 'https://api.deepseek.com');
+  assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.directProgramCalls), 0);
+  await page.setViewportSize({ width: 950, height: 800 });
+  assert.equal(await pulls.evaluate(element => element.scrollWidth <= element.clientWidth + 1), true);
+  await combined.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'out/ai-review-mixed-program-zh.png' });
+  await page.locator('.language-trigger').click();
+  await page.getByRole('button', { name: 'English', exact: true }).click();
+  await pulls.getByRole('button', { name: 'AI review', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Use AI to review these changes?', exact: true }).getByRole('button', { name: 'Agree and start review', exact: true }).click();
+  const englishCombined = pulls.getByRole('region', { name: 'AI review results', exact: true });
+  await englishCombined.getByText('The program and available text were reviewed together.', { exact: true }).waitFor();
+  assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.reviews.at(-1).language), 'en');
+  assert.equal(await pulls.evaluate(element => element.scrollWidth <= element.clientWidth + 1), true);
+  await englishCombined.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'out/ai-review-mixed-program-en.png' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator('.language-trigger').click();
+  await page.getByRole('button', { name: '中文', exact: true }).click();
+  await pulls.getByRole('button', { name: '返回改进请求' }).click();
+  await pulls.getByRole('button').filter({ hasText: 'Program only' }).click();
+  await pulls.getByText('bin/helper.dll', { exact: true }).waitFor();
+  const programBefore = await app.evaluate(() => globalThis.easyhubAiSmoke.reviews.length);
+  await pulls.getByRole('button', { name: 'AI 审查', exact: true }).click();
+  await consent.getByRole('button', { name: '同意并开始审查' }).click();
+  await combined.getByText('已统一审查程序文件及可用文本修改。', { exact: true }).waitFor();
+  assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.reviews.length), programBefore + 1, 'A nonempty program without a text patch must invoke AI review');
+  assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.reviews.at(-1).number), 7);
+  await combined.getByText('bin/helper.dll @ 00401000', { exact: true }).waitFor();
+  // Cancellation remains locked until the pending unified review settles.
+  await app.evaluate(() => globalThis.setAiReviewSlow(true));
+  await pulls.getByRole('button', { name: 'AI 审查', exact: true }).click();
+  await consent.getByRole('button', { name: '同意并开始审查' }).click();
+  await pulls.getByRole('button', { name: '取消审查', exact: true }).click();
+  assert.equal(await pulls.getByRole('button', { name: '正在取消…', exact: true }).isDisabled(), true);
+  assert.equal(await pulls.getByRole('button', { name: 'AI 审查', exact: true }).isDisabled(), true);
+  await pulls.getByText('已取消审查。', { exact: true }).waitFor();
+  assert.equal(await pulls.getByText('This cancelled review must stay hidden.').count(), 0);
+  await app.evaluate(() => globalThis.setAiReviewSlow(false));
+  await pulls.getByRole('button', { name: '返回改进请求' }).click();
+  await pulls.getByRole('button').filter({ hasText: 'Improve validation' }).click();
+  await pulls.getByText('src/validation.ts', { exact: true }).waitFor();
   await pulls.getByRole('button', { name: '批准并合入', exact: true }).click();
   assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.decisions.length), 0);
   await page.getByRole('dialog', { name: '批准并合入这次改进？' }).getByRole('button', { name: '确认批准并合入' }).click();
@@ -216,28 +305,39 @@ try {
   await pulls.getByText('python.py 是新建的空文件，没有代码内容可供审查。').waitFor();
   assert.equal(await consent.count(), 0);
   assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.reviews.length), priorReviews);
+  await app.evaluate(() => globalThis.setEmptyProgramFixture(true));
+  await pulls.getByRole('button', { name: '返回改进请求' }).click();
+  await pulls.getByRole('button').filter({ hasText: 'Trojan test' }).click();
+  await pulls.getByText('empty.exe', { exact: true }).waitFor();
+  await pulls.getByRole('button', { name: 'AI 审查', exact: true }).click();
+  await pulls.getByText('empty.exe 是新建的空文件，没有代码内容可供审查。').waitFor();
+  assert.equal(await consent.count(), 0, 'An empty added exe must not prompt for program transmission');
+  assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.reviews.length), priorReviews);
+  assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.directProgramCalls), 0);
+  await app.evaluate(() => globalThis.setEmptyProgramFixture(false));
 
   await page.locator('.topbar-search input').fill('https://github.com/someone/external-repo');
-  await page.locator('.topbar-search input').press('Enter');
+  await page.locator('.discover-search input').press('Enter');
   const publicBrowser = page.getByTestId('public-project-browser');
   await publicBrowser.getByRole('button', { name: /^改进请求/ }).click();
   await pulls.getByRole('button').filter({ hasText: 'Updated by author' }).click();
   await pulls.getByText('src/validation.ts', { exact: true }).waitFor();
   assert.equal(await pulls.getByRole('button', { name: '批准并合入', exact: true }).count(), 0);
   assert.equal(await pulls.getByRole('button', { name: '拒绝', exact: true }).count(), 0);
+  const priorCancels = await app.evaluate(() => globalThis.easyhubAiSmoke.cancels.length);
   await pulls.getByRole('button', { name: 'AI 审查', exact: true }).click();
   await consent.getByRole('button', { name: '同意并开始审查' }).click();
   await pulls.getByRole('button', { name: '取消审查' }).click();
   await page.waitForTimeout(2300);
   assert.equal(await pulls.getByText('This cancelled review must stay hidden.').count(), 0);
-  assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.cancels.length), 1);
+  assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.cancels.length), priorCancels + 1);
   await page.locator('.topbar-search input').fill('');
   await page.locator('.sidebar-nav').getByRole('button', { name: '问题', exact: true }).click();
   assert.equal(await page.getByRole('button', { name: '提出问题', exact: true }).count(), 0);
   await page.getByRole('tab', { name: '问题 0' }).waitFor();
   assert.equal(await page.getByRole('button', { name: '审阅改进请求' }).count(), 0);
-  await page.getByRole('tab', { name: '代码提交审查 5' }).click();
-  await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByText('5 个待审查的改进请求').waitFor();
+  await page.getByRole('tab', { name: '代码提交审查 7' }).click();
+  await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByText('7 个待审查的改进请求').waitFor();
   await page.screenshot({ path: 'out/issues-reviews-smoke.png' });
   await page.setViewportSize({ width: 800, height: 760 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'Review overview should fit a narrow window');
@@ -246,12 +346,12 @@ try {
   await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByRole('button', { name: /Trojan test/ }).waitFor();
   await page.getByRole('button', { name: '已处理', exact: true }).click();
   await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByRole('button', { name: /Already handled/ }).waitFor();
-  await page.getByRole('button', { name: /待审查 5/ }).click();
+  await page.getByRole('button', { name: /待审查 7/ }).click();
   await page.getByRole('tab', { name: '问题 0' }).click();
   const issueGroup = page.locator('.issue-project-group').filter({ hasText: 'owned-repo' });
-  if (await issueGroup.getByRole('button', { name: /owned-repo/ }).getAttribute('aria-expanded') !== 'true') await issueGroup.getByRole('button', { name: /owned-repo/ }).click();
+  if (await issueGroup.count() && await issueGroup.getByRole('button', { name: /owned-repo/ }).getAttribute('aria-expanded') !== 'true') await issueGroup.getByRole('button', { name: /owned-repo/ }).click();
   assert.equal(await issueGroup.getByRole('button', { name: '审阅改进请求' }).count(), 0);
-  await page.getByRole('tab', { name: '代码提交审查 5' }).click();
+  await page.getByRole('tab', { name: '代码提交审查 7' }).click();
   await page.locator('.issue-project-header').filter({ hasText: 'owned-repo' }).click();
   await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByRole('button', { name: /Trojan test/ }).click();
   await pulls.getByText('python.py').waitFor();
@@ -261,10 +361,10 @@ try {
   await page.getByRole('button', { name: /我的云端项目/ }).click();
   await page.locator('.cloud-row').filter({ hasText: 'owned-repo' }).getByRole('button', { name: '查看', exact: true }).click();
   await page.getByRole('button', { name: '查看问题' }).click();
-  await page.getByRole('tab', { name: '代码提交审查 5' }).click();
+  await page.getByRole('tab', { name: '代码提交审查 7' }).click();
   await pulls.getByRole('button').filter({ hasText: 'Trojan test' }).waitFor();
   await page.getByRole('tab', { name: '问题 0' }).click();
-  await page.getByRole('tab', { name: '代码提交审查 5' }).waitFor();
+  await page.getByRole('tab', { name: '代码提交审查 7' }).waitFor();
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目', exact: true }).click();
   await page.getByRole('button', { name: /我的云端项目/ }).click();
   await page.locator('.cloud-row').filter({ hasText: 'owned-repo' }).getByRole('button', { name: '查看', exact: true }).click();
@@ -287,5 +387,6 @@ try {
   assert.equal(releaseOps.releaseEdits[0].releaseId, 77);
   assert.equal(releaseOps.releaseAdds[0].assetIds.length, 1);
   assert.equal(releaseOps.releaseRemovals[0].assetId, 88);
-  process.stdout.write('AI review, approval, rejection, file download, cancellation, empty-file reporting, and Issues-to-review navigation smoke tests passed.\n');
+  assert.deepEqual(pageErrors, []);
+  process.stdout.write('Unified AI review of text/mixed/program-only PRs, address-linked evidence, single consent, Chinese/English/narrow reports, cancellation, empty-file reporting and existing review navigation smoke tests passed.\n');
 } finally { await app.close(); }

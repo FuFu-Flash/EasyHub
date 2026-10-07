@@ -190,7 +190,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
     } else onOpenLink(url);
   }
 
-  if (tab === 'downloads') return <div className="public-browser" data-testid="public-project-browser"><ReleaseDownloads repo={repo} focusTag={focusTag} offerAdd onDownload={onDownload} downloadBusy={downloadBusy} onBack={() => setTab('intro')} /></div>;
+  if (tab === 'downloads') return <div className="public-browser" data-testid="public-project-browser"><ReleaseDownloads repo={repo} language={language} focusTag={focusTag} offerAdd onDownload={onDownload} downloadBusy={downloadBusy} onBack={() => setTab('intro')} /></div>;
   if (tab === 'issues' && selectedIssue) return <div className="public-issue-page" data-testid="public-project-browser">
     <button className="back-link" onClick={() => setSelectedIssue(null)}><ArrowLeft size={16} />返回问题</button>
     {error && <div className="live-error" role="alert">{error}</div>}
