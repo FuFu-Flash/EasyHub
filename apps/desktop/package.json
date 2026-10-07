@@ -1,6 +1,6 @@
 {
   "name": "@easyhub/desktop",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "license": "GPL-3.0-only",
   "description": "EasyHub Windows desktop application",
@@ -21,6 +21,7 @@
     "test:discovery-navigation": "node discovery-navigation-smoke.mjs",
     "test:responsive-ui": "node responsive-download-smoke.mjs",
     "test:local-introduction-ui": "node local-introduction-smoke.mjs",
+    "test:readme-editor-ui": "node readme-editor-smoke.mjs",
     "test:release-downloads-ui": "node release-downloads-smoke.mjs",
     "test:v2-live-ui": "node v2-live-regression-smoke.mjs",
     "test:notifications-ui": "node notifications-cursor-smoke.mjs",

@@ -1,0 +1,58 @@
+.intro-modal.intro-modal-split {
+  width: min(1180px, 100%);
+}
+
+.intro-editor-layout,
+.intro-editor-source,
+.intro-editor-live-preview {
+  min-width: 0;
+}
+
+.intro-editor-layout.is-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 12px 0;
+}
+
+.intro-editor-layout.is-split .intro-editor-source,
+.intro-editor-live-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.intro-editor-live-preview > span {
+  color: #4c4d65;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.intro-editor-layout.is-split .intro-editor-source textarea,
+.intro-editor-live-preview .intro-editor-preview {
+  height: 360px;
+  min-height: 270px;
+  max-height: 48vh;
+  overflow: auto;
+}
+
+.intro-editor-layout.is-split .intro-editor-source textarea {
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.intro-editor-live-preview .intro-editor-preview {
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .intro-editor-layout.is-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .intro-editor-tabs {
+    flex-wrap: wrap;
+  }
+}
