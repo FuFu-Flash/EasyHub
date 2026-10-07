@@ -180,6 +180,73 @@ try {
     assert.equal(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth + 1), true, 'Editor must not overflow horizontally');
     await page.screenshot({ path: join(output, `${packaged ? 'packaged' : 'dev'}-${width}.png`) });
   }
+  const responsiveMeasurements = [];
+  const measureResponsiveEditor = async (width, height, state = 'editing') => {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const measurement = await dialog.evaluate((element) => {
+      const rectangle = (target) => {
+        const box = target.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height, right: box.right, bottom: box.bottom };
+      };
+      const save = element.querySelector('.modal-actions .button-primary');
+      const saveBox = rectangle(save);
+      const saveTarget = document.elementFromPoint(saveBox.x + saveBox.width / 2, saveBox.y + saveBox.height / 2);
+      return {
+        viewport: { width: innerWidth, height: innerHeight },
+        dialog: rectangle(element),
+        body: rectangle(element.querySelector('.intro-editor-body')),
+        source: rectangle(element.querySelector('.intro-editor-source textarea')),
+        preview: rectangle(element.querySelector('.intro-editor-live-preview .intro-editor-preview')),
+        footer: rectangle(element.querySelector('.modal-actions')),
+        sourcePane: rectangle(element.querySelector('.intro-editor-source')),
+        previewPane: rectangle(element.querySelector('.intro-editor-live-preview')),
+        horizontalOverflow: element.scrollWidth > element.clientWidth + 1,
+        pageHorizontalOverflow: document.documentElement.scrollWidth > innerWidth + 1,
+        saveReachable: save === saveTarget || save.contains(saveTarget),
+      };
+    });
+    measurement.state = state;
+    responsiveMeasurements.push(measurement);
+    assert.equal(await dialog.getByRole('textbox', { name: '项目介绍内容' }).inputValue(), edited, 'Resizing the editor must preserve its draft');
+    await preview.getByRole('heading', { name: 'Live HTML preview updated' }).waitFor();
+    await page.screenshot({ path: join(output, `${packaged ? 'packaged' : 'dev'}-${width}x${height}-${state}.png`) });
+    return measurement;
+  };
+  const wideShort = await measureResponsiveEditor(1400, 750);
+  const wideTall = await measureResponsiveEditor(1400, 1100);
+  await measureResponsiveEditor(1060, 700);
+  await measureResponsiveEditor(900, 600);
+  await measureResponsiveEditor(700, 600);
+  await dialog.getByRole('button', { name: '添加图片', exact: true }).click();
+  await measureResponsiveEditor(900, 600, 'image-form');
+  await dialog.getByRole('button', { name: '取消插入', exact: true }).click();
+  await dialog.getByRole('button', { name: '添加链接', exact: true }).click();
+  await measureResponsiveEditor(700, 600, 'link-form');
+  await dialog.getByRole('button', { name: '取消插入', exact: true }).click();
+  await writeFile(join(output, `${packaged ? 'packaged' : 'dev'}-responsive-measurements.json`), `${JSON.stringify(responsiveMeasurements, null, 2)}\n`);
+  const responsiveFailures = [];
+  const responsiveCheck = (condition, message) => { if (!condition) responsiveFailures.push(message); };
+  responsiveCheck(wideTall.source.height > wideShort.source.height + 80, `The editing area must grow with window height: ${wideShort.source.height}px at 750px tall, ${wideTall.source.height}px at 1100px tall`);
+  responsiveCheck(wideTall.preview.height > wideShort.preview.height + 80, `The preview must grow with window height: ${wideShort.preview.height}px at 750px tall, ${wideTall.preview.height}px at 1100px tall`);
+  for (const measurement of responsiveMeasurements) {
+    const context = `${measurement.viewport.width}x${measurement.viewport.height} (${measurement.state})`;
+    responsiveCheck(measurement.dialog.x >= -1 && measurement.dialog.right <= measurement.viewport.width + 1, `Dialog must fit window width at ${context}`);
+    responsiveCheck(measurement.dialog.y >= -1 && measurement.dialog.bottom <= measurement.viewport.height + 1, `Dialog must fit window height at ${context}`);
+    responsiveCheck(measurement.footer.y >= measurement.dialog.y && measurement.footer.bottom <= measurement.viewport.height + 1, `Save and cancel actions must stay inside the window at ${context}`);
+    responsiveCheck(measurement.saveReachable, `The save button must remain reachable at ${context}`);
+    responsiveCheck(!measurement.horizontalOverflow && !measurement.pageHorizontalOverflow, `Resizing must not introduce horizontal page overflow at ${context}`);
+    responsiveCheck(measurement.source.height >= 70 && measurement.preview.height >= 70, `Editing and preview must retain usable content areas at ${context}`);
+    if (measurement.state === 'editing') {
+      responsiveCheck(measurement.source.y >= measurement.body.y - 1 && measurement.source.bottom <= measurement.body.bottom + 1, `The whole editing area must fit above the footer at ${context}`);
+      responsiveCheck(measurement.preview.y >= measurement.body.y - 1 && measurement.preview.bottom <= measurement.body.bottom + 1, `The whole preview area must fit above the footer at ${context}`);
+    }
+    if (measurement.viewport.width > 760) {
+      responsiveCheck(measurement.previewPane.x >= measurement.sourcePane.right - 1, `Wide windows must keep editor and preview side by side at ${context}`);
+      responsiveCheck(Math.abs(measurement.source.y - measurement.preview.y) < 2 && Math.abs(measurement.source.height - measurement.preview.height) < 2, `Editor and preview must share their alignment and available height at ${context}`);
+    } else responsiveCheck(measurement.previewPane.y >= measurement.sourcePane.bottom - 1, `Narrow windows must stack editor and preview at ${context}`);
+  }
+  assert.deepEqual(responsiveFailures, [], `README live preview must adapt as the window is resized:\n${responsiveFailures.join('\n')}`);
   await dialog.getByRole('button', { name: '取消', exact: true }).click();
   assert.equal(await readFile(join(folder, 'README.md'), 'utf8'), original, 'Cancel must preserve the README');
   await page.setViewportSize({ width: 1400, height: 900 });
