@@ -6,6 +6,7 @@ import { join, sep } from 'node:path';
 import { createServer } from 'node:http';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
+import { installDownloadFixture } from './download-fixture.mjs';
 
 const packaged = process.argv.includes('--packaged');
 const imageServer = createServer((_request, response) => {
@@ -145,7 +146,7 @@ try {
   await page.locator('.sidebar-nav').getByRole('button', { name: 'Settings' }).click();
   await assertEnglish('Settings');
   const settingsOrder = await page.locator('.settings-stack > *').evaluateAll((panels) => panels.map((panel) => panel.querySelector('h2')?.textContent?.trim()));
-  assert.deepEqual(settingsOrder.slice(0, 3), ['Account & Connection', 'Window Controls', 'AI API Access']);
+  assert.deepEqual(settingsOrder.slice(0, 4), ['Account & Connection', 'Window Controls', 'Interface layout', 'AI API Access']);
   assert.equal(settingsOrder.at(-2), 'GitHub system proxy');
   assert.equal(settingsOrder.at(-1), 'About EasyHub');
   assert.equal(settingsOrder.includes('Data & Sync'), false);
@@ -339,6 +340,7 @@ try {
       if (action === 'setStarred') { publicStarred = args[2]; return undefined; }
       if (action === 'activityCounts') return { 101: { issues: issueState === 'open' ? 1 : 0, closedIssues: issueState === 'closed' ? 1 : 0, pullRequests: 0, closedPullRequests: 0 }, 103: { issues: 0, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 }, 104: { issues: 0, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 } };
       if (action === 'searchPublicRepos') return args[0] === 'Public' ? [publicRepo] : [];
+      if (action === 'searchPublicReposPage') return { items: args[0] === 'Public' ? [publicRepo] : [], page: args[1], totalCount: args[0] === 'Public' ? 1 : 0, hasNextPage: false, incompleteResults: false };
       if (action === 'readme') return '# CloudDemo\n\nThis is a GitHub introduction.';
       if (action === 'issues') return [{ ...issue, state: issueState }];
       if (action === 'issuesPage') return { items: [{ ...issue, state: issueState }], nextPage: null };
@@ -453,22 +455,28 @@ try {
   await page.locator('.sidebar-nav').getByRole('button', { name: 'Home' }).click();
   await page.getByRole('button', { name: 'Download from GitHub' }).click();
   assert.deepEqual(await untranslatedLive(), [], 'Untranslated text in English local projects');
-  await app.evaluate(({ ipcMain }) => {
+  await app.evaluate(({ ipcMain }, folder) => {
     let link = null;
     let published = false;
     let localIntroduction = '# CloudDemo\n\nLocal introduction.';
     const replace = (name, handler) => { ipcMain.removeHandler(`easyhub:${name}`); ipcMain.handle(`easyhub:${name}`, handler); };
+    replace('choose-folder', () => folder);
     replace('local-list', () => link ? [link] : []);
     replace('local-inspect', (_event, path) => ({ path, state: 'new' }));
     replace('local-create', (_event, path, name) => { link = { id: 'local-1', repositoryId: 999, owner: 'demo-user', name, localPath: path, lastOpenedAt: new Date().toISOString() }; return link; });
     replace('local-status', () => ({ files: published ? [] : [{ path: 'src/main.ts', kind: 'modified' }], needsReview: false }));
+    replace('local-preview-changes', () => ({ snapshot: 'c'.repeat(64), files: published ? [] : [{ path: 'src/main.ts', kind: 'modified' }], needsReview: false }));
     replace('local-check-sync', () => ({ state: 'current', changedFiles: 0, files: [] }));
     replace('local-sync', () => ({ updated: 0 }));
-    replace('local-publish', () => { published = true; return { changed: 1 }; });
+    replace('local-publish', (_event, _id, _message, selection) => {
+      if (selection?.snapshot !== 'c'.repeat(64) || selection.paths.length !== 1 || selection.paths[0] !== 'src/main.ts') throw new Error('Expected the reviewed file selection');
+      published = true; return { changed: 1 };
+    });
     replace('local-download', (_event, owner, name, parent) => { link = { id: 'local-2', repositoryId: 101, owner, name, localPath: `${parent}\\${name}`, lastOpenedAt: new Date().toISOString() }; return link; });
     replace('local-read-introduction', () => localIntroduction);
     replace('local-save-introduction', (_event, _id, expected, content) => { if (expected !== localIntroduction) throw new Error('Introduction changed'); localIntroduction = content; });
-  });
+  }, selectedFolder);
+  await installDownloadFixture(app, ['easyhub:choose-folder', 'easyhub:local-download']);
   await page.evaluate(() => window.localStorage.setItem('easyhub:language', 'zh'));
   await page.reload();
   await page.locator('.live-connected').waitFor();
@@ -480,7 +488,7 @@ try {
   await page.getByText('LocalDemo 创建成功，文件已发布到 GitHub。').waitFor();
   await page.getByRole('button', { name: '发布源码' }).click();
   await page.getByRole('textbox', { name: '这次改了什么？' }).fill('修复窗口缩放问题');
-  await page.getByRole('button', { name: '发布更新' }).click();
+  await page.getByRole('button', { name: '发布选中的文件' }).click();
   await page.getByText('发布成功，1 个文件已保存到 GitHub。').waitFor();
   await app.evaluate(({ ipcMain }) => {
     globalThis.syncSmokeDecisions = null;

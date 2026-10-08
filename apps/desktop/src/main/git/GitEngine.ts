@@ -6,11 +6,12 @@ import type { OriginRule } from '../services/githubProxyOrigin';
 import fs from 'node:fs';
 import { chmod, lstat, mkdir, readFile, realpath, stat, writeFile, rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
-import type { ChangedFile, SyncDecision, SyncFileReview, SyncPreview } from '@easyhub/types';
+import type { ChangedFile, LocalPublishSelection, LocalPublishPreview, LocalFileDiff, SyncDecision, SyncFileReview, SyncPreview } from '@easyhub/types';
+import { commitSelectedChanges, fileDifference, pendingPublication, snapshotChanges } from './LocalChanges';
 
 export interface GitProgress { phase: string; loaded?: number; total?: number; cancelable?: boolean }
 export interface GitProjectInfo { root: string; isGit: boolean; owner?: string; repo?: string; branch?: string }
-export interface GitProjectStatus { files: ChangedFile[]; head: string | null; hasPreparedChanges: boolean }
+export interface GitProjectStatus { files: ChangedFile[]; head: string | null; hasPreparedChanges: boolean; pendingPublish?: boolean; pendingMessage?: string }
 export interface GitRepository { owner: string; name: string; defaultBranch: string }
 export interface GitAuthor { name: string; email: string }
 
@@ -45,6 +46,8 @@ async function incompleteSyncPath(dir: string): Promise<string> {
   throw new GitEngineError('unsupported', '这个项目的本地保存方式暂时无法安全同步。');
 }
 async function ensureSyncComplete(dir: string): Promise<void> {
+  try { await lstat(join(dir, '.git', 'easyhub-publish-incomplete')); throw new GitEngineError('unsupported', '上次本地版本保存没有完成。为保护文件，请先备份项目并检查后再发布。'); }
+  catch (error) { if (!(typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT')) throw error; }
   try { await lstat(await incompleteSyncPath(dir)); }
   catch (error) { if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') return; throw error; }
   throw new GitEngineError('unsupported', '上次获取最新内容没有完成。为保护本地文件，EasyHub 已暂停这个项目的发布。请先备份文件夹并检查内容。');
@@ -113,7 +116,9 @@ export class GitEngine {
   async getStatus(dir: string, onProgress?: (value: GitProgress) => void): Promise<GitProjectStatus> {
     onProgress?.({ phase: '正在检查文件' });
     const tracked = new Set(await git.listFiles({ fs, dir }));
-    const rows = await git.statusMatrix({ fs, dir, ignored: false, refresh: true, filter: (path) => tracked.has(path) || !isOmitted(path) });
+    // Status and previews must stay read-only so terminating a scan cannot
+    // interrupt an index rewrite, or interfere with another tool's staging.
+    const rows = await git.statusMatrix({ fs, dir, ignored: false, refresh: false, filter: (path) => tracked.has(path) || !isOmitted(path) });
     const changed: ChangedFile[] = [];
     let hasPreparedChanges = false;
     const headOid = await currentHead(dir);
@@ -138,7 +143,27 @@ export class GitEngine {
       changed.push({ path, kind: head === 0 ? 'added' : workdir === 0 ? 'deleted' : 'modified' });
     }
     if (headOid && changed.length > 1) await this.detectRenames(dir, headOid, changed);
-    return { files: changed, head: headOid, hasPreparedChanges };
+    const pending = await pendingPublication(dir, headOid);
+    let ahead = false;
+    if (headOid && !pending) {
+      try {
+        const branch = await git.currentBranch({ fs, dir });
+        const remote = await git.resolveRef({ fs, dir, ref: `refs/remotes/origin/${branch}` });
+        ahead = remote !== headOid && await git.isDescendent({ fs, dir, oid: headOid, ancestor: remote });
+      } catch { /* A newly created project may not yet have a remote snapshot. */ }
+    }
+    return { files: changed, head: headOid, hasPreparedChanges, pendingPublish: Boolean(pending) || ahead, pendingMessage: pending?.message };
+  }
+
+  async getPublishPreview(dir: string, onProgress?: (value: GitProgress) => void): Promise<LocalPublishPreview> {
+    await ensureSyncComplete(dir);
+    return (await snapshotChanges(dir, await this.getStatus(dir, onProgress))).preview;
+  }
+
+  async getFileDiff(dir: string, path: string, expectedSnapshot: string, onProgress?: (value: GitProgress) => void): Promise<LocalFileDiff> {
+    const snapshot = await snapshotChanges(dir, await this.getStatus(dir, onProgress));
+    if (snapshot.preview.snapshot !== expectedSnapshot) throw new GitEngineError('invalid', '文件在你查看后又发生了变化，请刷新修改列表后重新选择。');
+    return fileDifference(dir, snapshot, path);
   }
 
   private async detectRenames(dir: string, head: string, files: ChangedFile[]): Promise<void> {
@@ -189,9 +214,56 @@ export class GitEngine {
     return { path: destination };
   }
 
-  async publishUpdate(dir: string, repo: GitRepository, author: GitAuthor, token: string, message: string, onProgress?: (value: GitProgress) => void): Promise<{ head: string; changed: number }> {
+  async publishUpdate(dir: string, repo: GitRepository, author: GitAuthor, token: string, message: string, onProgress?: (value: GitProgress) => void, selection?: LocalPublishSelection): Promise<{ head: string; changed: number }> {
     if (!message.trim() || message.length > 200) throw new GitEngineError('invalid', '请用一句话说明这次修改。');
+    if (selection) return this.publishSelected(dir, repo, author, token, message.trim(), selection, onProgress);
     return this.publishInternal(dir, repo, author, token, message.trim(), false, onProgress);
+  }
+
+  private async publishSelected(dir: string, repo: GitRepository, author: GitAuthor, token: string, message: string, selection: LocalPublishSelection, onProgress?: (value: GitProgress) => void): Promise<{ head: string; changed: number }> {
+    await ensureSyncComplete(dir);
+    if (await git.currentBranch({ fs, dir }) !== repo.defaultBranch) throw new GitEngineError('unsupported', '这个项目正在使用其他工作版本，暂时无法自动发布。');
+    const rescan = async () => {
+      const snapshot = await snapshotChanges(dir, await this.getStatus(dir));
+      if (snapshot.branch !== repo.defaultBranch) throw new GitEngineError('invalid', '当前工作版本发生了变化，请重新打开项目并检查要发布的文件。');
+      return snapshot;
+    };
+    const current = await rescan();
+    if (current.preview.needsReview) throw new GitEngineError('unsupported', '这个文件夹有其他工具准备的修改，请先在该工具中完成或取消。');
+    const pending = await pendingPublication(dir, current.head);
+    const retryPending = pending && selection.snapshot === pending.snapshot && JSON.stringify(selection.paths) === JSON.stringify(pending.paths);
+    if (current.preview.snapshot !== selection.snapshot && !retryPending) throw new GitEngineError('invalid', '文件在你查看后又发生了变化，请刷新修改列表后重新选择。');
+    let remoteHead = await this.fetchRemote(dir, repo, token, onProgress);
+    const push = async (head: string): Promise<void> => {
+      onProgress?.({ phase: '正在发布到 GitHub', cancelable: false });
+      const result = await git.push({ fs, http: this.http, dir, url: repositoryUrl(repo), remote: 'origin', ref: head, remoteRef: `refs/heads/${repo.defaultBranch}`, force: false,
+        onAuth: () => auth(token), onProgress: (event) => onProgress?.({ phase: '正在发布到 GitHub', loaded: event.loaded, total: event.total, cancelable: false }) });
+      if (!result.ok || result.error || Object.values(result.refs).some((value) => !value.ok)) throw new GitEngineError('remoteChanged', 'GitHub 没有接受这次发布，请检查项目权限和最新内容后重试。');
+      await rm(join(dir, '.git', 'easyhub-publish-pending.json'), { force: true });
+    };
+    if (pending) {
+      // A failed upload has already created a safe local version. Retry that exact
+      // version before considering additional selected changes; never create it twice.
+      try { await push(pending.head); }
+      catch { throw new GitEngineError('remoteChanged', '本地保存的版本还没有上传成功。请检查网络后重试发布，文件会继续保留。'); }
+      remoteHead = pending.head;
+      return { head: pending.head, changed: pending.paths.length };
+    }
+    if (remoteHead && remoteHead !== current.head) {
+      if (current.head && await git.isDescendent({ fs, dir, oid: current.head, ancestor: remoteHead })) {
+        try { await push(current.head); remoteHead = current.head; }
+        catch { throw new GitEngineError('remoteChanged', '本地还有已保存但未上传的版本，请检查网络后重试发布。'); }
+      } else throw new GitEngineError('remoteChanged', 'GitHub 上有新内容，请先获取最新，再重新查看并选择本次发布的文件。');
+    }
+    if (selection.paths.length === 0 && current.head) {
+      if (!remoteHead) await push(current.head);
+      return { head: current.head, changed: 0 };
+    }
+    onProgress?.({ phase: '正在保存选中的修改', cancelable: false });
+    const result = await commitSelectedChanges(dir, author, message, selection, rescan);
+    try { await push(result.head); }
+    catch { throw new GitEngineError('remoteChanged', '选中的修改已安全保存到本地，但还没有上传成功。请点击“重试发布”，未选文件仍保留在电脑上。'); }
+    return result;
   }
 
   private async fetchRemote(dir: string, repo: GitRepository, token: string, onProgress?: (value: GitProgress) => void): Promise<string | null> {

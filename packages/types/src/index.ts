@@ -109,6 +109,21 @@ export interface LocalProjectLink {
 export interface LocalProjectStatus {
   files: ChangedFile[];
   needsReview: boolean;
+  pendingPublish?: boolean;
+  pendingMessage?: string;
+}
+
+export interface LocalPublishPreview extends LocalProjectStatus { snapshot: string }
+export interface LocalPublishSelection { snapshot: string; paths: string[] }
+export interface LocalDiffLine { kind: 'context' | 'added' | 'deleted'; text: string; before?: number; after?: number }
+export interface LocalFileDiff {
+  path: string;
+  previousPath?: string;
+  kind: ChangedFileKind;
+  lines: LocalDiffLine[];
+  additions: number;
+  deletions: number;
+  unavailable?: 'binary' | 'large' | 'unsupported';
 }
 
 export interface SyncFileReview {
@@ -194,6 +209,18 @@ export interface AiReviewResult {
   binaryAnalyses?: { file: string; analysis: BinaryAnalysisResult }[];
 }
 export interface AiReviewProgress { requestId: string; phase: string; completed: number; total: number }
+export type AiCodeExplanationSource =
+  | { kind: 'pull'; owner: string; repo: string; number: number; headSha: string; path: string }
+  | { kind: 'local'; projectId: string; snapshot: string; path: string };
+export interface AiCodeExplanationRequest {
+  requestId: string;
+  source: AiCodeExplanationSource;
+  text: string;
+  language: 'zh' | 'en';
+  providerBaseUrl: string;
+  consentToSend: true;
+}
+export interface AiCodeExplanationResult { explanation: string; model: string }
 
 export type BinaryAnalysisSource =
   | { kind: 'local'; fileId: string; name: string; size: number }

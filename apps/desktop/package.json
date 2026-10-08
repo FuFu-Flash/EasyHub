@@ -1,6 +1,6 @@
 {
   "name": "@easyhub/desktop",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "license": "GPL-3.0-only",
   "description": "EasyHub Windows desktop application",
@@ -22,6 +22,13 @@
     "test:responsive-ui": "node responsive-download-smoke.mjs",
     "test:local-introduction-ui": "node local-introduction-smoke.mjs",
     "test:readme-editor-ui": "node readme-editor-smoke.mjs",
+    "test:layout-ui": "node layout-preferences-smoke.mjs",
+    "test:common-workflows": "node common-workflows-smoke.mjs",
+    "test:issue-workspace": "node issue-workspace-smoke.mjs",
+    "test:discussion-links": "node pull-discussion-links-smoke.mjs",
+    "test:discussion-pagination": "node discussion-pagination-smoke.mjs",
+    "test:app-update-drafts": "node app-update-drafts-smoke.mjs",
+    "test:managed-downloads": "node managed-downloads-smoke.mjs",
     "test:release-downloads-ui": "node release-downloads-smoke.mjs",
     "test:v2-live-ui": "node v2-live-regression-smoke.mjs",
     "test:notifications-ui": "node notifications-cursor-smoke.mjs",
@@ -39,7 +46,10 @@
     "test:installer-ui": "node installer-native-smoke.mjs",
     "icons": "node generate-icons.mjs",
     "build": "electron-vite build",
-    "package:win": "node package-win.mjs"
+    "package:win": "node package-win.mjs",
+    "test:pull-review-tools": "node pull-review-tools-smoke.mjs",
+    "test:local-publish-selection": "node local-publish-selection-smoke.mjs",
+    "test:code-explanation": "node code-explanation-smoke.mjs"
   },
   "dependencies": {
     "@easyhub/github": "workspace:*",

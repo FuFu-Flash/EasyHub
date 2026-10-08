@@ -1,10 +1,12 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import type { CreateReleaseInput, PickedReleaseFile, Project, ReleaseAsset, ReleaseChannel, ReleaseProgress } from '@easyhub/types';
 import { ArrowLeft, ArrowRight, FilePlus2, ImagePlus, Info, Link2, Plus, Trash2 } from 'lucide-react';
 import type { Language } from '../i18n';
 import { MAX_RELEASE_ASSET_SIZE, MAX_RELEASE_ASSETS, nextReleaseTag, validateReleaseAssets, validateReleaseInput } from '../stores/releaseStore';
 import { formatFileSize, ReleasePreview } from './ReleasePreview';
+import { createDraftKey, readDraft, writeDraft } from '../draftStore';
+import { parseReleaseDraft } from '../releaseDraft';
 
 type MediaDialog = 'link' | 'image' | null;
 
@@ -21,8 +23,10 @@ function markdownLabel(value: string): string {
   return value.trim().replace(/[\[\]\\]/gu, '\\$&');
 }
 
-export function ReleaseEditor({ project, language, busy, imageSources, onRegisterInlineImage, onChooseFiles, progress, onPublish, onBack, onOpenUpdate, onOpenLink }: {
+export function ReleaseEditor({ project, draftAccount, draftRepository, language, busy, imageSources, onRegisterInlineImage, onChooseFiles, progress, onPublish, onBack, onOpenUpdate, onOpenLink }: {
   project: Pick<Project, 'name' | 'health' | 'releases'>;
+  draftAccount?: string;
+  draftRepository?: string | number;
   language: Language;
   busy: boolean;
   imageSources: Record<string, string>;
@@ -35,10 +39,12 @@ export function ReleaseEditor({ project, language, busy, imageSources, onRegiste
   onOpenLink: (url: string) => void;
 }) {
   const firstTag = nextReleaseTag(project.releases, 'stable');
-  const [channel, setChannel] = useState<ReleaseChannel>('stable');
-  const [tagName, setTagName] = useState(firstTag);
-  const [title, setTitle] = useState(`${project.name} ${firstTag}`);
-  const [body, setBody] = useState('');
+  const draftKey = draftAccount && draftRepository !== undefined ? createDraftKey(draftAccount, draftRepository, 'release') : null;
+  const [recovered] = useState(() => draftKey ? parseReleaseDraft(readDraft(draftKey)) : null);
+  const [channel, setChannel] = useState<ReleaseChannel>(recovered?.channel ?? 'stable');
+  const [tagName, setTagName] = useState(recovered?.tagName ?? firstTag);
+  const [title, setTitle] = useState(recovered?.title ?? `${project.name} ${firstTag}`);
+  const [body, setBody] = useState(recovered?.body ?? '');
   const [assets, setAssets] = useState<ReleaseAsset[]>([]);
   const [stage, setStage] = useState<'edit' | 'preview'>('edit');
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +53,12 @@ export function ReleaseEditor({ project, language, busy, imageSources, onRegiste
   const [mediaUrl, setMediaUrl] = useState('');
   const assetInput = useRef<HTMLInputElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (draftKey && (recovered || body || title !== `${project.name} ${firstTag}` || tagName !== firstTag || assets.length)) {
+      writeDraft(draftKey, JSON.stringify({ title, body, tagName, channel, attachments: assets.length > 0 || recovered?.attachments }));
+    }
+  }, [draftKey, recovered, body, title, tagName, channel, assets.length, project.name, firstTag]);
 
   useLayoutEffect(() => {
     document.querySelector('.main-column')?.scrollTo(0, 0);
@@ -58,7 +70,7 @@ export function ReleaseEditor({ project, language, busy, imageSources, onRegiste
     const suggested = nextReleaseTag(project.releases, next);
     setChannel(next);
     setTagName(suggested);
-    setTitle(`${project.name} ${suggested}`);
+    if (title === `${project.name} ${tagName}`) setTitle(`${project.name} ${suggested}`);
     setError(null);
   }
 
@@ -155,6 +167,7 @@ export function ReleaseEditor({ project, language, busy, imageSources, onRegiste
       <p>为下载者准备版本号、介绍和安装文件。</p>
     </div>
     <div className="release-distinction"><Info size={20} /><div><strong>两种发布，各有用途</strong><p><b>发布源码</b>保存日常代码修改；<b>发布新版本</b>提供带版本号和下载文件的正式页面。</p></div></div>
+    {recovered && <p role="status" className="release-field-hint">{language === 'en' ? 'Text draft restored.' : '已恢复文字草稿。'}{recovered.attachments && (language === 'en' ? ' Please add your files and local images again.' : '请重新添加上次选择的附件和本地图片。')}</p>}
     {project.health === 'changes' && <div className="release-pending-changes"><Info size={18} /><span>这个项目还有未发布的源码修改。新版本将基于已保存的内容，不包含这些修改。</span><button className="text-link" onClick={onOpenUpdate}>先发布源码 <ArrowRight size={15} /></button></div>}
     {stage === 'edit' ? <div className="release-editor-stack">
       <section className="panel release-editor-card">

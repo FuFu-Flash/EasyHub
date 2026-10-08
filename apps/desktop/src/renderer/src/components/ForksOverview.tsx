@@ -37,7 +37,7 @@ export function ForksOverview({ repos, search, onOpen, onBrowseOriginal }: {
         <button className="button button-primary" onClick={() => onOpen(detail)}>打开副本 <ArrowRight size={16} /></button>
       </div>;
     })}</div>
-    {repos.length === 0 && <div className="empty-state"><span className="empty-icon"><GitFork size={28} /></span><h3>还没有仓库副本</h3><p>在他人的公开项目中选择“提交代码改进”，即可创建。</p></div>}
+    {repos.length === 0 && <div className="empty-state"><span className="empty-icon"><GitFork size={28} /></span><h3>还没有仓库副本</h3><p>在他人的公开项目中选择“提交合并请求”，即可创建。</p></div>}
     {repos.length > 0 && filtered.length === 0 && !loading && <p className="live-empty">没有找到仓库副本。</p>}
   </section>;
 }

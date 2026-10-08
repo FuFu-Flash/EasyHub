@@ -2,7 +2,7 @@
   "name": "easyhub",
   "private": true,
   "license": "GPL-3.0-only",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "dev": "node scripts/run-desktop.mjs dev",
@@ -24,6 +24,13 @@
     "test:responsive-ui": "node scripts/run-desktop.mjs test:responsive-ui",
     "test:local-introduction-ui": "node scripts/run-desktop.mjs test:local-introduction-ui",
     "test:readme-editor-ui": "node scripts/run-desktop.mjs test:readme-editor-ui",
+    "test:layout-ui": "node scripts/run-desktop.mjs test:layout-ui",
+    "test:common-workflows": "node scripts/run-desktop.mjs test:common-workflows",
+    "test:issue-workspace": "node scripts/run-desktop.mjs test:issue-workspace",
+    "test:discussion-links": "node scripts/run-desktop.mjs test:discussion-links",
+    "test:discussion-pagination": "node scripts/run-desktop.mjs test:discussion-pagination",
+    "test:app-update-drafts": "node scripts/run-desktop.mjs test:app-update-drafts",
+    "test:managed-downloads": "node scripts/run-desktop.mjs test:managed-downloads",
     "test:release-downloads-ui": "node scripts/run-desktop.mjs test:release-downloads-ui",
     "test:v2-live-ui": "node scripts/run-desktop.mjs test:v2-live-ui",
     "test:notifications-ui": "node scripts/run-desktop.mjs test:notifications-ui",
@@ -41,6 +48,9 @@
     "test:installer-ui": "node scripts/run-desktop.mjs test:installer-ui",
     "icons": "node scripts/run-desktop.mjs icons",
     "build": "node scripts/run-desktop.mjs build",
-    "package:win": "node scripts/run-desktop.mjs package:win"
+    "package:win": "node scripts/run-desktop.mjs package:win",
+    "test:pull-review-tools": "node scripts/run-desktop.mjs test:pull-review-tools",
+    "test:local-publish-selection": "node scripts/run-desktop.mjs test:local-publish-selection",
+    "test:code-explanation": "node scripts/run-desktop.mjs test:code-explanation"
   }
 }

@@ -1,7 +1,12 @@
+import { createDraftKey } from '../draftStore';
+import { useLocalDraft } from '../useLocalDraft';
+import { PagedContinuation } from './PagedContinuation';
+import { DiscussionSearch, useDiscussionSearchState } from './DiscussionSearch';
+import { PullChecksPanel } from './PullChecksPanel';
+import { PullFileChanges } from './PullFileChanges';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { ReadmeMarkdown } from './ReadmeMarkdown';
 import { isEmptyAddedPullFile, type GitHubComment, type GitHubPullFile, type GitHubPullRequest, type GitHubRepo } from '@easyhub/github';
 import type { AiReviewProgress, AiReviewResult, AiSettingsStatus } from '@easyhub/types';
 import { ArrowLeft, ArrowRight, Check, Download, GitPullRequest, Plus, RotateCw, ShieldCheck, Sparkles, X } from 'lucide-react';
@@ -26,10 +31,16 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   onOpenAiSettings?: () => void;
   downloadBusy?: boolean;
 }) {
+  const [discussionSearch, changeDiscussionSearch] = useDiscussionSearchState(currentUser, `project:${repo.id}:${repo.full_name}:pr`);
+  const searchActive = Boolean(discussionSearch.query);
+  const [listState, setListState] = useState<'open' | 'closed' | 'all'>('all');
   const [items, setItems] = useState<GitHubPullRequest[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [selected, setSelected] = useState<GitHubPullRequest | null>(null);
+  const replyKey = createDraftKey(currentUser, repo.full_name, 'reply', selected?.number ?? 'none');
+  const [reply, setReply, clearReply] = useLocalDraft(replyKey);
+  const [replySaving, setReplySaving] = useState(false);
   const [comments, setComments] = useState<GitHubComment[]>([]);
   const [files, setFiles] = useState<GitHubPullFile[]>([]);
   const [snapshotReady, setSnapshotReady] = useState(false);
@@ -68,7 +79,9 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   const hasRevision = Boolean(selected?.head.sha);
   const hasDecisionRevision = hasRevision && Boolean(selected?.base.ref && selected.base.sha);
   const hasProgramFiles = files.some((file) => file.status !== 'removed' && !file.patch && !isEmptyAddedPullFile(file) && isProgramFileName(file.filename));
-  const markdown = (value: string) => <div className="intro-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{value}</ReactMarkdown></div>;
+  const markdown = (value: string) => <ReadmeMarkdown markdown={value}
+    repository={{ owner, name: repo.name, branch: repo.default_branch }}
+    onOpenLink={(url) => { void window.easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} />;
 
   useEffect(() => {
     mounted.current = true;
@@ -106,24 +119,26 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     resetReview(); setDecision(null); setNotice('');
     setSnapshotReady(false); setSnapshotRepo(null); setFilesTruncated(false);
     setItems([]); setSelected(null); setComments([]); setFiles([]); setPage(1); setHasMore(false); setError(''); setSourceOwner(currentUser); setBase(repo.default_branch); setBusy(true);
-    void window.easyHub!.github<GitHubPullRequest[]>('pullRequests', owner, repo.name, 1).then((result) => {
+    void window.easyHub!.github<GitHubPullRequest[]>(listState === 'all' ? 'pullRequests' : 'pullRequestsPage', owner, repo.name, ...(listState === 'all' ? [1] : [listState, 1])).then((result) => {
       if (!active) return;
       setItems(result); setHasMore(result.length === 100);
       if (initialRequest) void open(initialRequest);
     }).catch((cause) => { if (active) setError(errorText(cause)); }).finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
-  }, [owner, repo.name, repo.default_branch, currentUser, refreshKey, initialRequest]);
+  }, [owner, repo.name, repo.default_branch, currentUser, refreshKey, initialRequest, listState]);
 
   async function loadMore(): Promise<void> {
     if (!hasMore || busy) return;
+    const generation = viewVersion.current;
     setBusy(true); setError('');
     try {
       const next = page + 1;
-      const result = await window.easyHub!.github<GitHubPullRequest[]>('pullRequests', owner, repo.name, next);
+      const result = await window.easyHub!.github<GitHubPullRequest[]>(listState === 'all' ? 'pullRequests' : 'pullRequestsPage', owner, repo.name, ...(listState === 'all' ? [next] : [listState, next]));
+      if (!mounted.current || generation !== viewVersion.current) return;
       setItems((current) => [...current, ...result.filter((item) => !current.some((known) => known.id === item.id))]);
       setPage(next); setHasMore(result.length === 100);
-    } catch (cause) { setError(errorText(cause)); }
-    finally { setBusy(false); }
+    } catch (cause) { if (mounted.current && generation === viewVersion.current) setError(errorText(cause)); }
+    finally { if (mounted.current && generation === viewVersion.current) setBusy(false); }
   }
 
   async function open(item: GitHubPullRequest): Promise<void> {
@@ -166,7 +181,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
       const updated = { ...selected, state: 'closed' as const, merged: action === 'accept', merged_at: action === 'accept' ? new Date().toISOString() : selected.merged_at };
       setSelected(updated); setItems((current) => current.map((known) => known.id === updated.id ? updated : known));
       onActivityChanged?.();
-      setNotice(action === 'accept' ? t('改进已批准并合入项目。', 'The changes were approved and merged into the project.') : t('改进请求已拒绝并关闭。', 'The change request was rejected and closed.'));
+      setNotice(action === 'accept' ? t('改进已批准并合入项目。', 'The changes were approved and merged into the project.') : t('合并请求已拒绝并关闭。', 'The pull request was rejected and closed.'));
       try {
         const [context, discussion] = await Promise.all([
           window.easyHub!.github<PullReviewSnapshot>('pullReviewContext', owner, repo.name, selected.number, selected.head.sha),
@@ -248,6 +263,20 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     });
   }
 
+  async function sendReply(event: FormEvent): Promise<void> {
+    event.preventDefault();
+    if (!selected || !reply.trim() || replySaving) return;
+    const version = viewVersion.current;
+    const sent = reply;
+    setReplySaving(true); setError('');
+    try {
+      const comment = await window.easyHub!.github<GitHubComment>('createComment', owner, repo.name, selected.number, sent.trim());
+      clearReply(sent);
+      if (mounted.current && version === viewVersion.current) setComments((old) => [...old, comment]);
+    } catch (cause) { if (mounted.current && version === viewVersion.current) setError(errorText(cause)); }
+    finally { if (mounted.current) setReplySaving(false); }
+  }
+
   async function create(event: FormEvent): Promise<void> {
     event.preventDefault();
     if (!title.trim() || !sourceOwner.trim() || !sourceBranch.trim() || !base.trim() || saving) return;
@@ -266,22 +295,25 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
 
   return <section className="panel public-browser-content pull-requests-panel">
     {selected ? <>
-      <button className="back-link" disabled={decisionBusy} onClick={() => { viewVersion.current += 1; resetReview(); setSelected(null); setError(''); setBusy(false); setNotice(''); }}><ArrowLeft size={16} />返回改进请求</button>
+      <button className="back-link" disabled={decisionBusy} onClick={() => { viewVersion.current += 1; resetReview(); setSelected(null); setError(''); setBusy(false); setNotice(''); }}><ArrowLeft size={16} />返回合并请求审查</button>
       <div className="issue-detail public-issue-detail">
         <div className="issue-title"><span className={`issue-state ${selected.state === 'closed' ? 'closed' : ''}`}>{selected.merged ? '已采纳' : selected.state === 'open' ? selected.draft ? '草稿' : '待审阅' : '已关闭'}</span>{repo.private ? <h1>{selected.title}</h1> : <TranslatableContent text={selected.title} format="text" render={(value) => <h1>{value}</h1>} />}<p>{selected.user?.login || 'GitHub 用户'} · {selected.head?.label || selected.head?.ref} → {selected.base?.ref}</p></div>
         {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取内容…</p>}
         {error && <p className="live-error" role="alert">{error}</p>}
         {notice && <p className="ai-success" role="status"><Check size={17} />{notice}</p>}
+        {snapshotReady && selected.head.sha && <PullChecksPanel key={`${repo.id}:${selected.number}:${selected.head.sha}`} owner={owner} repo={repo.name} number={selected.number} headSha={selected.head.sha} language={language} onOpenLink={(url) => { void window.easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} />}
         {canManage && selected.state === 'open' && !selected.merged && <div className="pull-review-actions">
           <div><strong>{t('审阅这次改进', 'Review these changes')}</strong><p>{selected.draft ? t('作者还在准备这次改进，完成后才能批准合入。', 'The author is still preparing these changes. They can be approved once ready.') : t('批准会将修改合入项目，拒绝会关闭这次请求。', 'Approval merges the changes into your project. Rejection closes this request.')}</p></div>
           <div className="pull-review-buttons"><button className="button button-quiet pull-reject-button" disabled={busy || decisionBusy || !hasDecisionRevision} onClick={() => { setDecisionReason(''); setDecision('reject'); }}>{t('拒绝', 'Reject')}</button><button className="button button-primary" disabled={busy || decisionBusy || !hasDecisionRevision || selected.draft} onClick={() => setDecision('accept')}><Check size={16} />{t('批准并合入', 'Approve and merge')}</button></div>
         </div>}
         {error && <button className="text-link" disabled={busy || decisionBusy} onClick={() => void open(selected)}><RotateCw size={15} />{t('重新获取', 'Refresh')}</button>}
         <div className="conversation"><div className="message"><div className="avatar author-avatar">{(selected.user?.login || 'G').slice(0, 1).toUpperCase()}</div><div className="message-box"><div><strong>{selected.user?.login || 'GitHub 用户'}</strong><small>{new Date(selected.created_at).toLocaleString()}</small></div>{selected.body ? repo.private ? markdown(selected.body) : <TranslatableContent text={selected.body} format="markdown" paragraphMode render={markdown} /> : <p className="muted">没有详细描述。</p>}</div></div>{comments.map((comment) => <div className="message" key={comment.id}><div className="avatar">{(comment.user?.login || 'G').slice(0, 1).toUpperCase()}</div><div className="message-box"><div><strong>{comment.user?.login || 'GitHub 用户'}</strong><small>{new Date(comment.created_at).toLocaleString()}</small></div>{repo.private ? markdown(comment.body) : <TranslatableContent text={comment.body} format="markdown" paragraphMode render={markdown} />}</div></div>)}</div>
+        {!busy && <PagedContinuation<GitHubComment> key={`${replyKey}:${viewVersion.current}`} action="commentsPage" args={[owner, repo.name, selected.number]} firstCount={comments.length} language={language} label={t('加载更多回复', 'Load more replies')} onItems={(items) => setComments((old) => [...old, ...items.filter((item) => !old.some((known) => known.id === item.id))].sort((a, b) => a.id - b.id))} />}
+        <form className="reply-card" onSubmit={(event) => void sendReply(event)}><label htmlFor="pull-reply">{t('写一条回复', 'Write a reply')}</label><textarea id="pull-reply" rows={4} maxLength={65536} value={reply} onChange={(event) => setReply(event.target.value)} placeholder={t('说说你的想法或建议…', 'Share your thoughts or suggestions…')} /><div><span /><button className="button button-primary" disabled={replySaving || busy || !reply.trim()} type="submit">{t('发送回复', 'Send reply')}<ArrowRight size={16} /></button></div></form>
         <div className="pull-files">
           <div className="pull-files-heading"><h3>修改的文件 {selected.changed_files ?? files.length}</h3><button className="button button-quiet" disabled={busy || !snapshotReady || !hasRevision || aiPreparing || aiProgress !== null} onClick={() => void prepareAiReview()}>{aiPreparing ? <RotateCw size={16} className="live-spin" /> : <Sparkles size={16} />}{t('AI 审查', 'AI review')}</button></div>
           {filesTruncated && <p className="ai-settings-note">{t('本次修改的文件较多，GitHub 只返回了部分文件。请在 GitHub 上确认完整修改后再决定是否合入。', 'GitHub returned only part of this large change. Check the full changes on GitHub before deciding whether to merge.')}</p>}
-          {files.map((file) => <div className="live-file pull-download-row" key={file.filename}><span className="pull-file-name" data-content-original>{file.filename}</span><small>{isEmptyAddedPullFile(file) ? t('新建空文件', 'New empty file') : `+${file.additions} / −${file.deletions}`}</small><button className="button button-quiet small-button" disabled={file.status === 'removed' || !onDownloadFile || !snapshotReady || !hasRevision || downloadingFile !== null || downloadBusy} onClick={() => void download(file)} aria-label={`${t('下载文件', 'Download file')} ${file.filename}`}>{downloadingFile === file.filename ? <RotateCw size={15} className="live-spin" /> : <Download size={15} />}{file.status === 'removed' ? t('已删除', 'Deleted') : t('下载', 'Download')}</button></div>)}
+          {files.map((file) => selected.head.sha && <PullFileChanges key={`${selected.head.sha}:${file.filename}`} file={file} owner={owner} repo={repo.name} number={selected.number} headSha={selected.head.sha} language={language} onOpenLink={(url) => { void window.easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} downloadControl={<button className="button button-quiet small-button" disabled={file.status === 'removed' || !onDownloadFile || !snapshotReady || !hasRevision || downloadingFile !== null || downloadBusy} onClick={() => void download(file)} aria-label={`${t('下载文件', 'Download file')} ${file.filename}`}>{downloadingFile === file.filename ? <RotateCw size={15} className="live-spin" /> : <Download size={15} />}{file.status === 'removed' ? t('已删除', 'Deleted') : t('下载', 'Download')}</button>} />)}
           {!busy && files.length === 0 && <p className="muted">{t('没有可显示的文件修改。', 'There are no file changes to display.')}</p>}
         </div>
         {(aiProgress || aiReview || aiError) && <section className="ai-review-result" aria-label={t('AI 审查结果', 'AI review results')}>
@@ -303,20 +335,23 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
         </section>}
       </div>
     </> : <>
-      <div className="panel-heading"><div><h2>改进请求</h2><p className="muted">查看大家提议合入项目的修改。</p></div>{showCreateButton && <button className="button button-primary" onClick={() => { setError(''); setShowForm(true); }}><Plus size={16} />提出改进请求</button>}</div>
+      <div className="panel-heading"><div><h2>合并请求审查</h2><p className="muted">查看大家提议合入项目的修改。</p></div>{showCreateButton && <button className="button button-primary" onClick={() => { setError(''); setShowForm(true); }}><Plus size={16} />提出合并请求</button>}</div>
       {error && <p className="live-error" role="alert">{error}</p>}
+      <DiscussionSearch filters={<div className="segmented public-issue-filter">{(['all', 'open', 'closed'] as const).map((state) => <button key={state} className={listState === state ? 'selected' : ''} onClick={() => setListState(state)}>{state === 'all' ? t('全部', 'All') : state === 'open' ? t('待审阅', 'Open') : t('已关闭', 'Closed')}</button>)}</div>} repositories={[repo]} kind="pr" state={listState} language={language} search={discussionSearch} onSearchChange={changeDiscussionSearch} onOpen={(item) => { const version = viewVersion.current; void window.easyHub!.github<GitHubPullRequest>('pullRequest', owner, repo.name, item.number).then((request) => { if (mounted.current && version === viewVersion.current) void open(request); }).catch((cause: unknown) => setError(errorText(cause))); }} />
+      <div hidden={searchActive}>
       {items.map((item) => <button className="public-list-row" key={item.id} onClick={() => void open(item)}><GitPullRequest size={19} /><span>{repo.private ? <strong>{item.title}</strong> : <TranslatableContent text={item.title} format="text" render={(value) => <strong>{value}</strong>} />}<small>{item.merged_at ? '已采纳' : item.state === 'open' ? item.draft ? '草稿' : '待审阅' : '已关闭'} · {item.user?.login || 'GitHub 用户'}</small></span><ArrowRight size={17} /></button>)}
-      {!busy && !error && items.length === 0 && <p className="muted">这个项目还没有改进请求。</p>}
-      {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取改进请求…</p>}
+      {!busy && !error && items.length === 0 && <p className="muted">这个项目还没有合并请求。</p>}
+      {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取合并请求…</p>}
       {hasMore && <button className="button button-quiet pull-more" disabled={busy} onClick={() => void loadMore()}>加载更多</button>}
+      </div>
     </>}
-    {showForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setShowForm(false); }}><form className="modal issue-modal" role="dialog" aria-modal="true" aria-labelledby="new-pull-title" onSubmit={(event) => void create(event)}><button type="button" className="icon-button modal-close" aria-label="关闭" disabled={saving} onClick={() => setShowForm(false)}><X size={19} /></button><h2 id="new-pull-title">提出改进请求</h2><p>先把修改保存到 GitHub，再选择包含这些修改的来源。</p><label className="field"><span>标题</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={256} required placeholder="一句话说明改进内容" /></label><label className="field"><span>详细描述</span><textarea rows={4} value={body} onChange={(event) => setBody(event.target.value)} maxLength={65536} placeholder="介绍修改的原因和效果" /></label><div className="pull-source-fields"><label className="field"><span>来源账户</span><input value={sourceOwner} onChange={(event) => setSourceOwner(event.target.value)} required placeholder="GitHub 用户名" /></label><label className="field"><span>来源版本</span><input value={sourceBranch} onChange={(event) => setSourceBranch(event.target.value)} required placeholder="例如 fix-search" /></label></div><label className="field"><span>合入到</span><input value={base} onChange={(event) => setBase(event.target.value)} required placeholder={repo.default_branch} /></label><p className="muted">来源必须是 GitHub 上已有的修改版本。对于他人的项目，先在自己的同名项目副本中准备修改。</p>{error && <p className="live-error" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="button button-quiet" disabled={saving} onClick={() => setShowForm(false)}>取消</button><button type="submit" className="button button-primary" disabled={saving || !title.trim() || !sourceBranch.trim()}>提交改进请求</button></div></form></div>}
+    {showForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setShowForm(false); }}><form className="modal issue-modal" role="dialog" aria-modal="true" aria-labelledby="new-pull-title" onSubmit={(event) => void create(event)}><button type="button" className="icon-button modal-close" aria-label="关闭" disabled={saving} onClick={() => setShowForm(false)}><X size={19} /></button><h2 id="new-pull-title">提出合并请求</h2><p>先把修改保存到 GitHub，再选择包含这些修改的来源。</p><label className="field"><span>标题</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={256} required placeholder="一句话说明改进内容" /></label><label className="field"><span>详细描述</span><textarea rows={4} value={body} onChange={(event) => setBody(event.target.value)} maxLength={65536} placeholder="介绍修改的原因和效果" /></label><div className="pull-source-fields"><label className="field"><span>来源账户</span><input value={sourceOwner} onChange={(event) => setSourceOwner(event.target.value)} required placeholder="GitHub 用户名" /></label><label className="field"><span>来源版本</span><input value={sourceBranch} onChange={(event) => setSourceBranch(event.target.value)} required placeholder="例如 fix-search" /></label></div><label className="field"><span>合入到</span><input value={base} onChange={(event) => setBase(event.target.value)} required placeholder={repo.default_branch} /></label><p className="muted">来源必须是 GitHub 上已有的修改版本。对于他人的项目，先在自己的同名项目副本中准备修改。</p>{error && <p className="live-error" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="button button-quiet" disabled={saving} onClick={() => setShowForm(false)}>取消</button><button type="submit" className="button button-primary" disabled={saving || !title.trim() || !sourceBranch.trim()}>提交合并请求</button></div></form></div>}
     {decision && selected && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !decisionBusy) setDecision(null); }}><form className="modal pull-decision-modal" role="dialog" aria-modal="true" aria-labelledby="pull-decision-title" onSubmit={(event) => { event.preventDefault(); void applyDecision(); }}>
       <button type="button" className="icon-button modal-close" aria-label={t('关闭', 'Close')} disabled={decisionBusy} onClick={() => setDecision(null)}><X size={19} /></button>
       <h2 id="pull-decision-title">{decision === 'accept' ? t('批准并合入这次改进？', 'Approve and merge these changes?') : t('拒绝并关闭这次请求？', 'Reject and close this request?')}</h2>
       <p className="pull-confirm-title" data-content-original>{selected.title}</p>
       <dl className="ai-consent-service"><div><dt>{t('目标版本', 'Target version')}</dt><dd data-content-original>{repo.full_name} / {selected.base.ref}</dd></div></dl>
-      <p>{decision === 'accept' ? t('确认后，这次修改会保存到你的 GitHub 项目中。请先检查修改文件和审查结果。', 'These changes will be saved to your project on GitHub. Check the changed files and review results before confirming.') : t('确认后，这次改进请求会关闭。填写的原因会作为回复发给对方。', 'This change request will be closed. Any reason you enter will be posted as a reply.')}</p>
+      <p>{decision === 'accept' ? t('确认后，这次修改会保存到你的 GitHub 项目中。请先检查修改文件和审查结果。', 'These changes will be saved to your project on GitHub. Check the changed files and review results before confirming.') : t('确认后，这次合并请求会关闭。填写的原因会作为回复发给对方。', 'This pull request will be closed. Any reason you enter will be posted as a reply.')}</p>
       {decision === 'reject' && <label className="field"><span>{t('拒绝原因（选填）', 'Reason for rejection (optional)')}</span><textarea rows={4} maxLength={65536} value={decisionReason} onChange={(event) => setDecisionReason(event.target.value)} disabled={decisionBusy} placeholder={t('说明这次没有采用的原因…', 'Explain why you are not accepting these changes…')} /></label>}
       <div className="modal-actions"><button type="button" className="button button-quiet" disabled={decisionBusy} onClick={() => setDecision(null)}>{t('取消', 'Cancel')}</button><button type="submit" className={`button ${decision === 'accept' ? 'button-primary' : 'danger-confirm'}`} disabled={decisionBusy}>{decisionBusy && <RotateCw size={16} className="live-spin" />}{decision === 'accept' ? t('确认批准并合入', 'Confirm approval and merge') : t('确认拒绝并关闭', 'Confirm rejection and close')}</button></div>
     </form></div>}

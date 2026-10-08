@@ -62,12 +62,14 @@ try {
       if (action === 'readme') return '# Binary analysis fixture\n\nA project with program files.';
       if (action === 'repository' || action === 'publicRepo') return repo;
       if (action === 'releases') return [release];
+      if (action === 'releasesPage') return { items: [release], nextPage: null };
       if (action === 'issues' || action === 'commits' || action === 'comments') return [];
       if (action === 'issuesPage') return { items: [], nextPage: null };
       if (action === 'pullRequests') return [request];
       if (action === 'pullRequestsPage') return args[2] === 'open' ? [request] : [];
       if (action === 'pullRequest') return request;
       if (action === 'pullFiles') return files;
+      if (action === 'pullChecks') return { headSha: args[3].headSha, checkRuns: { state: 'available', items: [], nextPage: null }, statuses: { state: 'available', items: [], nextPage: null } };
       if (action === 'pullReviewContext') return { repository: repo, pullRequest: request, files, filesTruncated: false };
       throw new Error(`Unexpected binary analysis mock action: ${action}`);
     });
@@ -269,7 +271,7 @@ try {
   }
   await openProject();
   await page.getByRole('button', { name: '查看问题', exact: true }).click();
-  await page.getByRole('tab', { name: /^代码提交审查/ }).click();
+  await page.getByRole('tab', { name: /^合并请求审查/ }).click();
   const pulls = page.locator('.pull-requests-panel');
   await pulls.getByRole('button').filter({ hasText: 'Update program file' }).click();
   await pulls.getByText('bin/helper.dll', { exact: true }).waitFor();

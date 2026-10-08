@@ -31,6 +31,9 @@ import type { ActivityNotice } from './components/DownloadNotifications';
 import { DashboardIntro } from './components/DashboardIntro';
 import { StyledDropdown } from './components/StyledDropdown';
 import { ProfileMenu } from './components/ProfileMenu';
+import { LayoutSettingsPanel } from './components/LayoutSettingsPanel';
+import { AppUpdatePanel } from './components/AppUpdatePanel';
+import { useLayoutPreference } from './layoutPreferences';
 
 type Route =
   | { name: 'home' }
@@ -113,6 +116,7 @@ function Intro({ readme, onOpenLink }: { readme: string; onOpenLink: (url: strin
 }
 
 function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?: boolean }) {
+  const layout = useLayoutPreference();
   const [data, setData] = useState(createInitialState);
   const [windowControlStyle, setWindowControlStyle] = useState<WindowControlStyle>(readWindowControlStyle);
   const [language, setLanguage] = useState<Language>(readLanguage);
@@ -456,7 +460,7 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
     : route.name === 'settings' ? 'settings'
       : ['projects', 'project', 'publish', 'new-release', 'release', 'history', 'version', 'download', 'add-folder'].includes(route.name) ? 'projects' : 'home';
 
-  return <div className="app-shell" ref={appRoot}>
+  return <div className="app-shell" data-layout-preference={layout.preference} data-layout={layout.density} ref={appRoot}>
     <aside className="sidebar">
       <nav className="sidebar-nav" aria-label="主导航">
         <button className={activeNav === 'home' ? 'active' : ''} onClick={() => navigate({ name: 'home' })}><Home size={19} />首页</button>
@@ -500,7 +504,7 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
           </div>
         )}
       </header>
-      <main className="page-content"><div className="v2-page-transition" key={route.name}>
+      <main className={`page-content${route.name === 'home' ? ' page-with-footer' : ''}`}><div className="v2-page-transition" key={route.name}>
         {route.name === 'home' && <>
           <DashboardIntro projectCount={data.projects.length} unpublishedCount={localProjects.reduce((total, item) => total + item.changedFiles.length, 0)} pendingCount={openIssueCount} projectName={pendingProject?.name} onCreate={() => navigate({ name: 'new-project' })} onContinue={() => navigate(pendingProject ? { name: 'publish', projectId: pendingProject.id } : { name: 'projects' })} />
           {pendingProject ? <form className="home-publish" onSubmit={handleHomePublish}><ProjectLogo project={pendingProject} /><div className="home-publish-content"><strong>{pendingProject.name} 有 {pendingProject.changedFiles.length} 个文件发生变化</strong><label htmlFor="home-update-message">这次改了什么？</label><div className="home-publish-controls"><input id="home-update-message" value={draftMessage} onChange={(event) => setDraftMessage(event.target.value)} placeholder="例如：修复窗口缩放问题" maxLength={120} /><button className="button button-primary" type="submit" disabled={Boolean(busy)}><Send size={17} />发布更新</button></div></div><button className="icon-button home-publish-detail" type="button" aria-label="查看修改" onClick={() => navigate({ name: 'publish', projectId: pendingProject.id })}><ChevronRight size={20} /></button></form> : <div className="home-all-saved"><CheckCircle2 size={20} />目前没有尚未发布的修改。<button onClick={() => navigate({ name: 'projects' })}>查看项目 <ArrowRight size={16} /></button></div>}
@@ -610,9 +614,10 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
                 </div>
               </div>
             </section>
+            <LayoutSettingsPanel language={language} preference={layout.preference} density={layout.density} onChange={layout.setPreference} />
             <AiSettingsPanel disabled={demoOnly} language={language} />
             <HostsRepairPanel disabled={demoOnly} language={language} />
-            <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>Windows 桌面版</p><span className="settings-version">版本 1.1.0</span><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => { if (window.easyHub) void window.easyHub.openLicense().catch(() => setToast('无法打开许可协议页面')); }}>查看许可协议 <ArrowRight size={15} /></button></div></div></section>
+            <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>Windows 桌面版</p><span className="settings-version">版本 1.2.0</span><AppUpdatePanel language={language} /><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => { if (window.easyHub) void window.easyHub.openLicense().catch(() => setToast('无法打开许可协议页面')); }}>查看许可协议 <ArrowRight size={15} /></button></div></div></section>
           </div>
         </>}
       </div></main>

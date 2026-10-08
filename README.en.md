@@ -12,14 +12,14 @@ EasyHub makes GitHub easier to use. Create and publish your work on Windows, the
 
 [Visit the EasyHub website](https://fufu-flash.github.io/easyhub-website/) · [View all releases](https://github.com/FuFu-Flash/EasyHub/releases)
 
-**The latest Windows version is 1.1.0, and the Android version is 1.0.0.** An iOS version is not yet available.
+**The latest Windows version is 1.2.0, and the Android version is 1.0.0.** An iOS version is not yet available.
 
 ## Download EasyHub
 
 | Platform | Edition | Best for | Download |
 | --- | --- | --- | --- |
-| Windows | Installer | Regular use; choose the installation folder and whether to create a desktop shortcut during setup | [Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.1.0/EasyHub-1.1.0-setup.exe) |
-| Windows | Portable | Running directly after downloading, without installation | [Download portable edition](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.1.0/EasyHub-1.1.0-portable.exe) |
+| Windows | Installer | Regular use; choose the installation folder and whether to create a desktop shortcut during setup | [Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-setup.exe) |
+| Windows | Portable | Running directly after downloading, without installation | [Download portable edition](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-portable.exe) |
 | Android | Smaller package | Most newer Android phones | [Download Android package](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-arm64.apk) |
 | Android | Universal package | Try this if the smaller package will not install | [Download universal package](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk) |
 
@@ -31,20 +31,22 @@ The Windows installer detects the previous installation folder. “Create a desk
 
 1. Open EasyHub, choose “Sign in with GitHub” in Settings, and follow the prompts to authorize it in your browser. You can try demo projects before signing in.
 2. Download an existing GitHub project or select a folder on your computer. You can also start with a new folder to create a public project or a private project visible only to you.
-3. After you edit files, EasyHub shows how many files remain unpublished. Write a short note under “What changed?” and click “Publish Source”.
+3. After you edit files, inspect the differences and select the files to include. Write a short note under “What changed?” and click “Publish Source”. Unselected changes stay on your computer.
 4. Return to the project page at any time to view its introduction, issues, and version history.
 
 Before publishing, EasyHub checks GitHub for new changes. If the same file has changed both locally and on GitHub, it asks which version to keep. It will not overwrite files without your choice or force an upload.
 
 ## Review code and program files with AI
 
-When someone submits a contribution to your project, open “Code Reviews” to read the description and inspect changed files, then click “AI review” if needed. The Windows edition combines text changes and supported program files into one report with possible issues, related files, and suggested changes. You can also download the changed files to inspect them yourself before approving and merging the request, or rejecting and closing it. **AI does not make the merge decision for you.**
+When someone submits a contribution to your project, open “Pull Request Reviews” to read the description and inspect changed files, then click “AI review” if needed. The Windows edition combines text changes and supported program files into one report with possible issues, related files, and suggested changes. You can also download the changed files to inspect them yourself before approving and merging the request, or rejecting and closing it. **AI does not make the merge decision for you.**
 
 Getting started on Windows or Android takes three steps:
 
 1. In Settings, choose OpenAI, DeepSeek, OpenRouter, or SiliconFlow and enter your own API key.
 2. Open a pull request and click “AI review”. EasyHub first shows the service it will use and explains what will be sent. The review starts only after you confirm.
 3. Read the review summary, risk notes, and suggested changes.
+
+**Explain a selected snippet.** On Windows, select code in local changes or a pull request and click “Explain with AI”. After you confirm the service and selected text, AI explains the snippet in your current interface language. You can drag anywhere in the code area, including trailing space and line numbers. Only the selected code and filename are sent; line numbers and unselected content are excluded.
 
 **The Windows edition can also review program files.** To get started, expand “Program file review” in AI settings and follow the prompts to install the optional components. The download size is shown in advance. Once installed, you can review program files in pull requests, select program files on your computer, or review release attachments such as EXE and DLL files. These components are not needed for ordinary code reviews.
 
@@ -71,12 +73,13 @@ The Android edition currently focuses on browsing and managing projects. **Selec
 **Manage your work**
 
 - View project introductions, issues, and version history; create, reply to, close, or reopen issues.
-- “Issues” and “Code Reviews” each show their pending counts, so you can check feedback and review contributions by project.
-- Add existing folders, see added, modified, deleted, and renamed files, and publish changes that have not yet been saved to GitHub.
+- “Issues” and “Pull Request Reviews” each show their pending counts. Find discussions by project, title, or number, and return from a detail page with your search preserved.
+- Inspect added and removed code line by line in pull requests. View existing build and test results from GitHub and open their logs. Checks that are incomplete or unavailable are clearly indicated.
+- Add existing folders, see added, modified, deleted, and renamed files, preview text differences, and select which files to publish. Unselected changes are kept.
 - In “My Projects”, choose a location on your computer to find folders already connected to your GitHub projects and add them automatically to this computer's project list. Only the selected location is checked, and project files are not modified.
 - Edit project introductions using “Edit”, “Preview”, or “Live preview”. Combine Markdown and HTML, insert image and web links, and see images, centered content, tables, and collapsible sections update as you write. In narrow windows, the editor and preview are stacked vertically. You can select and copy content while reading. Introductions for real projects are saved locally first and updated on GitHub when you click “Publish Source”.
-- Use “Edit Releases” to update the description of a published release and add or remove download attachments.
-- Browse available releases, select attachments such as installers, or download the project files for a particular version. Download notifications show progress, speed, and time remaining, and downloads can be canceled.
+- Use “Edit Releases” to update the description of a published release and add or remove download attachments. Unfinished text is saved on this device while creating or editing a release, so you can return and continue writing.
+- Browse available releases, select attachments such as installers, or download the project files for a particular version. Manage the download queue in notifications, with progress, speed, and time remaining. File downloads can be paused, resumed, or retried after failure; completed files and their folders can be opened directly.
 
 **Discover other people's work**
 
@@ -95,7 +98,8 @@ Click the translation toggle at the top to translate public project introduction
 
 - If GitHub connections are unreliable, enable “GitHub system proxy” in Settings and check connection status for sign-in, projects, and downloads. Browsers that use Windows system proxy settings can also access GitHub through it; other websites keep their existing connection route. EasyHub reuses existing system proxies without overwriting their configuration, restores its own changes when disabled or closed, and yields control if another proxy app takes over.
 - The bell in the upper right shows the unread notification count, which clears when you open the notifications. Project tasks you have already seen remain available, and changes to pending tasks or download results trigger new notifications.
-- The app and installer use consistent rounded corners and progress indicators. The mouse keeps its default arrow, while text input and content selection work as usual.
+- Choose Automatic, Comfortable, or Compact layout in Settings to fit more content in smaller windows. Use “Check for updates” in About to find and download a newer version.
+- The app and installer use consistent rounded corners and progress indicators. Code areas show a text-selection cursor and support selection across the whole area; interface buttons keep the default arrow.
 
 ## “Publish Source” and “Publish New Release”
 
@@ -111,5 +115,7 @@ EasyHub does not require a separate account and has no cloud server of its own. 
 Translation sends the text that needs translating from **public projects** to a third-party translation service. Private project content is not sent. The original text is shown if the service is unavailable, and translation does not change content on GitHub.
 
 Before each AI review, EasyHub asks for your consent. Once you confirm, the contribution's title, description, file names, and changes are sent to your chosen AI provider. Program file reviews also send file information and portions of extracted content; the original program files are not sent to the AI provider. EasyHub also clearly indicates when a project is private. Review results are shown only in EasyHub and do not post comments or merge changes on your behalf.
+
+“Explain with AI” sends only the selected code and filename after confirmation. The explanation does not change project files or publish anything to GitHub.
 
 EasyHub is licensed under [GNU GPLv3](LICENSE).

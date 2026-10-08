@@ -1,9 +1,11 @@
 import type { GitHubUser } from '@easyhub/github';
+import type { DownloadCommand, DownloadItem, DownloadRequest } from '../../downloads';
+import type { LocalFileDiff, LocalPublishPreview, LocalPublishSelection } from '@easyhub/types';
 import type { FolderInspection, LocalDiscoveryResult, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
 import type { TranslationProgress, TranslationRequest } from '@easyhub/types';
 import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, PublishReleaseRequest, ReleaseProgress, RemoveReleaseAssetRequest } from '@easyhub/types';
 import type { GitHubCreatedRelease } from '@easyhub/github';
-import type { AiSettingsInput, AiSettingsStatus, AiReviewRequest, AiReviewResult, AiReviewProgress } from '@easyhub/types';
+import type { AiSettingsInput, AiSettingsStatus, AiReviewRequest, AiReviewResult, AiReviewProgress, AiCodeExplanationRequest, AiCodeExplanationResult } from '@easyhub/types';
 import type { GitHubProxyStatus } from '@easyhub/types';
 import type { BinaryAnalysisSettingsStatus, BinaryAnalysisSource, BinaryAnalysisRequest, BinaryAnalysisResult, BinaryAnalysisProgress, BinaryAiReviewRequest, BinaryAiReviewResult } from '@easyhub/types';
 
@@ -14,6 +16,12 @@ export {};
 declare global {
   interface Window {
     easyHub?: {
+      downloadsList: () => Promise<DownloadItem[]>;
+      downloadsEnqueue: (request: DownloadRequest) => Promise<DownloadItem | null>;
+      downloadsCommand: (id: string, command: DownloadCommand) => Promise<void>;
+      downloadsClear: () => Promise<void>;
+      downloadsOpen: (id: string, folder: boolean) => Promise<void>;
+      onDownloadsChanged: (callback: (items: DownloadItem[]) => void) => () => void;
       chooseFolder: () => Promise<string | null>;
       localList: () => Promise<LocalProjectLink[]>;
       localDiscoveryRoots: () => Promise<string[]>;
@@ -25,7 +33,10 @@ declare global {
       localCreate: (path: string, name: string, description: string, isPrivate: boolean) => Promise<LocalProjectLink>;
       localDownload: (owner: string, name: string, parent: string) => Promise<LocalProjectLink>;
       localStatus: (id: string) => Promise<LocalProjectStatus>;
-      localPublish: (id: string, message: string) => Promise<{ changed: number }>;
+      localPreviewChanges: (id: string) => Promise<LocalPublishPreview>;
+      localFileDiff: (id: string, path: string, snapshot: string) => Promise<LocalFileDiff>;
+      localCancelPreview: (id: string) => Promise<void>;
+      localPublish: (id: string, message: string, selection?: LocalPublishSelection) => Promise<{ changed: number }>;
       localCheckSync: (id: string) => Promise<SyncPreview>;
       localSync: (id: string, revision: string | undefined, decisions: SyncDecision[]) => Promise<{ updated: number }>;
       localCancel: () => Promise<void>;
@@ -55,6 +66,7 @@ declare global {
       aiForgetKey: () => Promise<AiSettingsStatus>;
       aiTestConnection: () => Promise<void>;
       aiReviewPull: (input: AiReviewRequest) => Promise<AiReviewResult>;
+      aiExplainCode: (input: AiCodeExplanationRequest) => Promise<AiCodeExplanationResult>;
       aiCancelReview: (id: string) => Promise<void>;
       binaryAnalysisStatus: () => Promise<BinaryAnalysisSettingsStatus>;
       binaryAnalysisInstall: (id: string) => Promise<BinaryAnalysisSettingsStatus>;

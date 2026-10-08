@@ -20,6 +20,7 @@ import { AnalysisRuntime } from './analysis/AnalysisRuntime';
 import { analysisElectronFetch } from './analysis/analysisElectronFetch';
 import { BinaryAnalysisService } from './analysis/BinaryAnalysisService';
 import { GhidraBackend } from './analysis/GhidraBackend';
+import { GitHubDownloads } from './services/githubDownloads';
 
 // The system proxy lease belongs to this profile. A second process must not
 // mistake its live owner's lease for crash recovery data or initialize services.
@@ -34,6 +35,7 @@ let aiReviewService: AiReviewService;
 let hostsRepairService: HostsRepairService;
 let githubProxyService: GitHubProxyService;
 let binaryAnalysisService: BinaryAnalysisService;
+let downloadsService: GitHubDownloads;
 const translationJobs = new Map<string, AbortController>();
 
 if (primaryInstance) app.on('second-instance', () => {
@@ -89,6 +91,8 @@ if (primaryInstance) app.whenReady().then(async () => {
   localService = new LocalProjectService(new LocalProjectStore(join(app.getPath('userData'), 'local-projects.json')),
     (channel, value) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, value); },
     new DiscoveryRootsStore(join(app.getPath('userData'), 'project-search-locations.json')));
+  downloadsService = new GitHubDownloads(app.getPath('userData'), localService,
+    (items) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('easyhub:downloads-changed', items); });
   const translateFetch = (url: string, init: RequestInit): Promise<Response> => net.fetch(url, init);
   translationService = new TranslationService(new FallbackTranslationProvider(
     new MyMemoryTranslationProvider(translateFetch), new GoogleWebTranslationProvider(translateFetch)),
@@ -117,6 +121,15 @@ if (primaryInstance) app.whenReady().then(async () => {
           : value.phase === 'analyzing' ? en ? `Analyzing ${file.filename}…` : `正在分析 ${file.filename}…`
             : en ? `Analyzed ${file.filename}` : `${file.filename} 分析完成`);
       }, signal),
+    }, async (source, signal) => {
+      signal.throwIfAborted();
+      const cancel = (): void => { void localService.cancelPreview(source.projectId).catch(() => undefined); };
+      signal.addEventListener('abort', cancel, { once: true });
+      try {
+        const evidence = await localService.fileDiff(source.projectId, source.path, source.snapshot);
+        signal.throwIfAborted();
+        return evidence;
+      } finally { signal.removeEventListener('abort', cancel); }
     });
   hostsRepairService = new HostsRepairService((url, init) => net.fetch(url, init),
     app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources'), app.getPath('userData'));
@@ -210,7 +223,10 @@ if (primaryInstance) app.whenReady().then(async () => {
   ipcMain.handle('easyhub:local-create', (event, path: unknown, name: unknown, description: unknown, isPrivate: unknown) => { assertTrustedSender(event); return localService.create(path, name, description, isPrivate); });
   ipcMain.handle('easyhub:local-download', (event, owner: unknown, name: unknown, parent: unknown) => { assertTrustedSender(event); return localService.download(owner, name, parent); });
   ipcMain.handle('easyhub:local-status', (event, id: unknown) => { assertTrustedSender(event); return localService.status(id); });
-  ipcMain.handle('easyhub:local-publish', (event, id: unknown, message: unknown) => { assertTrustedSender(event); return localService.publish(id, message); });
+  ipcMain.handle('easyhub:local-preview-changes', (event, id: unknown) => { assertTrustedSender(event); return localService.previewChanges(id); });
+  ipcMain.handle('easyhub:local-file-diff', (event, id: unknown, path: unknown, snapshot: unknown) => { assertTrustedSender(event); return localService.fileDiff(id, path, snapshot); });
+  ipcMain.handle('easyhub:local-cancel-preview', (event, id: unknown) => { assertTrustedSender(event); return localService.cancelPreview(id); });
+  ipcMain.handle('easyhub:local-publish', (event, id: unknown, message: unknown, selection: unknown) => { assertTrustedSender(event); return localService.publish(id, message, selection); });
   ipcMain.handle('easyhub:local-check-sync', (event, id: unknown) => { assertTrustedSender(event); return localService.checkSync(id); });
   ipcMain.handle('easyhub:local-sync', (event, id: unknown, revision: unknown, decisions: unknown) => { assertTrustedSender(event); return localService.sync(id, revision, decisions); });
   ipcMain.handle('easyhub:local-cancel', (event) => { assertTrustedSender(event); localService.cancel(); });
@@ -255,6 +271,7 @@ if (primaryInstance) app.whenReady().then(async () => {
     return aiReviewService.review(input, (progress) => { if (!event.sender.isDestroyed()) event.sender.send('easyhub:ai-review-progress', progress); });
   });
   ipcMain.handle('easyhub:ai-cancel-review', (event, id: unknown) => { assertTrustedSender(event); aiReviewService.cancel(id); });
+  ipcMain.handle('easyhub:ai-explain-code', (event, input: unknown) => { assertTrustedSender(event); return aiReviewService.explainCode(input); });
   ipcMain.handle('easyhub:binary-analysis-status', (event) => { assertTrustedSender(event); return binaryAnalysisService.status(); });
   ipcMain.handle('easyhub:binary-analysis-install', (event, id: unknown) => {
     assertTrustedSender(event);
@@ -292,11 +309,16 @@ if (primaryInstance) app.whenReady().then(async () => {
     event.sender.send('easyhub:download-progress', value);
     if (value.percent !== null) event.sender.send('easyhub:archive-progress', value.percent);
   };
+  ipcMain.handle('easyhub:downloads-list', (event) => { assertTrustedSender(event); return downloadsService.manager.list(); });
+  ipcMain.handle('easyhub:downloads-enqueue', (event, input: unknown) => { assertTrustedSender(event); return downloadsService.enqueue(input); });
+  ipcMain.handle('easyhub:downloads-command', (event, id: unknown, command: unknown) => { assertTrustedSender(event); return downloadsService.manager.command(id, command); });
+  ipcMain.handle('easyhub:downloads-clear', (event) => { assertTrustedSender(event); return downloadsService.manager.clearFinished(); });
+  ipcMain.handle('easyhub:downloads-open', (event, id: unknown, folder: unknown) => { assertTrustedSender(event); return downloadsService.open(id, folder); });
   ipcMain.handle('easyhub:download-archive', (event, owner: unknown, repo: unknown, ref: unknown) => { assertTrustedSender(event); return downloadArchive(owner, repo, ref, (value) => sendDownloadProgress(event, value)); });
   ipcMain.handle('easyhub:download-release-asset', (event, owner: unknown, repo: unknown, assetId: unknown) => { assertTrustedSender(event); return downloadReleaseAsset(owner, repo, assetId, (value) => sendDownloadProgress(event, value)); });
   ipcMain.handle('easyhub:download-pull-file', (event, owner: unknown, repo: unknown, number: unknown, path: unknown, headSha: unknown) => {
     assertTrustedSender(event);
-    if (typeof headSha !== 'string' || !/^[a-f0-9]{40}$/iu.test(headSha)) throw new Error('请刷新改进请求后重新下载。');
+    if (typeof headSha !== 'string' || !/^[a-f0-9]{40}$/iu.test(headSha)) throw new Error('请刷新合并请求后重新下载。');
     return downloadPullRequestFile(owner, repo, number, path, (value) => sendDownloadProgress(event, value), headSha);
   });
   ipcMain.handle('easyhub:reveal-downloaded-archive', (event, path: unknown) => { assertTrustedSender(event); revealDownloadedArchive(path); });
@@ -316,9 +338,9 @@ app.on('window-all-closed', () => {
 let servicesStoppedForQuit = false;
 app.on('before-quit', (event) => {
   localService?.stopWatching(); aiReviewService?.cancelAll();
-  if (!servicesStoppedForQuit && (binaryAnalysisService || githubProxyService)) {
+  if (!servicesStoppedForQuit && (binaryAnalysisService || githubProxyService || downloadsService)) {
     event.preventDefault();
     servicesStoppedForQuit = true;
-    void Promise.allSettled([githubProxyService?.destroy(), binaryAnalysisService?.shutdown()]).finally(() => app.quit());
+    void Promise.allSettled([githubProxyService?.destroy(), binaryAnalysisService?.shutdown(), downloadsService?.manager.shutdown()]).finally(() => app.quit());
   }
 });

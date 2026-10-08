@@ -1,7 +1,8 @@
 import { AsyncEntry } from '@napi-rs/keyring';
 import { GitHubClient, GitHubError, friendlyGitHubError } from '@easyhub/github';
-import type { GitHubActivityRepository, GitHubPullFile, GitHubPullRequest, GitHubRepo, GitHubUser } from '@easyhub/github';
-import { dialog, net, shell } from 'electron';
+import type { GitHubActivityRepository, GitHubCheckPage, GitHubCheckSourcePage, GitHubPullChecks, GitHubPullFile, GitHubPullRequest, GitHubRepo, GitHubUser } from '@easyhub/github';
+import { app, dialog, net, shell } from 'electron';
+import { checkAppUpdate } from './appUpdate';
 import { constants, createWriteStream } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { copyFile, link, rm, rename } from 'node:fs/promises';
@@ -42,7 +43,7 @@ function validPullPath(value: unknown): value is string {
 }
 class PullRequestOperationError extends Error {}
 class DangerOperationError extends Error {}
-const staleRequestMessage = '这个改进请求已经有新修改，请刷新后重新查看。';
+const staleRequestMessage = '这个合并请求已经有新修改，请刷新后重新查看。';
 
 async function loadCredential(): Promise<Credential | null> {
   if (credential !== undefined) return credential;
@@ -90,7 +91,7 @@ const client = new GitHubClient(accessToken, (input, init) => net.fetch(String(i
 
 function validatePullSnapshot(pull: GitHubPullRequest, repository: GitHubRepo, number: number, expectedHeadSha?: string): void {
   if (pull.number !== number || pull.base.repo?.id !== repository.id || !validSha(pull.head.sha)) {
-    throw new PullRequestOperationError('无法确认这个改进请求所属的项目，请刷新后重试。');
+    throw new PullRequestOperationError('无法确认这个合并请求所属的项目，请刷新后重试。');
   }
   if (expectedHeadSha !== undefined && pull.head.sha !== expectedHeadSha) throw new PullRequestOperationError(staleRequestMessage);
 }
@@ -102,7 +103,7 @@ async function writablePullRequest(owner: string, repo: string, number: number, 
   const pull = await client.pullRequest(owner, repo, number);
   validatePullSnapshot(pull, repository, number, expectedHeadSha);
   if (pull.base.ref !== expectedBaseRef || pull.base.sha !== expectedBaseSha) throw new PullRequestOperationError('接收改进的位置或内容已经改变，请刷新后重新查看。');
-  if (pull.state !== 'open' || pull.merged || pull.merged_at) throw new PullRequestOperationError('这个改进请求已经处理过，请刷新后查看。');
+  if (pull.state !== 'open' || pull.merged || pull.merged_at) throw new PullRequestOperationError('这个合并请求已经处理过，请刷新后查看。');
   return { pullRequest: pull, repository };
 }
 
@@ -134,7 +135,7 @@ export async function loadBinaryAnalysisFile(source: Exclude<BinaryAnalysisSourc
       if (!Number.isSafeInteger(source.number) || source.number <= 0 || !validSha(source.headSha) || !validPullPath(source.path)) invalid();
       const context = await getPullRequestReviewContext(source.owner, source.repo, source.number, source.headSha, signal);
       const file = context.files.find((entry) => entry.filename === source.path);
-      if (!file || file.status === 'removed' || !validSha(file.sha)) throw new PullRequestOperationError('这个文件不在当前改进请求中，请刷新后重试。');
+      if (!file || file.status === 'removed' || !validSha(file.sha)) throw new PullRequestOperationError('这个文件不在当前合并请求中，请刷新后重试。');
       const repository = context.pullRequest.head.repo ?? context.repository;
       if (!validRepoPart(repository.owner.login) || !validRepoPart(repository.name)) invalid();
       return { name: file.filename.split('/').at(-1)!, gitSha: file.sha, response: await client.downloadBlob(repository.owner.login, repository.name, file.sha, signal) };
@@ -229,7 +230,7 @@ export async function logout(): Promise<void> { pending = null; oneTimeDeletion 
 export async function githubAction(action: unknown, args: unknown[]): Promise<unknown> {
   if (typeof action !== 'string' || !Array.isArray(args) || args.length > 4) invalid();
   const [owner, repo, third, fourth] = args;
-  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'starredRepos', 'isStarred', 'activityCounts', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'comments', 'pullRequests', 'pullRequestsPage', 'pullRequest', 'pullFiles', 'pullReviewContext', 'commits', 'commit', 'releases'].includes(action) ? new AbortController() : null;
+  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'starredRepos', 'isStarred', 'activityCounts', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'searchPublicReposPage', 'searchUsersPage', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'searchDiscussions', 'commentsPage', 'comments', 'pullRequests', 'pullRequestsPage', 'pullRequest', 'pullFiles', 'pullReviewContext', 'pullChecks', 'commitsPage', 'commits', 'commit', 'releases', 'releasesPage', 'releaseByTag'].includes(action) ? new AbortController() : null;
   if (controller) readControllers.add(controller);
   try {
     const assertAdmin = async (ownerName: string, repoName: string): Promise<GitHubRepo> => {
@@ -254,6 +255,7 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       }
     };
     switch (action) {
+      case 'appUpdate': if (args.length === 0) return await checkAppUpdate(app.getVersion(), (input, init) => net.fetch(String(input), init)); invalid();
       case 'user': return await client.user(controller?.signal);
       case 'profile': if (validRepoPart(owner)) return await client.profile(owner, controller?.signal); invalid();
       case 'contributions': if (validRepoPart(owner) && typeof repo === 'string' && /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/.test(repo) && typeof third === 'string' && /^\d{4}-\d{2}-\d{2}T23:59:59\.999Z$/.test(third) && Date.parse(third) >= Date.parse(repo) && Date.parse(third) - Date.parse(repo) <= 370 * 86400000) return await client.contributions(owner, repo, third, controller?.signal); invalid();
@@ -313,7 +315,7 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
         const [fork, identity] = await Promise.all([client.repo(owner, repo), gitHubIdentity()]);
         if (fork.owner.login.toLowerCase() !== identity.user.login.toLowerCase() || !fork.fork || !fork.parent) throw new Error('找不到属于你的仓库副本。');
         const upstream = await client.repo(fork.parent.owner.login, fork.parent.name);
-        if (upstream.id !== fork.parent.id || upstream.archived) throw new Error('原项目暂时无法接收改进请求。');
+        if (upstream.id !== fork.parent.id || upstream.archived) throw new Error('原项目暂时无法接收合并请求。');
         const comparison = await client.compare(upstream.owner.login, upstream.name, upstream.default_branch, fork.owner.login, fork.default_branch);
         if (comparison.ahead_by < 1) throw new Error('仓库副本还没有可提交的修改，请先发布源码。');
         const open = await client.openPullRequestForHead(upstream.owner.login, upstream.name, fork.owner.login, fork.default_branch, upstream.default_branch);
@@ -324,6 +326,8 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       }
       case 'searchPublicRepos': if (typeof owner === 'string' && owner.trim().length >= 2 && owner.trim().length <= 200) return await client.searchPublicRepos(owner, controller?.signal); invalid();
       case 'searchUsers': if (typeof owner === 'string' && owner.trim().length >= 2 && owner.trim().length <= 200) return await client.searchUsers(owner, controller?.signal); invalid();
+      case 'searchPublicReposPage': if (args.length === 2 && typeof owner === 'string' && owner.trim().length >= 2 && owner.trim().length <= 200 && Number.isSafeInteger(repo) && Number(repo) >= 1 && Number(repo) <= 34) return await client.searchPublicReposPage(owner, Number(repo), controller?.signal); invalid();
+      case 'searchUsersPage': if (args.length === 2 && typeof owner === 'string' && owner.trim().length >= 2 && owner.trim().length <= 200 && Number.isSafeInteger(repo) && Number(repo) >= 1 && Number(repo) <= 84) return await client.searchUsersPage(owner, Number(repo), controller?.signal); invalid();
       case 'topStarredRepos': if (validRepoPart(owner)) return await client.topStarredRepos(owner, controller?.signal); invalid();
       case 'createRepo': if (validRepoPart(owner) && typeof repo === 'string' && repo.length <= 350 && typeof third === 'boolean') return await client.createRepo(owner, repo, third); invalid();
       case 'updateVisibility': if (validRepoPart(owner) && validRepoPart(repo) && typeof third === 'boolean') { await assertAdmin(owner, repo); return await client.updateVisibility(owner, repo, third); } invalid();
@@ -368,12 +372,42 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       case 'createIssue': if (validRepoPart(owner) && validRepoPart(repo) && validText(third, 256) && typeof fourth === 'string' && fourth.length <= 65536) return await client.createIssue(owner, repo, third, fourth); invalid();
       case 'updateIssue': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && (fourth === 'open' || fourth === 'closed')) return await client.updateIssue(owner, repo, Number(third), fourth); break;
       case 'comments': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.comments(owner, repo, Number(third), controller?.signal); break;
+      case 'commentsPage': if (args.length === 4 && validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && Number.isSafeInteger(fourth) && Number(fourth) >= 1 && Number(fourth) <= 10000) return await client.commentsPage(owner, repo, Number(third), Number(fourth), controller?.signal); break;
+      case 'searchDiscussions': {
+        if (args.length !== 3 || !validRepoPart(owner) || !validRepoPart(repo) || !third || typeof third !== 'object' || Array.isArray(third)) invalid();
+        const input = third as Record<string, unknown>;
+        if (!validText(input.query, 200) || (input.kind !== 'issue' && input.kind !== 'pr') || (input.state !== 'open' && input.state !== 'closed' && input.state !== 'all') || !Number.isSafeInteger(input.page) || Number(input.page) < 1 || Number(input.page) > 34) invalid();
+        return await client.searchDiscussions(owner, repo, input.query, input.kind, input.state, Number(input.page), controller?.signal);
+      }
       case 'createComment': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && validText(fourth, 65536)) return await client.createComment(owner, repo, Number(third), fourth); break;
       case 'pullRequests': if (validRepoPart(owner) && validRepoPart(repo) && Number.isInteger(third) && Number(third) >= 1 && Number(third) <= 10000) return await client.pullRequests(owner, repo, Number(third), controller?.signal); break;
       case 'pullRequestsPage': if (validRepoPart(owner) && validRepoPart(repo) && (third === 'open' || third === 'closed') && Number.isInteger(fourth) && Number(fourth) >= 1 && Number(fourth) <= 10000) return await client.pullRequestsPage(owner, repo, third, Number(fourth), controller?.signal); break;
       case 'pullRequest': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.pullRequest(owner, repo, Number(third), controller?.signal); break;
       case 'pullFiles': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.pullFiles(owner, repo, Number(third), controller?.signal); break;
       case 'pullReviewContext': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && validSha(fourth)) return await getPullRequestReviewContext(owner, repo, Number(third), fourth, controller?.signal); invalid();
+      case 'pullChecks': {
+        if (args.length !== 4 || !validRepoPart(owner) || !validRepoPart(repo) || !Number.isSafeInteger(third) || Number(third) < 1 || typeof fourth !== 'object' || fourth === null || Array.isArray(fourth)) invalid();
+        const input = fourth as Record<string, unknown>;
+        const validPage = (value: unknown): value is number | null => value === null || Number.isSafeInteger(value) && Number(value) >= 1 && Number(value) <= 10000;
+        if (!validSha(input.headSha) || !validPage(input.checkPage) || !validPage(input.statusPage) || input.checkPage === null && input.statusPage === null) invalid();
+        const [repository, before] = await Promise.all([client.repo(owner, repo, controller?.signal), client.pullRequest(owner, repo, Number(third), controller?.signal)]);
+        validatePullSnapshot(before, repository, Number(third), input.headSha);
+        const source = async <T>(page: number | null, read: () => Promise<GitHubCheckPage<T>>): Promise<GitHubCheckSourcePage<T> | null> => {
+          if (page === null) return null;
+          try { return { state: 'available', ...await read() }; }
+          catch (error) {
+            if (controller?.signal.aborted) throw error;
+            return { state: error instanceof GitHubError && (error.status === 401 || error.status === 403) ? 'forbidden' : 'unavailable', items: [], nextPage: page };
+          }
+        };
+        const [checkRuns, statuses] = await Promise.all([
+          source(input.checkPage, () => client.checkRunsPage(owner, repo, input.headSha as string, input.checkPage as number, controller?.signal)),
+          source(input.statusPage, () => client.statusesPage(owner, repo, input.headSha as string, input.statusPage as number, controller?.signal)),
+        ]);
+        const after = await client.pullRequest(owner, repo, Number(third), controller?.signal);
+        validatePullSnapshot(after, repository, Number(third), input.headSha);
+        return { headSha: input.headSha, checkRuns, statuses } satisfies GitHubPullChecks;
+      }
       case 'acceptPullRequest':
       case 'rejectPullRequest': {
         if (!validRepoPart(owner) || !validRepoPart(repo) || !Number.isSafeInteger(third) || Number(third) <= 0 || typeof fourth !== 'object' || fourth === null || Array.isArray(fourth)) invalid();
@@ -382,14 +416,14 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
         if (action === 'acceptPullRequest') {
           if (input.method !== undefined && input.method !== 'merge' && input.method !== 'squash' && input.method !== 'rebase') invalid();
           const { pullRequest: pull, repository } = await writablePullRequest(owner, repo, Number(third), input.expectedHeadSha, input.expectedBaseRef, input.expectedBaseSha);
-          if (pull.draft) throw new PullRequestOperationError('这个改进请求还在准备中，暂时不能批准。');
+          if (pull.draft) throw new PullRequestOperationError('这个合并请求还在准备中，暂时不能批准。');
           if (pull.mergeable === false) throw new PullRequestOperationError('有内容需要作者确认，暂时无法合入。');
           const allowed = { merge: repository.allow_merge_commit !== false, squash: repository.allow_squash_merge !== false, rebase: repository.allow_rebase_merge !== false };
           const method = input.method ?? (allowed.merge ? 'merge' : allowed.squash ? 'squash' : 'rebase');
           if (!allowed[method]) throw new PullRequestOperationError('这个项目暂时不允许这种合入方式，请在 GitHub 检查项目设置。');
           const result = await client.mergePullRequest(owner, repo, Number(third), input.expectedHeadSha, method);
           if (!result.merged) throw new PullRequestOperationError('GitHub 未完成合入，请检查项目要求后重试。');
-          return { merged: true, sha: result.sha, message: '改进请求已批准并合入。' };
+          return { merged: true, sha: result.sha, message: '合并请求已批准并合入。' };
         }
         if (input.reason !== undefined && (typeof input.reason !== 'string' || input.reason.length > 65536)) invalid();
         await writablePullRequest(owner, repo, Number(third), input.expectedHeadSha, input.expectedBaseRef, input.expectedBaseSha);
@@ -415,8 +449,11 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
         return await client.createPullRequest(owner, repo, { title: input.title.trim(), body: input.body, head: input.head, base: input.base });
       }
       case 'commits': if (validRepoPart(owner) && validRepoPart(repo)) return await client.commits(owner, repo, controller?.signal); break;
+      case 'commitsPage': if (args.length === 3 && validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) >= 1 && Number(third) <= 10000) return await client.commitsPage(owner, repo, Number(third), controller?.signal); break;
       case 'commit': if (validRepoPart(owner) && validRepoPart(repo) && typeof third === 'string' && /^[a-f0-9]{40}$/.test(third)) return await client.commit(owner, repo, third, controller?.signal); break;
       case 'releases': if (validRepoPart(owner) && validRepoPart(repo)) return await client.releases(owner, repo, controller?.signal); break;
+      case 'releasesPage': if (args.length === 3 && validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) >= 1 && Number(third) <= 10000) return await client.releasesPage(owner, repo, Number(third), controller?.signal); break;
+      case 'releaseByTag': if (args.length === 3 && validRepoPart(owner) && validRepoPart(repo) && typeof third === 'string' && third.length > 0 && third.length <= 255 && !/[\u0000-\u0020\u007f]/u.test(third)) return await client.releaseByTag(owner, repo, third, controller?.signal); break;
     }
     invalid();
   } catch (error) {
@@ -452,7 +489,7 @@ export async function downloadPullRequestFile(owner: unknown, repo: unknown, num
   try {
     const context = await getPullRequestReviewContext(owner, repo, Number(number), expectedHeadSha, controller.signal);
     const file = context.files.find((item) => item.filename === path);
-    if (!file) throw new PullRequestOperationError('这个文件不在改进请求中，请刷新后重新选择。');
+    if (!file) throw new PullRequestOperationError('这个文件不在合并请求中，请刷新后重新选择。');
     if (file.status === 'removed') throw new PullRequestOperationError('这个文件已被删除，没有新版本可下载。');
     if (!validSha(file.sha)) throw new PullRequestOperationError('这个文件暂时无法下载，请稍后重试。');
     const source = context.pullRequest.head.repo ?? context.repository;
