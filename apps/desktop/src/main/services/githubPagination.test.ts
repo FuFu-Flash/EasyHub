@@ -108,7 +108,7 @@ describe('Android discovery and discussion pagination', () => {
     const client = new GitHubClient(async () => 'token', transport);
     for (const page of [0, -1, 1.5, NaN, 10001, Number.MAX_SAFE_INTEGER]) {
       await expect(client.commitsPage('writer', 'app', page)).rejects.toThrow('Invalid commits page');
-      await expect(client.releasesPage('writer', 'app', page)).rejects.toThrow('Invalid releases page');
+      await expect(client.releasesPage('writer', 'app', page)).rejects.toThrow('Invalid release page');
     }
     expect(transport).not.toHaveBeenCalled();
     for (const data of [{ items: [] }, [{ sha: 'main', commit: { message: 'wrong identity' } }], [{ sha: 'a'.repeat(40), commit: null }], Array.from({ length: 101 }, () => ({ sha: 'a'.repeat(40), commit: { message: 'too many' } }))]) {

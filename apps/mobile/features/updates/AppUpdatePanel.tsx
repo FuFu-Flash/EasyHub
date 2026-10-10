@@ -65,7 +65,7 @@ export function AppUpdatePanel() {
   return <Card>
     <Text style={{ color: palette.ink, fontWeight: '800', fontSize: 18 }}>{t('关于 EasyHub', 'About EasyHub')}</Text>
     <Text style={{ color: palette.muted, marginTop: 8 }}>{t('当前版本', 'Current version')} {currentVersion || t('未知', 'Unknown')}</Text>
-    <Text style={{ color: palette.muted, marginTop: 5 }}>{t('依据 GPLv3 发布', 'Released under GPLv3')}</Text>
+    <Text style={{ color: palette.muted, marginTop: 5 }}>{t('依据 Apache 2.0 发布', 'Released under Apache 2.0')}</Text>
     <View style={{ marginTop: 16 }}><Action title={busy ? t('正在检查…', 'Checking…') : t('检查更新', 'Check for updates')} secondary disabled={busy} onPress={() => { void check(); }} /></View>
     {busy && <ActivityIndicator accessibilityLabel={t('正在检查更新', 'Checking for updates')} color={palette.blue} style={{ marginTop: 12 }} />}
     {result && <Text accessibilityLiveRegion="polite" style={{ color: result.available ? palette.blue : palette.green, lineHeight: 21, marginTop: 12 }}>{result.available ? t(`发现新版本 ${result.latestVersion}`, `Version ${result.latestVersion} is available`) : t('已是最新版本。', 'You are up to date.')}</Text>}

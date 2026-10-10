@@ -191,7 +191,7 @@ export class BinaryAnalysisService {
       if (gitSha) {
         const blobHash = createHash('sha1').update(`blob ${size}\0`);
         for await (const chunk of createReadStream(stagedPath, { signal })) blobHash.update(chunk as Buffer);
-        if (blobHash.digest('hex') !== gitSha) throw new Error(en ? 'The file no longer matches this change request. Refresh it.' : '文件与这次改进请求不一致，请刷新后重试。');
+        if (blobHash.digest('hex') !== gitSha) throw new Error(en ? 'The file no longer matches this change request. Refresh it.' : '文件与这次合并请求不一致，请刷新后重试。');
       }
       const headerFile = await open(stagedPath, 'r');
       const header = Buffer.alloc(64);

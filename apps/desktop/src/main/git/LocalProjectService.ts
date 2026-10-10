@@ -5,7 +5,8 @@ import type { FSWatcher } from 'node:fs';
 import { lstat, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { join, parse } from 'node:path';
 import type { GitHubRepo } from '@easyhub/github';
-import type { FolderInspection, LocalDiscoveryResult, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
+import type { FolderInspection, LocalDiscoveryResult, LocalFileDiff, LocalPublishPreview, LocalPublishSelection, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
+import { safeChangePath } from './LocalChanges';
 import { createEmptyRepository, gitHubIdentity, repositoryDetails } from '../services/githubService';
 import type { GitProgress, GitProjectInfo, GitProjectStatus, GitRepository } from './GitEngine';
 import { LocalProjectStore } from './LocalProjectStore';
@@ -36,6 +37,8 @@ export class LocalProjectService {
   private readonly watchers = new Map<string, FSWatcher>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
   private active: GitJob<unknown> | null = null;
+  private activePreview: string | null = null;
+  private previewEpochs = new Map<string, number>();
   private discoveryController: AbortController | null = null;
   private discoveryJob: GitJob<GitProjectInfo> | null = null;
   private discoveryPromise: Promise<LocalDiscoveryResult> | null = null;
@@ -174,12 +177,13 @@ export class LocalProjectService {
     }
   }
 
-  async download(owner: unknown, name: unknown, parent: unknown): Promise<LocalProjectRecord> {
+  async download(owner: unknown, name: unknown, parent: unknown, options?: { signal: AbortSignal; progress: (value: GitProgress) => void }): Promise<LocalProjectRecord> {
     if (!validName(owner) || !validName(name)) throw new Error('项目名称无效。');
     const directory = await this.selected(parent);
     const remote = await repositoryDetails(owner, name);
     const identity = await gitHubIdentity();
-    const result = await this.interactive<{ path: string }>({ action: 'download', path: directory, repo: repository(remote), token: identity.token });
+    options?.signal.throwIfAborted();
+    const result = await this.interactive<{ path: string }>({ action: 'download', path: directory, repo: repository(remote), token: identity.token }, options);
     const record = await this.store.upsert({ repositoryId: remote.id, owner: remote.owner.login, name: remote.name, localPath: result.path });
     this.watchRecord(record);
     return record;
@@ -188,16 +192,41 @@ export class LocalProjectService {
   async status(id: unknown): Promise<LocalProjectStatus> {
     const record = await this.record(id);
     const result = await this.interactive<GitProjectStatus>({ action: 'status', path: record.localPath });
-    return { files: result.files, needsReview: result.hasPreparedChanges };
+    return { files: result.files, needsReview: result.hasPreparedChanges, pendingPublish: result.pendingPublish, pendingMessage: result.pendingMessage };
   }
 
-  async publish(id: unknown, rawMessage: unknown): Promise<{ changed: number }> {
+  async previewChanges(id: unknown): Promise<LocalPublishPreview> {
+    const record = await this.record(id);
+    return this.interactive<LocalPublishPreview>({ action: 'preview-changes', path: record.localPath }, undefined, { id: record.id, epoch: this.previewEpochs.get(record.id) ?? 0 });
+  }
+
+  async fileDiff(id: unknown, path: unknown, snapshot: unknown): Promise<LocalFileDiff> {
+    const record = await this.record(id);
+    if (!safeChangePath(path) || typeof snapshot !== 'string' || !/^[a-f0-9]{64}$/.test(snapshot)) throw new Error('文件选择无效，请刷新修改列表后重试。');
+    return this.interactive<LocalFileDiff>({ action: 'file-diff', path: record.localPath, filePath: path, snapshot }, undefined, { id: record.id, epoch: this.previewEpochs.get(record.id) ?? 0 });
+  }
+
+  async cancelPreview(id: unknown): Promise<void> {
+    const record = await this.record(id);
+    this.previewEpochs.set(record.id, (this.previewEpochs.get(record.id) ?? 0) + 1);
+    if (this.activePreview === record.id) this.active?.cancel();
+  }
+
+  async publish(id: unknown, rawMessage: unknown, rawSelection?: unknown): Promise<{ changed: number }> {
     const record = await this.record(id);
     if (typeof rawMessage !== 'string' || !rawMessage.trim() || rawMessage.length > 200) throw new Error('请用一句话说明这次修改。');
+    let selection: LocalPublishSelection | undefined;
+    if (rawSelection !== undefined) {
+      if (!rawSelection || typeof rawSelection !== 'object') throw new Error('文件选择无效。');
+      const input = rawSelection as Partial<LocalPublishSelection>;
+      if (typeof input.snapshot !== 'string' || !/^[a-f0-9]{64}$/.test(input.snapshot) || !Array.isArray(input.paths) || input.paths.length > 10000
+        || input.paths.some((path) => !safeChangePath(path)) || new Set(input.paths).size !== input.paths.length) throw new Error('文件选择无效，请刷新修改列表后重试。');
+      selection = { snapshot: input.snapshot, paths: input.paths };
+    }
     const remote = await repositoryDetails(record.owner, record.name);
     if (remote.id !== record.repositoryId) throw new Error('GitHub 项目已发生变化，请重新添加这个文件夹。');
     const identity = await gitHubIdentity();
-    const result = await this.interactive<{ head: string; changed: number }>({ action: 'publish', path: record.localPath, repo: repository(remote), author: author(identity.user), token: identity.token, message: rawMessage.trim() });
+    const result = await this.interactive<{ head: string; changed: number }>({ action: 'publish', path: record.localPath, repo: repository(remote), author: author(identity.user), token: identity.token, message: rawMessage.trim(), selection });
     return { changed: result.changed };
   }
 
@@ -260,20 +289,26 @@ export class LocalProjectService {
     return found;
   }
 
-  private async interactive<T>(task: GitTask): Promise<T> {
+  private async interactive<T>(task: GitTask, options?: { signal: AbortSignal; progress: (value: GitProgress) => void }, preview?: { id: string; epoch: number }): Promise<T> {
     const previous = this.operationTail;
     let release = (): void => undefined;
     this.operationTail = new Promise<void>((resolve) => { release = resolve; });
     await previous;
     try {
+      if (preview && (this.previewEpochs.get(preview.id) ?? 0) !== preview.epoch) throw new Error('已取消读取，可以重新读取修改。');
+      options?.signal.throwIfAborted();
       const needsNetwork = task.action === 'create' || task.action === 'download' || task.action === 'publish' || task.action === 'check-sync' || task.action === 'sync';
       this.cancelSafe = true;
       const job = runGitTask<T>({ ...task, proxy: needsNetwork ? await githubProxy() : undefined,
         githubRules: needsNetwork ? githubOriginRules() : undefined },
-        (value: GitProgress) => { if (value.cancelable === false) this.cancelSafe = false; this.send('easyhub:local-progress', value); });
+        (value: GitProgress) => { if (value.cancelable === false) this.cancelSafe = false; this.send('easyhub:local-progress', value); options?.progress(value); });
       this.active = job;
+      this.activePreview = preview?.id ?? null;
+      const abort = (): void => { if (this.cancelSafe) job.cancel(); };
+      options?.signal.addEventListener('abort', abort, { once: true });
+      if (options?.signal.aborted) abort();
       try { return await job.result; }
-      finally { this.active = null; this.cancelSafe = true; }
+      finally { options?.signal.removeEventListener('abort', abort); this.active = null; this.activePreview = null; this.cancelSafe = true; }
     } finally { release(); }
   }
 
@@ -290,7 +325,7 @@ export class LocalProjectService {
           return;
         }
         void runGitTask<GitProjectStatus>({ action: 'status', path: record.localPath }).result
-          .then((status) => this.send('easyhub:local-status', { id: record.id, status: { files: status.files, needsReview: status.hasPreparedChanges } }))
+          .then((status) => this.send('easyhub:local-status', { id: record.id, status: { files: status.files, needsReview: status.hasPreparedChanges, pendingPublish: status.pendingPublish, pendingMessage: status.pendingMessage } }))
           .catch(() => undefined);
       };
       const watcher = watch(record.localPath, { recursive: true }, (_event, filename) => {

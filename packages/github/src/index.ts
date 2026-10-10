@@ -2,6 +2,7 @@ export type Transport = (input: string | URL, init?: RequestInit) => Promise<Res
 
 export interface GitHubUser { id?: number; login: string; name: string | null; avatar_url: string; html_url: string; bio?: string | null; company?: string | null; location?: string | null; followers?: number; following?: number; public_repos?: number; created_at?: string }
 export interface GitHubSearchUser { id: number; login: string; avatar_url: string; html_url: string; type: string }
+export interface GitHubSearchPage<T> { items: T[]; page: number; totalCount: number; hasNextPage: boolean; incompleteResults: boolean }
 export interface GitHubRepo { id: number; name: string; full_name: string; html_url?: string; description: string | null; private: boolean; fork?: boolean; parent?: { id: number; full_name: string; default_branch: string; html_url: string; owner: { login: string }; name: string }; allow_forking?: boolean; allow_merge_commit?: boolean; allow_squash_merge?: boolean; allow_rebase_merge?: boolean; archived?: boolean; permissions?: { admin: boolean; push: boolean; pull: boolean }; updated_at: string; pushed_at?: string | null; created_at?: string; stargazers_count?: number; language?: string | null; default_branch: string; owner: { login: string; avatar_url?: string }; open_issues_count: number }
 export interface GitHubBranchProtection { required_status_checks: unknown | null; required_pull_request_reviews: { required_approving_review_count?: number } | null; enforce_admins: { enabled: boolean } | null }
 export interface GitHubBranch { name: string; protected: boolean }
@@ -14,7 +15,6 @@ export interface Contributions { total: number; years: number[]; weeks: { contri
 export interface GitHubIssue { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; created_at: string; user: { login: string } | null; comments: number; pull_request?: unknown }
 export interface GitHubIssuePage { items: GitHubIssue[]; nextPage: number | null }
 export interface GitHubPage<T> { items: T[]; nextPage: number | null }
-export interface GitHubSearchPage<T> { items: T[]; page: number; totalCount: number; hasNextPage: boolean; incompleteResults: boolean }
 export interface GitHubActivityCount { issues: number; closedIssues: number; pullRequests: number; closedPullRequests: number }
 export interface GitHubActivityRepository { id: number; owner: string; name: string }
 export interface GitHubPullRepository { id: number; name: string; full_name: string; owner: { login: string } }
@@ -33,6 +33,7 @@ export interface GitHubComment { id: number; body: string; created_at: string; u
 export interface GitHubCommit { sha: string; commit: { message: string; author: { name: string; date: string } | null }; author: { login: string } | null; stats?: { additions: number; deletions: number }; files?: { filename: string; status: string }[] }
 export interface GitHubReleaseAsset { id: number; name: string; label: string | null; size: number; content_type: string; download_count: number; state: string; browser_download_url?: string; digest?: string }
 export interface GitHubRelease { id: number; tag_name: string; name: string | null; body: string | null; draft: boolean; prerelease: boolean; published_at: string | null; assets: GitHubReleaseAsset[] }
+export interface GitHubReleasePage { items: GitHubRelease[]; nextPage: number | null }
 export interface GitHubCreatedRelease extends GitHubRelease { upload_url: string; html_url: string }
 export interface TrendingPage { items: GitHubRepo[]; page: number; hasNextPage: boolean }
 
@@ -369,11 +370,11 @@ export class GitHubClient {
   closePullRequest(owner: string, repo: string, number: number): Promise<GitHubPullRequest> {
     return this.request(`${repoPath(owner, repo)}/pulls/${number}`, { method: 'PATCH', body: JSON.stringify({ state: 'closed' }) });
   }
-  async downloadBlob(owner: string, repo: string, sha: string, signal?: AbortSignal): Promise<Response> {
+  async downloadBlob(owner: string, repo: string, sha: string, signal?: AbortSignal, transferHeaders: Record<string, string> = {}): Promise<Response> {
     const response = await this.transport(`https://api.github.com${repoPath(owner, repo)}/git/blobs/${encodePart(sha)}`, {
-      signal, redirect: 'error', headers: { Accept: 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28', Authorization: `Bearer ${await this.token()}` },
+      signal, redirect: 'error', headers: { ...transferHeaders, Accept: 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28', Authorization: `Bearer ${await this.token()}` },
     });
-    if (!response.ok) throw new GitHubError(response.status, 'GitHub changed file download failed');
+    if (!response.ok && !(response.status === 416 && transferHeaders.Range)) throw new GitHubError(response.status, 'GitHub changed file download failed');
     return response;
   }
   createPullRequest(owner: string, repo: string, input: { title: string; body: string; head: string; base: string }): Promise<GitHubPullRequest> {
@@ -397,15 +398,20 @@ export class GitHubClient {
   }
   commit(owner: string, repo: string, sha: string, signal?: AbortSignal): Promise<GitHubCommit> { return this.request(`${repoPath(owner, repo)}/commits/${encodePart(sha)}`, { signal }); }
   releases(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubRelease[]> { return this.request(`${repoPath(owner, repo)}/releases?per_page=30`, { signal, cache: 'no-store' }); }
-  async releasesPage(owner: string, repo: string, page = 1, signal?: AbortSignal): Promise<GitHubPage<GitHubRelease>> {
-    if (!Number.isSafeInteger(page) || page < 1 || page > 10000) throw new Error('Invalid releases page');
+  async releasesPage(owner: string, repo: string, page = 1, signal?: AbortSignal): Promise<GitHubReleasePage> {
+    if (!Number.isSafeInteger(page) || page < 1 || page > 10000) throw new Error('Invalid release page');
     const items = await this.request<GitHubRelease[]>(`${repoPath(owner, repo)}/releases?per_page=30&page=${page}`, { signal, cache: 'no-store' });
     if (!Array.isArray(items) || items.length > 30 || items.some((item) => !item || !Number.isSafeInteger(item.id) || item.id < 1 || typeof item.tag_name !== 'string' || !item.tag_name)) throw new GitHubError(502, 'Invalid releases response');
     return { items, nextPage: items.length === 30 && page < 10000 ? page + 1 : null };
   }
   release(owner: string, repo: string, id: number, signal?: AbortSignal): Promise<GitHubCreatedRelease> { return this.request(`${repoPath(owner, repo)}/releases/${id}`, { signal, cache: 'no-store' }); }
-  releaseByTag(owner: string, repo: string, tag?: string, signal?: AbortSignal): Promise<GitHubCreatedRelease> {
-    return this.request(`${repoPath(owner, repo)}/releases/${tag ? `tags/${encodePart(tag)}` : 'latest'}`, { signal, cache: 'no-store' });
+  releaseByTag(owner: string, repo: string, tag?: undefined, signal?: AbortSignal): Promise<GitHubCreatedRelease>;
+  releaseByTag(owner: string, repo: string, tag: string, signal?: AbortSignal): Promise<GitHubCreatedRelease | null>;
+  releaseByTag(owner: string, repo: string, tag: string | undefined, signal?: AbortSignal): Promise<GitHubCreatedRelease | null>;
+  async releaseByTag(owner: string, repo: string, tag?: string, signal?: AbortSignal): Promise<GitHubCreatedRelease | null> {
+    if (tag !== undefined && (!tag || tag.length > 255 || /[\u0000-\u0020\u007f]/u.test(tag))) throw new Error('Invalid release tag');
+    try { return await this.request(`${repoPath(owner, repo)}/releases/${tag === undefined ? 'latest' : `tags/${encodePart(tag)}`}`, { signal, cache: 'no-store' }); }
+    catch (error) { if (tag !== undefined && error instanceof GitHubError && error.status === 404) return null; throw error; }
   }
   createRelease(owner: string, repo: string, input: { tagName: string; target: string; name: string; body: string; prerelease: boolean }, signal?: AbortSignal): Promise<GitHubCreatedRelease> {
     return this.request(`${repoPath(owner, repo)}/releases`, { method: 'POST', body: JSON.stringify({ tag_name: input.tagName, target_commitish: input.target, name: input.name, body: input.body, draft: true, prerelease: input.prerelease }), signal });
@@ -420,20 +426,20 @@ export class GitHubClient {
     return this.request(`${repoPath(owner, repo)}/releases/assets/${id}`, { method: 'DELETE' });
   }
   releaseAsset(owner: string, repo: string, id: number, signal?: AbortSignal): Promise<GitHubReleaseAsset> { return this.request(`${repoPath(owner, repo)}/releases/assets/${id}`, { signal }); }
-  async downloadReleaseAsset(owner: string, repo: string, id: number, signal?: AbortSignal): Promise<Response> {
+  async downloadReleaseAsset(owner: string, repo: string, id: number, signal?: AbortSignal, transferHeaders: Record<string, string> = {}): Promise<Response> {
     const response = await this.transport(`https://api.github.com${repoPath(owner, repo)}/releases/assets/${id}`, {
-      signal, redirect: 'follow', headers: { Accept: 'application/octet-stream', 'X-GitHub-Api-Version': '2022-11-28', Authorization: `Bearer ${await this.token()}` },
+      signal, redirect: 'follow', headers: { ...transferHeaders, Accept: 'application/octet-stream', 'X-GitHub-Api-Version': '2022-11-28', Authorization: `Bearer ${await this.token()}` },
     });
-    if (!response.ok) throw new GitHubError(response.status, 'GitHub release download failed');
-    if (response.headers.get('content-type')?.toLowerCase().includes('json')) throw new GitHubError(502, 'GitHub returned metadata instead of the release file');
+    if (!response.ok && !(response.status === 416 && transferHeaders.Range)) throw new GitHubError(response.status, 'GitHub release download failed');
+    if (response.status !== 416 && response.headers.get('content-type')?.toLowerCase().includes('json')) throw new GitHubError(502, 'GitHub returned metadata instead of the release file');
     return response;
   }
-  async archive(owner: string, repo: string, ref: string, signal?: AbortSignal): Promise<Response> {
+  async archive(owner: string, repo: string, ref: string, signal?: AbortSignal, transferHeaders: Record<string, string> = {}): Promise<Response> {
     const response = await this.transport(`https://api.github.com${repoPath(owner, repo)}/zipball/${encodePart(ref)}`, {
       signal, redirect: 'follow',
-      headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', Authorization: `Bearer ${await this.token()}` },
+      headers: { ...transferHeaders, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', Authorization: `Bearer ${await this.token()}` },
     });
-    if (!response.ok) throw new GitHubError(response.status, 'GitHub archive request failed');
+    if (!response.ok && !(response.status === 416 && transferHeaders.Range)) throw new GitHubError(response.status, 'GitHub archive request failed');
     return response;
   }
 }

@@ -11,6 +11,24 @@ function errorCode(code) {
   return (error) => error instanceof AppUpdateError && error.code === code;
 }
 
+test('the independent Android release tag is detected without changing desktop tags', () => {
+  const release = androidRelease('1.1.0', { tag_name: 'android-v1.1.0' });
+  assert.deepEqual(selectAndroidUpdate('1.0.0', [release, androidRelease('1.0.0')]), {
+    currentVersion: '1.0.0', latestVersion: '1.1.0', available: true,
+    releaseUrl: 'https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0',
+  });
+  assert.equal(selectAndroidUpdate('1.1.0', [release]).available, false);
+});
+
+test('independent Android tags still require canonical stable versions and matching application assets', () => {
+  for (const tag of ['android-v01.1.0', 'android-v1.1.0-beta.1', 'android-v1.1.0+build.1', 'android-v1.1', 'android-1.1.0']) {
+    assert.throws(() => selectAndroidUpdate('1.0.0', [androidRelease('1.1.0', { tag_name: tag })]), errorCode('no-android-release'));
+  }
+  assert.throws(() => selectAndroidUpdate('1.0.0', [androidRelease('1.1.0', {
+    tag_name: 'android-v1.1.0', assets: [{ name: 'EasyHub-Android-1.0.0-arm64.apk' }],
+  })]), errorCode('no-android-release'));
+});
+
 test('Android update selection ignores newer desktop releases and framework downloads', () => {
   const data = [
     { tag_name: 'v1.2.1', draft: false, prerelease: false, assets: [{ name: 'EasyHub-1.2.1-setup.exe' }] },

@@ -3,16 +3,72 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-const vault = vi.hoisted(() => ({ password: undefined as string | undefined }));
+const vault = vi.hoisted(() => ({ password: undefined as string | undefined, probes: new Map<string, string>(), fail: '' as '' | 'construct' | 'read' | 'write' | 'delete', wrongProbe: false, beforeWrite: undefined as (() => Promise<void>) | undefined }));
 const desktop = vi.hoisted(() => ({ save: vi.fn(), confirm: vi.fn(), reveal: vi.fn() }));
 vi.mock('@napi-rs/keyring', () => ({ AsyncEntry: class {
-  async getPassword(): Promise<string | undefined> { return vault.password; }
-  async setPassword(value: string): Promise<void> { vault.password = value; }
-  async deleteCredential(): Promise<boolean> { vault.password = undefined; return true; }
+  constructor(private readonly service: string, private readonly account: string) { if (vault.fail === 'construct') throw new Error('keyring constructor private-debug'); }
+  async getPassword(): Promise<string | undefined> {
+    if (vault.fail === 'read') throw new Error('keyring backend detail private-debug');
+    return this.account === 'default' ? vault.password : vault.wrongProbe ? 'incorrect' : vault.probes.get(`${this.service}/${this.account}`);
+  }
+  async setPassword(value: string): Promise<void> {
+    if (vault.fail === 'write') throw new Error('keyring locked private-debug');
+    if (this.account === 'default') { await vault.beforeWrite?.(); vault.password = value; }
+    else vault.probes.set(`${this.service}/${this.account}`, value);
+  }
+  async deleteCredential(): Promise<boolean> {
+    if (vault.fail === 'delete') throw new Error('keyring delete private-debug');
+    if (this.account === 'default') { vault.password = undefined; return true; }
+    return vault.probes.delete(`${this.service}/${this.account}`);
+  }
 } }));
 vi.mock('electron', () => ({ dialog: { showSaveDialog: desktop.save, showMessageBox: desktop.confirm }, shell: { showItemInFolder: desktop.reveal }, net: { fetch: (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init) } }));
 
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); vault.password = undefined; });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); vault.password = undefined; vault.probes.clear(); vault.fail = ''; vault.wrongProbe = false; vault.beforeWrite = undefined; });
+
+describe('read-only build and test checks', () => {
+  const headSha = 'a'.repeat(40);
+  const repo = { id: 91, name: 'sample', owner: { login: 'owner' } };
+  const pull = { number: 7, head: { sha: headSha }, base: { repo: { id: 91 } } };
+  async function setupChecks(options: { stale?: boolean; deniedStatuses?: boolean } = {}) {
+    vi.resetModules(); vault.password = JSON.stringify({ clientId: 'test_client', accessToken: 'test-token' });
+    let pullReads = 0;
+    const fetcher = vi.fn(async (input: string | URL, _init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/repos/owner/sample')) return Response.json(repo);
+      if (url.endsWith('/pulls/7')) { pullReads++; return Response.json(options.stale && pullReads > 1 ? { ...pull, head: { sha: 'b'.repeat(40) } } : pull); }
+      if (url.includes('/check-runs?')) return Response.json({ total_count: 1, check_runs: [{ id: 1, name: 'tests', head_sha: headSha, status: 'completed', conclusion: 'success' }] });
+      if (url.includes('/statuses?')) return options.deniedStatuses ? new Response('', { status: 403 }) : Response.json([]);
+      throw new Error('Unexpected check request');
+    });
+    vi.stubGlobal('fetch', fetcher);
+    return { service: await import('./githubService'), fetcher };
+  }
+  it('validates reference and pagination before using the authenticated client', async () => {
+    const { service, fetcher } = await setupChecks();
+    for (const input of [{ headSha: 'main', checkPage: 1, statusPage: 1 }, { headSha, checkPage: 0, statusPage: 1 }, { headSha, checkPage: 1, statusPage: '1' }, { headSha, checkPage: null, statusPage: null }, { headSha, checkPage: 1 }]) {
+      await expect(service.githubAction('pullChecks', ['owner', 'sample', 7, input])).rejects.toThrow('填写');
+    }
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('loads both check sources for the reviewed revision using only reads', async () => {
+    const { service, fetcher } = await setupChecks();
+    expect(await service.githubAction('pullChecks', ['owner', 'sample', 7, { headSha, checkPage: 1, statusPage: 1 }])).toMatchObject({ headSha, checkRuns: { state: 'available', items: [{ name: 'tests' }] }, statuses: { state: 'available', items: [], nextPage: null } });
+    expect(fetcher.mock.calls.filter(([url]) => String(url).endsWith('/pulls/7'))).toHaveLength(2);
+    expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
+  });
+  it('keeps a denied source visible and retries only requested sources', async () => {
+    const { service, fetcher } = await setupChecks({ deniedStatuses: true });
+    expect(await service.githubAction('pullChecks', ['owner', 'sample', 7, { headSha, checkPage: 1, statusPage: 1 }])).toMatchObject({ checkRuns: { state: 'available' }, statuses: { state: 'forbidden', nextPage: 1 } });
+    fetcher.mockClear();
+    expect(await service.githubAction('pullChecks', ['owner', 'sample', 7, { headSha, checkPage: null, statusPage: 1 }])).toMatchObject({ checkRuns: null, statuses: { state: 'forbidden' } });
+    expect(fetcher.mock.calls.some(([url]) => String(url).includes('check-runs'))).toBe(false);
+  });
+  it('discards results when the author updates the request during the read', async () => {
+    const { service } = await setupChecks({ stale: true });
+    await expect(service.githubAction('pullChecks', ['owner', 'sample', 7, { headSha, checkPage: 1, statusPage: 1 }])).rejects.toThrow('新修改');
+  });
+});
 
 describe('binary analysis snapshots', () => {
   it('downloads the pinned file from a verified contributor snapshot', async () => {
@@ -59,6 +115,182 @@ describe('binary analysis snapshots', () => {
 });
 
 describe('GitHub device authorization', () => {
+  it('checks writable secure storage before any login network request without replacing an existing account', async () => {
+    vi.resetModules();
+    const previous = JSON.stringify({ clientId: 'test_client', accessToken: 'existing-test-token' });
+    vault.password = previous;
+    const fetcher = vi.fn(async () => {
+      expect(vault.password).toBe(previous);
+      expect(vault.probes.size).toBe(0);
+      return Response.json({ device_code: 'test-code', user_code: 'ABCD-EFGH', verification_uri: 'https://github.com/login/device', expires_in: 900 });
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const service = await import('./githubService');
+    vault.fail = 'write';
+    await expect(service.startDeviceLogin('test_client')).rejects.toThrow('安全存储');
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(vault.password).toBe(previous);
+    vault.fail = '';
+    expect(await service.startDeviceLogin('test_client')).toMatchObject({ userCode: 'ABCD-EFGH' });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('cleans up a failed readback probe and refuses login when probe cleanup fails', async () => {
+    vi.resetModules();
+    const fetcher = vi.fn(async () => Response.json({}));
+    vi.stubGlobal('fetch', fetcher);
+    const service = await import('./githubService');
+    vault.wrongProbe = true;
+    await expect(service.startDeviceLogin('test_client')).rejects.toThrow('安全存储');
+    expect(vault.probes.size).toBe(0);
+    expect(fetcher).not.toHaveBeenCalled();
+    vault.wrongProbe = false; vault.fail = 'delete';
+    await expect(service.startDeviceLogin('test_client')).rejects.toThrow('安全存储');
+    expect(fetcher).not.toHaveBeenCalled();
+    expect([...vault.probes.values()].every((value) => !value.includes('token'))).toBe(true);
+  });
+
+  it.each(['construct', 'read', 'write'] as const)('does not perform even permission reads when deletion authorization fails keyring %s', async (failure) => {
+    vi.resetModules();
+    const fetcher = vi.fn(async () => Response.json({}));
+    vi.stubGlobal('fetch', fetcher);
+    const service = await import('./githubService');
+    vault.fail = failure;
+    await expect(service.startDeviceLogin('test_client', true, { owner: 'owner', repo: 'app', id: 91 })).rejects.toThrow('安全存储');
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(vault.probes.size).toBe(0);
+  });
+
+  it('prevents concurrent login starts and discards a device response received after cancellation', async () => {
+    vi.resetModules();
+    let acceptResponse: ((response: Response) => void) | undefined;
+    let markStarted: (() => void) | undefined;
+    const requestStarted = new Promise<void>((resolve) => { markStarted = resolve; });
+    const fetcher = vi.fn(async () => {
+      markStarted?.();
+      return new Promise<Response>((resolve) => { acceptResponse = resolve; });
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const service = await import('./githubService');
+    const starting = service.startDeviceLogin('test_client');
+    await requestStarted;
+    await expect(service.startDeviceLogin('test_client')).rejects.toThrow('正在准备登录');
+    service.cancelDeviceLogin();
+    acceptResponse?.(Response.json({ device_code: 'test-code', user_code: 'ABCD-EFGH', verification_uri: 'https://github.com/login/device', expires_in: 900 }));
+    await expect(starting).rejects.toThrow('登录已取消');
+    await expect(service.pollDeviceLogin()).rejects.toThrow('过期');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(vault.probes.size).toBe(0);
+  });
+
+  it.each(['cancel', 'logout'] as const)('does not leave a newly authorized account when %s happens during the keyring write', async (action) => {
+    vi.resetModules();
+    const previous = JSON.stringify({ clientId: 'test_client', accessToken: 'existing-test-token' });
+    vault.password = previous;
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL) => String(input).endsWith('/device/code')
+      ? Response.json({ device_code: 'test-code', user_code: 'ABCD-EFGH', verification_uri: 'https://github.com/login/device', expires_in: 900 })
+      : String(input).endsWith('/access_token') ? Response.json({ access_token: 'new-test-token' }) : Response.json({ login: 'tester' })));
+    const service = await import('./githubService');
+    await service.startDeviceLogin('test_client');
+    let releaseWrite: (() => void) | undefined;
+    let markWriteStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => { markWriteStarted = resolve; });
+    let writes = 0;
+    vault.beforeWrite = async () => {
+      if (++writes === 1) { markWriteStarted?.(); await new Promise<void>((resolve) => { releaseWrite = resolve; }); }
+    };
+    const polling = service.pollDeviceLogin();
+    await started;
+    const loggingOut = action === 'logout' ? service.logout() : undefined;
+    if (action === 'cancel') service.cancelDeviceLogin();
+    releaseWrite?.();
+    await expect(polling).rejects.toThrow('登录已取消');
+    await loggingOut;
+    expect(vault.password).toBe(action === 'logout' ? undefined : previous);
+    expect(await service.authStatus()).toMatchObject({ user: action === 'logout' ? null : { login: 'tester' } });
+  });
+
+  it('reports keyring failures while saving and reading credentials without leaking backend details', async () => {
+    vi.resetModules();
+    const fetcher = vi.fn(async (input: string | URL) => String(input).endsWith('/device/code')
+      ? Response.json({ device_code: 'test-code', user_code: 'ABCD-EFGH', verification_uri: 'https://github.com/login/device', expires_in: 900 })
+      : Response.json({ access_token: 'test-token' }));
+    vi.stubGlobal('fetch', fetcher);
+    const service = await import('./githubService');
+    vault.fail = 'read';
+    await expect(service.authStatus()).rejects.toThrow('安全存储');
+    vault.fail = '';
+    await service.startDeviceLogin('test_client');
+    vault.fail = 'write';
+    await expect(service.pollDeviceLogin()).rejects.toThrow('安全存储');
+    expect(vault.password).toBeUndefined();
+    expect(vault.probes.size).toBe(0);
+  });
+
+  it('distinguishes login timeout and TLS errors without exposing raw network details', async () => {
+    for (const [cause, text] of [
+      [new DOMException('private-debug', 'TimeoutError'), '超时'], [new Error('net::ERR_CERT_AUTHORITY_INVALID private-debug'), '证书'],
+      [new Error('net::ERR_PROXY_CONNECTION_FAILED private-debug'), '当前代理'], [new Error('net::ERR_NAME_NOT_RESOLVED private-debug'), '网络地址'],
+    ] as const) {
+      vi.resetModules();
+      vi.stubGlobal('fetch', vi.fn(async () => { throw cause; }));
+      const service = await import('./githubService');
+      const error = await service.startDeviceLogin('test_client').catch((value: unknown) => value);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain(text);
+      expect((error as Error).message).not.toContain('private-debug');
+    }
+  });
+
+  it('reports invalid responses and rate limiting without displaying returned server content', async () => {
+    for (const [response, message] of [[new Response('<html>private-debug</html>'), '信息不完整'], [new Response('private-debug', { status: 429 }), '过于频繁']] as const) {
+      vi.resetModules();
+      vi.stubGlobal('fetch', vi.fn(async () => response));
+      const service = await import('./githubService');
+      const error = await service.startDeviceLogin('test_client').catch((value: unknown) => value);
+      expect((error as Error).message).toContain(message);
+      expect((error as Error).message).not.toContain('private-debug');
+    }
+  });
+
+  it('validates discussion search and pagination before touching the network', async () => {
+    vi.resetModules();
+    vault.password = JSON.stringify({ clientId: 'test_client', accessToken: 'test-token' });
+    const fetcher = vi.fn(async () => Response.json([])); vi.stubGlobal('fetch', fetcher);
+    const service = await import('./githubService');
+    for (const [action, args] of [
+      ['commentsPage', ['owner', 'app', 1, 0]], ['commentsPage', ['owner', 'app', 0, 1]],
+      ['commentsPage', ['owner', 'app', 1, '2']], ['commentsPage', ['owner', 'app', 1, 2, 'extra']],
+      ['commitsPage', ['owner', 'app', 1.5]], ['commitsPage', ['../owner', 'app', 1]],
+      ['searchDiscussions', ['owner', 'app', { query: 'test', kind: 'repo', state: 'all', page: 1 }]],
+      ['searchDiscussions', ['owner', 'app', { query: '', kind: 'issue', state: 'all', page: 1 }]],
+      ['searchDiscussions', ['owner', 'app', { query: 'test', kind: 'issue', state: 'all', page: 35 }]],
+    ] as const) await expect(service.githubAction(action, [...args])).rejects.toThrow();
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(await service.githubAction('commentsPage', ['owner', 'app', 1, 2])).toEqual({ items: [], nextPage: null });
+    expect(await service.githubAction('commitsPage', ['owner', 'app', 2])).toEqual({ items: [], nextPage: null });
+  });
+  it('validates release pages and tags before calling the read-only endpoints', async () => {
+    vi.resetModules();
+    vault.password = JSON.stringify({ clientId: 'test_client', accessToken: 'test-token' });
+    const fetcher = vi.fn(async (input: string | URL) => Response.json(String(input).includes('/tags/') ? { id: 8 } : []));
+    vi.stubGlobal('fetch', fetcher);
+    const service = await import('./githubService');
+    for (const args of [['owner', 'app', 0], ['owner', 'app', '2'], ['owner', 'app', 1.5], ['owner', 'app', 10001], ['owner', 'app', 2, 'extra']]) {
+      await expect(service.githubAction('releasesPage', args)).rejects.toThrow();
+    }
+    for (const args of [['owner', 'app', ''], ['owner', 'app', 'bad\ntag'], ['owner', 'app', 'v1', 'extra']]) {
+      await expect(service.githubAction('releaseByTag', args)).rejects.toThrow();
+    }
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(await service.githubAction('releasesPage', ['owner', 'app', 2])).toEqual({ items: [], nextPage: null });
+    expect(await service.githubAction('releaseByTag', ['owner', 'app', 'older/0.1'])).toEqual({ id: 8 });
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+      'https://api.github.com/repos/owner/app/releases?per_page=30&page=2',
+      'https://api.github.com/repos/owner/app/releases/tags/older%2F0.1',
+    ]);
+  });
+
   it('explains a blocked login POST without leaking a raw network error', async () => {
     vi.resetModules();
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('net::ERR_CONNECTION_RESET'); }));
@@ -331,7 +563,7 @@ describe('safe improvement request handling', () => {
 
   it('merges only the reviewed revision with current write permission', async () => {
     const { service, fetchMock } = await setup();
-    expect(await service.githubAction('acceptPullRequest', ['owner', 'sample', 7, { expectedHeadSha: headSha, expectedBaseRef: originalPull.base.ref, expectedBaseSha: originalPull.base.sha }])).toMatchObject({ merged: true, message: '改进请求已批准并合入。' });
+    expect(await service.githubAction('acceptPullRequest', ['owner', 'sample', 7, { expectedHeadSha: headSha, expectedBaseRef: originalPull.base.ref, expectedBaseSha: originalPull.base.sha }])).toMatchObject({ merged: true, message: '合并请求已批准并合入。' });
     expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(['https://api.github.com/repos/owner/sample', 'https://api.github.com/repos/owner/sample/pulls/7', 'https://api.github.com/repos/owner/sample/pulls/7/merge']);
     expect(JSON.parse(fetchMock.mock.calls[2]?.[1]?.body as string)).toEqual({ sha: headSha, merge_method: 'merge' });
   });
@@ -470,7 +702,7 @@ describe('safe improvement request handling', () => {
       await expect(service.downloadPullRequestFile('owner', 'sample', 7, path, vi.fn(), headSha)).rejects.toThrow('填写');
     }
     expect(fetchMock).not.toHaveBeenCalled();
-    await expect(service.downloadPullRequestFile('owner', 'sample', 7, 'secret.txt', vi.fn(), headSha)).rejects.toThrow('不在改进请求');
+    await expect(service.downloadPullRequestFile('owner', 'sample', 7, 'secret.txt', vi.fn(), headSha)).rejects.toThrow('不在合并请求');
     const removed = await setup({ files: [{ ...originalFile, status: 'removed' }] });
     await expect(removed.service.downloadPullRequestFile('owner', 'sample', 7, 'src/fix.ts', vi.fn(), headSha)).rejects.toThrow('已被删除');
     expect(desktop.save).not.toHaveBeenCalled();

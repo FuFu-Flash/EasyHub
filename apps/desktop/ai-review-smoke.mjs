@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { isAbsolute, join } from 'node:path';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
+import { installDownloadFixture } from './download-fixture.mjs';
 
 const executableArgument = process.argv.find((argument) => argument.startsWith('--executable='));
 const executable = executableArgument?.slice('--executable='.length);
@@ -70,11 +71,13 @@ try {
       if (action === 'activityCounts') return { 901: { issues: 0, closedIssues: 0, pullRequests: 7, closedPullRequests: 1 } };
       if (action === 'readme') return '<p align="center"><img src="https://raw.githubusercontent.com/FuFu-Flash/EasyHub/main/apps/desktop/src/renderer/src/assets/easyhub-icon.svg" alt="EasyHub" width="72" height="72"></p>\n\n<h1 align="center">Review example</h1>\n\n| Version | Download |\n| --- | --- |\n| 1.2.0 | [Get it](https://github.com/FuFu-Flash/EasyHub/releases) |\n\nThe next paragraph.';
       if (action === 'releases') return args[0] === 'test-owner' ? [release] : [];
+      if (action === 'releasesPage') return { items: args[0] === 'test-owner' ? [release] : [], nextPage: null };
       if (action === 'issues' || action === 'commits' || action === 'comments') return [];
       if (action === 'issuesPage') return { items: [], nextPage: null };
       if (action === 'pullRequests') return requests;
       if (action === 'pullRequestsPage') return args[2] === 'open' ? requests.filter((request) => request.state === 'open') : [handledRequest];
       if (action === 'pullRequest') return requests.find((request) => request.number === args[2]);
+      if (action === 'pullChecks') return { headSha: args[3].headSha, checkRuns: { state: 'available', items: [], nextPage: null }, statuses: { state: 'available', items: [], nextPage: null } };
       if (action === 'pullReviewContext') return { repository: args[0] === 'someone' ? external : owned, pullRequest: requests.find((request) => request.number === args[2]), filesTruncated: false, files: filesFor(args[2]) };
       if (action === 'pullFiles') return filesFor(args[2]);
       if (action === 'publicRepo' || action === 'repository') { aiSlow = true; return external; }
@@ -89,6 +92,7 @@ try {
       throw new Error(`Unexpected mock action: ${action}`);
     });
   });
+  await installDownloadFixture(app, ['easyhub:download-pull-file']);
   const page = await app.firstWindow();
   page.setDefaultTimeout(15_000);
   const pageErrors = [];
@@ -165,7 +169,7 @@ try {
   assert.match(await page.evaluate(() => window.getSelection()?.toString() ?? ''), /next parag/);
   await page.screenshot({ path: 'out/readme-preview-smoke.png' });
   await page.getByRole('button', { name: '查看问题' }).click();
-  await page.getByRole('tab', { name: '代码提交审查' }).click();
+  await page.getByRole('tab', { name: '合并请求审查' }).click();
   const pulls = page.locator('.pull-requests-panel');
   await pulls.getByRole('button').filter({ hasText: 'Improve validation' }).click();
   await pulls.getByRole('button', { name: '批准并合入', exact: true }).waitFor();
@@ -195,7 +199,7 @@ try {
   await page.screenshot({ path: 'out/ai-review-smoke.png' });
   await page.setViewportSize({ width: 1440, height: 900 });
   // Mixed and program-only changes use the same consent and AI review entry.
-  await pulls.getByRole('button', { name: '返回改进请求' }).click();
+  await pulls.getByRole('button', { name: '返回合并请求审查' }).click();
   await pulls.getByRole('button').filter({ hasText: 'Mixed program and text' }).click();
   await pulls.getByText('bin/helper.dll', { exact: true }).waitFor();
   assert.equal(await pulls.getByRole('button', { name: /分析程序文件|Analyze program file/ }).count(), 0);
@@ -236,7 +240,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.locator('.language-trigger').click();
   await page.getByRole('button', { name: '中文', exact: true }).click();
-  await pulls.getByRole('button', { name: '返回改进请求' }).click();
+  await pulls.getByRole('button', { name: '返回合并请求审查' }).click();
   await pulls.getByRole('button').filter({ hasText: 'Program only' }).click();
   await pulls.getByText('bin/helper.dll', { exact: true }).waitFor();
   const programBefore = await app.evaluate(() => globalThis.easyhubAiSmoke.reviews.length);
@@ -256,7 +260,7 @@ try {
   await pulls.getByText('已取消审查。', { exact: true }).waitFor();
   assert.equal(await pulls.getByText('This cancelled review must stay hidden.').count(), 0);
   await app.evaluate(() => globalThis.setAiReviewSlow(false));
-  await pulls.getByRole('button', { name: '返回改进请求' }).click();
+  await pulls.getByRole('button', { name: '返回合并请求审查' }).click();
   await pulls.getByRole('button').filter({ hasText: 'Improve validation' }).click();
   await pulls.getByText('src/validation.ts', { exact: true }).waitFor();
   await pulls.getByRole('button', { name: '批准并合入', exact: true }).click();
@@ -270,34 +274,34 @@ try {
   assert.equal(approval.args[3].expectedBaseRef, 'main');
   assert.equal(approval.args[3].expectedBaseSha, 'a'.repeat(40));
 
-  await pulls.getByRole('button', { name: '返回改进请求' }).click();
+  await pulls.getByRole('button', { name: '返回合并请求审查' }).click();
   await pulls.getByRole('button').filter({ hasText: 'Remove obsolete option' }).click();
   await pulls.getByRole('button', { name: '拒绝', exact: true }).click();
   const rejection = page.getByRole('dialog', { name: '拒绝并关闭这次请求？' });
   await rejection.getByLabel('拒绝原因（选填）').fill('This option is still needed.');
   await rejection.getByRole('button', { name: '确认拒绝并关闭' }).click();
-  await pulls.getByText('改进请求已拒绝并关闭。').waitFor();
+  await pulls.getByText('合并请求已拒绝并关闭。').waitFor();
   const denied = await app.evaluate(() => globalThis.easyhubAiSmoke.decisions[1]);
   assert.equal(denied.action, 'rejectPullRequest');
   assert.equal(denied.args[3].reason, 'This option is still needed.');
   assert.equal(denied.args[3].expectedBaseRef, 'main');
   assert.equal(denied.args[3].expectedBaseSha, 'a'.repeat(40));
 
-  await pulls.getByRole('button', { name: '返回改进请求' }).click();
+  await pulls.getByRole('button', { name: '返回合并请求审查' }).click();
   await pulls.getByRole('button').filter({ hasText: 'Updated by author' }).click();
   await pulls.getByRole('button', { name: '批准并合入', exact: true }).click();
   await page.getByRole('dialog', { name: '批准并合入这次改进？' }).getByRole('button', { name: '确认批准并合入' }).click();
   await pulls.getByRole('alert').getByText('这次改进已更新，请重新获取后再决定。', { exact: true }).waitFor();
   assert.equal(await pulls.getByText('改进已批准并合入项目。').count(), 0);
 
-  await pulls.getByRole('button', { name: '返回改进请求' }).click();
+  await pulls.getByRole('button', { name: '返回合并请求审查' }).click();
   await pulls.getByRole('button').filter({ hasText: 'Missing target version' }).click();
   await pulls.getByText('src/validation.ts', { exact: true }).waitFor();
   assert.equal(await pulls.getByRole('button', { name: '批准并合入', exact: true }).isDisabled(), true);
   assert.equal(await pulls.getByRole('button', { name: '拒绝', exact: true }).isDisabled(), true);
   assert.equal(await pulls.getByRole('button', { name: 'AI 审查', exact: true }).isDisabled(), false);
 
-  await pulls.getByRole('button', { name: '返回改进请求' }).click();
+  await pulls.getByRole('button', { name: '返回合并请求审查' }).click();
   await pulls.getByRole('button').filter({ hasText: 'Trojan test' }).click();
   await pulls.getByText('新建空文件', { exact: true }).waitFor();
   const priorReviews = await app.evaluate(() => globalThis.easyhubAiSmoke.reviews.length);
@@ -306,7 +310,7 @@ try {
   assert.equal(await consent.count(), 0);
   assert.equal(await app.evaluate(() => globalThis.easyhubAiSmoke.reviews.length), priorReviews);
   await app.evaluate(() => globalThis.setEmptyProgramFixture(true));
-  await pulls.getByRole('button', { name: '返回改进请求' }).click();
+  await pulls.getByRole('button', { name: '返回合并请求审查' }).click();
   await pulls.getByRole('button').filter({ hasText: 'Trojan test' }).click();
   await pulls.getByText('empty.exe', { exact: true }).waitFor();
   await pulls.getByRole('button', { name: 'AI 审查', exact: true }).click();
@@ -319,7 +323,7 @@ try {
   await page.locator('.topbar-search input').fill('https://github.com/someone/external-repo');
   await page.locator('.discover-search input').press('Enter');
   const publicBrowser = page.getByTestId('public-project-browser');
-  await publicBrowser.getByRole('button', { name: /^改进请求/ }).click();
+  await publicBrowser.getByRole('button', { name: /^合并请求/ }).click();
   await pulls.getByRole('button').filter({ hasText: 'Updated by author' }).click();
   await pulls.getByText('src/validation.ts', { exact: true }).waitFor();
   assert.equal(await pulls.getByRole('button', { name: '批准并合入', exact: true }).count(), 0);
@@ -335,9 +339,9 @@ try {
   await page.locator('.sidebar-nav').getByRole('button', { name: '问题', exact: true }).click();
   assert.equal(await page.getByRole('button', { name: '提出问题', exact: true }).count(), 0);
   await page.getByRole('tab', { name: '问题 0' }).waitFor();
-  assert.equal(await page.getByRole('button', { name: '审阅改进请求' }).count(), 0);
-  await page.getByRole('tab', { name: '代码提交审查 7' }).click();
-  await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByText('7 个待审查的改进请求').waitFor();
+  assert.equal(await page.getByRole('button', { name: '合并请求审查' }).count(), 0);
+  await page.getByRole('tab', { name: '合并请求审查 7' }).click();
+  await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByText('7 个待审查的合并请求').waitFor();
   await page.screenshot({ path: 'out/issues-reviews-smoke.png' });
   await page.setViewportSize({ width: 800, height: 760 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'Review overview should fit a narrow window');
@@ -350,8 +354,8 @@ try {
   await page.getByRole('tab', { name: '问题 0' }).click();
   const issueGroup = page.locator('.issue-project-group').filter({ hasText: 'owned-repo' });
   if (await issueGroup.count() && await issueGroup.getByRole('button', { name: /owned-repo/ }).getAttribute('aria-expanded') !== 'true') await issueGroup.getByRole('button', { name: /owned-repo/ }).click();
-  assert.equal(await issueGroup.getByRole('button', { name: '审阅改进请求' }).count(), 0);
-  await page.getByRole('tab', { name: '代码提交审查 7' }).click();
+  assert.equal(await issueGroup.getByRole('button', { name: '合并请求审查' }).count(), 0);
+  await page.getByRole('tab', { name: '合并请求审查 7' }).click();
   await page.locator('.issue-project-header').filter({ hasText: 'owned-repo' }).click();
   await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByRole('button', { name: /Trojan test/ }).click();
   await pulls.getByText('python.py').waitFor();
@@ -361,10 +365,10 @@ try {
   await page.getByRole('button', { name: /我的云端项目/ }).click();
   await page.locator('.cloud-row').filter({ hasText: 'owned-repo' }).getByRole('button', { name: '查看', exact: true }).click();
   await page.getByRole('button', { name: '查看问题' }).click();
-  await page.getByRole('tab', { name: '代码提交审查 7' }).click();
+  await page.getByRole('tab', { name: '合并请求审查 7' }).click();
   await pulls.getByRole('button').filter({ hasText: 'Trojan test' }).waitFor();
   await page.getByRole('tab', { name: '问题 0' }).click();
-  await page.getByRole('tab', { name: '代码提交审查 7' }).waitFor();
+  await page.getByRole('tab', { name: '合并请求审查 7' }).waitFor();
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目', exact: true }).click();
   await page.getByRole('button', { name: /我的云端项目/ }).click();
   await page.locator('.cloud-row').filter({ hasText: 'owned-repo' }).getByRole('button', { name: '查看', exact: true }).click();

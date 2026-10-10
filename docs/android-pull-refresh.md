@@ -19,7 +19,7 @@
 
 ## 验证
 
-移动端 **167 项测试**、完整 TypeScript 检查和 ESLint 通过。共享 GitHub 读取方法增加兼容的可选取消信号，桌面相关 **4 个文件 / 43 项测试**通过。
+刷新阶段移动端 **167 项测试**、完整 TypeScript 检查和 ESLint 通过。共享 GitHub 读取方法增加兼容的可选取消信号，桌面相关 **4 个文件 / 43 项测试**通过。发布前合并远端桌面更新，补齐独立 `android-v1.1.0` 标签识别及发行版不存在时的兼容处理后，重新运行移动端 **169 项测试**、完整 TypeScript 检查和 ESLint，以及桌面相关 **7 个文件 / 59 项测试**，全部通过。
 
 测试覆盖加载圈等待父页面和子列表、连续手势合并、失败收圈、失焦及重新进入、排队任务取消、分页刷新保留旧行、取消信号逐阶段传递、原生兼容的 AbortSignal，以及刷新请求头保留认证信息。
 
@@ -29,6 +29,6 @@
 
 完整刷新与输入保留使用第一阶段 fixture，最后的标签栏样式修正使用第二阶段 fixture 单独复测；每个案例记录自己的 APK SHA-256。详见独立视觉检查（`artifacts/android-pull-refresh/UI/visual-qa.json`） 和 加载圈记录（`artifacts/android-pull-refresh/UI/loading-circle-pixels.json`）。仍有少数长标题末行较短和长文件名断词的轻微现象，文本可读，未发现阻断使用的重叠或溢出。
 
-最终包 **26.22 MiB**，比之前的 1.1.0 包增加 **18,460 字节**；SHA-256 为 `0f833326f6a67adcf369cbf03f581f4de66dfc61cf64962a22c0dd4198fdfe6d`。已安装回模拟器并核对安装包哈希，确认无测试数据标记、显示版本 1.1.0，真实网络的「检查更新」返回「已是最新版本。」；模拟器恢复 1080×2400、420 dpi、字体与动画缩放 1.0。见 最终包安装验证（`artifacts/android-pull-refresh/installed-production-verification.json`）。
+最终包 **26.22 MiB**，比之前的 1.1.0 包增加 **20,132 字节**；SHA-256 为 `399998f68432e2274a09ecf8f74b7a80e071e65d4aa257adfcb12e4e749bb13f`。已安装回模拟器并核对安装包哈希，确认无测试数据标记、显示版本 1.1.0，真实网络的「检查更新」返回「已是最新版本。」。发布阶段按合并后的源码重新生成安装包；原加载圈与布局截图保留各自测试副本的身份。最终发布包重新安装并检查版本和更新入口；模拟器恢复 1080×2400、420 dpi、字体与动画缩放 1.0。见 最终包安装验证（`artifacts/android-pull-refresh/installed-production-verification.json`）。
 
 详细检查、构建输入和模拟器证据保存在 `artifacts/android-pull-refresh/`；[Android 1.1.0 arm64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)使用 Android 测试签名，与本地最终验收包内容一致。

@@ -47,7 +47,10 @@ export function selectAndroidUpdate(currentVersion: string, data: unknown): AppU
   const releases = data.flatMap((entry: unknown) => {
     if (!entry || typeof entry !== 'object') return [];
     const item = entry as Record<string, unknown>;
-    const parsed = version(item.tag_name);
+    // Android has an independent release tag while desktop retains its existing vX.Y.Z tags.
+    const tagVersion = typeof item.tag_name === 'string' && item.tag_name.startsWith('android-v')
+      ? item.tag_name.slice('android-'.length) : item.tag_name;
+    const parsed = version(tagVersion);
     if (!parsed || item.draft !== false || item.prerelease !== false || !Array.isArray(item.assets)) return [];
     const number = parsed.join('.');
     return hasAndroidApp(item.assets, number) ? [{ tag: String(item.tag_name), version: number, parsed }] : [];

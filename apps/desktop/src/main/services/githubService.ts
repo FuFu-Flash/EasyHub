@@ -1,7 +1,8 @@
 import { AsyncEntry } from '@napi-rs/keyring';
 import { GitHubClient, GitHubError, friendlyGitHubError } from '@easyhub/github';
-import type { GitHubActivityRepository, GitHubPullFile, GitHubPullRequest, GitHubRepo, GitHubUser } from '@easyhub/github';
-import { dialog, net, shell } from 'electron';
+import type { GitHubActivityRepository, GitHubCheckPage, GitHubCheckSourcePage, GitHubPullChecks, GitHubPullFile, GitHubPullRequest, GitHubRepo, GitHubUser } from '@easyhub/github';
+import { app, dialog, net, shell } from 'electron';
+import { checkAppUpdate } from './appUpdate';
 import { constants, createWriteStream } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { copyFile, link, rm, rename } from 'node:fs/promises';
@@ -15,7 +16,10 @@ interface Credential { clientId: string; accessToken: string; refreshToken?: str
 interface DeviceCode { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval?: number }
 interface TokenReply { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; interval?: number; scope?: string }
 
-const vault = new AsyncEntry('EasyHub GitHub OAuth', 'default');
+let vault: AsyncEntry | undefined;
+let loginController: AbortController | null = null;
+let credentialMutations = Promise.resolve();
+let credentialGeneration = 0;
 let credential: Credential | null | undefined;
 interface DeletionTarget { owner: string; repo: string; id: number }
 let pending: { code: string; clientId: string; expiresAt: number; interval: number; expectedLogin?: string; deleteAuthorization?: boolean; deletionTarget?: DeletionTarget } | null = null;
@@ -42,11 +46,67 @@ function validPullPath(value: unknown): value is string {
 }
 class PullRequestOperationError extends Error {}
 class DangerOperationError extends Error {}
-const staleRequestMessage = '这个改进请求已经有新修改，请刷新后重新查看。';
+class CredentialStorageError extends Error {}
+const staleRequestMessage = '这个合并请求已经有新修改，请刷新后重新查看。';
+
+function credentialVault(): AsyncEntry {
+  return vault ??= new AsyncEntry('EasyHub GitHub OAuth', 'default');
+}
+
+/** A disposable, nonsecret entry proves write/read/delete access without touching the account. */
+async function checkCredentialStorage(): Promise<void> {
+  let probe: AsyncEntry | undefined;
+  let failed = false;
+  const value = `EasyHub storage check ${randomUUID()}`;
+  const signal = AbortSignal.timeout(5000);
+  try {
+    probe = new AsyncEntry('EasyHub GitHub OAuth preflight', `probe-${randomUUID()}`);
+    await probe.setPassword(value, signal);
+    if (await probe.getPassword(signal) !== value) failed = true;
+  } catch { failed = true; }
+  finally {
+    // Even a failed write can have reached the keyring. The entry contains no credentials.
+    if (probe) {
+      try { await probe.deleteCredential(AbortSignal.timeout(5000)); } catch { failed = true; }
+    }
+  }
+  if (failed) throw new CredentialStorageError('无法使用系统安全存储。请确认凭据管理器可用，或解锁系统密钥环后重试登录。');
+}
+
+function loginNetworkError(cause: unknown): Error {
+  const detail = cause instanceof Error ? `${cause.name} ${cause.message}` : '';
+  if (/TimeoutError|AbortError|TIMED_OUT|ETIMEDOUT/i.test(detail)) return new Error('连接 GitHub 超时。请检查网络，或在设置中开启 GitHub 代理后重试。');
+  if (/CERT_|CERTIFICATE|SSL_|TLS_/i.test(detail)) return new Error('无法验证 GitHub 的安全连接证书。请检查电脑时间和网络代理设置后重试。');
+  if (/PROXY_|TUNNEL_CONNECTION/i.test(detail)) return new Error('无法通过当前代理连接 GitHub。请检查系统代理，或在设置中调整 GitHub 代理后重试。');
+  if (/NAME_NOT_RESOLVED|ENOTFOUND|EAI_AGAIN|DNS_/i.test(detail)) return new Error('无法找到 GitHub 的网络地址。请检查网络，或在设置中开启 GitHub 代理后重试。');
+  return new Error('无法连接 GitHub，请检查网络，或在设置中开启 GitHub 代理后重试。');
+}
+
+async function loginResponse<T>(url: string, form: Record<string, string>, signal?: AbortSignal): Promise<T> {
+  const response = await net.fetch(url, {
+    method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(form),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000),
+  }).catch((cause: unknown) => {
+    if (signal?.aborted) throw new Error('登录已取消。');
+    throw loginNetworkError(cause);
+  });
+  if (response.status === 429) throw new Error('GitHub 登录请求过于频繁，请稍后重试。');
+  if (!response.ok) throw new Error('GitHub 登录暂时不可用，请稍后重试。');
+  try {
+    const result: unknown = await response.json();
+    if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error('Invalid login response');
+    return result as T;
+  } catch {
+    if (signal?.aborted) throw new Error('登录已取消。');
+    throw new Error('GitHub 登录返回的信息不完整。请检查网络或代理后重试。');
+  }
+}
 
 async function loadCredential(): Promise<Credential | null> {
   if (credential !== undefined) return credential;
-  const raw = await vault.getPassword();
+  let raw: string | undefined;
+  try { raw = await credentialVault().getPassword(); }
+  catch { throw new CredentialStorageError('无法读取登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试。'); }
   if (!raw) return credential = null;
   try {
     const stored: unknown = JSON.parse(raw);
@@ -57,18 +117,47 @@ async function loadCredential(): Promise<Credential | null> {
   return credential = null;
 }
 
-async function saveCredential(next: Credential): Promise<void> {
-  await vault.setPassword(JSON.stringify(next));
-  credential = next;
+function mutateCredential<T>(operation: () => Promise<T>): Promise<T> {
+  const result = credentialMutations.then(operation);
+  credentialMutations = result.then(() => undefined, () => undefined);
+  return result;
+}
+
+async function saveCredential(next: Credential, isCurrent: () => boolean = () => true, onSaved?: () => void): Promise<void> {
+  await mutateCredential(async () => {
+    if (!isCurrent()) throw new Error('登录已取消。');
+    let entry: AsyncEntry;
+    let previous: string | undefined;
+    try { entry = credentialVault(); previous = await entry.getPassword(); }
+    catch { throw new CredentialStorageError('无法读取登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试。'); }
+    if (!isCurrent()) throw new Error('登录已取消。');
+    try { await entry.setPassword(JSON.stringify(next)); }
+    catch {
+      // A write failure can be ambiguous. Keep the old account when possible.
+      try { if (previous) await entry.setPassword(previous); else await entry.deleteCredential(); }
+      catch { throw new CredentialStorageError('GitHub 已授权，但无法确认登录信息已安全保存或清理。请解锁系统安全存储后重试退出登录。'); }
+      throw new CredentialStorageError('GitHub 已授权，但无法保存登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试登录。');
+    }
+    if (!isCurrent()) {
+      try { if (previous) await entry.setPassword(previous); else await entry.deleteCredential(); }
+      catch { throw new CredentialStorageError('登录已取消，但无法清理已保存的登录信息。请解锁系统安全存储后重试退出登录。'); }
+      throw new Error('登录已取消。');
+    }
+    credential = next;
+    onSaved?.();
+  });
 }
 
 async function exchange(form: Record<string, string>): Promise<TokenReply> {
-  const response = await net.fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(form),
-    signal: AbortSignal.timeout(15000),
-  }).catch(() => { throw new Error('无法连接 GitHub，请检查网络，或在设置中开启 GitHub 代理后重试。'); });
-  if (!response.ok) throw new Error('GitHub 登录暂时不可用，请稍后重试。');
-  return response.json() as Promise<TokenReply>;
+  const result = await loginResponse<TokenReply>('https://github.com/login/oauth/access_token', form);
+  if (result.access_token !== undefined && typeof result.access_token !== 'string' ||
+      result.refresh_token !== undefined && typeof result.refresh_token !== 'string' ||
+      result.scope !== undefined && typeof result.scope !== 'string' ||
+      result.error !== undefined && typeof result.error !== 'string' ||
+      result.expires_in !== undefined && (!Number.isSafeInteger(result.expires_in) || result.expires_in <= 0)) {
+    throw new Error('GitHub 登录返回的信息不完整。请检查网络或代理后重试。');
+  }
+  return result;
 }
 
 async function accessToken(): Promise<string> {
@@ -78,7 +167,8 @@ async function accessToken(): Promise<string> {
     if (!current.refreshToken) throw new Error('GitHub 登录已过期，请重新登录。');
     const refreshed = await exchange({ client_id: current.clientId, grant_type: 'refresh_token', refresh_token: current.refreshToken });
     if (!refreshed.access_token) throw new Error('GitHub 登录已过期，请重新登录。');
-    await saveCredential({ clientId: current.clientId, accessToken: refreshed.access_token, refreshToken: refreshed.refresh_token ?? current.refreshToken, expiresAt: refreshed.expires_in ? Date.now() + refreshed.expires_in * 1000 : undefined, scopes: refreshed.scope ? refreshed.scope.split(',').map((value) => value.trim()) : current.scopes });
+    const generation = credentialGeneration;
+    await saveCredential({ clientId: current.clientId, accessToken: refreshed.access_token, refreshToken: refreshed.refresh_token ?? current.refreshToken, expiresAt: refreshed.expires_in ? Date.now() + refreshed.expires_in * 1000 : undefined, scopes: refreshed.scope ? refreshed.scope.split(',').map((value) => value.trim()) : current.scopes }, () => generation === credentialGeneration && credential === current);
     return refreshed.access_token;
   }
   return current.accessToken;
@@ -90,7 +180,7 @@ const client = new GitHubClient(accessToken, (input, init) => net.fetch(String(i
 
 function validatePullSnapshot(pull: GitHubPullRequest, repository: GitHubRepo, number: number, expectedHeadSha?: string): void {
   if (pull.number !== number || pull.base.repo?.id !== repository.id || !validSha(pull.head.sha)) {
-    throw new PullRequestOperationError('无法确认这个改进请求所属的项目，请刷新后重试。');
+    throw new PullRequestOperationError('无法确认这个合并请求所属的项目，请刷新后重试。');
   }
   if (expectedHeadSha !== undefined && pull.head.sha !== expectedHeadSha) throw new PullRequestOperationError(staleRequestMessage);
 }
@@ -102,7 +192,7 @@ async function writablePullRequest(owner: string, repo: string, number: number, 
   const pull = await client.pullRequest(owner, repo, number);
   validatePullSnapshot(pull, repository, number, expectedHeadSha);
   if (pull.base.ref !== expectedBaseRef || pull.base.sha !== expectedBaseSha) throw new PullRequestOperationError('接收改进的位置或内容已经改变，请刷新后重新查看。');
-  if (pull.state !== 'open' || pull.merged || pull.merged_at) throw new PullRequestOperationError('这个改进请求已经处理过，请刷新后查看。');
+  if (pull.state !== 'open' || pull.merged || pull.merged_at) throw new PullRequestOperationError('这个合并请求已经处理过，请刷新后查看。');
   return { pullRequest: pull, repository };
 }
 
@@ -121,7 +211,7 @@ export async function getPullRequestReviewContext(owner: string, repo: string, n
     }
     return { repository, pullRequest: current, files, filesTruncated: current.changed_files !== undefined ? current.changed_files > files.length : files.length >= 3000 };
   } catch (error) {
-    if (error instanceof PullRequestOperationError) throw error;
+    if (error instanceof PullRequestOperationError || error instanceof CredentialStorageError) throw error;
     throw new PullRequestOperationError(friendlyGitHubError(error));
   }
 }
@@ -134,7 +224,7 @@ export async function loadBinaryAnalysisFile(source: Exclude<BinaryAnalysisSourc
       if (!Number.isSafeInteger(source.number) || source.number <= 0 || !validSha(source.headSha) || !validPullPath(source.path)) invalid();
       const context = await getPullRequestReviewContext(source.owner, source.repo, source.number, source.headSha, signal);
       const file = context.files.find((entry) => entry.filename === source.path);
-      if (!file || file.status === 'removed' || !validSha(file.sha)) throw new PullRequestOperationError('这个文件不在当前改进请求中，请刷新后重试。');
+      if (!file || file.status === 'removed' || !validSha(file.sha)) throw new PullRequestOperationError('这个文件不在当前合并请求中，请刷新后重试。');
       const repository = context.pullRequest.head.repo ?? context.repository;
       if (!validRepoPart(repository.owner.login) || !validRepoPart(repository.name)) invalid();
       return { name: file.filename.split('/').at(-1)!, gitSha: file.sha, response: await client.downloadBlob(repository.owner.login, repository.name, file.sha, signal) };
@@ -147,7 +237,7 @@ export async function loadBinaryAnalysisFile(source: Exclude<BinaryAnalysisSourc
     return { name: asset.name, size: asset.size, sha256: digest, response: await client.downloadReleaseAsset(source.owner, source.repo, source.assetId, signal) };
   } catch (cause) {
     if (signal.aborted) throw new Error('分析已取消。');
-    if (cause instanceof PullRequestOperationError) throw cause;
+    if (cause instanceof PullRequestOperationError || cause instanceof CredentialStorageError) throw cause;
     throw new Error(friendlyGitHubError(cause));
   }
 }
@@ -172,25 +262,42 @@ export async function startDeviceLogin(clientId: unknown, includeDeleteScope = f
   if (!validClientId(clientId)) invalid();
   if (includeDeleteScope) oneTimeDeletion = null;
   if (includeDeleteScope && (!deletionTarget || !validRepoPart(deletionTarget.owner) || !validRepoPart(deletionTarget.repo) || !Number.isSafeInteger(deletionTarget.id) || deletionTarget.id <= 0)) invalid();
-  const expectedLogin = includeDeleteScope ? (await client.user()).login : undefined;
-  if (includeDeleteScope && deletionTarget) {
-    const remote = await client.repo(deletionTarget.owner, deletionTarget.repo);
-    if (remote.id !== deletionTarget.id || remote.full_name !== `${deletionTarget.owner}/${deletionTarget.repo}` ||
-        !remote.permissions?.admin && remote.owner.login.toLowerCase() !== expectedLogin?.toLowerCase()) {
-      throw new DangerOperationError('项目信息或权限已变化，请刷新后重试。');
+  if (loginController) throw new Error('正在准备登录，请稍候。');
+  const controller = new AbortController();
+  loginController = controller;
+  pending = null;
+  try {
+    await checkCredentialStorage();
+    if (controller.signal.aborted) throw new Error('登录已取消。');
+    const readSignal = AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]);
+    const authRead = async <T>(operation: Promise<T>): Promise<T> => operation.catch((cause: unknown) => {
+      if (controller.signal.aborted) throw new Error('登录已取消。');
+      if (cause instanceof CredentialStorageError) throw cause;
+      if (cause instanceof GitHubError) throw new Error(friendlyGitHubError(cause));
+      throw loginNetworkError(cause);
+    });
+    const expectedLogin = includeDeleteScope ? (await authRead(client.user(readSignal))).login : undefined;
+    if (includeDeleteScope && deletionTarget) {
+      const remote = await authRead(client.repo(deletionTarget.owner, deletionTarget.repo, readSignal));
+      if (remote.id !== deletionTarget.id || remote.full_name !== `${deletionTarget.owner}/${deletionTarget.repo}` ||
+          !remote.permissions?.admin && remote.owner.login.toLowerCase() !== expectedLogin?.toLowerCase()) {
+        throw new DangerOperationError('项目信息或权限已变化，请刷新后重试。');
+      }
     }
-  }
-  const response = await net.fetch('https://github.com/login/device/code', {
-    method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: clientId, scope: includeDeleteScope ? 'repo read:user delete_repo' : 'repo read:user' }),
-    signal: AbortSignal.timeout(15000),
-  }).catch(() => { throw new Error('无法连接 GitHub，请检查网络，或在设置中开启 GitHub 代理后重试。'); });
-  if (!response.ok) throw new Error('GitHub 登录暂时不可用，请稍后重试。');
-  const result = await response.json() as DeviceCode & { error?: string };
-  if (!result.device_code || !result.user_code || result.error) throw new Error('无法开始 GitHub 登录，请检查 Client ID 和 Device Flow 设置。');
-  pending = { code: result.device_code, clientId, expiresAt: Date.now() + result.expires_in * 1000, interval: Math.max(result.interval ?? 5, 5), expectedLogin, deleteAuthorization: includeDeleteScope, deletionTarget };
-  lastPoll = 0;
-  return { userCode: result.user_code, verificationUri: result.verification_uri, expiresAt: pending.expiresAt, interval: pending.interval };
+    if (controller.signal.aborted) throw new Error('登录已取消。');
+    const result = await loginResponse<DeviceCode & { error?: string }>('https://github.com/login/device/code', {
+      client_id: clientId, scope: includeDeleteScope ? 'repo read:user delete_repo' : 'repo read:user',
+    }, controller.signal);
+    if (controller.signal.aborted) throw new Error('登录已取消。');
+    if (typeof result.device_code !== 'string' || !result.device_code || typeof result.user_code !== 'string' || !result.user_code ||
+        result.verification_uri !== 'https://github.com/login/device' || !Number.isSafeInteger(result.expires_in) || result.expires_in <= 0 || result.error ||
+        result.interval !== undefined && (!Number.isSafeInteger(result.interval) || result.interval <= 0)) {
+      throw new Error('无法开始 GitHub 登录，请检查 Client ID 和 Device Flow 设置。');
+    }
+    pending = { code: result.device_code, clientId, expiresAt: Date.now() + result.expires_in * 1000, interval: Math.max(result.interval ?? 5, 5), expectedLogin, deleteAuthorization: includeDeleteScope, deletionTarget };
+    lastPoll = 0;
+    return { userCode: result.user_code, verificationUri: result.verification_uri, expiresAt: pending.expiresAt, interval: pending.interval };
+  } finally { if (loginController === controller) loginController = null; }
 }
 
 export async function pollDeviceLogin(): Promise<{ state: 'waiting' | 'complete'; user?: GitHubUser; interval?: number }> {
@@ -207,29 +314,41 @@ export async function pollDeviceLogin(): Promise<{ state: 'waiting' | 'complete'
     if (result.error || !result.access_token) throw new Error('登录确认失败，请重新尝试。');
     if (pending !== flow) return { state: 'waiting', interval: flow.interval };
     const scopes = result.scope?.split(',').map((value) => value.trim()) ?? [];
+    const candidate = new GitHubClient(async () => result.access_token!, (input, init) => net.fetch(String(input), init));
+    const authorizedUser = await candidate.user(AbortSignal.timeout(15000)).catch((cause: unknown) => {
+      if (cause instanceof GitHubError) throw new Error(friendlyGitHubError(cause));
+      throw loginNetworkError(cause);
+    });
+    if (pending !== flow) throw new Error('登录已取消。');
     if (flow.deleteAuthorization) {
       if (!scopes.includes('delete_repo')) { pending = null; throw new Error('GitHub 未授予删除项目权限，请重新授权。'); }
-      const candidate = new GitHubClient(async () => result.access_token!, (input, init) => net.fetch(String(input), init));
-      const authorizedUser = await candidate.user();
       if (authorizedUser.login.toLowerCase() !== flow.expectedLogin?.toLowerCase()) { pending = null; throw new Error('授权的 GitHub 账号与当前账号不一致，项目没有删除。'); }
       oneTimeDeletion = { token: result.access_token, expiresAt: Date.now() + Math.min((result.expires_in ?? 600) * 1000, 600_000), target: flow.deletionTarget! };
       pending = null;
       return { state: 'complete', user: authorizedUser };
     }
-    await saveCredential({ clientId: flow.clientId, accessToken: result.access_token, refreshToken: result.refresh_token, expiresAt: result.expires_in ? Date.now() + result.expires_in * 1000 : undefined, scopes });
-    pending = null;
-    return { state: 'complete', user: await client.user() };
+    const generation = credentialGeneration;
+    await saveCredential({ clientId: flow.clientId, accessToken: result.access_token, refreshToken: result.refresh_token, expiresAt: result.expires_in ? Date.now() + result.expires_in * 1000 : undefined, scopes }, () => pending === flow && credentialGeneration === generation, () => { pending = null; });
+    return { state: 'complete', user: authorizedUser };
   } finally { polling = false; }
 }
 
-export function cancelDeviceLogin(): void { pending = null; oneTimeDeletion = null; }
+export function cancelDeviceLogin(): void { loginController?.abort(); pending = null; oneTimeDeletion = null; }
 export function cancelGithubReads(): void { for (const controller of readControllers) controller.abort(); }
-export async function logout(): Promise<void> { pending = null; oneTimeDeletion = null; await vault.deleteCredential(); credential = null; }
+export async function logout(): Promise<void> {
+  cancelDeviceLogin();
+  credentialGeneration++;
+  await mutateCredential(async () => {
+    try { await credentialVault().deleteCredential(); }
+    catch { throw new CredentialStorageError('无法清除登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试退出。'); }
+    credential = null;
+  });
+}
 
 export async function githubAction(action: unknown, args: unknown[]): Promise<unknown> {
   if (typeof action !== 'string' || !Array.isArray(args) || args.length > 4) invalid();
   const [owner, repo, third, fourth] = args;
-  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'starredRepos', 'isStarred', 'activityCounts', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'comments', 'pullRequests', 'pullRequestsPage', 'pullRequest', 'pullFiles', 'pullReviewContext', 'commits', 'commit', 'releases'].includes(action) ? new AbortController() : null;
+  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'starredRepos', 'isStarred', 'activityCounts', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'searchPublicReposPage', 'searchUsersPage', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'searchDiscussions', 'commentsPage', 'comments', 'pullRequests', 'pullRequestsPage', 'pullRequest', 'pullFiles', 'pullReviewContext', 'pullChecks', 'commitsPage', 'commits', 'commit', 'releases', 'releasesPage', 'releaseByTag'].includes(action) ? new AbortController() : null;
   if (controller) readControllers.add(controller);
   try {
     const assertAdmin = async (ownerName: string, repoName: string): Promise<GitHubRepo> => {
@@ -254,6 +373,7 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       }
     };
     switch (action) {
+      case 'appUpdate': if (args.length === 0) return await checkAppUpdate(app.getVersion(), (input, init) => net.fetch(String(input), init)); invalid();
       case 'user': return await client.user(controller?.signal);
       case 'profile': if (validRepoPart(owner)) return await client.profile(owner, controller?.signal); invalid();
       case 'contributions': if (validRepoPart(owner) && typeof repo === 'string' && /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/.test(repo) && typeof third === 'string' && /^\d{4}-\d{2}-\d{2}T23:59:59\.999Z$/.test(third) && Date.parse(third) >= Date.parse(repo) && Date.parse(third) - Date.parse(repo) <= 370 * 86400000) return await client.contributions(owner, repo, third, controller?.signal); invalid();
@@ -313,7 +433,7 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
         const [fork, identity] = await Promise.all([client.repo(owner, repo), gitHubIdentity()]);
         if (fork.owner.login.toLowerCase() !== identity.user.login.toLowerCase() || !fork.fork || !fork.parent) throw new Error('找不到属于你的仓库副本。');
         const upstream = await client.repo(fork.parent.owner.login, fork.parent.name);
-        if (upstream.id !== fork.parent.id || upstream.archived) throw new Error('原项目暂时无法接收改进请求。');
+        if (upstream.id !== fork.parent.id || upstream.archived) throw new Error('原项目暂时无法接收合并请求。');
         const comparison = await client.compare(upstream.owner.login, upstream.name, upstream.default_branch, fork.owner.login, fork.default_branch);
         if (comparison.ahead_by < 1) throw new Error('仓库副本还没有可提交的修改，请先发布源码。');
         const open = await client.openPullRequestForHead(upstream.owner.login, upstream.name, fork.owner.login, fork.default_branch, upstream.default_branch);
@@ -324,6 +444,8 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       }
       case 'searchPublicRepos': if (typeof owner === 'string' && owner.trim().length >= 2 && owner.trim().length <= 200) return await client.searchPublicRepos(owner, controller?.signal); invalid();
       case 'searchUsers': if (typeof owner === 'string' && owner.trim().length >= 2 && owner.trim().length <= 200) return await client.searchUsers(owner, controller?.signal); invalid();
+      case 'searchPublicReposPage': if (args.length === 2 && typeof owner === 'string' && owner.trim().length >= 2 && owner.trim().length <= 200 && Number.isSafeInteger(repo) && Number(repo) >= 1 && Number(repo) <= 34) return await client.searchPublicReposPage(owner, Number(repo), controller?.signal); invalid();
+      case 'searchUsersPage': if (args.length === 2 && typeof owner === 'string' && owner.trim().length >= 2 && owner.trim().length <= 200 && Number.isSafeInteger(repo) && Number(repo) >= 1 && Number(repo) <= 84) return await client.searchUsersPage(owner, Number(repo), controller?.signal); invalid();
       case 'topStarredRepos': if (validRepoPart(owner)) return await client.topStarredRepos(owner, controller?.signal); invalid();
       case 'createRepo': if (validRepoPart(owner) && typeof repo === 'string' && repo.length <= 350 && typeof third === 'boolean') return await client.createRepo(owner, repo, third); invalid();
       case 'updateVisibility': if (validRepoPart(owner) && validRepoPart(repo) && typeof third === 'boolean') { await assertAdmin(owner, repo); return await client.updateVisibility(owner, repo, third); } invalid();
@@ -368,12 +490,42 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       case 'createIssue': if (validRepoPart(owner) && validRepoPart(repo) && validText(third, 256) && typeof fourth === 'string' && fourth.length <= 65536) return await client.createIssue(owner, repo, third, fourth); invalid();
       case 'updateIssue': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && (fourth === 'open' || fourth === 'closed')) return await client.updateIssue(owner, repo, Number(third), fourth); break;
       case 'comments': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.comments(owner, repo, Number(third), controller?.signal); break;
+      case 'commentsPage': if (args.length === 4 && validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && Number.isSafeInteger(fourth) && Number(fourth) >= 1 && Number(fourth) <= 10000) return await client.commentsPage(owner, repo, Number(third), Number(fourth), controller?.signal); break;
+      case 'searchDiscussions': {
+        if (args.length !== 3 || !validRepoPart(owner) || !validRepoPart(repo) || !third || typeof third !== 'object' || Array.isArray(third)) invalid();
+        const input = third as Record<string, unknown>;
+        if (!validText(input.query, 200) || (input.kind !== 'issue' && input.kind !== 'pr') || (input.state !== 'open' && input.state !== 'closed' && input.state !== 'all') || !Number.isSafeInteger(input.page) || Number(input.page) < 1 || Number(input.page) > 34) invalid();
+        return await client.searchDiscussions(owner, repo, input.query, input.kind, input.state, Number(input.page), controller?.signal);
+      }
       case 'createComment': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && validText(fourth, 65536)) return await client.createComment(owner, repo, Number(third), fourth); break;
       case 'pullRequests': if (validRepoPart(owner) && validRepoPart(repo) && Number.isInteger(third) && Number(third) >= 1 && Number(third) <= 10000) return await client.pullRequests(owner, repo, Number(third), controller?.signal); break;
       case 'pullRequestsPage': if (validRepoPart(owner) && validRepoPart(repo) && (third === 'open' || third === 'closed') && Number.isInteger(fourth) && Number(fourth) >= 1 && Number(fourth) <= 10000) return await client.pullRequestsPage(owner, repo, third, Number(fourth), controller?.signal); break;
       case 'pullRequest': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.pullRequest(owner, repo, Number(third), controller?.signal); break;
       case 'pullFiles': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0) return await client.pullFiles(owner, repo, Number(third), controller?.signal); break;
       case 'pullReviewContext': if (validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) > 0 && validSha(fourth)) return await getPullRequestReviewContext(owner, repo, Number(third), fourth, controller?.signal); invalid();
+      case 'pullChecks': {
+        if (args.length !== 4 || !validRepoPart(owner) || !validRepoPart(repo) || !Number.isSafeInteger(third) || Number(third) < 1 || typeof fourth !== 'object' || fourth === null || Array.isArray(fourth)) invalid();
+        const input = fourth as Record<string, unknown>;
+        const validPage = (value: unknown): value is number | null => value === null || Number.isSafeInteger(value) && Number(value) >= 1 && Number(value) <= 10000;
+        if (!validSha(input.headSha) || !validPage(input.checkPage) || !validPage(input.statusPage) || input.checkPage === null && input.statusPage === null) invalid();
+        const [repository, before] = await Promise.all([client.repo(owner, repo, controller?.signal), client.pullRequest(owner, repo, Number(third), controller?.signal)]);
+        validatePullSnapshot(before, repository, Number(third), input.headSha);
+        const source = async <T>(page: number | null, read: () => Promise<GitHubCheckPage<T>>): Promise<GitHubCheckSourcePage<T> | null> => {
+          if (page === null) return null;
+          try { return { state: 'available', ...await read() }; }
+          catch (error) {
+            if (controller?.signal.aborted) throw error;
+            return { state: error instanceof GitHubError && (error.status === 401 || error.status === 403) ? 'forbidden' : 'unavailable', items: [], nextPage: page };
+          }
+        };
+        const [checkRuns, statuses] = await Promise.all([
+          source(input.checkPage, () => client.checkRunsPage(owner, repo, input.headSha as string, input.checkPage as number, controller?.signal)),
+          source(input.statusPage, () => client.statusesPage(owner, repo, input.headSha as string, input.statusPage as number, controller?.signal)),
+        ]);
+        const after = await client.pullRequest(owner, repo, Number(third), controller?.signal);
+        validatePullSnapshot(after, repository, Number(third), input.headSha);
+        return { headSha: input.headSha, checkRuns, statuses } satisfies GitHubPullChecks;
+      }
       case 'acceptPullRequest':
       case 'rejectPullRequest': {
         if (!validRepoPart(owner) || !validRepoPart(repo) || !Number.isSafeInteger(third) || Number(third) <= 0 || typeof fourth !== 'object' || fourth === null || Array.isArray(fourth)) invalid();
@@ -382,14 +534,14 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
         if (action === 'acceptPullRequest') {
           if (input.method !== undefined && input.method !== 'merge' && input.method !== 'squash' && input.method !== 'rebase') invalid();
           const { pullRequest: pull, repository } = await writablePullRequest(owner, repo, Number(third), input.expectedHeadSha, input.expectedBaseRef, input.expectedBaseSha);
-          if (pull.draft) throw new PullRequestOperationError('这个改进请求还在准备中，暂时不能批准。');
+          if (pull.draft) throw new PullRequestOperationError('这个合并请求还在准备中，暂时不能批准。');
           if (pull.mergeable === false) throw new PullRequestOperationError('有内容需要作者确认，暂时无法合入。');
           const allowed = { merge: repository.allow_merge_commit !== false, squash: repository.allow_squash_merge !== false, rebase: repository.allow_rebase_merge !== false };
           const method = input.method ?? (allowed.merge ? 'merge' : allowed.squash ? 'squash' : 'rebase');
           if (!allowed[method]) throw new PullRequestOperationError('这个项目暂时不允许这种合入方式，请在 GitHub 检查项目设置。');
           const result = await client.mergePullRequest(owner, repo, Number(third), input.expectedHeadSha, method);
           if (!result.merged) throw new PullRequestOperationError('GitHub 未完成合入，请检查项目要求后重试。');
-          return { merged: true, sha: result.sha, message: '改进请求已批准并合入。' };
+          return { merged: true, sha: result.sha, message: '合并请求已批准并合入。' };
         }
         if (input.reason !== undefined && (typeof input.reason !== 'string' || input.reason.length > 65536)) invalid();
         await writablePullRequest(owner, repo, Number(third), input.expectedHeadSha, input.expectedBaseRef, input.expectedBaseSha);
@@ -415,12 +567,15 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
         return await client.createPullRequest(owner, repo, { title: input.title.trim(), body: input.body, head: input.head, base: input.base });
       }
       case 'commits': if (validRepoPart(owner) && validRepoPart(repo)) return await client.commits(owner, repo, controller?.signal); break;
+      case 'commitsPage': if (args.length === 3 && validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) >= 1 && Number(third) <= 10000) return await client.commitsPage(owner, repo, Number(third), controller?.signal); break;
       case 'commit': if (validRepoPart(owner) && validRepoPart(repo) && typeof third === 'string' && /^[a-f0-9]{40}$/.test(third)) return await client.commit(owner, repo, third, controller?.signal); break;
       case 'releases': if (validRepoPart(owner) && validRepoPart(repo)) return await client.releases(owner, repo, controller?.signal); break;
+      case 'releasesPage': if (args.length === 3 && validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) >= 1 && Number(third) <= 10000) return await client.releasesPage(owner, repo, Number(third), controller?.signal); break;
+      case 'releaseByTag': if (args.length === 3 && validRepoPart(owner) && validRepoPart(repo) && typeof third === 'string' && third.length > 0 && third.length <= 255 && !/[\u0000-\u0020\u007f]/u.test(third)) return await client.releaseByTag(owner, repo, third, controller?.signal); break;
     }
     invalid();
   } catch (error) {
-    if (error instanceof PullRequestOperationError || error instanceof DangerOperationError) throw error;
+    if (error instanceof PullRequestOperationError || error instanceof DangerOperationError || error instanceof CredentialStorageError) throw error;
     if ((action === 'acceptPullRequest' || action === 'rejectPullRequest') && error instanceof GitHubError) {
       if (error.status === 409) throw new Error(staleRequestMessage);
       if (error.status === 405) throw new Error('GitHub 暂时不允许合入，请先满足项目的检查和审批要求。');
@@ -452,7 +607,7 @@ export async function downloadPullRequestFile(owner: unknown, repo: unknown, num
   try {
     const context = await getPullRequestReviewContext(owner, repo, Number(number), expectedHeadSha, controller.signal);
     const file = context.files.find((item) => item.filename === path);
-    if (!file) throw new PullRequestOperationError('这个文件不在改进请求中，请刷新后重新选择。');
+    if (!file) throw new PullRequestOperationError('这个文件不在合并请求中，请刷新后重新选择。');
     if (file.status === 'removed') throw new PullRequestOperationError('这个文件已被删除，没有新版本可下载。');
     if (!validSha(file.sha)) throw new PullRequestOperationError('这个文件暂时无法下载，请稍后重试。');
     const source = context.pullRequest.head.repo ?? context.repository;

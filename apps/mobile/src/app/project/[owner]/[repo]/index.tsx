@@ -77,7 +77,10 @@ function ProjectDetails({ owner, repo, section: initialSection, mode, focusTag, 
     if (!client) throw new Error('GitHub unavailable');
     const result = await client.releasesPage(owner, repo, page, signal);
     if (page === 1 && focusTag && !result.items.some((item) => item.tag_name === focusTag)) {
-      try { return { ...result, items: [await client.releaseByTag(owner, repo, focusTag, signal), ...result.items] }; }
+      try {
+        const tagged = await client.releaseByTag(owner, repo, focusTag, signal);
+        if (tagged) return { ...result, items: [tagged, ...result.items] };
+      }
       catch (cause) { if (signal.aborted) throw cause; }
     }
     return result;
@@ -193,7 +196,10 @@ function ProjectDetails({ owner, repo, section: initialSection, mode, focusTag, 
     if (release.owner.toLowerCase() === owner?.toLowerCase() && release.repo.toLowerCase() === repo?.toLowerCase()) {
       const selected = releases.find((item) => item.tag_name === release.tag);
       if (selected) router.push({ pathname: '/project/[owner]/[repo]/release/[id]', params: { owner, repo, id: String(selected.id) } });
-      else if (client) void client.releaseByTag(owner, repo, release.tag).then((item) => router.push({ pathname: '/project/[owner]/[repo]/release/[id]', params: { owner, repo, id: String(item.id) } })).catch(() => setSection('releases'));
+      else if (client) void client.releaseByTag(owner, repo, release.tag).then((item) => {
+        if (item) router.push({ pathname: '/project/[owner]/[repo]/release/[id]', params: { owner, repo, id: String(item.id) } });
+        else setSection('releases');
+      }).catch(() => setSection('releases'));
       else setSection('releases');
       return true;
     }

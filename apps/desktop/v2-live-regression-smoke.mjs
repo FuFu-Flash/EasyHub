@@ -119,7 +119,9 @@ try {
       }] : [];
       if (action === 'trending') return { items: fixture.repos, page: 1, hasNextPage: false };
       if (action === 'searchPublicRepos') return fixture.repos;
+      if (action === 'searchPublicReposPage') return { items: fixture.repos, page: 1, totalCount: fixture.repos.length, hasNextPage: false, incompleteResults: false };
       if (action === 'releases' || action === 'comments') return [];
+      if (action === 'releasesPage') return { items: [], nextPage: null };
       fixture.forbidden.push(action);
       throw new Error(`Unexpected GitHub action in isolated fixture: ${action}`);
     });
@@ -204,12 +206,12 @@ try {
   await page.locator('.detail-primary').getByRole('heading', { name: 'Fixture introduction', exact: true }).waitFor();
   await page.getByText('部分反馈或历史版本暂时无法加载，请刷新重试。', { exact: true }).waitFor();
   assert.equal(await page.locator('.detail-primary').getByText('这个项目还没有介绍。', { exact: true }).count(), 0);
-  const reviewSide = page.locator('.detail-side .side-panel').filter({ has: page.getByRole('heading', { name: '代码提交审查', exact: true }) });
+  const reviewSide = page.locator('.detail-side .side-panel').filter({ has: page.getByRole('heading', { name: '合并请求审查', exact: true }) });
   assert.equal(await reviewSide.locator('.count-bubble').innerText(), '1');
-  await reviewSide.getByRole('button', { name: '审阅改进请求', exact: false }).click();
+  await reviewSide.getByRole('button', { name: '合并请求审查', exact: false }).click();
   await page.locator('.pull-requests-panel').getByText('Fixture improvement', { exact: true }).waitFor();
   assert.equal(await page.getByText('部分反馈或历史版本暂时无法加载，请刷新重试。', { exact: true }).count(), 0, 'A project loading error must clear when leaving the project page');
-  assert.equal(await page.getByRole('tab', { name: '代码提交审查 1', exact: true }).getAttribute('aria-selected'), 'true');
+  assert.equal(await page.getByRole('tab', { name: '合并请求审查 1', exact: true }).getAttribute('aria-selected'), 'true');
 
   await navigation.getByRole('button', { name: /^问题/ }).click();
   await page.getByRole('heading', { name: '问题', exact: true }).waitFor();
@@ -223,7 +225,7 @@ try {
   assert.equal(await groups.count(), 2);
   assert.equal(await page.getByRole('button', { name: '收起其他项目 1', exact: true }).getAttribute('aria-expanded'), 'true');
   await page.getByRole('button', { name: '收起其他项目 1', exact: true }).click();
-  await page.getByRole('tab', { name: '代码提交审查 1', exact: true }).click();
+  await page.getByRole('tab', { name: '合并请求审查 1', exact: true }).click();
   assert.equal(await groups.count(), 1, 'Repos with no reviews should be folded by default');
   assert.equal(await groups.locator('.issue-project-heading strong').innerText(), 'active-project');
   const otherReviews = page.getByRole('button', { name: '查看其他项目 1', exact: true });
