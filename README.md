@@ -6,9 +6,13 @@
 
 <p align="center"><strong>简体中文</strong> | <a href="README.en.md">English</a></p>
 
+<p align="center"><strong>GitHub 客户端 · GitHub Client · Windows / Android</strong></p>
+
 <p align="center">让 GitHub 像发布一条动态一样简单。</p>
 
-EasyHub 让你更轻松地使用 GitHub。用 Windows 版创作和发布作品，用 Android 版随时查看项目、回复问题、下载版本和审阅别人提交的改进。不需要学习复杂的 Git 命令。
+EasyHub 是面向新手的开源 **GitHub 客户端**，提供 Windows 桌面版和 Android 手机版。用 Windows 版创作和发布源码、管理发行版，用 Android 版随时查看项目、回复问题、下载版本和审阅别人提交的改进。支持合并请求审查和可选的 AI 代码审查，不需要学习复杂的 Git 命令。
+
+> **English overview:** EasyHub is a beginner-friendly, open-source **GitHub client for Windows desktop and Android**. Publish source code and manage releases on Windows; browse repositories, manage issues, review pull requests, and use optional AI code review on either platform. [Read the English guide](README.en.md).
 
 [访问 EasyHub 官网](https://fufu-flash.github.io/easyhub-website/) · [查看所有发布版本](https://github.com/FuFu-Flash/EasyHub/releases)
 
