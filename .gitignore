@@ -2,6 +2,9 @@ node_modules
 out/
 dist/
 /release/
+/artifacts/
+/apps/mobile/modules/easyhub-analysis/android/build/
+/apps/mobile/modules/easyhub-analysis/android/.gradle/
 coverage/
 .DS_Store
 *.log

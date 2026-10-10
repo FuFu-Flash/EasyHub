@@ -16,8 +16,8 @@ export function readWindowControlStyle(): WindowControlStyle {
   return defaultWindowControlStyle();
 }
 
-export async function synchronizeWindowControlStyle(style: WindowControlStyle): Promise<void> {
+export async function synchronizeWindowControlStyle(style: WindowControlStyle, density?: 'comfortable' | 'compact'): Promise<void> {
   if (window.easyHub?.platform === 'darwin') {
-    await window.easyHub.setWindowControlStyle?.(style);
+    await window.easyHub.setWindowControlStyle?.(style, density);
   }
 }

@@ -17,7 +17,7 @@ if (!pnpmEntrypoint || !isAbsolute(pnpmEntrypoint)) {
 }
 if (!isAbsolute(releaseDirectory)) throw new Error('EASYHUB_DESKTOP_RELEASE_DIR 必须是绝对路径。');
 const metadata = JSON.parse(await readFile(join(desktopDir, 'package.json'), 'utf8'));
-if (metadata.version !== '1.1.0') throw new Error('此构建配置对应 EasyHub 1.1.0 (16)。');
+if (metadata.version !== '1.2.1') throw new Error('此构建配置对应 EasyHub 1.2.1 (17)。');
 
 const environment = { ...process.env,
   PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
@@ -66,4 +66,4 @@ await access(join(contents, 'Resources/app.asar.unpacked'), constants.R_OK);
 await access(join(contents, 'Resources/UPSTREAM.txt'), constants.R_OK);
 await access(join(contents, 'Resources/LICENSE'), constants.R_OK);
 run('/usr/bin/codesign', ['--verify', '--deep', '--strict', application]);
-process.stdout.write(`EasyHub 1.1.0 (16) macOS arm64 app: ${application}\n`);
+process.stdout.write(`EasyHub 1.2.1 (17) macOS arm64 app: ${application}\n`);

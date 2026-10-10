@@ -54,7 +54,7 @@ describe('real release request validation', () => {
     const update = vi.spyOn(GitHubClient.prototype, 'updateRelease').mockResolvedValue({ ...published, name: 'Updated', body: '' });
     const result = await new ReleasePublishingService().edit({ owner: 'writer', repo: 'app', releaseId: 42, title: 'Updated', body: '', prerelease: false });
     expect(result.tag_name).toBe('v1.0.0');
-    expect(update).toHaveBeenCalledWith('writer', 'app', 42, { name: 'Updated', body: '', prerelease: false });
+    expect(update).toHaveBeenCalledWith('writer', 'app', 42, { name: 'Updated', body: '', prerelease: false }, expect.any(AbortSignal));
   });
 
   it('refuses to remove an asset that does not belong to the selected release', async () => {

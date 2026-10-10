@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { isMenuCommand, type MenuCommand, type MenuState } from '../shared/applicationMenu';
+import type { DownloadCommand, DownloadItem, DownloadRequest } from '../downloads';
+import type { LocalPublishSelection } from '@easyhub/types';
 
 contextBridge.exposeInMainWorld('easyHub', {
   platform: process.platform,
@@ -19,6 +21,12 @@ contextBridge.exposeInMainWorld('easyHub', {
     onChanged: (callback: (value: unknown) => void) => { const handler = (_event: Electron.IpcRendererEvent, value: unknown): void => callback(value); ipcRenderer.on('easyhub:mac-proxy-changed', handler); return (): void => { ipcRenderer.removeListener('easyhub:mac-proxy-changed', handler); }; },
   },
   copyPairingCode: (code: string): Promise<boolean> => ipcRenderer.invoke('easyhub:copy-pairing-code', code),
+  downloadsList: () => ipcRenderer.invoke('easyhub:downloads-list'),
+  downloadsEnqueue: (request: DownloadRequest) => ipcRenderer.invoke('easyhub:downloads-enqueue', request),
+  downloadsCommand: (id: string, command: DownloadCommand) => ipcRenderer.invoke('easyhub:downloads-command', id, command),
+  downloadsClear: () => ipcRenderer.invoke('easyhub:downloads-clear'),
+  downloadsOpen: (id: string, folder: boolean) => ipcRenderer.invoke('easyhub:downloads-open', id, folder),
+  onDownloadsChanged: (callback: (items: DownloadItem[]) => void) => { const handler = (_event: Electron.IpcRendererEvent, items: DownloadItem[]): void => callback(items); ipcRenderer.on('easyhub:downloads-changed', handler); return (): void => { ipcRenderer.removeListener('easyhub:downloads-changed', handler); }; },
   chooseFolder: (): Promise<string | null> => ipcRenderer.invoke('easyhub:choose-folder'),
   localList: () => ipcRenderer.invoke('easyhub:local-list'),
   localDiscoveryRoots: () => ipcRenderer.invoke('easyhub:local-discovery-roots'),
@@ -30,7 +38,10 @@ contextBridge.exposeInMainWorld('easyHub', {
   localCreate: (path: string, name: string, description: string, isPrivate: boolean) => ipcRenderer.invoke('easyhub:local-create', path, name, description, isPrivate),
   localDownload: (owner: string, name: string, parent: string) => ipcRenderer.invoke('easyhub:local-download', owner, name, parent),
   localStatus: (id: string) => ipcRenderer.invoke('easyhub:local-status', id),
-  localPublish: (id: string, message: string) => ipcRenderer.invoke('easyhub:local-publish', id, message),
+  localPreviewChanges: (id: string) => ipcRenderer.invoke('easyhub:local-preview-changes', id),
+  localFileDiff: (id: string, path: string, snapshot: string) => ipcRenderer.invoke('easyhub:local-file-diff', id, path, snapshot),
+  localCancelPreview: (id: string) => ipcRenderer.invoke('easyhub:local-cancel-preview', id),
+  localPublish: (id: string, message: string, selection?: LocalPublishSelection) => ipcRenderer.invoke('easyhub:local-publish', id, message, selection),
   localCheckSync: (id: string) => ipcRenderer.invoke('easyhub:local-check-sync', id),
   localSync: (id: string, revision: string | undefined, decisions: unknown[]) => ipcRenderer.invoke('easyhub:local-sync', id, revision, decisions),
   localCancel: () => ipcRenderer.invoke('easyhub:local-cancel'),
@@ -43,7 +54,7 @@ contextBridge.exposeInMainWorld('easyHub', {
   onLocalProgress: (callback: (value: unknown) => void) => { const handler = (_event: Electron.IpcRendererEvent, value: unknown): void => callback(value); ipcRenderer.on('easyhub:local-progress', handler); return (): void => { ipcRenderer.removeListener('easyhub:local-progress', handler); }; },
   onLocalStatus: (callback: (value: unknown) => void) => { const handler = (_event: Electron.IpcRendererEvent, value: unknown): void => callback(value); ipcRenderer.on('easyhub:local-status', handler); return (): void => { ipcRenderer.removeListener('easyhub:local-status', handler); }; },
   minimizeWindow: (): Promise<void> => ipcRenderer.invoke('easyhub:window-minimize'),
-  setWindowControlStyle: (style: 'windows' | 'reference'): Promise<void> => ipcRenderer.invoke('easyhub:window-set-style', style),
+  setWindowControlStyle: (style: 'windows' | 'reference', density?: 'comfortable' | 'compact'): Promise<void> => ipcRenderer.invoke('easyhub:window-set-style', style, density),
   toggleMaximizeWindow: (): Promise<void> => ipcRenderer.invoke('easyhub:window-toggle-maximize'),
   closeWindow: (): Promise<void> => ipcRenderer.invoke('easyhub:window-close'),
   openLicense: (): Promise<void> => ipcRenderer.invoke('easyhub:open-license'),
@@ -61,6 +72,7 @@ contextBridge.exposeInMainWorld('easyHub', {
   aiForgetKey: () => ipcRenderer.invoke('easyhub:ai-forget-key'),
   aiTestConnection: () => ipcRenderer.invoke('easyhub:ai-test-connection'),
   aiReviewPull: (input: unknown) => ipcRenderer.invoke('easyhub:ai-review-pull', input),
+  aiExplainCode: (input: unknown) => ipcRenderer.invoke('easyhub:ai-explain-code', input),
   aiCancelReview: (id: string) => ipcRenderer.invoke('easyhub:ai-cancel-review', id),
   binaryAnalysisStatus: () => ipcRenderer.invoke('easyhub:binary-analysis-status'),
   binaryAnalysisInstall: (id: string) => ipcRenderer.invoke('easyhub:binary-analysis-install', id),

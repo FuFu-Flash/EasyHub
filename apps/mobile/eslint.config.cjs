@@ -1,4 +1,4 @@
 const { defineConfig, globalIgnores } = require('eslint/config');
 const expo = require('eslint-config-expo/flat');
 
-module.exports = defineConfig([globalIgnores(['dist/*', '.expo/*']), expo]);
+module.exports = defineConfig([globalIgnores(['dist/*', '.expo/*', 'modules/**/android/src/main/assets/**', 'modules/**/android/build/**']), expo]);

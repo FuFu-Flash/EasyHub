@@ -3,7 +3,9 @@ EasyHub macOS — SteamTools compatibility notice
 EasyHub's Swift helper implements a local SOCKS5 and GitHub PAC service using
 SteamTools public GitHub rules and DNSPod DNS-over-HTTPS. It preserves GitHub's
 original TLS hostname validation. The helper source is supplied in this project
-under GNU GPL version 3; the complete EasyHub license is bundled in LICENSE.
+under GNU GPL version 3. The legacy helper retains that license; the current
+Electron application uses Apache License 2.0 (LICENSE and NOTICE). The full
+GNU GPL v3 reference is bundled in licenses/steamtools-GPL-3.0.
 
 Referenced upstream projects:
 SteamTools (GNU GPL v3)

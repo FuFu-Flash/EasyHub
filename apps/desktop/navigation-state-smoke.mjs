@@ -1,0 +1,83 @@
+import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
+import { installDownloadFixture } from './download-fixture.mjs';
+
+const desktop = dirname(fileURLToPath(import.meta.url));
+const output = join(desktop, 'out', 'navigation-state-smoke');
+await mkdir(output, { recursive: true });
+const run = await mkdtemp(join(output, 'isolated-'));
+const { app, executable, renderer } = await launchUpstreamFixture(desktop, {
+  profile: join(run, 'profile'), launcher: join(run, 'launch.cjs'),
+  registerName: 'registerFixture', rejectedName: 'upstreamRejectedIPC', title: 'Navigation fixture'
+});
+try {
+  await app.evaluate(({ ipcMain, session }) => {
+    session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_details, callback) => callback({ cancel: true }));
+    const mock = (channel, handler) => { ipcMain.removeHandler(channel); globalThis.registerFixture(channel, (_event, ...args) => handler(...args)); };
+    const now = new Date().toISOString();
+    const own = { id: 1, name: 'own-project', full_name: 'tester/own-project', owner: { login: 'tester', avatar_url: '' }, description: 'Own project', private: false, default_branch: 'main', updated_at: now, open_issues_count: 1, permissions: { push: true, admin: true } };
+    const projects = Array.from({ length: 30 }, (_, index) => ({ ...own, id: index + 100, name: `public-${index}`, full_name: `writer/public-${index}`, owner: { login: 'writer', avatar_url: '' }, permissions: undefined }));
+    mock('easyhub:auth-status', () => ({ user: { id: 1, login: 'tester', name: 'Tester', avatar_url: '', html_url: '' }, clientId: null }));
+    mock('easyhub:local-list', () => []);
+    mock('easyhub:local-discovery-roots', () => []);
+    mock('easyhub:github-cancel', () => undefined);
+    mock('easyhub:github', (action, ...args) => {
+      if (action === 'repos') return [own];
+      if (action === 'activityCounts') return { 1: { issues: 1, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 } };
+      if (action === 'readme') return Array.from({ length: 60 }, (_, i) => `## Section ${i}\n\nLong project documentation.`).join('\n\n');
+      if (action === 'issuesPage') return { items: [{ id: 8, number: 8, title: 'Remember this issue', body: 'Issue body', state: 'open', created_at: now, user: { login: 'writer' }, comments: 0 }], nextPage: null };
+      if (action === 'issues' || action === 'commits' || action === 'comments' || action === 'pulls') return [];
+      if (action === 'trending') return { items: projects, page: args[1] ?? 1, hasNextPage: false };
+      if (action === 'searchPublicReposPage' || action === 'searchUsersPage') return { items: [], page: 1, totalCount: 0, hasNextPage: false, incompleteResults: false };
+      throw new Error('Unexpected action: ' + action);
+    });
+  });
+  await installDownloadFixture(app, []);
+  const page = await app.firstWindow();
+  page.setDefaultTimeout(12000);
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), renderer);
+  await page.locator('.live-connected').waitFor();
+  await page.setViewportSize({ width: 1060, height: 700 });
+  const nav = name => page.locator('.sidebar-nav').getByRole('button', { name, exact: true });
+  await nav('我的项目').click();
+  await page.locator('.cloud-row').getByRole('button', { name: '查看', exact: true }).click();
+  await page.locator('.detail-hero h1').filter({ hasText: 'own-project' }).waitFor();
+  await page.locator('.readme-markdown').first().waitFor();
+  await page.locator('.main-column').evaluate(node => { node.scrollTop = 550; });
+  await page.waitForTimeout(80);
+  const position = await page.locator('.main-column').evaluate(node => node.scrollTop);
+  await nav('设置').click();
+  await nav('我的项目').click();
+  assert.equal(await page.locator('.detail-hero h1').textContent(), 'own-project', 'Sidebar must restore the project detail, not reset to the list.');
+  assert.ok(Math.abs(await page.locator('.main-column').evaluate(node => node.scrollTop) - position) < 5, 'Project scroll position lost.');
+  await page.getByRole('button', { name: '所有项目', exact: true }).click();
+  await page.getByRole('heading', { name: '设置', exact: true }).waitFor();
+  await page.locator('.back-link').click();
+  await page.locator('.detail-hero h1').filter({ hasText: 'own-project' }).waitFor();
+  await page.locator('.back-link').click();
+  await page.getByRole('heading', { name: '我的项目', exact: true }).waitFor();
+  await page.getByRole('textbox', { name: '筛选项目' }).fill('not-found-unique');
+  await page.locator('.search-empty-state').getByRole('button', { name: '清除搜索', exact: true }).click();
+  assert.equal(await page.getByRole('textbox', { name: '筛选项目' }).inputValue(), '');
+  await nav('发现').click();
+  await page.locator('.trending-card').nth(25).scrollIntoViewIfNeeded();
+  const discoverPosition = await page.locator('.main-column').evaluate(node => node.scrollTop);
+  await nav('设置').click();
+  await nav('发现').click();
+  assert.ok(Math.abs(await page.locator('.main-column').evaluate(node => node.scrollTop) - discoverPosition) < 5, 'Discovery scroll position lost.');
+  await page.getByRole('textbox', { name: '搜索公开项目' }).fill('not-found-unique');
+  await page.locator('.search-empty-state').getByRole('button', { name: '清除搜索', exact: true }).click();
+  assert.equal(await page.getByRole('textbox', { name: '搜索公开项目' }).inputValue(), '');
+  await page.getByRole('button', { name: '用户搜索', exact: true }).click();
+  await page.getByRole('textbox', { name: '搜索用户' }).fill('not-found-user');
+  await page.locator('.search-empty-state').getByRole('button', { name: '清除搜索', exact: true }).click();
+  assert.equal(await page.getByRole('textbox', { name: '搜索用户' }).inputValue(), '');
+  assert.deepEqual(errors, []);
+  await page.screenshot({ path: join(output, 'restored-navigation.png') });
+  process.stdout.write('Sidebar page/position retention and empty-search recovery passed.\n');
+} finally { await app.close(); }

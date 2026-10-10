@@ -18,7 +18,7 @@ const fixture = vi.hoisted(() => {
     once = vi.fn(); on = vi.fn(); show = vi.fn(); loadFile = vi.fn(async () => undefined); loadURL = vi.fn(async () => undefined);
     minimize = vi.fn(); maximize = vi.fn(); unmaximize = vi.fn(); close = vi.fn(); isMaximized = () => false; isDestroyed = () => false;
     isMinimized = vi.fn(() => false); restore = vi.fn(); focus = vi.fn();
-    setWindowButtonVisibility = vi.fn();
+    setWindowButtonVisibility = vi.fn(); setWindowButtonPosition = vi.fn();
     constructor(readonly options: unknown) { windows.push(this); }
     static getAllWindows() { return windows; }
   }
@@ -37,6 +37,10 @@ const fixture = vi.hoisted(() => {
   const proxies: FakeProxy[] = [];
   const systemAdapters: string[] = [];
   const analysisShutdown = vi.fn(async () => { order.push('analysis-shutdown'); });
+  const downloadsShutdown = vi.fn(async () => { order.push('downloads-shutdown'); });
+  const downloads = { manager: { list: vi.fn(async () => []), command: vi.fn(async () => undefined),
+    clearFinished: vi.fn(async () => undefined), shutdown: downloadsShutdown },
+    enqueue: vi.fn(async () => null), open: vi.fn(async () => undefined) };
   class FakeProxy {
     current: GitHubProxyStatus = { enabled: false, state: 'off', checkedAt: null, error: null, checks: [], legacyHosts: false };
     status = vi.fn(async () => ({ ...this.current }));
@@ -53,7 +57,7 @@ const fixture = vi.hoisted(() => {
     constructor(readonly path: string, readonly dependencies: Record<string, unknown>) { proxies.push(this); }
   }
   return { handlers, appEvents, order, clipboard, defaultSession, app, windows, FakeWindow, shell, dialog, menu,
-    local, aiVaults, keyring, hosts, github, proxies, FakeProxy, systemAdapters, analysisShutdown };
+    local, aiVaults, keyring, hosts, github, proxies, FakeProxy, systemAdapters, analysisShutdown, downloads, downloadsShutdown };
 });
 
 vi.mock('electron', () => ({ app: fixture.app, BrowserWindow: fixture.FakeWindow, clipboard: fixture.clipboard,
@@ -61,6 +65,7 @@ vi.mock('electron', () => ({ app: fixture.app, BrowserWindow: fixture.FakeWindow
   Menu: fixture.menu, net: { fetch: vi.fn() }, session: { defaultSession: fixture.defaultSession }, shell: fixture.shell }));
 vi.mock('@napi-rs/keyring', () => ({ AsyncEntry: fixture.keyring }));
 vi.mock('./services/githubService', () => fixture.github);
+vi.mock('./services/githubDownloads', () => ({ GitHubDownloads: class { constructor() { return fixture.downloads; } } }));
 vi.mock('./services/GitHubProxyService', () => ({ GitHubProxyService: fixture.FakeProxy, useGitHubProxy: vi.fn() }));
 vi.mock('./services/WindowsSystemProxy', () => ({ WindowsSystemProxy: class { constructor() { fixture.systemAdapters.push('windows'); } } }));
 vi.mock('./services/MacSystemProxy', () => ({ MacSystemProxy: class { constructor() { fixture.systemAdapters.push('mac'); } } }));
@@ -135,6 +140,7 @@ beforeEach(async () => {
   fixture.defaultSession.setProxy.mockResolvedValue(undefined);
   fixture.github.startDeviceLogin!.mockResolvedValue(flow());
   fixture.systemAdapters.length = 0;
+  fixture.downloadsShutdown.mockImplementation(async () => { fixture.order.push('downloads-shutdown'); });
   fixture.app.requestSingleInstanceLock.mockReturnValue(true);
   await import('./index');
   await vi.waitFor(() => expect(fixture.windows).toHaveLength(1));
@@ -165,6 +171,33 @@ describe('macOS main-process compatibility', () => {
     expect(window.maximize).toHaveBeenCalledOnce();
   });
 
+  it('aligns native lights to compact and comfortable toolbars and reapplies density after reopening', () => {
+    const window = fixture.windows[0]!;
+    invoke('window-set-style', 'reference', 'compact');
+    expect(window.setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 16, y: 21 });
+    closeMainWindow();
+    fixture.appEvents.get('activate')!();
+    const reopened = fixture.windows[0]!;
+    expect(reopened.options).toMatchObject({ trafficLightPosition: { x: 16, y: 21 } });
+    invoke('window-set-style', 'reference', 'comfortable');
+    expect(reopened.setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 25, y: 29 });
+    expect(reopened.maximize).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsupported toolbar density before changing native button appearance or position', () => {
+    const window = fixture.windows[0]!;
+    window.setWindowButtonVisibility.mockClear();
+    window.setWindowButtonPosition.mockClear();
+    for (const density of [null, true, {}, 'Compact', 'dense']) {
+      expect(() => invoke('window-set-style', 'reference', density)).toThrow('布局无效');
+    }
+    const handler = fixture.handlers.get('easyhub:window-set-style')!;
+    expect(() => handler({ sender: {}, senderFrame: {} }, 'reference', 'compact')).toThrow('来源无效');
+    expect(() => handler({ sender: window.webContents, senderFrame: {} }, 'reference', 'compact')).toThrow('来源无效');
+    expect(window.setWindowButtonVisibility).not.toHaveBeenCalled();
+    expect(window.setWindowButtonPosition).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid styles and foreign window or child-frame callers without changing native controls', () => {
     const window = fixture.windows[0]!;
     window.setWindowButtonVisibility.mockClear();
@@ -175,6 +208,7 @@ describe('macOS main-process compatibility', () => {
     expect(() => handler({ sender: {}, senderFrame: {} }, 'windows')).toThrow('来源无效');
     expect(() => handler({ sender: window.webContents, senderFrame: {} }, 'windows')).toThrow('来源无效');
     expect(window.setWindowButtonVisibility).not.toHaveBeenCalled();
+    expect(window.setWindowButtonPosition).not.toHaveBeenCalled();
   });
 
   it('reapplies the last style when macOS activation creates a new window', () => {
@@ -228,7 +262,7 @@ describe('macOS main-process compatibility', () => {
     expect(await vault.getPassword()).toBe('fixture-only');
     expect(menuItems().map((item) => item.id)).toEqual(['easyhub-app-menu', 'easyhub-file-menu', 'easyhub-edit-menu',
       'easyhub-view-menu', 'easyhub-window-menu', 'easyhub-help-menu']);
-    expect(fixture.app.setAboutPanelOptions).toHaveBeenCalledWith(expect.objectContaining({ applicationName: 'EasyHub', applicationVersion: '1.0.0' }));
+    expect(fixture.app.setAboutPanelOptions).toHaveBeenCalledWith(expect.objectContaining({ applicationName: 'EasyHub', applicationVersion: '1.0.0', credits: 'Apache 2.0 · FuFu-Flash/EasyHub' }));
     await expect(invoke('hosts-set-enabled', true)).rejects.toThrow('请使用设置中的 GitHub 代理');
   });
 
@@ -283,19 +317,50 @@ describe('macOS main-process compatibility', () => {
     expect(() => invoke('github-proxy-set-enabled', 'yes')).toThrow('设置无效');
   });
 
-  it('waits for both analysis and system-proxy shutdown before completing application quit', async () => {
+  it('waits for analysis, system proxy and downloads before completing application quit', async () => {
     let finish!: () => void;
+    let finishDownloads!: () => void;
     fixture.proxies[0]!.destroy.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
+    fixture.downloadsShutdown.mockImplementation(() => new Promise<void>((resolve) => { finishDownloads = resolve; }));
     const event = { preventDefault: vi.fn() };
     fixture.appEvents.get('before-quit')!(event);
     expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(fixture.proxies[0]!.destroy).toHaveBeenCalledOnce();
     expect(fixture.analysisShutdown).toHaveBeenCalledOnce();
+    expect(fixture.downloadsShutdown).toHaveBeenCalledOnce();
     expect(fixture.app.quit).not.toHaveBeenCalled();
     fixture.appEvents.get('before-quit')!(event);
     expect(fixture.proxies[0]!.destroy).toHaveBeenCalledOnce();
+    expect(fixture.downloadsShutdown).toHaveBeenCalledOnce();
     finish();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(fixture.app.quit).not.toHaveBeenCalled();
+    finishDownloads();
     await vi.waitFor(() => expect(fixture.app.quit).toHaveBeenCalledOnce());
+    const finalQuit = { preventDefault: vi.fn() };
+    fixture.appEvents.get('before-quit')!(finalQuit);
+    expect(finalQuit.preventDefault).not.toHaveBeenCalled();
+    expect(fixture.downloadsShutdown).toHaveBeenCalledOnce();
+  });
+
+  it('routes downloads through the new service only for the main window frame', async () => {
+    const request = { kind: 'archive', repo: { id: 1, name: 'app', owner: { login: 'owner' } }, ref: 'main' };
+    await invoke('downloads-list');
+    await invoke('downloads-enqueue', request);
+    await invoke('downloads-command', 'fixture-task', 'pause');
+    await invoke('downloads-clear');
+    await invoke('downloads-open', 'fixture-task', true);
+    expect(fixture.downloads.manager.list).toHaveBeenCalledOnce();
+    expect(fixture.downloads.enqueue).toHaveBeenCalledExactlyOnceWith(request);
+    expect(fixture.downloads.manager.command).toHaveBeenCalledExactlyOnceWith('fixture-task', 'pause');
+    expect(fixture.downloads.manager.clearFinished).toHaveBeenCalledOnce();
+    expect(fixture.downloads.open).toHaveBeenCalledExactlyOnceWith('fixture-task', true);
+    for (const name of ['downloads-list', 'downloads-enqueue', 'downloads-command', 'downloads-clear', 'downloads-open']) {
+      const handler = fixture.handlers.get(`easyhub:${name}`)!;
+      expect(() => handler({ sender: {}, senderFrame: {} }, request)).toThrow('来源无效');
+      expect(() => handler({ sender: fixture.windows[0]!.webContents, senderFrame: {} }, request)).toThrow('来源无效');
+    }
+    expect(fixture.downloads.enqueue).toHaveBeenCalledOnce();
   });
 
   it('selects the macOS system proxy adapter in production while preserving the native window and menu', async () => {
