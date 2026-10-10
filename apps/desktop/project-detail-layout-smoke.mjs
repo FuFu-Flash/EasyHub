@@ -23,6 +23,7 @@ const { app, executable, renderer } = await launchUpstreamFixture(desktopDirecto
   title: 'Isolated layout fixture' });
 const measurements = [];
 let geometryAssertions = 0;
+let nonemptyCloudListAssertions = 0;
 const assertGeometry = (condition, message) => { geometryAssertions++; assert.ok(condition, message); };
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profileDirectory);
@@ -226,6 +227,11 @@ try {
     }));
     measurements.push({ label, cloudRows: rows });
     if (label.includes('1060') || label.includes('1440')) await page.screenshot({ path: join(outputDirectory, label + '.png') });
+    if (rows.length > 0) {
+      nonemptyCloudListAssertions++;
+      assert.equal(await page.locator('.cloud-list .live-empty').filter({ hasText: /^(还没有项目。|No projects yet\.)$/ }).count(), 0,
+        label + ': a nonempty cloud list must not display the no-projects empty message');
+    }
     for (const row of rows) {
       assertGeometry(row.rowOverflow <= 1 && row.headingOverflow <= 1, label + ': row content must not be internally clipped: ' + row.title);
       assertGeometry(row.heading.x >= row.copy.x - 1 && row.heading.right <= row.copy.right + 1, label + ': long cloud title stays in text column');
@@ -330,7 +336,7 @@ try {
   assert.deepEqual(await app.evaluate(() => globalThis.layoutRejectedIpc ?? []), []);
   await writeFile(join(outputDirectory, 'isolation-and-count-report.json'), JSON.stringify({ blockedByDefaultChannels: bridgeChannels.filter(channel => !['easyhub:menu-state', 'easyhub:window-set-style'].includes(channel)).length,
     allowedNativeUIChannels: ['easyhub:menu-state', 'easyhub:window-set-style'], credentialStore: 'memory',
-    matrixPageChecks: cases - 1, baselineChecks: 1, cloudListMatrices: cloudMatrices, geometryAssertions,
+    matrixPageChecks: cases - 1, baselineChecks: 1, cloudListMatrices: cloudMatrices, nonemptyCloudListAssertions, geometryAssertions,
     forbiddenCalls: [], unexpectedIpcCalls: [], externalNetworkBlocked: true, systemProxyIntegrationDisabled: true }, null, 2) + '\n');
   process.stdout.write(`PASS: ${geometryAssertions} geometry assertions in ${cases - 1} real-renderer matrix cases + 1 baseline check, plus ${cloudMatrices} cloud-list matrices; no external writes or AI calls. (${Date.now() - started} ms)\n`);
 } finally {

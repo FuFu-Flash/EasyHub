@@ -127,12 +127,28 @@ try {
   await openLocal(0);
   await page.getByRole('heading', { name: 'First local introduction', exact: true }).waitFor({ timeout: 5000 });
   assert.equal(await page.getByText('Second checkout only.', { exact: true }).count(), 0, 'Changing projects must clear the prior introduction.');
+  const localCard = await page.locator('.local-project-card').elementHandle();
+  await writeFile(join(first, 'README.md'), '# Updated local introduction\n\nChanged outside EasyHub.');
+  await openLocal(0);
+  await page.getByRole('heading', { name: 'First local introduction', exact: true }).waitFor();
+  assert.equal(await page.getByRole('heading', { name: 'Updated local introduction', exact: true }).count(), 0,
+    'Revisiting a cached page keeps its previous content until refreshed.');
+  await page.locator('.sidebar-refresh').click();
+  await page.getByRole('heading', { name: 'Updated local introduction', exact: true }).waitFor();
+  assert.equal(await localCard.evaluate((node) => node.isConnected), true,
+    'Refreshing the local introduction must retain the mounted project card.');
+  assert.equal(await readFile(join(first, 'README.md'), 'utf8'), '# Updated local introduction\n\nChanged outside EasyHub.',
+    'Refreshing must not rewrite the local README.');
+  await writeFile(join(first, 'README.md'), '# First local introduction\n\nFirst checkout only.');
   await page.locator('.sidebar-nav button').filter({ hasText: /首页|Home/u }).click();
   await page.locator('.home-all-saved').getByRole('button').click();
   await page.locator('.local-project-card').nth(1).waitFor();
   assert.equal(await page.locator('.local-project-card').count(), 2, 'The general local view must clear the previously selected checkout.');
   await app.evaluate(() => { globalThis.easyHubIntroductionFixture.errors['local-0'] = '本地介绍暂时无法读取'; });
   await openLocal(0);
+  // NavigationPages keeps successful README state when revisiting a checkout.
+  // Refresh must fetch its current local content without recreating the page.
+  await page.locator('.sidebar-refresh').click();
   await page.getByRole('alert').filter({ hasText: '本地介绍暂时无法读取' }).waitFor();
   assert.equal(await page.getByText('这个项目还没有介绍。', { exact: true }).count(), 0, 'A read error must not report an empty introduction.');
   await app.evaluate(() => { delete globalThis.easyHubIntroductionFixture.errors['local-0']; });
@@ -140,6 +156,7 @@ try {
   await page.getByRole('heading', { name: 'First local introduction', exact: true }).waitFor();
   await writeFile(join(first, 'README.md'), '');
   await openLocal(0);
+  await page.locator('.sidebar-refresh').click();
   await page.getByText('这个项目还没有介绍。', { exact: true }).waitFor();
   assert.equal(await page.locator('.readme-markdown').count(), 0);
   assert.deepEqual(errors, [], 'The isolated renderer must not have uncaught errors.');
@@ -150,7 +167,7 @@ try {
   assert.deepEqual(isolation.network, [], 'The test must not access external network resources.');
   assert.equal(isolation.hostsReads, 0, 'Main startup must not access system hosts when app proxy is disabled.');
   assert.ok(isolation.reads.includes('local-0') && isolation.reads.includes('local-1'), 'Both real fixture README files must be read.');
-  process.stdout.write('Local introduction, exact checkout, offline navigation, loading, retry and empty states passed.\n');
+  process.stdout.write('Local introduction, exact checkout, cached navigation, healthy README refresh without remount or file writes, loading, retry and empty states passed.\n');
 } finally {
   if (app) await app.close();
   const resolved = await realpath(fixture).catch(() => null);
