@@ -39,8 +39,9 @@ You do not need to install Git or create a separate EasyHub account. Sign in wit
 | --- | --- | --- | --- |
 | Windows | Installer | Regular use, with installation location and desktop shortcut options | **[Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-setup.exe)** |
 | Windows | Portable | Run directly without installing | **[Download portable](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-portable.exe)** |
-| Android | 1.1.0 ARM64 APK | Most newer Android phones | **[Download Android 1.1.0](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** |
-| Android | Older 1.0.0 universal APK | For devices unable to install ARM64; excludes the 1.1.0 additions | **[Download universal APK](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk)** |
+| Android | 1.1.0 ARM64 APK | Most newer Android phones | **[Download Android 1.1.0](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
+
+Compatibility download for older Android devices: [1.0.0 universal APK](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk). Try it if the ARM64 package cannot be installed; this older version excludes the 1.1.0 additions.
 
 The Windows editions are for 64-bit PCs. The installer detects a previous installation location and selects “Create desktop shortcut” by default. Android requires Android 7.0 or later. Windows and Android packages are currently available.
 

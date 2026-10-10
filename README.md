@@ -39,8 +39,9 @@ EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看
 | --- | --- | --- | --- |
 | Windows | 安装版 | 长期使用，可选择安装位置和桌面快捷方式 | **[下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-setup.exe)** |
 | Windows | 便携版 | 不想安装，下载后直接运行 | **[下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-portable.exe)** |
-| Android | 1.1.0 ARM64 安装包 | 适合大多数较新的 Android 手机 | **[下载安卓 1.1.0](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** |
-| Android | 1.0.0 旧版通用包 | ARM64 包无法安装时尝试，不包含 1.1.0 新功能 | **[下载通用包](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk)** |
+| Android | 1.1.0 ARM64 安装包 | 适合大多数较新的 Android 手机 | **[下载安卓 1.1.0](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
+
+安卓旧设备兼容下载：[1.0.0 通用包](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk)。仅在 ARM64 包无法安装时尝试，旧版不包含 1.1.0 新功能。
 
 Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，“创建桌面快捷方式”默认勾选。Android 版适用于 Android 7.0 及以上。目前提供 Windows 和 Android 安装包。
 
