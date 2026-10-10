@@ -33,15 +33,14 @@ You do not need to install Git or create a separate EasyHub account. Sign in wit
 
 ## Download
 
-**Current versions: Windows 1.2.1 · Android 1.1.0 (ARM64).**
+**Current versions: Windows 1.2.1 · Android 1.1.0.**
 
 | Platform | Edition | Best for | Download |
 | --- | --- | --- | --- |
 | Windows | Installer | Regular use, with installation location and desktop shortcut options | **[Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-setup.exe)** |
 | Windows | Portable | Run directly without installing | **[Download portable](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-portable.exe)** |
-| Android | 1.1.0 ARM64 APK | Most newer Android phones | **[Download Android 1.1.0](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
-
-Compatibility download for older Android devices: [1.0.0 universal APK](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk). Try it if the ARM64 package cannot be installed; this older version excludes the 1.1.0 additions.
+| Android | 1.1.0 ARM64 APK | Most newer Android phones; smaller package | **[Download ARM64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
+| Android | 1.1.0 universal APK | ARM32, ARM64, x86, and x86_64 devices and emulators | **[Download universal APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 
 The Windows editions are for 64-bit PCs. The installer detects a previous installation location and selects “Create desktop shortcut” by default. Android requires Android 7.0 or later. Windows and Android packages are currently available.
 
@@ -81,7 +80,7 @@ Program file reviews require optional components on first use; their download si
 
 Your API key is saved in secure storage on the current device and used to connect to your chosen service. Fees and available quotas depend on the provider.
 
-Android 1.1.0 reviews text changes and decompiles program files locally. Download the Java/Dalvik component (about 2.67 MiB) and native component (about 25.14 MiB) separately in settings. They share the [desktop component release](https://github.com/FuFu-Flash/EasyHub/releases/tag/analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1). Program files downloaded for review are removed when the task finishes or is canceled.
+Android 1.1.0 reviews text changes and decompiles program files locally. Download the Java/Dalvik component (about 2.67 MiB) and native component (about 25.14 MiB) separately in settings. They share the [desktop component release](https://github.com/FuFu-Flash/EasyHub/releases/tag/analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1). The Java/Dalvik component supports all architectures on Android 8.0 or later; the native component currently supports ARM64 only. Program files downloaded for review are removed when the task finishes or is canceled.
 
 </details>
 

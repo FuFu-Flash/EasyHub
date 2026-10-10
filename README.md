@@ -33,15 +33,14 @@ EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看
 
 ## 下载
 
-**当前版本：Windows 1.2.1 · Android 1.1.0（ARM64）。**
+**当前版本：Windows 1.2.1 · Android 1.1.0。**
 
 | 平台 | 版本 | 适合谁 | 下载 |
 | --- | --- | --- | --- |
 | Windows | 安装版 | 长期使用，可选择安装位置和桌面快捷方式 | **[下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-setup.exe)** |
 | Windows | 便携版 | 不想安装，下载后直接运行 | **[下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-portable.exe)** |
-| Android | 1.1.0 ARM64 安装包 | 适合大多数较新的 Android 手机 | **[下载安卓 1.1.0](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
-
-安卓旧设备兼容下载：[1.0.0 通用包](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk)。仅在 ARM64 包无法安装时尝试，旧版不包含 1.1.0 新功能。
+| Android | 1.1.0 ARM64 安装包 | 适合大多数较新的 Android 手机，安装包更小 | **[下载 ARM64 包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
+| Android | 1.1.0 通用安装包 | ARM32、ARM64、x86、x86_64 设备与模拟器 | **[下载通用包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 
 Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，“创建桌面快捷方式”默认勾选。Android 版适用于 Android 7.0 及以上。目前提供 Windows 和 Android 安装包。
 
@@ -81,7 +80,7 @@ AI 审查是可选功能。不配置 AI 服务，也能正常发布源码和管�
 
 API Key 保存在当前设备的安全存储中，用于连接你选择的 AI 服务。费用和可用额度由服务商决定。
 
-Android 1.1.0 同时支持文字修改和本机程序文件审查。Java/Dalvik 组件约 2.67 MiB、原生程序组件约 25.14 MiB，可在设置中分别选择下载；组件与桌面版放在[同一个组件发布](https://github.com/FuFu-Flash/EasyHub/releases/tag/analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1)中。被下载用于审查的程序文件在任务结束或取消后自动清理。
+Android 1.1.0 支持文字改动审查和本机程序文件审查。Java/Dalvik 组件约 2.67 MiB、原生程序组件约 25.14 MiB，可在设置中分别选择下载；组件与桌面版放在[同一个组件发布](https://github.com/FuFu-Flash/EasyHub/releases/tag/analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1)中。Java/Dalvik 组件支持 Android 8.0 及以上的各架构设备，原生程序组件目前仅支持 ARM64。被下载用于审查的程序文件在任务结束或取消后自动清理。
 
 </details>
 
