@@ -32,6 +32,8 @@ try {
     ipcMain.handle('easyhub:cancel-translation', () => undefined);
   }, { project, readme });
   const page = await app.firstWindow();
+  page.setDefaultTimeout(15000);
+  page.setDefaultNavigationTimeout(20000);
   await page.evaluate(() => { window.localStorage.setItem('easyhub:auto-translate', 'false'); window.localStorage.setItem('easyhub:language', 'zh'); });
   await page.reload();
   await page.locator('.live-connected').waitFor();

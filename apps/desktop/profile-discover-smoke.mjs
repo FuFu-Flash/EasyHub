@@ -26,10 +26,13 @@ try {
     });
   });
   const page = await app.firstWindow();
+  page.setDefaultTimeout(15000);
+  page.setDefaultNavigationTimeout(20000);
   await page.evaluate(() => window.localStorage.setItem('easyhub:search-display-mode', 'compact'));
   await page.reload();
   await page.locator('.live-connected').waitFor();
   await page.locator('.topbar-profile').click();
+  await page.getByRole('menuitem', { name: '个人资料', exact: true }).click();
   await page.locator('.profile-hero').waitFor();
   assert.equal(await page.locator('.profile-avatar').count(), 1);
   await page.screenshot({ path: 'out/profile-smoke.png' });

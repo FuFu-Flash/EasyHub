@@ -5,10 +5,12 @@ import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
+import { smokeExecutable, smokeEnvironment } from './smoke-runtime.mjs';
 
 const desktop = dirname(fileURLToPath(import.meta.url));
-const packaged = process.argv.includes('--packaged');
-const mainDirectory = packaged ? join(desktop, 'release/win-unpacked/resources/app.asar/out/main') : join(desktop, 'out/main');
+const executable = smokeExecutable(desktop);
+const packaged = !!executable;
+const mainDirectory = packaged ? (process.platform === 'darwin' ? join(executable, '../../Resources/app.asar/out/main') : join(executable, '../resources/app.asar/out/main')) : join(desktop, 'out/main');
 const root = await mkdtemp(join(tmpdir(), 'easyhub-github-proxy-network-'));
 const profile = join(root, 'profile');
 await mkdir(profile);
@@ -25,7 +27,13 @@ require(${JSON.stringify(join(mainDirectory, 'index.js'))});
 `, 'utf8');
 let running;
 try {
-  running = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
+  running = await electron.launch({ executablePath: executable || electronPath, args: executable ? [] : [launcher], cwd: desktop, env: smokeEnvironment(profile) });
+  if (executable) await running.evaluate((_electron, workerDirectory) => {
+    globalThis.easyHubProxyTestWorker = process.getBuiltinModule('node:worker_threads').Worker;
+    const path = process.getBuiltinModule('node:path');
+    const fs = process.getBuiltinModule('node:fs');
+    globalThis.easyHubProxyTestWorkerPath = path.join(workerDirectory, fs.readdirSync(workerDirectory).find(name => /^gitWorker-.+\.js$/.test(name)));
+  }, mainDirectory);
   const page = await running.firstWindow();
   await page.waitForFunction(() => typeof window.easyHub?.githubProxySetEnabled === 'function');
   assert.equal(await running.evaluate(({ app }) => app.getPath('userData')), profile);

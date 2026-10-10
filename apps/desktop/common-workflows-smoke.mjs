@@ -2,8 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron } from 'playwright-core';
-import electronPath from 'electron';
+import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
 import { installDownloadFixture } from './download-fixture.mjs';
 
 // Real renderer with isolated read fixtures: no account, disk download or remote mutation.
@@ -13,20 +12,10 @@ await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
 const profile = join(run, 'profile');
 await mkdir(profile);
-const launcher = join(run, 'launch.cjs');
-await writeFile(launcher, `
-const { app, ipcMain } = require('electron');
-app.setPath('userData', ${JSON.stringify(profile)});
-process.env.EASYHUB_PROXY_APP_ONLY_TEST = '1';
-process.env.ELECTRON_RENDERER_URL = 'data:text/html,<title>Isolated workflows fixture</title>';
-globalThis.workflowsRegister = ipcMain.handle.bind(ipcMain);
-globalThis.workflowsForbidden = [];
-ipcMain.handle = (channel, handler) => globalThis.workflowsRegister(channel, channel.startsWith('easyhub:') ? () => {
-  globalThis.workflowsForbidden.push(channel); throw new Error('Unmocked workflows IPC: ' + channel);
-} : handler);
-require(${JSON.stringify(join(desktop, 'out', 'main', 'index.js'))});
-`);
-const app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
+const { app, executable, renderer } = await launchUpstreamFixture(desktop, {
+  profile: profile, launcher: join(run, 'launch.cjs'),
+  registerName: 'workflowsRegister', rejectedName: 'workflowsForbidden', title: 'Isolated workflows fixture'
+});
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
   await app.evaluate(({ ipcMain, session }) => {
@@ -88,7 +77,7 @@ try {
   page.setDefaultTimeout(12000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), join(desktop, 'out', 'renderer', 'index.html'));
+  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), renderer);
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('easyhub:language', 'zh'); });
   await page.reload();
   await page.locator('.live-connected').waitFor();

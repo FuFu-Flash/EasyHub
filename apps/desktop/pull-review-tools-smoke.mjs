@@ -30,7 +30,7 @@ const files=[
 const run=(id,name,conclusion='success',status='completed',head='a'.repeat(40))=>({id,name,head_sha:head,status,conclusion,html_url:'https://github.com/owner/sample/actions/runs/'+id,details_url:null,started_at:now,completed_at:now,app:{id:1,name:'Builder'}});
 const legacy=(id,state)=>({id,context:'legacy-build',state,description:'Status report',target_url:'https://ci.example.com/build/1',created_at:now,updated_at:now});
 window.mode='paged';window.links=[];window.reads=[];window.held=null;window.resolved=false;window.writes=[];
-window.easyHub={onAiReviewProgress:()=>()=>{},openExternalLink:async(url)=>{window.links.push(url)},github:async(action,...args)=>{
+window.easyHub={platform:${JSON.stringify(process.platform)},onAiReviewProgress:()=>()=>{},openExternalLink:async(url)=>{window.links.push(url)},github:async(action,...args)=>{
 window.reads.push({action,args});
 if(action==='pullRequests'||action==='pullRequestsPage')return [pull(7),pull(8)];
 if(action==='pullRequest')return pull(args[2]);
@@ -61,7 +61,7 @@ let browser;
 try {
   await server.listen(); const address = server.httpServer.address(); assert.ok(address && typeof address !== 'string');
   const url = `http://127.0.0.1:${address.port}/pull-tools-test`;
-  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true });
   const page = await browser.newPage({ viewport: { width: 1060, height: 760 } }); page.setDefaultTimeout(10000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));

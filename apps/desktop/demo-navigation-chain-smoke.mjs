@@ -3,15 +3,14 @@ import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium, _electron as electron } from 'playwright-core';
-import electronPath from 'electron';
+import { chromium } from 'playwright-core';
+import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
 import { createServer } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const desktop = dirname(fileURLToPath(import.meta.url));
-const packaged = process.argv.includes('--packaged');
+const packaged = process.argv.includes('--packaged') || process.argv.some(value => value.startsWith('--executable='));
 const built = packaged || process.argv.includes('--built');
-const product = packaged ? join(desktop, 'release/win-unpacked/resources/app.asar') : desktop;
 const output = join(desktop, 'out/demo-navigation-chain-smoke');
 await mkdir(output, { recursive: true });
 const fixture = `
@@ -22,7 +21,7 @@ import '/src/styles.css';
 import '/src/v2.css';
 localStorage.setItem('easyhub:language', 'zh');
 window.githubCallLog = [];
-window.easyHub = {
+window.easyHub = { platform: ${JSON.stringify(process.platform)},
   authStatus: async () => ({ user: null }),
   github: async (...args) => { window.githubCallLog.push(args); throw Error('Demo must not call GitHub'); },
   chooseFolder: async () => 'C:/fixture',
@@ -49,17 +48,11 @@ try {
   let load;
   if (built) {
     const run = await mkdtemp(join(output, packaged ? 'packaged-' : 'built-'));
-    const launcher = join(run, 'launch.cjs');
-    await writeFile(launcher, `
-const { app, ipcMain } = require('electron');
-app.setPath('userData', ${JSON.stringify(join(run, 'profile'))});
-process.env.EASYHUB_PROXY_APP_ONLY_TEST = '1';
-process.env.ELECTRON_RENDERER_URL = 'data:text/html,Demo history fixture';
-globalThis.registerDemoFixture = ipcMain.handle.bind(ipcMain);
-ipcMain.handle = (channel, handler) => globalThis.registerDemoFixture(channel, channel.startsWith('easyhub:') ? () => { throw Error('Unexpected IPC: '+channel); } : handler);
-require(${JSON.stringify(join(product, 'out/main/index.js'))});
-`);
-    electronApp = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
+    const launched = await launchUpstreamFixture(desktop, {
+      profile: join(run, 'profile'), launcher: join(run, 'launch.cjs'),
+      registerName: 'registerDemoFixture', title: 'Demo history fixture', allowedFlags: ['--built']
+    });
+    electronApp = launched.app;
     await electronApp.evaluate(({ ipcMain, session }) => {
       session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_details, callback) => callback({ cancel: true }));
       globalThis.demoGithubCalls = [];
@@ -71,13 +64,14 @@ require(${JSON.stringify(join(product, 'out/main/index.js'))});
       mock('easyhub:github', (...args) => { globalThis.demoGithubCalls.push(args); throw Error('Demo must not call GitHub'); });
     });
     page = await electronApp.firstWindow();
-    load = () => electronApp.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), join(product, 'out/renderer/index.html'));
+    load = () => electronApp.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), launched.renderer);
   } else {
     await server.listen();
     const address = server.httpServer.address();
-    const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+    const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
     browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true });
     page = await browser.newPage();
+    await page.route('**/*', route => new URL(route.request().url()).origin === `http://127.0.0.1:${address.port}` ? route.continue() : route.abort());
     load = () => page.goto(`http://127.0.0.1:${address.port}/demo-navigation-test`);
   }
   await page.setViewportSize({ width: 980, height: 640 });

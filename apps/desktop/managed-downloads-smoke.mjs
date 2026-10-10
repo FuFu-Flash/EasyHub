@@ -26,7 +26,7 @@ const clone=value=>JSON.parse(JSON.stringify(value));
 const emit=()=>{localStorage.setItem('managed-download-fixture',JSON.stringify(rows));for(const listener of listeners)listener(clone(rows))};
 const pump=()=>{let active=rows.filter(item=>item.state==='running').length;for(const item of [...rows].reverse())if(item.state==='queued'&&active<2){item.state='running';active++}emit()};
 const repo={id:1,name:'fixture',full_name:'fixture/fixture',owner:{login:'fixture'},private:false,default_branch:'main',updated_at:'',open_issues_count:0};
-window.easyHub={
+window.easyHub={platform:${JSON.stringify(process.platform)},
  downloadsList:async()=>clone(rows),
  onDownloadsChanged:listener=>{listeners.add(listener);return()=>listeners.delete(listener)},
  downloadsEnqueue:async(request)=>{window.fixtureActions.push(['enqueue',request.kind]);if(window.failNextDownload){window.failNextDownload=false;throw Error('无法选择保存位置。')}const item={id:crypto.randomUUID(),request,state:'queued',percent:25,loaded:256,total:1024,bytesPerSecond:128,phase:'正在下载…',seen:true};rows.unshift(item);pump();return clone(item)},
@@ -57,10 +57,11 @@ const server = await createServer({ configFile: false, root: join(desktop, 'src/
 let browser;
 try {
   await server.listen(); const address = server.httpServer.address(); assert.ok(address && typeof address !== 'string');
-  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true });
   const page = await browser.newPage({ viewport: { width: 1060, height: 700 } });
   const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/*', route => new URL(route.request().url()).origin === `http://127.0.0.1:${address.port}` ? route.continue() : route.abort());
   await page.goto(`http://127.0.0.1:${address.port}/managed-downloads-test`);
   const add = page.getByRole('button', { name: '添加下载', exact: true });
   const row = name => page.locator('.download-notification-item').filter({ hasText: name });

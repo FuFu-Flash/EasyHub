@@ -1,4 +1,4 @@
-node_modules/
+node_modules
 out/
 dist/
 /release/
@@ -11,3 +11,7 @@ coverage/
 .env*
 !.env.example
 PLAN.md
+
+# Generated macOS build resources.
+/apps/desktop/resources/easyhub.icns
+/apps/desktop/resources/easyhub-proxy-helper

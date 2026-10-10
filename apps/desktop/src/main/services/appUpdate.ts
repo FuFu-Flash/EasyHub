@@ -14,7 +14,7 @@ function compare(a: Version, b: Version): number {
   return 0;
 }
 
-export async function checkAppUpdate(currentVersion: string, transport: typeof fetch): Promise<AppUpdateResult> {
+export async function checkAppUpdate(currentVersion: string, transport: typeof fetch, platform: NodeJS.Platform = process.platform): Promise<AppUpdateResult> {
   const current = version(currentVersion);
   if (!current) throw new Error('无法识别当前应用版本。');
   let response: Response;
@@ -27,15 +27,19 @@ export async function checkAppUpdate(currentVersion: string, transport: typeof f
   const releases = data.flatMap((entry: unknown) => {
     if (!entry || typeof entry !== 'object') return [];
     const item = entry as Record<string, unknown>;
-    const parsed = version(item.tag_name);
+    const tag = typeof item.tag_name === 'string' ? item.tag_name : '';
+    const parsed = version(platform === 'darwin' ? tag.replace(/^macos-/i, '') : tag);
     if (!parsed || item.draft !== false || item.prerelease !== false || !Array.isArray(item.assets)) return [];
     const number = parsed.join('.');
-    const windows = item.assets.some((asset: unknown) => typeof asset === 'object' && asset !== null && 'name' in asset &&
-      (asset.name === `EasyHub-${number}-setup.exe` || asset.name === `EasyHub-${number}-portable.exe`));
-    return windows ? [{ tag: String(item.tag_name), version: number, parsed }] : [];
+    const compatible = item.assets.some((asset: unknown) => typeof asset === 'object' && asset !== null && 'name' in asset &&
+      (platform === 'darwin'
+        ? [`EasyHub-macOS.dmg`, `EasyHub-macOS.zip`, `EasyHub-${number}-macOS.dmg`, `EasyHub-${number}-macOS.zip`,
+          `EasyHub-${number}-arm64.dmg`, `EasyHub-${number}-arm64-mac.zip`].includes(String(asset.name))
+        : platform === 'win32' && (asset.name === `EasyHub-${number}-setup.exe` || asset.name === `EasyHub-${number}-portable.exe`)));
+    return compatible ? [{ tag: String(item.tag_name), version: number, parsed }] : [];
   }).sort((a, b) => compare(b.parsed, a.parsed));
   const latest = releases[0];
-  if (!latest) throw new Error('暂时没有可用的 Windows 版本，请稍后重试。');
+  if (!latest) throw new Error(platform === 'darwin' ? '暂时没有发布可用的 macOS 安装包。请使用项目提供的 Mac 下载路径。' : '暂时没有可用的 Windows 版本，请稍后重试。');
   return { currentVersion, latestVersion: latest.version, available: compare(latest.parsed, current) > 0,
     releaseUrl: `https://github.com/FuFu-Flash/EasyHub/releases/tag/${encodeURIComponent(latest.tag)}` };
 }

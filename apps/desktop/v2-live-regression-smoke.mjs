@@ -4,8 +4,10 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
+import { smokeExecutable, smokeEnvironment, smokeRenderer } from './smoke-runtime.mjs';
 
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
+const executable = smokeExecutable(desktopDirectory);
 const outputDirectory = resolve(desktopDirectory, 'out', 'v2-live-regression');
 await mkdir(outputDirectory, { recursive: true });
 const runDirectory = await mkdtemp(join(outputDirectory, 'isolated-'));
@@ -22,7 +24,7 @@ process.env.ELECTRON_RENDERER_URL = 'data:text/html,<title>Isolated regression f
 const fixtureHandle = ipcMain.handle.bind(ipcMain);
 globalThis.easyHubV2RegisterMock = fixtureHandle;
 globalThis.easyHubV2RejectedIpc = [];
-ipcMain.handle = (channel, listener) => fixtureHandle(channel, channel.startsWith('easyhub:') ? () => {
+ipcMain.handle = (channel, listener) => fixtureHandle(channel, channel.startsWith('easyhub:') && !['easyhub:window-set-style', 'easyhub:menu-state'].includes(channel) ? () => {
   globalThis.easyHubV2RejectedIpc.push(channel);
   throw new Error('IPC was not explicitly mocked by the regression fixture: ' + channel);
 } : listener);
@@ -44,7 +46,7 @@ require(${JSON.stringify(join(desktopDirectory, 'out', 'main', 'index.js'))});
 let app;
 let page;
 try {
-  app = await electron.launch({ executablePath: electronPath, args: [launcherPath], cwd: desktopDirectory });
+  app = await electron.launch({ executablePath: executable || electronPath, args: executable ? [] : [launcherPath], cwd: desktopDirectory, env: smokeEnvironment(profileDirectory) });
   assert.equal(await app.evaluate(({ app: runningApp }) => runningApp.getPath('userData')), profileDirectory);
   await app.evaluate(({ BrowserWindow, ipcMain, session }, fixtureDirectory) => {
     const window = BrowserWindow.getAllWindows()[0];
@@ -70,6 +72,9 @@ try {
       previews: { 'fixture-current': { state: 'current', changedFiles: 0, files: [] },
         'fixture-remote': { state: 'ready', changedFiles: 1, files: [], remoteRevision: 'b'.repeat(40) } },
     };
+    globalThis.easyHubV2RegisterMock ??= ipcMain.handle.bind(ipcMain);
+    globalThis.easyHubV2RejectedIpc ??= [];
+    globalThis.easyHubV2StartupGuards ??= { hostsReads: 0 };
     const mock = (channel, handler) => {
       ipcMain.removeHandler(channel);
       globalThis.easyHubV2RegisterMock(channel, (event, ...args) => {
@@ -133,7 +138,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await app.evaluate(async ({ BrowserWindow }, rendererPath) => {
     await BrowserWindow.getAllWindows()[0].loadFile(rendererPath);
-  }, join(desktopDirectory, 'out', 'renderer', 'index.html'));
+  }, smokeRenderer(desktopDirectory, executable));
   await page.locator('.live-connected').waitFor();
   const homeRows = page.locator('.home-project-row');
   await homeRows.last().waitFor();
@@ -211,6 +216,7 @@ try {
   await reviewSide.getByRole('button', { name: '合并请求审查', exact: false }).click();
   await page.locator('.pull-requests-panel').getByText('Fixture improvement', { exact: true }).waitFor();
   assert.equal(await page.getByText('部分反馈或历史版本暂时无法加载，请刷新重试。', { exact: true }).count(), 0, 'A project loading error must clear when leaving the project page');
+  assert.equal(await page.getByRole('tab', { name: process.platform === 'darwin' ? '合并请求审查 1' : '代码提交审查 1', exact: true }).getAttribute('aria-selected'), 'true');
   assert.equal(await page.getByRole('tab', { name: '合并请求审查 1', exact: true }).getAttribute('aria-selected'), 'true');
 
   await navigation.getByRole('button', { name: /^问题/ }).click();
@@ -225,6 +231,7 @@ try {
   assert.equal(await groups.count(), 2);
   assert.equal(await page.getByRole('button', { name: '收起其他项目 1', exact: true }).getAttribute('aria-expanded'), 'true');
   await page.getByRole('button', { name: '收起其他项目 1', exact: true }).click();
+  await page.getByRole('tab', { name: process.platform === 'darwin' ? '合并请求审查 1' : '代码提交审查 1', exact: true }).click();
   await page.getByRole('tab', { name: '合并请求审查 1', exact: true }).click();
   assert.equal(await groups.count(), 1, 'Repos with no reviews should be folded by default');
   assert.equal(await groups.locator('.issue-project-heading strong').innerText(), 'active-project');

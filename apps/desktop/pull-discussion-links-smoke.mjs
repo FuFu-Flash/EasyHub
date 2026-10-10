@@ -17,7 +17,7 @@ import '/src/v2.css';
 const repo={id:1,name:'sample',full_name:'tester/sample',private:true,default_branch:'main',owner:{login:'tester'},permissions:{pull:true}};
 const pull={id:1,number:1,title:'A discussion',body:'[Read documentation](docs/guide.md)\\n\\n[Unsafe](javascript:alert(1))',state:'open',created_at:'2026-10-08T00:00:00Z',user:{login:'contributor'},head:{sha:'a'.repeat(40)},base:{ref:'main',sha:'b'.repeat(40)}};
 window.opened=[];
-window.easyHub={onAiReviewProgress:()=>()=>{},openExternalLink:async(url)=>{window.opened.push(url)},github:async(action,...args)=>{
+window.easyHub={platform:${JSON.stringify(process.platform)},onAiReviewProgress:()=>()=>{},openExternalLink:async(url)=>{window.opened.push(url)},github:async(action,...args)=>{
  if(action==='pullRequests')return [pull];
  if(action==='pullRequest')return pull;
  if(action==='pullChecks')return {headSha:args[3].headSha,checkRuns:{state:'available',items:[],nextPage:null},statuses:{state:'available',items:[],nextPage:null}};
@@ -48,7 +48,7 @@ try {
   const address=server.httpServer.address();
   assert.ok(address && typeof address !== 'string');
   const url=`http://127.0.0.1:${address.port}/discussion-test`;
-  const executablePath=process.env.EASYHUB_TEST_BROWSER ?? ['C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+  const executablePath=process.env.EASYHUB_TEST_BROWSER ?? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
   browser=await chromium.launch({...(executablePath?{executablePath}:{}),headless:true});
   const page=await browser.newPage();
   page.setDefaultTimeout(7000);

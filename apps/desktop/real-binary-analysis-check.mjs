@@ -5,6 +5,7 @@ import { basename, dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
+import { smokeExecutable, smokeEnvironment } from './smoke-runtime.mjs';
 
 // Uses a separately installed optional runtime, or explicitly checks fresh installation
 // in an isolated test profile. Real Main/Preload extraction, with an explicitly local
@@ -15,14 +16,18 @@ assert.ok(profile && isAbsolute(profile), 'Set EASYHUB_BINARY_TEST_PROFILE to th
 const installRequested = process.env.EASYHUB_BINARY_TEST_INSTALL === '1';
 if (installRequested) assert.match(basename(profile), /^EasyHub-analysis-slim-test-[A-Za-z0-9-]+$/, 'Fresh installation must use an isolated analysis test profile.');
 const desktopDir = dirname(fileURLToPath(import.meta.url));
-const executable = process.env.EASYHUB_BINARY_TEST_EXECUTABLE;
+const executable = process.env.EASYHUB_BINARY_TEST_EXECUTABLE || smokeExecutable(desktopDir);
 if (executable) assert.ok(isAbsolute(executable), 'The test executable must use an absolute path.');
-const sample = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'whoami.exe');
+const sample = process.env.EASYHUB_BINARY_TEST_SAMPLE || (process.platform === 'darwin' ? join(profile, 'analysis-sample/mac-sample.bin') : join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'whoami.exe'));
+assert.ok(isAbsolute(sample), 'The static sample must have an absolute path.');
+const sampleName = basename(sample);
 const originalHash = createHash('sha256').update(await readFile(sample)).digest('hex');
 const application = await electron.launch({ executablePath: executable || electronPath,
-  args: [...(executable ? [] : ['.']), `--user-data-dir=${profile}`], cwd: desktopDir });
+  args: [...(executable ? [] : ['.']), `--user-data-dir=${profile}`], cwd: desktopDir, env: smokeEnvironment(profile) });
 try {
-  await application.evaluate(({ ipcMain, dialog }, sample) => {
+  assert.equal(await application.evaluate(({ app }) => app.getPath('userData')), profile);
+  await application.evaluate(({ ipcMain, dialog, session }, sample) => {
+    session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_details, callback) => callback({ cancel: true }));
     const replace = (channel, callback) => { ipcMain.removeHandler(channel); ipcMain.handle(channel, callback); };
     replace('easyhub:auth-status', () => ({ user: { login: 'analysis-check', name: 'Analysis check', avatar_url: '', html_url: '' }, clientId: 'test_client' }));
     replace('easyhub:local-list', () => []);
@@ -94,7 +99,7 @@ try {
     await page.screenshot({ path: join(desktopDir, 'out/real-analysis-slim-install.png') });
   }
   await settings.getByRole('button', { name: '选择本地文件', exact: true }).click();
-  await settings.locator('.binary-selected-file').getByText('whoami.exe', { exact: true }).waitFor();
+  await settings.locator('.binary-selected-file').getByText(sampleName, { exact: true }).waitFor();
   const started = Date.now();
   const consent = page.getByRole('dialog', { name: '使用 AI 审查这个程序文件？', exact: true });
   await settings.getByRole('button', { name: 'AI 审查', exact: true }).click();
@@ -107,7 +112,7 @@ try {
     settings.getByRole('alert').waitFor({ timeout: 180_000 }).then(async () => { throw new Error(await settings.getByRole('alert').innerText()); }),
   ]);
   await report.getByText('本地占位 AI 响应：仅验证审查链路，未联系 AI 服务。', { exact: true }).waitFor();
-  await report.getByText('程序文件提取证据 · whoami.exe', { exact: true }).click();
+  await report.getByText(`程序文件提取证据 · ${sampleName}`, { exact: true }).click();
   const summary = await report.locator('.binary-extracted-details > .ai-review-report > p').innerText();
   assert.match(summary, /识别到 [1-9]\d* 个函数/);
   assert.match(summary, /查看了 [1-9]\d* 个代码片段/);
@@ -136,5 +141,5 @@ try {
   assert.match(forged, /重新选择/);
   assert.equal(createHash('sha256').update(await readFile(sample)).digest('hex'), originalHash);
   assert.deepEqual(errors, []);
-  process.stdout.write(`PASS: real Main/Preload extraction and unified UI chain of whoami.exe; ${summary}; ${((Date.now() - started) / 1000).toFixed(1)}s including cancellation; sample unchanged; local placeholder AI only (no provider requests or AI quality claim); no GitHub writes.\n`);
+  process.stdout.write(`PASS: real Main/Preload extraction and unified UI chain of ${sampleName}; ${summary}; ${((Date.now() - started) / 1000).toFixed(1)}s including cancellation; sample unchanged; local placeholder AI only (no provider requests or AI quality claim); no GitHub writes.\n`);
 } finally { await application.close(); }

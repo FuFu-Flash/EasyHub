@@ -2,8 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron } from 'playwright-core';
-import electronPath from 'electron';
+import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
 import { installDownloadFixture } from './download-fixture.mjs';
 
 // The actual renderer and preload with deny-by-default IPC and blocked network.
@@ -12,25 +11,14 @@ const desktop = dirname(fileURLToPath(import.meta.url));
 const packaged = process.argv.includes('--packaged');
 const chainCase = process.argv.find(value => value.startsWith('--case='))?.slice(7) ?? 'issue-release';
 const programmaticScroll = process.argv.includes('--programmatic-scroll');
-const product = packaged ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'navigation-chain-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
-const launcher = join(run, 'launch.cjs');
-await writeFile(launcher, `
-const { app, ipcMain } = require('electron');
-app.setPath('userData', ${JSON.stringify(join(run, 'profile'))});
-process.env.EASYHUB_PROXY_APP_ONLY_TEST = '1';
-process.env.ELECTRON_RENDERER_URL = 'data:text/html,Navigation chain fixture';
-globalThis.registerChainFixture = ipcMain.handle.bind(ipcMain);
-globalThis.rejectedChainIPC = [];
-ipcMain.handle = (channel, handler) => globalThis.registerChainFixture(channel, channel.startsWith('easyhub:') ? () => {
-  globalThis.rejectedChainIPC.push(channel);
-  throw new Error('Unexpected navigation fixture IPC: ' + channel);
-} : handler);
-require(${JSON.stringify(join(product, 'out', 'main', 'index.js'))});
-`);
-const app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
+const { app, executable, renderer } = await launchUpstreamFixture(desktop, {
+  profile: join(run, 'profile'), launcher: join(run, 'launch.cjs'),
+  registerName: 'registerChainFixture', rejectedName: 'rejectedChainIPC', title: 'Navigation chain fixture',
+  allowedFlags: ['--programmatic-scroll', ...process.argv.slice(2).filter(value => value.startsWith('--case='))]
+});
 const completed = [];
 let lastExpectedScroll = null;
 try {
@@ -100,7 +88,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), join(product, 'out', 'renderer', 'index.html'));
+  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), renderer);
   await page.locator('.live-connected').waitFor();
   await page.setViewportSize({ width: 1060, height: 700 });
   const nav = name => page.locator('.sidebar-nav').getByRole('button', { name: name === '问题' ? /^问题/ : name, exact: name !== '问题' });

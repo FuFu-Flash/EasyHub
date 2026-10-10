@@ -9,15 +9,26 @@ describe('application update checks', () => {
       release('v8.0.0', undefined, { draft: true }), release('v1.9.9'), release('v1.10.0'),
       release('analysis-runtime-12.0.0'),
     ]));
-    expect(await checkAppUpdate('1.9.9', transport)).toEqual({ currentVersion: '1.9.9', latestVersion: '1.10.0', available: true, releaseUrl: 'https://github.com/FuFu-Flash/EasyHub/releases/tag/v1.10.0' });
+    expect(await checkAppUpdate('1.9.9', transport, 'win32')).toEqual({ currentVersion: '1.9.9', latestVersion: '1.10.0', available: true, releaseUrl: 'https://github.com/FuFu-Flash/EasyHub/releases/tag/v1.10.0' });
     expect(new Headers(transport.mock.calls[0]![1]?.headers).has('Authorization')).toBe(false);
   });
+  it('only offers stable macOS installers and supports macOS release tags', async () => {
+    const response = Response.json([
+      release('v9.0.0'), release('android-v8.0.0', ['EasyHub-Android.apk']),
+      release('macos-v2.0.0', ['EasyHub-macOS.dmg'], { prerelease: true }),
+      release('macos-v1.2.1', ['EasyHub-macOS.dmg']), release('v1.2.0', ['EasyHub-1.2.0-arm64.dmg']),
+    ]);
+    const transport = vi.fn<typeof fetch>().mockImplementation(async () => response.clone());
+    expect(await checkAppUpdate('1.1.0', transport, 'darwin')).toEqual({currentVersion:'1.1.0',latestVersion:'1.2.1',available:true,releaseUrl:'https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.1'});
+    expect((await checkAppUpdate('1.2.1', transport, 'darwin')).available).toBe(false);
+    await expect(checkAppUpdate('1.1.0', vi.fn<typeof fetch>().mockResolvedValue(Response.json([release('v1.2.1')])), 'darwin')).rejects.toThrow('macOS');
+  });
   it('does not offer equal versions or downgrades', async () => {
-    for (const current of ['1.1.0', '1.2.0']) expect((await checkAppUpdate(current, vi.fn<typeof fetch>().mockResolvedValue(Response.json([release('v1.1.0')])))).available).toBe(false);
+    for (const current of ['1.1.0', '1.2.0']) expect((await checkAppUpdate(current, vi.fn<typeof fetch>().mockResolvedValue(Response.json([release('v1.1.0')])), 'win32')).available).toBe(false);
   });
   it('reports network, rate limit and invalid results without claiming latest', async () => {
     await expect(checkAppUpdate('1.1.0', vi.fn<typeof fetch>().mockRejectedValue(new Error('private detail')))).rejects.toThrow('网络');
     await expect(checkAppUpdate('1.1.0', vi.fn<typeof fetch>().mockResolvedValue(new Response('', { status: 429 })))).rejects.toThrow('频繁');
-    await expect(checkAppUpdate('1.1.0', vi.fn<typeof fetch>().mockResolvedValue(Response.json([])))).rejects.toThrow('Windows');
+    await expect(checkAppUpdate('1.1.0', vi.fn<typeof fetch>().mockResolvedValue(Response.json([])), 'win32')).rejects.toThrow('Windows');
   });
 });

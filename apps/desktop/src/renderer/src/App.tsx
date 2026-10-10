@@ -3,6 +3,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { AiSettingsPanel } from './components/AiSettingsPanel';
 import { HostsRepairPanel } from './components/HostsRepairPanel';
+import { WindowControlStyleOptions } from './components/WindowControlStyleOptions';
+import { WindowTrafficLights } from './components/WindowTrafficLights';
+import { readWindowControlStyle, synchronizeWindowControlStyle, windowControlStyleKey, type WindowControlStyle } from './windowControlStyle';
 import type { ChangedFile, CreateReleaseInput, Issue, Project, ProjectHealth, Visibility } from '@easyhub/types';
 import {
   ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCircle2,
@@ -32,6 +35,7 @@ import type { ActivityNotice } from './components/DownloadNotifications';
 import { DashboardIntro } from './components/DashboardIntro';
 import { StyledDropdown } from './components/StyledDropdown';
 import { ProfileMenu } from './components/ProfileMenu';
+import { useApplicationMenu } from './useApplicationMenu';
 import { LayoutSettingsPanel } from './components/LayoutSettingsPanel';
 import { AppUpdatePanel } from './components/AppUpdatePanel';
 import { useLayoutPreference } from './layoutPreferences';
@@ -62,17 +66,6 @@ type Route =
 const demoOnlyBuild = import.meta.env.VITE_EASYHUB_DEMO_ONLY === 'true';
 
 type BusyAction = { label: string; progress: number } | null;
-type WindowControlStyle = 'windows' | 'reference';
-
-const windowControlStyleKey = 'easyhub:window-control-style';
-
-function readWindowControlStyle(): WindowControlStyle {
-  try {
-    return window.localStorage.getItem(windowControlStyleKey) === 'reference' ? 'reference' : 'windows';
-  } catch {
-    return 'windows';
-  }
-}
 
 const statusText: Record<ProjectHealth, string> = {
   saved: '演示已保存 · 未上传到 GitHub',
@@ -121,7 +114,7 @@ function Intro({ readme, onOpenLink }: { readme: string; onOpenLink: (url: strin
   return <ReadmeMarkdown markdown={readme} onOpenLink={onOpenLink} />;
 }
 
-function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?: boolean }) {
+function DemoApp({ onLogin, demoOnly = false, menuReady = true }: { onLogin: () => void; demoOnly?: boolean; menuReady?: boolean }) {
   const layout = useLayoutPreference();
   const [data, setData] = useState(createInitialState);
   const [windowControlStyle, setWindowControlStyle] = useState<WindowControlStyle>(readWindowControlStyle);
@@ -192,6 +185,43 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
     else { setRoute({ name: next } as Route); setSearch(''); }
   }
 
+  const [menuFocus, setMenuFocus] = useState<{ target: 'search' | 'proxy'; request: number } | null>(null);
+
+  useApplicationMenu({ language, signedIn: false, busy: Boolean(busy), demoOnly }, (command) => {
+    switch (command) {
+      case 'home': navigate({ name: 'home' }); break;
+      case 'projects': navigateSidebar('projects'); break;
+      case 'issues': navigateSidebar('issues'); break;
+      case 'profile': setAccountReturnRoute(route); navigate({ name: 'profile' }); break;
+      case 'settings': navigateSidebar('settings'); break;
+      case 'new-project': navigate({ name: 'new-project' }); break;
+      case 'add-folder': navigate({ name: 'add-folder' }); break;
+      case 'download-project': navigate({ name: 'download' }); break;
+      case 'search':
+        navigate({ name: 'projects' });
+        setMenuFocus((previous) => ({ target: 'search', request: (previous?.request ?? 0) + 1 }));
+        break;
+      case 'proxy-settings':
+        navigate({ name: 'settings' });
+        setMenuFocus((previous) => ({ target: 'proxy', request: (previous?.request ?? 0) + 1 }));
+        break;
+    }
+  }, menuReady);
+
+  useLayoutEffect(() => {
+    if (!menuFocus) return;
+    if (menuFocus.target === 'search') {
+      const input = appRoot.current?.querySelector<HTMLInputElement>('.topbar-search input');
+      input?.focus(); input?.select();
+    } else {
+      const panel = appRoot.current?.querySelector<HTMLElement>('.github-proxy-panel');
+      panel?.scrollIntoView({ block: 'center' });
+      const action = panel?.querySelector<HTMLButtonElement>('button:not(:disabled)');
+      if (action) action.focus({ preventScroll: true });
+      else if (panel) { panel.tabIndex = -1; panel.focus({ preventScroll: true }); }
+    }
+  }, [menuFocus]);
+
   useLayoutEffect(() => {
     if (appRoot.current) localizer.current.apply(appRoot.current, language);
     document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
@@ -252,13 +282,17 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
     return () => { pages.disconnect(); observer.disconnect(); area.removeEventListener('scroll', update); };
   }, [route, data, language]);
 
+  useLayoutEffect(() => {
+    void synchronizeWindowControlStyle(windowControlStyle, layout.density).catch(() => setToast('无法更新窗口控件，请重新启动 EasyHub。'));
+  }, [windowControlStyle, layout.density]);
+
   useEffect(() => {
     try {
       window.localStorage.setItem(windowControlStyleKey, windowControlStyle);
     } catch {
       // The preference remains usable for the current session if storage is unavailable.
     }
-  }, [windowControlStyle]);
+  }, [windowControlStyle, layout.density]);
 
   useEffect(() => {
     if (!toast) return;
@@ -526,13 +560,7 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
 
     <div className="main-column" ref={scrollArea}>
       <header className={`topbar topbar-${windowControlStyle}`}>
-        {windowControlStyle === 'reference' && (
-          <div className="window-controls" aria-label="窗口控制">
-            <button className="window-dot window-close" aria-label="关闭窗口" title="关闭" onClick={() => controlWindow('closeWindow')} />
-            <button className="window-dot window-minimize" aria-label="最小化窗口" title="最小化" onClick={() => controlWindow('minimizeWindow')} />
-            <button className="window-dot window-maximize" aria-label="最大化或还原窗口" title="最大化或还原" onClick={() => controlWindow('toggleMaximizeWindow')} />
-          </div>
-        )}
+        {windowControlStyle === 'reference' && <WindowTrafficLights onAction={controlWindow} />}
         <button className="topbar-brand" onClick={() => navigate({ name: 'home' })}><img src={appIcon} alt="" /><span>EasyHub</span></button>
         <label className="topbar-search"><Search size={19} /><input aria-label="搜索项目/用户" value={search} onFocus={() => { if (route.name !== 'projects') setRoute({ name: 'projects' }); }} onChange={(event) => setSearch(event.target.value)} placeholder="搜索项目/用户..." /></label>
         <div className="topbar-actions">
@@ -656,24 +684,13 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
               <div className="settings-panel-content">
                 <h2>窗口控件</h2>
                 <p>选择窗口顶部按钮的外观。更改会立即生效，并保存在这台电脑上。</p>
-                <div className="window-style-options" role="group" aria-label="窗口控件样式">
-                  <button className={`window-style-option ${windowControlStyle === 'windows' ? 'selected' : ''}`} aria-pressed={windowControlStyle === 'windows'} onClick={() => setWindowControlStyle('windows')}>
-                    <span className="window-style-preview windows-preview" aria-hidden="true"><span /><span /><span /></span>
-                    <span><strong>Windows 风格</strong><small>默认 · 右上角按钮</small></span>
-                    {windowControlStyle === 'windows' && <Check size={18} className="window-style-check" />}
-                  </button>
-                  <button className={`window-style-option ${windowControlStyle === 'reference' ? 'selected' : ''}`} aria-pressed={windowControlStyle === 'reference'} onClick={() => setWindowControlStyle('reference')}>
-                    <span className="window-style-preview reference-preview" aria-hidden="true"><span /><span /><span /></span>
-                    <span><strong>圆点风格</strong><small>参考图 · 左上角圆点</small></span>
-                    {windowControlStyle === 'reference' && <Check size={18} className="window-style-check" />}
-                  </button>
-                </div>
+                <WindowControlStyleOptions value={windowControlStyle} onChange={setWindowControlStyle} />
               </div>
             </section>
             <LayoutSettingsPanel language={language} preference={layout.preference} density={layout.density} onChange={layout.setPreference} />
             <AiSettingsPanel disabled={demoOnly} language={language} />
             <HostsRepairPanel disabled={demoOnly} language={language} />
-            <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>Windows 桌面版</p><span className="settings-version">版本 1.2.2</span><AppUpdatePanel language={language} /><div className="license-details"><strong>Apache 2.0</strong><span>本应用采用 Apache License 2.0 许可协议。</span><button className="text-link" onClick={() => { if (window.easyHub) void window.easyHub.openLicense().catch(() => setToast('无法打开许可协议页面')); }}>查看许可协议 <ArrowRight size={15} /></button></div></div></section>
+            <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>{window.easyHub?.platform === 'darwin' ? 'macOS 桌面版' : 'Windows 桌面版'}</p><span className="settings-version">版本 1.2.2</span><AppUpdatePanel language={language} /><div className="license-details"><strong>Apache 2.0</strong><span>本应用采用 Apache License 2.0 许可协议。</span><button className="text-link" onClick={() => { if (window.easyHub) void window.easyHub.openLicense().catch(() => setToast('无法打开许可协议页面')); }}>查看许可协议 <ArrowRight size={15} /></button></div></div></section>
           </div>
         </>}
       </div></main></NavigationPages>
@@ -691,14 +708,18 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
   </div>;
 }
 
-interface LoginFlow { userCode: string; verificationUri: string; expiresAt: number; interval: number }
+interface LoginFlow { userCode: string; verificationUri: string; expiresAt: number; interval: number; codeCopied?: boolean }
 
 export default function App() {
   const [user, setUser] = useState<GitHubUser | null>(null);
+  const [authReady, setAuthReady] = useState(demoOnlyBuild || !window.easyHub);
   const [flow, setFlow] = useState<LoginFlow | null>(null);
   const [loginBusy, setLoginBusy] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [codeCopied, setCodeCopied] = useState<boolean | null>(null);
+  const [copyingCode, setCopyingCode] = useState(false);
   const loginLocalizer = useRef(createDomLocalizer());
+  const loginText = (zh: string, en: string): string => readLanguage() === 'en' ? en : zh;
   const loginGeneration = useRef(0);
   const loginStarting = useRef(false);
   const loginDialog = useRef<HTMLDivElement>(null);
@@ -713,7 +734,9 @@ export default function App() {
   useEffect(() => {
     if (demoOnlyBuild) return;
     let active = true;
-    void window.easyHub?.authStatus().then((result) => { if (active) setUser(result.user); }).catch(() => { /* Demo mode remains available. */ });
+    void window.easyHub?.authStatus().then((result) => { if (active) setUser(result.user); })
+      .catch(() => { /* Demo mode remains available. */ })
+      .finally(() => { if (active) setAuthReady(true); });
     return () => { active = false; };
   }, []);
 
@@ -735,23 +758,32 @@ export default function App() {
     if (!window.easyHub || loginStarting.current || flow) return;
     const generation = ++loginGeneration.current;
     loginStarting.current = true;
-    setLoginBusy(true); setLoginError('');
+    setLoginBusy(true); setLoginError(''); setCodeCopied(null);
     try {
       const next = await window.easyHub.authStart();
       if (generation !== loginGeneration.current) return;
       setFlow(next);
+      setCodeCopied(next.codeCopied ?? null);
       await window.easyHub.openExternalLink(next.verificationUri);
     } catch (error) { if (generation === loginGeneration.current) setLoginError(loginMessage(error)); }
     finally { if (generation === loginGeneration.current) { loginStarting.current = false; setLoginBusy(false); } }
   }
 
+  async function copyPairingCode(): Promise<void> {
+    if (!flow || !window.easyHub || copyingCode) return;
+    setCopyingCode(true);
+    try { setCodeCopied(await window.easyHub.copyPairingCode(flow.userCode)); }
+    catch { setCodeCopied(false); }
+    finally { setCopyingCode(false); }
+  }
+
   function cancelLogin(): void {
     loginGeneration.current++; loginStarting.current = false;
-    setLoginBusy(false); setFlow(null); setLoginError('');
+    setLoginBusy(false); setFlow(null); setLoginError(''); setCodeCopied(null);
     void window.easyHub?.authCancel().catch(() => undefined);
   }
 
   if (demoOnlyBuild) return <DemoApp onLogin={() => undefined} demoOnly />;
   if (user) return <LiveWorkspace key={user.login} user={user} onLogout={() => { void window.easyHub?.authLogout().then(() => setUser(null)); }} />;
-  return <><DemoApp onLogin={() => void beginLogin()} />{(flow || loginBusy || loginError) && <div className="modal-backdrop"><div className="modal oauth-modal" ref={loginDialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="oauth-title"><button className="icon-button modal-close" aria-label="关闭" onClick={cancelLogin}><X size={19} /></button><div className="modal-symbol"><ShieldCheck size={24} /></div><h2 id="oauth-title">使用 GitHub 登录</h2>{flow ? <><p>已在浏览器打开 GitHub。输入下面的代码并允许 EasyHub 访问你的项目。</p><strong className="oauth-code">{flow.userCode}</strong><p className="oauth-wait">等待你在 GitHub 完成确认…</p><button className="button button-quiet" onClick={() => void window.easyHub?.openExternalLink(flow.verificationUri)}>重新打开 GitHub</button></> : loginBusy ? <p>正在连接 GitHub…</p> : <><p className="release-error">{loginError}</p><button className="button button-primary" onClick={() => void beginLogin()}>重试</button></>}<div className="modal-actions"><button className="button button-quiet" onClick={cancelLogin}>取消</button></div></div></div>}</>;
+  return <><DemoApp onLogin={() => void beginLogin()} menuReady={authReady} />{(flow || loginBusy || loginError) && <div className="modal-backdrop"><div className="modal oauth-modal" ref={loginDialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="oauth-title"><button className="icon-button modal-close" aria-label="关闭" onClick={cancelLogin}><X size={19} /></button><div className="modal-symbol"><ShieldCheck size={24} /></div><h2 id="oauth-title">使用 GitHub 登录</h2>{flow ? <><p>已在浏览器打开 GitHub。输入下面的代码并允许 EasyHub 访问你的项目。</p><strong className="oauth-code">{flow.userCode}</strong>{codeCopied !== null && <p className="oauth-wait" role="status">{codeCopied ? loginText("配对码已复制，可直接粘贴到 GitHub。", "Pairing code copied. Paste it on GitHub.") : loginText("无法复制配对码，请手动选择上方代码。", "Could not copy the pairing code. Select the code above manually.")}</p>}<p className="oauth-wait">等待你在 GitHub 完成确认…</p><div className="modal-actions"><button type="button" className="button button-quiet" disabled={copyingCode} onClick={() => void copyPairingCode()}>{copyingCode ? loginText("正在复制…", "Copying…") : loginText("复制配对码", "Copy pairing code")}</button><button className="button button-quiet" onClick={() => void window.easyHub?.openExternalLink(flow.verificationUri).catch(() => setLoginError(loginText("无法打开浏览器，请打开 GitHub 的设备授权页面。", "Could not open the browser. Open the GitHub device authorization page.")))}>重新打开 GitHub</button></div>{loginError && <p className="release-error" role="alert">{loginError}</p>}</> : loginBusy ? <p>正在连接 GitHub…</p> : <><p className="release-error">{loginError}</p><button className="button button-primary" onClick={() => void beginLogin()}>重试</button></>}<div className="modal-actions"><button className="button button-quiet" onClick={cancelLogin}>取消</button></div></div></div>}</>;
 }

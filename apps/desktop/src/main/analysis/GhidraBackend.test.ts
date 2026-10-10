@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { copyFile, mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -28,7 +28,7 @@ const schema = { tools: [
 ] };
 
 async function workspace(): Promise<{ root: string; input: string }> {
-  const root = await mkdtemp(join(tmpdir(), 'easyhub-ghidra-test-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'easyhub-ghidra-test-')));
   temporary.push(root);
   const input = join(root, 'input.bin');
   await writeFile(input, Buffer.from([0x4d, 0x5a, 0, 0, 0, 0, 0, 0]));

@@ -61,6 +61,7 @@ export class DownloadManager {
   private active = new Map<string, { controller: AbortController; task: Promise<void>; intent?: 'pause' | 'cancel' }>();
   private persistence: Promise<void> = Promise.resolve();
   private stopped = false;
+  private shutdownTask?: Promise<void>;
   private ready: Promise<void>;
   constructor(private readonly ledger: string, private readonly deps: DownloadDependencies, private readonly concurrency = 2) {
     this.ready = this.restore();
@@ -88,9 +89,13 @@ export class DownloadManager {
     const snapshot = JSON.stringify(this.items);
     this.persistence = this.persistence.catch(() => undefined).then(async () => {
       await mkdir(dirname(this.ledger), { recursive: true });
-      const temporary = `${this.ledger}.tmp`;
-      await writeFile(temporary, snapshot, { mode: 0o600 });
-      await rename(temporary, this.ledger);
+      // Persistence is queued per manager. Different lifecycles must not rename
+      // each other's temporary file when their final writes overlap.
+      const temporary = `${this.ledger}.${randomUUID()}.tmp`;
+      try {
+        await writeFile(temporary, snapshot, { mode: 0o600 });
+        await rename(temporary, this.ledger);
+      } finally { await rm(temporary, { force: true }); }
     });
     return this.persistence;
   }
@@ -160,11 +165,18 @@ export class DownloadManager {
     if (!item?.path) throw new Error('找不到已下载的文件。');
     await lstat(item.path); return item.path;
   }
-  async shutdown(): Promise<void> {
-    this.stopped = true; await this.ready;
-    for (const [id, active] of this.active) { active.intent = this.items.find((item) => item.id === id)?.source.kind === 'project' ? 'cancel' : 'pause'; active.controller.abort(); }
-    await Promise.allSettled([...this.active.values()].map((entry) => entry.task));
-    await this.persist();
+  shutdown(): Promise<void> {
+    if (this.shutdownTask) return this.shutdownTask;
+    this.stopped = true;
+    // Repeated quit notifications await the same flush. A stopped manager must
+    // never write its old snapshot over a replacement lifecycle's history.
+    this.shutdownTask = (async () => {
+      await this.ready;
+      for (const [id, active] of this.active) { active.intent = this.items.find((item) => item.id === id)?.source.kind === 'project' ? 'cancel' : 'pause'; active.controller.abort(); }
+      await Promise.allSettled([...this.active.values()].map((entry) => entry.task));
+      await this.persist();
+    })();
+    return this.shutdownTask;
   }
 
   private pump(): void {

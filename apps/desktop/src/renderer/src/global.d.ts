@@ -1,4 +1,5 @@
 import type { GitHubUser } from '@easyhub/github';
+import type { MenuCommand, MenuState } from '../../shared/applicationMenu';
 import type { DownloadCommand, DownloadItem, DownloadRequest } from '../../downloads';
 import type { LocalFileDiff, LocalPublishPreview, LocalPublishSelection } from '@easyhub/types';
 import type { FolderInspection, LocalDiscoveryResult, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
@@ -11,11 +12,31 @@ import type { BinaryAnalysisSettingsStatus, BinaryAnalysisSource, BinaryAnalysis
 
 interface HostsRepairStatus { enabled: boolean; updatedAt: string | null; source: string }
 
+export interface MacProxySnapshot {
+  status: 'disconnected' | 'connecting' | 'connected' | 'disconnecting' | 'unavailable';
+  pacURL: string;
+  socksPort: number;
+  lastProbe?: string;
+  error?: string;
+  domains?: number;
+}
+
 export {};
 
 declare global {
   interface Window {
     easyHub?: {
+      readonly platform: string;
+      readonly macProxy: {
+        status: () => Promise<MacProxySnapshot>;
+        setEnabled: (enabled: boolean) => Promise<MacProxySnapshot>;
+        probe: () => Promise<MacProxySnapshot>;
+        openSettings: () => Promise<MacProxySnapshot>;
+        onChanged: (callback: (value: MacProxySnapshot) => void) => () => void;
+      };
+      copyPairingCode: (code: string) => Promise<boolean>;
+      setMenuState: (state: MenuState) => Promise<void>;
+      onMenuCommand: (callback: (command: MenuCommand) => void) => () => void;
       downloadsList: () => Promise<DownloadItem[]>;
       downloadsEnqueue: (request: DownloadRequest) => Promise<DownloadItem | null>;
       downloadsCommand: (id: string, command: DownloadCommand) => Promise<void>;
@@ -49,6 +70,7 @@ declare global {
       onLocalProgress: (callback: (value: LocalOperationProgress) => void) => () => void;
       onLocalStatus: (callback: (value: { id: string; status: LocalProjectStatus }) => void) => () => void;
       minimizeWindow: () => Promise<void>;
+      setWindowControlStyle: (style: 'windows' | 'reference', density?: 'comfortable' | 'compact') => Promise<void>;
       toggleMaximizeWindow: () => Promise<void>;
       closeWindow: () => Promise<void>;
       openLicense: () => Promise<void>;
@@ -76,8 +98,8 @@ declare global {
       binaryAiReview: (input: BinaryAiReviewRequest) => Promise<BinaryAiReviewResult>;
       onBinaryAnalysisProgress: (callback: (value: BinaryAnalysisProgress) => void) => () => void;
       onAiReviewProgress: (callback: (value: AiReviewProgress) => void) => () => void;
-      authStart: () => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;
-      authStartDeletion: (owner: string, repo: string, id: number) => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;
+      authStart: () => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number; codeCopied?: boolean }>;
+      authStartDeletion: (owner: string, repo: string, id: number) => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number; codeCopied?: boolean }>;
       authPoll: () => Promise<{ state: 'waiting' | 'complete'; user?: GitHubUser; interval?: number }>;
       authCancel: () => Promise<void>;
       authLogout: () => Promise<void>;

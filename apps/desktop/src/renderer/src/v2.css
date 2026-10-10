@@ -84,6 +84,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .detail-hero .detail-name-row { flex-wrap: wrap; }
 .detail-hero .visibility-label { flex-shrink: 0; }
 .detail-hero .detail-actions { flex: 1 1 360px; min-width: 0; align-self: center; }
+/* macOS font metrics need a little more room for English public-project actions. */
+.public-browser-hero .detail-actions { flex-basis: 364px; }
 .detail-hero .detail-actions .button { flex-shrink: 0; max-width: 100%; }
 .detail-release-actions { display: flex; flex-wrap: wrap; gap: 9px; min-width: 0; max-width: 100%; }
 .release-download-heading>div { min-width: 0; max-width: 100%; }

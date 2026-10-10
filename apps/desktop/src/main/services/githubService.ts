@@ -5,10 +5,12 @@ import { app, dialog, net, shell } from 'electron';
 import { checkAppUpdate } from './appUpdate';
 import { constants, createWriteStream } from 'node:fs';
 import { existsSync } from 'node:fs';
-import { copyFile, link, rm, rename } from 'node:fs/promises';
+import { copyFile, link, mkdir, rm, rename, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
+import { GITHUB_CLIENT_ID } from './githubAuthConfig';
 import type { BinaryAnalysisSource } from '@easyhub/types';
 import type { BinaryRemoteFile } from '../analysis/BinaryAnalysisService';
 
@@ -16,10 +18,28 @@ interface Credential { clientId: string; accessToken: string; refreshToken?: str
 interface DeviceCode { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval?: number }
 interface TokenReply { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; interval?: number; scope?: string }
 
-let vault: AsyncEntry | undefined;
+interface CredentialVault {
+  getPassword(): Promise<string | null | undefined>;
+  setPassword(value: string): Promise<unknown>;
+  deleteCredential(): Promise<unknown>;
+}
+const isolatedTestMode = process.env.EASYHUB_TEST_MODE === '1';
+let memoryPassword: string | undefined;
+let vault: CredentialVault | undefined = isolatedTestMode ? {
+  async getPassword() { return memoryPassword; },
+  async setPassword(value) { memoryPassword = value; },
+  async deleteCredential() { memoryPassword = undefined; },
+} : undefined;
 let loginController: AbortController | null = null;
-let credentialMutations = Promise.resolve();
+let nativeMigration: Promise<Credential | null> | undefined;
 let credentialGeneration = 0;
+let credentialWrites: Promise<void> = Promise.resolve();
+
+function writeCredentialSerially<T>(operation: () => Promise<T>): Promise<T> {
+  const next = credentialWrites.then(operation);
+  credentialWrites = next.then(() => undefined, () => undefined);
+  return next;
+}
 let credential: Credential | null | undefined;
 interface DeletionTarget { owner: string; repo: string; id: number }
 let pending: { code: string; clientId: string; expiresAt: number; interval: number; expectedLogin?: string; deleteAuthorization?: boolean; deletionTarget?: DeletionTarget } | null = null;
@@ -49,12 +69,13 @@ class DangerOperationError extends Error {}
 class CredentialStorageError extends Error {}
 const staleRequestMessage = '这个合并请求已经有新修改，请刷新后重新查看。';
 
-function credentialVault(): AsyncEntry {
+function credentialVault(): CredentialVault {
   return vault ??= new AsyncEntry('EasyHub GitHub OAuth', 'default');
 }
 
 /** A disposable, nonsecret entry proves write/read/delete access without touching the account. */
 async function checkCredentialStorage(): Promise<void> {
+  if (isolatedTestMode) return;
   let probe: AsyncEntry | undefined;
   let failed = false;
   const value = `EasyHub storage check ${randomUUID()}`;
@@ -102,32 +123,98 @@ async function loginResponse<T>(url: string, form: Record<string, string>, signa
   }
 }
 
+function nativeMigrationMarker(): string | null {
+  if (isolatedTestMode || process.platform !== 'darwin' || typeof app?.getPath !== 'function') return null;
+  return join(app.getPath('userData'), 'native-github-migration-v1');
+}
+
+function readElectronCredential(raw: string): Credential | null {
+  const stored: unknown = JSON.parse(raw);
+  if (typeof stored === 'object' && stored !== null && 'clientId' in stored && 'accessToken' in stored
+    && validClientId(stored.clientId) && typeof stored.accessToken === 'string') return stored as Credential;
+  return null;
+}
+
+function readNativeCredential(raw: string): Credential | null {
+  const value: unknown = JSON.parse(raw);
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const token = (candidate: unknown): candidate is string => typeof candidate === 'string'
+    && candidate.length > 0 && candidate.length <= 8192 && !/[\x00-\x20\x7f]/u.test(candidate);
+  if (!token(record.accessToken)) return null;
+  if (record.refreshToken !== undefined && record.refreshToken !== null && !token(record.refreshToken)) return null;
+  const refreshToken = token(record.refreshToken) ? record.refreshToken : undefined;
+  let expiresAt: number | undefined;
+  if (record.expiresAt !== undefined && record.expiresAt !== null) {
+    if (typeof record.expiresAt !== 'number' || !Number.isFinite(record.expiresAt)) return null;
+    // Swift's default Date Codable representation is seconds since 2001-01-01.
+    expiresAt = (record.expiresAt + 978307200) * 1000;
+    if (!Number.isFinite(expiresAt) || expiresAt <= 0 || (expiresAt <= Date.now() + 60000 && !refreshToken)) return null;
+  }
+  return { clientId: GITHUB_CLIENT_ID, accessToken: record.accessToken, refreshToken, expiresAt };
+}
+
+async function migrateNativeCredential(): Promise<Credential | null> {
+  if (isolatedTestMode || process.platform !== 'darwin') return null;
+  nativeMigration ??= (async () => {
+    const generation = credentialGeneration;
+    try {
+      const marker = nativeMigrationMarker();
+      if (!marker || existsSync(marker)) return null;
+      await mkdir(app.getPath('userData'), { recursive: true });
+      // Claim the one-time attempt before requesting Keychain access. The marker
+      // contains no credential data, and concurrent callers share this promise.
+      await writeFile(marker, 'attempted\n', { flag: 'wx', mode: 0o600 });
+      const previous = new AsyncEntry('app.easyhub.mac', 'github.credential');
+      const raw = await previous.getPassword();
+      if (!raw) return null;
+      const migrated = readNativeCredential(raw);
+      if (!migrated) return null;
+      // Never overwrite an Electron credential created during the Keychain read,
+      // and never change or delete the original native Keychain record.
+      return await writeCredentialSerially(async () => {
+        const existing = await credentialVault().getPassword();
+        if (generation !== credentialGeneration) return credential ?? null;
+        if (existing) return readElectronCredential(existing);
+        await credentialVault().setPassword(JSON.stringify(migrated));
+        return migrated;
+      });
+    } catch { return null; }
+  })();
+  return nativeMigration;
+}
+
+async function preventNativeMigrationAfterLogout(): Promise<void> {
+  const marker = nativeMigrationMarker();
+  if (!marker) return;
+  try {
+    await mkdir(app.getPath('userData'), { recursive: true });
+    await writeFile(marker, 'signed-out\n', { mode: 0o600 });
+  } catch { throw new Error('无法保存退出登录状态，请重试。'); }
+}
+
 async function loadCredential(): Promise<Credential | null> {
   if (credential !== undefined) return credential;
-  let raw: string | undefined;
+  let raw: string | null | undefined;
   try { raw = await credentialVault().getPassword(); }
   catch { throw new CredentialStorageError('无法读取登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试。'); }
-  if (!raw) return credential = null;
+  if (!raw) return credential = await migrateNativeCredential();
   try {
-    const stored: unknown = JSON.parse(raw);
-    if (typeof stored === 'object' && stored !== null && 'clientId' in stored && 'accessToken' in stored && validClientId(stored.clientId) && typeof stored.accessToken === 'string') {
-      return credential = stored as Credential;
-    }
+    return credential = readElectronCredential(raw);
   } catch { /* Ignore invalid old credential records. */ }
   return credential = null;
 }
 
 function mutateCredential<T>(operation: () => Promise<T>): Promise<T> {
-  const result = credentialMutations.then(operation);
-  credentialMutations = result.then(() => undefined, () => undefined);
-  return result;
+  // Native migration and new OAuth writes share one mutation queue.
+  return writeCredentialSerially(operation);
 }
 
 async function saveCredential(next: Credential, isCurrent: () => boolean = () => true, onSaved?: () => void): Promise<void> {
   await mutateCredential(async () => {
     if (!isCurrent()) throw new Error('登录已取消。');
-    let entry: AsyncEntry;
-    let previous: string | undefined;
+    let entry: CredentialVault;
+    let previous: string | null | undefined;
     try { entry = credentialVault(); previous = await entry.getPassword(); }
     catch { throw new CredentialStorageError('无法读取登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试。'); }
     if (!isCurrent()) throw new Error('登录已取消。');
@@ -338,6 +425,7 @@ export function cancelGithubReads(): void { for (const controller of readControl
 export async function logout(): Promise<void> {
   cancelDeviceLogin();
   credentialGeneration++;
+  await preventNativeMigrationAfterLogout();
   await mutateCredential(async () => {
     try { await credentialVault().deleteCredential(); }
     catch { throw new CredentialStorageError('无法清除登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试退出。'); }

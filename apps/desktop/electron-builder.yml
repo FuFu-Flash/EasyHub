@@ -23,8 +23,6 @@ extraResources:
     to: easyhub.png
   - from: resources/hosts-repair.ps1
     to: hosts-repair.ps1
-  - from: resources/windows-system-proxy.ps1
-    to: windows-system-proxy.ps1
 asar: true
 npmRebuild: false
 electronLanguages:

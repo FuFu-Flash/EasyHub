@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron } from 'playwright-core';
-import electronPath from 'electron';
+import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
 
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
 const outputDirectory = join(desktopDirectory, 'out', 'layout-preferences-smoke');
@@ -11,27 +10,11 @@ await mkdir(outputDirectory, { recursive: true });
 const runDirectory = await mkdtemp(join(outputDirectory, 'isolated-'));
 const profileDirectory = join(runDirectory, 'profile');
 await mkdir(profileDirectory);
-const executableArgument = process.argv.find(value => value.startsWith('--executable='));
-const executable = executableArgument?.slice('--executable='.length)
-  ?? (process.argv.includes('--packaged') ? join(desktopDirectory, 'release', 'win-unpacked', 'EasyHub.exe') : null);
-if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
-const launcher = join(runDirectory, 'launch.cjs');
-if (!executable) await writeFile(launcher, `
-const { app, ipcMain } = require('electron');
-app.setPath('userData', ${JSON.stringify(profileDirectory)});
-process.env.ELECTRON_RENDERER_URL = 'data:text/html,<title>Isolated layout fixture</title>';
-globalThis.layoutRegisterMock = ipcMain.handle.bind(ipcMain);
-globalThis.layoutRejectedIpc = [];
-ipcMain.handle = (channel, handler) => globalThis.layoutRegisterMock(channel, channel.startsWith('easyhub:') ? () => {
-  globalThis.layoutRejectedIpc.push(channel);
-  throw new Error('Unmocked isolated layout fixture IPC: ' + channel);
-} : handler);
-require(${JSON.stringify(join(desktopDirectory, 'out', 'main', 'index.js'))});
-`, 'utf8');
-
 const started = Date.now();
-const app = await electron.launch({ executablePath: executable || electronPath,
-  args: executable ? ['--user-data-dir=' + profileDirectory] : [launcher], cwd: desktopDirectory });
+const { app, executable, renderer } = await launchUpstreamFixture(desktopDirectory, {
+  profile: profileDirectory, launcher: join(runDirectory, 'launch.cjs'),
+  registerName: 'layoutRegisterMock', rejectedName: 'layoutRejectedIpc', title: 'Isolated layout fixture'
+});
 const measurements = [];
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profileDirectory);
@@ -88,7 +71,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  if (!executable) await app.evaluate(async ({ BrowserWindow }, renderer) => { await BrowserWindow.getAllWindows()[0].loadFile(renderer); }, join(desktopDirectory, 'out', 'renderer', 'index.html'));
+  await app.evaluate(async ({ BrowserWindow }, renderer) => { await BrowserWindow.getAllWindows()[0].loadFile(renderer); }, renderer);
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('easyhub:language', 'zh'); localStorage.setItem('easyhub:auto-translate', 'false'); });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.reload();

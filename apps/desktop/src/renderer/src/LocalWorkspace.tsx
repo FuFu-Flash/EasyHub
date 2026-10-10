@@ -12,6 +12,7 @@ interface Props {
   repos: GitHubRepo[];
   selectedRepo: GitHubRepo | null;
   initialLocalId?: string | null;
+  refreshRevision?: number;
   onBack: () => void;
   onCreated: () => Promise<void>;
   onDownloadProject: (repo: GitHubRepo) => Promise<void>;
@@ -22,7 +23,7 @@ interface Props {
 
 function errorText(error: unknown): string { return error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/, '') : '操作失败，请稍后重试。'; }
 
-export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, onBack, onCreated, onDownloadProject, downloadBusy, initialSyncReview, onSyncReviewOpened }: Props) {
+export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, refreshRevision = 0, onBack, onCreated, onDownloadProject, downloadBusy, initialSyncReview, onSyncReviewOpened }: Props) {
   const [links, setLinks] = useState<LocalProjectLink[]>([]);
   const [statuses, setStatuses] = useState<Record<string, LocalProjectStatus>>({});
   const [introductions, setIntroductions] = useState<Record<string, { content: string; error: string }>>({});
@@ -62,7 +63,7 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, onBa
     }
   }, [api]);
 
-  useEffect(() => { void refresh().catch((cause) => setError(errorText(cause))); }, [refresh]);
+  useEffect(() => { void refresh().catch((cause) => setError(errorText(cause))); }, [refresh, refreshRevision]);
   useEffect(() => {
     if (!api || mode === 'create') return;
     let active = true;

@@ -2,28 +2,19 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron } from 'playwright-core';
-import electronPath from 'electron';
+import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
 import { installDownloadFixture } from './download-fixture.mjs';
 
 // Real built renderer with isolated IPC. Covers only stale favorites and a
 // delayed publication failure crossing repository navigation. Network is denied.
 const desktop = dirname(fileURLToPath(import.meta.url));
-const product = process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'release-navigation-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
-const launcher = join(run, 'launch.cjs');
-await writeFile(launcher, `
-const { app, ipcMain } = require('electron');
-app.setPath('userData', ${JSON.stringify(join(run, 'profile'))});
-process.env.EASYHUB_PROXY_APP_ONLY_TEST = '1';
-process.env.ELECTRON_RENDERER_URL = 'data:text/html,Release navigation fixture';
-globalThis.registerFixture = ipcMain.handle.bind(ipcMain);
-ipcMain.handle = (channel, handler) => globalThis.registerFixture(channel, channel.startsWith('easyhub:') ? () => { throw new Error('Unexpected IPC: ' + channel); } : handler);
-require(${JSON.stringify(join(product, 'out', 'main', 'index.js'))});
-`);
-const app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
+const { app, executable, renderer } = await launchUpstreamFixture(desktop, {
+  profile: join(run, 'profile'), launcher: join(run, 'launch.cjs'),
+  registerName: 'registerFixture', rejectedName: 'upstreamRejectedIPC', title: 'Release navigation fixture'
+});
 try {
   await app.evaluate(({ ipcMain, session }) => {
     session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_details, callback) => callback({ cancel: true }));
@@ -66,7 +57,7 @@ try {
   page.setDefaultTimeout(12000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => { localStorage.setItem('easyhub:language', 'zh'); localStorage.setItem('easyhub:auto-translate', 'false'); });
-  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), join(product, 'out', 'renderer', 'index.html'));
+  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), renderer);
   await page.locator('.live-connected').waitFor();
   await page.setViewportSize({ width: 1060, height: 720 });
   const openStarred = async () => {

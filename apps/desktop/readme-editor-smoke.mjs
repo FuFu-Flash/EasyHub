@@ -5,8 +5,13 @@ import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
+import { smokeEnvironment, smokeExecutable, smokeRenderer } from './smoke-runtime.mjs';
 
 const desktop = dirname(fileURLToPath(import.meta.url));
+const executable = smokeExecutable(desktop);
+const packaged = process.argv.includes('--packaged');
+const mode = packaged ? 'packaged' : executable ? 'executable' : 'dev';
+const isMac = process.platform === 'darwin';
 const output = join(desktop, 'out', 'readme-editor');
 await mkdir(output, { recursive: true });
 const fixture = await mkdtemp(join(output, 'isolated-'));
@@ -47,16 +52,17 @@ const original = `<div align="center">
 <iframe src="https://example.invalid/embedded"></iframe>
 `;
 await writeFile(join(folder, 'README.md'), original, 'utf8');
-const packaged = process.argv.includes('--packaged');
 let application;
 try {
   application = await electron.launch({
-    executablePath: packaged ? join(desktop, 'release', 'win-unpacked', 'EasyHub.exe') : electronPath,
-    args: [...(packaged ? [] : [desktop]), `--user-data-dir=${profile}`],
+    executablePath: executable || electronPath,
+    args: executable ? [] : [desktop],
     cwd: desktop,
-    env: { ...process.env, ELECTRON_RENDERER_URL: 'data:text/html,<title>README editor fixture</title>', EASYHUB_PROXY_APP_ONLY_TEST: '1' },
+    env: { ...smokeEnvironment(profile), ELECTRON_RENDERER_URL: 'data:text/html,<title>README editor fixture</title>' },
   });
   assert.equal(await application.evaluate(({ app }) => app.getPath('userData')), profile);
+  const applicationInfo = await application.evaluate(({ app }) => ({ isPackaged: app.isPackaged, version: app.getVersion() }));
+  if (packaged) assert.equal(applicationInfo.isPackaged, true, '--packaged must launch an actual application bundle');
   const page = await application.firstWindow();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -86,6 +92,7 @@ try {
     for (const channel of ['easyhub:auth-start', 'easyhub:auth-start-delete', 'easyhub:auth-poll', 'easyhub:auth-logout',
       'easyhub:choose-folder', 'easyhub:local-inspect', 'easyhub:local-connect', 'easyhub:local-create', 'easyhub:local-download',
       'easyhub:local-publish', 'easyhub:local-sync', 'easyhub:local-open-folder', 'easyhub:hosts-set-enabled', 'easyhub:hosts-refresh',
+      'easyhub:github-proxy-set-enabled', 'easyhub:github-proxy-refresh',
       'easyhub:ai-save-settings', 'easyhub:ai-forget-key', 'easyhub:ai-test-connection', 'easyhub:ai-review-pull',
       'easyhub:release-publish', 'easyhub:release-edit', 'easyhub:release-add-assets', 'easyhub:release-remove-asset']) {
       replace(channel, () => { fixtureState.forbidden.push(channel); throw new Error('Forbidden external action in README editor fixture'); });
@@ -93,6 +100,7 @@ try {
     replace('easyhub:auth-status', () => ({ user: { login: 'fixture-user', name: 'Fixture User', avatar_url: '', html_url: 'https://example.invalid/user' }, clientId: 'fixture' }));
     replace('easyhub:ai-settings', () => ({ enabled: false, hasKey: false, baseUrl: '', model: '' }));
     replace('easyhub:hosts-status', () => ({ enabled: false, updatedAt: null, source: 'fixture' }));
+    replace('easyhub:github-proxy-status', () => ({ enabled: false, state: 'off', checkedAt: null, error: null, checks: [], legacyHosts: false }));
     replace('easyhub:local-list', () => links);
     replace('easyhub:local-discovery-roots', () => []);
     replace('easyhub:local-status', () => ({ files: [], needsReview: false }));
@@ -122,8 +130,32 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await application.evaluate(async ({ BrowserWindow }, renderer) => {
     await BrowserWindow.getAllWindows()[0].loadFile(renderer);
-  }, packaged ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar', 'out', 'renderer', 'index.html') : join(desktop, 'out', 'renderer', 'index.html'));
+  }, smokeRenderer(desktop, executable));
   await page.locator('.live-connected').waitFor();
+  if (isMac) {
+    await page.locator('.topbar-reference .native-window-controls').waitFor();
+    assert.equal(await page.locator('.topbar-reference .window-dot').count(), 0, 'macOS must keep system-owned traffic lights');
+  }
+
+  const macCompatibility = { nativeTrafficLightSpacer: isMac, nativeUndoRedo: false, modalNavigationGuard: false };
+  async function waitForMacMenu(modalOpen) {
+    const deadline = Date.now() + 15000;
+    let snapshot;
+    do {
+      snapshot = await application.evaluate(({ Menu }) => {
+        const flatten = (menu) => menu.items.flatMap((item) => [{ id: item.id, role: item.role?.toLowerCase(),
+          enabled: item.enabled, accelerator: item.accelerator }, ...(item.submenu ? flatten(item.submenu) : [])]);
+        const menu = Menu.getApplicationMenu();
+        if (!menu) throw new Error('The native macOS application menu is missing');
+        return flatten(menu);
+      });
+      const home = snapshot.find((item) => item.id === 'easyhub-home');
+      const refresh = snapshot.find((item) => item.id === 'easyhub-refresh');
+      if (home?.enabled === !modalOpen && refresh?.enabled === !modalOpen) return snapshot;
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    } while (Date.now() < deadline);
+    assert.fail(`The native menu did not reflect editor modal state: ${JSON.stringify(snapshot)}`);
+  }
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目', exact: true }).click();
   await page.getByRole('button', { name: /我的云端项目/ }).click();
   await page.locator('.cloud-row').filter({ hasText: 'html-preview' }).locator('.plain-heading').click();
@@ -131,7 +163,42 @@ try {
   const dialog = page.getByRole('dialog', { name: '编辑项目介绍' });
   await dialog.waitFor();
   await dialog.getByRole('button', { name: '边写边看', exact: true }).waitFor({ timeout: 3000 });
-  assert.equal(await dialog.getByRole('textbox', { name: '项目介绍内容' }).inputValue(), original);
+  const source = dialog.getByRole('textbox', { name: '项目介绍内容' });
+  assert.equal(await source.inputValue(), original);
+  if (isMac) {
+    const menu = await waitForMacMenu(true);
+    for (const role of ['undo', 'redo', 'cut', 'copy', 'paste', 'selectall']) {
+      assert.ok(menu.some((item) => item.role === role), `Missing native editing role: ${role}`);
+    }
+    const normalizeAccelerator = (value) => value?.toLowerCase().replace(/command/g, 'cmd').replace(/\s/g, '');
+    assert.equal(normalizeAccelerator(menu.find((item) => item.role === 'undo')?.accelerator), 'cmd+z');
+    assert.equal(normalizeAccelerator(menu.find((item) => item.role === 'redo')?.accelerator), 'cmd+shift+z');
+    // Attempt the handler directly as well: main and renderer must both reject
+    // navigation behind an editor, even when an IPC menu action is invoked.
+    await application.evaluate(({ BrowserWindow, Menu }) => {
+      const item = Menu.getApplicationMenu().getMenuItemById('easyhub-home');
+      item.click(item, BrowserWindow.getAllWindows()[0], {});
+    });
+    await source.focus();
+    await source.press('Meta+1');
+    assert.equal(await dialog.isVisible(), true, 'A blocked navigation shortcut must preserve the editor');
+    assert.equal(await source.inputValue(), original, 'A blocked navigation shortcut must preserve the draft');
+    macCompatibility.modalNavigationGuard = true;
+
+    const undoDraft = `${original}\n\nNative editing shortcut fixture`;
+    await source.evaluate((element) => {
+      element.focus(); element.setSelectionRange(element.value.length, element.value.length);
+    });
+    await page.keyboard.insertText('\n\nNative editing shortcut fixture');
+    assert.equal(await source.inputValue(), undoDraft);
+    await source.press('Meta+Z');
+    await page.waitForFunction((expected) => document.querySelector('.intro-editor-source textarea')?.value === expected, original);
+    await source.press('Meta+Shift+Z');
+    await page.waitForFunction((expected) => document.querySelector('.intro-editor-source textarea')?.value === expected, undoDraft);
+    await source.press('Meta+Z');
+    await page.waitForFunction((expected) => document.querySelector('.intro-editor-source textarea')?.value === expected, original);
+    macCompatibility.nativeUndoRedo = true;
+  }
   await dialog.getByRole('button', { name: '边写边看', exact: true }).click();
   const preview = dialog.getByRole('region', { name: '项目介绍预览' });
   await preview.getByRole('heading', { name: 'HTML preview fixture' }).waitFor();
@@ -178,7 +245,7 @@ try {
       assert.ok(Math.abs(sourceContent.y - previewContent.y) < 2, 'Editor and preview must align horizontally');
     }
     assert.equal(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth + 1), true, 'Editor must not overflow horizontally');
-    await page.screenshot({ path: join(output, `${packaged ? 'packaged' : 'dev'}-${width}.png`) });
+    await page.screenshot({ path: join(output, `${mode}-${width}.png`) });
   }
   const responsiveMeasurements = [];
   const measureResponsiveEditor = async (width, height, state = 'editing') => {
@@ -210,7 +277,7 @@ try {
     responsiveMeasurements.push(measurement);
     assert.equal(await dialog.getByRole('textbox', { name: '项目介绍内容' }).inputValue(), edited, 'Resizing the editor must preserve its draft');
     await preview.getByRole('heading', { name: 'Live HTML preview updated' }).waitFor();
-    await page.screenshot({ path: join(output, `${packaged ? 'packaged' : 'dev'}-${width}x${height}-${state}.png`) });
+    await page.screenshot({ path: join(output, `${mode}-${width}x${height}-${state}.png`) });
     return measurement;
   };
   const wideShort = await measureResponsiveEditor(1400, 750);
@@ -218,13 +285,14 @@ try {
   await measureResponsiveEditor(1060, 700);
   await measureResponsiveEditor(900, 600);
   await measureResponsiveEditor(700, 600);
+  await measureResponsiveEditor(720, 520);
   await dialog.getByRole('button', { name: '添加图片', exact: true }).click();
   await measureResponsiveEditor(900, 600, 'image-form');
   await dialog.getByRole('button', { name: '取消插入', exact: true }).click();
   await dialog.getByRole('button', { name: '添加链接', exact: true }).click();
   await measureResponsiveEditor(700, 600, 'link-form');
   await dialog.getByRole('button', { name: '取消插入', exact: true }).click();
-  await writeFile(join(output, `${packaged ? 'packaged' : 'dev'}-responsive-measurements.json`), `${JSON.stringify(responsiveMeasurements, null, 2)}\n`);
+  await writeFile(join(output, `${mode}-responsive-measurements.json`), `${JSON.stringify(responsiveMeasurements, null, 2)}\n`);
   const responsiveFailures = [];
   const responsiveCheck = (condition, message) => { if (!condition) responsiveFailures.push(message); };
   responsiveCheck(wideTall.source.height > wideShort.source.height + 80, `The editing area must grow with window height: ${wideShort.source.height}px at 750px tall, ${wideTall.source.height}px at 1100px tall`);
@@ -248,6 +316,7 @@ try {
   }
   assert.deepEqual(responsiveFailures, [], `README live preview must adapt as the window is resized:\n${responsiveFailures.join('\n')}`);
   await dialog.getByRole('button', { name: '取消', exact: true }).click();
+  if (isMac) await waitForMacMenu(false);
   assert.equal(await readFile(join(folder, 'README.md'), 'utf8'), original, 'Cancel must preserve the README');
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.getByRole('button', { name: '选择语言' }).click();
@@ -277,7 +346,14 @@ try {
   const isolation = await application.evaluate(() => globalThis.easyHubReadmePreviewFixture);
   assert.deepEqual(isolation.forbidden, [], 'No account, translation, project or GitHub mutation is allowed');
   assert.deepEqual(isolation.network, [], 'No external network request is allowed');
-  process.stdout.write(`README HTML editing, live preview, images, links, folding, mixed Markdown, raw source, sanitization, cancel and responsive layout passed (${packaged ? 'packaged' : 'development'}).\n`);
+  await writeFile(join(output, `${mode}-results.json`), `${JSON.stringify({ status: 'passed', mode,
+    platform: process.platform, application: applicationInfo, executable: executable || electronPath,
+    isolatedUserData: true, inMemoryCredentials: true, remoteWrites: false,
+    localReadmeSaves: isolation.saves.length, responsiveViewportCases: responsiveMeasurements.length,
+    responsiveViewportMeasurements: `${mode}-responsive-measurements.json`, macCompatibility,
+    nativeWindowResize: 'Viewport dimensions are emulated by Playwright; native window constraints are not changed.',
+  }, null, 2)}\n`);
+  process.stdout.write(`README HTML editing, live preview, images, links, folding, mixed Markdown, raw source, sanitization, cancel, responsive layout and platform compatibility passed (${mode}).\n`);
 } finally {
   if (application) await application.close();
   await new Promise((resolve) => imageServer.close(resolve));

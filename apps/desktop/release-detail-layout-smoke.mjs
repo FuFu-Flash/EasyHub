@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron } from 'playwright-core';
+import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
 import electronPath from 'electron';
 
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
@@ -11,27 +11,9 @@ await mkdir(outputDirectory, { recursive: true });
 const runDirectory = await mkdtemp(join(outputDirectory, 'isolated-'));
 const profileDirectory = join(runDirectory, 'profile');
 await mkdir(profileDirectory);
-const executableArgument = process.argv.find((value) => value.startsWith('--executable='));
-const executable = executableArgument?.slice('--executable='.length)
-  ?? (process.argv.includes('--packaged') ? join(desktopDirectory, 'release', 'win-unpacked', 'EasyHub.exe') : null);
-if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
-const launcher = join(runDirectory, 'launch.cjs');
-if (!executable) await writeFile(launcher, `
-const { app, ipcMain } = require('electron');
-app.setPath('userData', ${JSON.stringify(profileDirectory)});
-process.env.ELECTRON_RENDERER_URL = 'data:text/html,<title>Isolated release layout fixture</title>';
-globalThis.releaseLayoutRegister = ipcMain.handle.bind(ipcMain);
-globalThis.releaseLayoutUnmocked = [];
-ipcMain.handle = (channel, handler) => globalThis.releaseLayoutRegister(channel, channel.startsWith('easyhub:') ? () => {
-  globalThis.releaseLayoutUnmocked.push(channel);
-  throw new Error('Unmocked isolated release layout IPC: ' + channel);
-} : handler);
-require(${JSON.stringify(join(desktopDirectory, 'out', 'main', 'index.js'))});
-`, 'utf8');
-
-const app = await electron.launch({ executablePath: executable || electronPath,
-  args: executable ? ['--user-data-dir=' + profileDirectory] : [launcher], cwd: desktopDirectory,
-  env: { ...process.env, EASYHUB_PROXY_APP_ONLY_TEST: '1' } });
+const { app, executable, renderer } = await launchUpstreamFixture(desktopDirectory, { profile: profileDirectory,
+  launcher: join(runDirectory, 'launch.cjs'), registerName: 'releaseLayoutRegister', rejectedName: 'releaseLayoutUnmocked',
+  title: 'Isolated release layout fixture' });
 const measurements = [];
 const failures = [];
 const pageErrors = [];
@@ -75,6 +57,7 @@ try {
     mock('easyhub:github-cancel', () => undefined);
     mock('easyhub:ai-settings', () => ({ providerId: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', hasApiKey: false }));
     mock('easyhub:github-proxy-status', () => ({ enabled: false, state: 'off', checkedAt: null, error: null, checks: [], legacyHosts: false }));
+    mock('easyhub:mac-proxy-status', () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }));
     mock('easyhub:binary-analysis-status', () => ({ installed: false, state: 'missing', engineVersion: '12.1.2' }));
     mock('easyhub:github', (action, ...args) => {
       fixture.reads.push(action);
@@ -102,9 +85,9 @@ try {
   page.setDefaultTimeout(12_000);
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  if (!executable) await app.evaluate(async ({ BrowserWindow }, renderer) => {
+  await app.evaluate(async ({ BrowserWindow }, renderer) => {
     await BrowserWindow.getAllWindows()[0].loadFile(renderer);
-  }, join(desktopDirectory, 'out', 'renderer', 'index.html'));
+  }, renderer);
   const inspect = async (label) => {
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const value = await page.evaluate(() => {

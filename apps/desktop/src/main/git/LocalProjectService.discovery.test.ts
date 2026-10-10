@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -36,7 +36,7 @@ describe('local project auto linking', () => {
       const found = await service.scanDiscoveryRoots();
       expect(found.added).toBe(1);
       expect(found.skipped).toBe(1);
-      expect(await service.list()).toEqual([expect.objectContaining({ repositoryId: 1, localPath: owned })]);
+      expect(await service.list()).toEqual([expect.objectContaining({ repositoryId: 1, localPath: await realpath(owned) })]);
       expect(await readFile(join(owned, 'notes.txt'), 'utf8')).toBe('keep my work');
       expect((await service.scanDiscoveryRoots()).alreadyAdded).toBe(1);
     } finally { service.stopWatching(); }

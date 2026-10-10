@@ -68,6 +68,8 @@ try {
   });
   await installDownloadFixture(app, ['easyhub:download-archive', 'easyhub:download-release-asset', 'easyhub:reveal-downloaded-archive', 'easyhub:open-downloaded-file']);
   const page = await app.firstWindow();
+  page.setDefaultTimeout(15000);
+  page.setDefaultNavigationTimeout(20000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.evaluate(() => {
     window.localStorage.removeItem('easyhub:search-history:test-user');

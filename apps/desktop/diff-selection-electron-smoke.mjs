@@ -2,35 +2,22 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron } from 'playwright-core';
-import electronPath from 'electron';
+import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
 
 // Real Electron renderer/preload, including the shipped CSS. The entire IPC
 // surface starts blocked; this fixture allows only controlled reads. Mouse
 // movement creates every selection (DOM Range is used solely to measure text).
 const desktop = dirname(fileURLToPath(import.meta.url));
-const packaged = process.argv.includes('--packaged');
+const packaged = process.argv.includes('--packaged') || process.argv.some(value => value.startsWith('--executable='));
 const output = join(desktop, 'out', 'diff-selection-electron-smoke', packaged ? 'packaged' : 'built');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
 const profile = join(run, 'profile');
 await mkdir(profile);
-const assets = packaged ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar', 'out') : join(desktop, 'out');
-const launcher = join(run, 'launch.cjs');
-await writeFile(launcher, `
-const { app, ipcMain } = require('electron');
-app.setPath('userData', ${JSON.stringify(profile)});
-process.env.EASYHUB_PROXY_APP_ONLY_TEST = '1';
-process.env.ELECTRON_RENDERER_URL = 'data:text/html,<title>Isolated diff selection</title>';
-globalThis.selectionRegister = ipcMain.handle.bind(ipcMain);
-globalThis.selectionForbidden = [];
-ipcMain.handle = (channel, handler) => globalThis.selectionRegister(channel, channel.startsWith('easyhub:') ? () => {
-  globalThis.selectionForbidden.push(channel); throw new Error('Blocked diff fixture IPC: ' + channel);
-} : handler);
-require(${JSON.stringify(join(assets, 'main', 'index.js'))});
-`, 'utf8');
-
-const app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
+const { app, executable, renderer } = await launchUpstreamFixture(desktop, {
+  profile: profile, launcher: join(run, 'launch.cjs'),
+  registerName: 'selectionRegister', rejectedName: 'selectionForbidden', title: 'Isolated diff selection'
+});
 let page;
 const results = [];
 try {
@@ -102,7 +89,7 @@ try {
   page.setDefaultTimeout(8000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), join(assets, 'renderer', 'index.html'));
+  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), renderer);
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('easyhub:language', 'zh'); localStorage.setItem('easyhub:layout', 'compact'); });
   await page.reload();
   await page.setViewportSize({ width: 1060, height: 760 });

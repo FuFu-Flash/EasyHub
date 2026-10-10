@@ -24,7 +24,7 @@ const pull={...issue(3),title:'Change request',head:{sha:'a'.repeat(40),ref:'fix
 const comment=n=>({id:n,body:'Reply '+n,created_at:now,user:{login:'reader'}});
 const commit=n=>({sha:String(n).padStart(40,'0'),commit:{message:'Version '+n,author:{name:'reader',date:now}}});
 window.reads=[];window.failMore=false;window.holdMore=false;window.releaseMore=null;window.sent=[];
-window.easyHub={onAiReviewProgress:()=>()=>{},onReleaseProgress:()=>()=>{},onLocalStatus:()=>()=>{},onLocalProgress:()=>()=>{},onArchiveProgress:()=>()=>{},onDownloadsChanged:()=>()=>{},downloadsList:async()=>[],localList:async()=>[],openExternalLink:async()=>{},github:async(action,...args)=>{
+window.easyHub={platform:${JSON.stringify(process.platform)},onAiReviewProgress:()=>()=>{},onReleaseProgress:()=>()=>{},onLocalStatus:()=>()=>{},onLocalProgress:()=>()=>{},onArchiveProgress:()=>()=>{},onDownloadsChanged:()=>()=>{},downloadsList:async()=>[],localList:async()=>[],openExternalLink:async()=>{},github:async(action,...args)=>{
  window.reads.push({action,args});
  if(action==='readme')return '# Project';
  if(action==='repos')return args[0]===1?[repo,otherRepo]:[];
@@ -62,7 +62,7 @@ let browser;
 try {
   await server.listen(); const address = server.httpServer.address(); assert.ok(address && typeof address !== 'string');
   const url = `http://127.0.0.1:${address.port}/discussion-test`;
-  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true });
   const page = await browser.newPage(); page.setDefaultTimeout(10000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
@@ -111,6 +111,9 @@ try {
   await page.locator('.discussion-search input').press('Escape');
   assert.equal(await page.locator('.discussion-search input').count(), 0);
   await page.getByRole('button', { name: /Discussion 1/ }).waitFor();
+  // Closing search restores its trigger on the next native animation frame.
+  // Wait for that actual focus change instead of racing the synchronous DOM update.
+  await page.waitForFunction(() => document.activeElement === document.querySelector('.discussion-search-toggle'));
   assert.equal(await page.getByRole('button', { name: '搜索讨论', exact: true }).evaluate(element => document.activeElement === element), true, 'Closing search returns focus and restores the original list');
   await page.locator('.public-browser-tabs').getByRole('button', { name: '历史版本', exact: true }).click();
   assert.equal(await page.locator('.public-list-row').count(), 100);
