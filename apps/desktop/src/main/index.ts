@@ -221,6 +221,7 @@ if (primaryInstance) app.whenReady().then(async () => {
       return { analyze: (path, signal, progress, language) => backend.analyze(path, { signal, language, maxFunctions: 16, maxStrings: 80, onProgress: (value) => progress(value.completed ?? 0, value.total ?? 0) }), stop: () => backend.stop() };
     },
   }, loadBinaryAnalysisFile);
+  await binaryAnalysisService.initialize();
   aiReviewService = new AiReviewService(aiCredentialStore(),
     new OpenAiReviewProvider((url, init) => net.fetch(url, init)), getPullRequestReviewContext, {
       status: () => binaryAnalysisService.status(),

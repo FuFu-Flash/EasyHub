@@ -1,6 +1,6 @@
 {
   "name": "@easyhub/desktop",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
   "license": "Apache-2.0",
   "description": "EasyHub desktop application for macOS and Windows",
@@ -57,7 +57,12 @@
     "test:dialog-focus": "node dialog-focus-smoke.mjs",
     "test:release-navigation": "node release-navigation-smoke.mjs",
     "test:navigation-chain": "node navigation-chain-smoke.mjs",
-    "test:demo-navigation-chain": "node demo-navigation-chain-smoke.mjs"
+    "test:demo-navigation-chain": "node demo-navigation-chain-smoke.mjs",
+    "test:project-detail-layout": "node project-detail-layout-smoke.mjs",
+    "test:release-detail-layout": "node release-detail-layout-smoke.mjs",
+    "test:search-history-motion": "node search-history-motion-smoke.mjs",
+    "test:program-review-notice": "node program-review-notice-smoke.mjs",
+    "test:refresh-feedback": "node refresh-feedback-smoke.mjs"
   },
   "dependencies": {
     "@easyhub/github": "workspace:*",

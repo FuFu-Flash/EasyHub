@@ -474,8 +474,10 @@ try {
   else await page.locator(defaultWindowButtons).first().waitFor();
   assert.equal(await page.locator(defaultWindowButtons).count(), isMac ? 0 : 3);
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
-  await page.locator('.topbar-windows .windows-control-button').first().waitFor();
-  assert.equal(await page.locator('.topbar-windows .windows-control-button').count(), 3);
+  await page.locator(defaultWindowControls).waitFor();
+  if (isMac) await assertNativeWindowControls();
+  else await page.locator(defaultWindowButtons).first().waitFor();
+  assert.equal(await page.locator(defaultWindowButtons).count(), isMac ? 0 : 3);
   await openProjectsList('我的项目');
   await page.getByRole('button', { name: /这台电脑/ }).click();
   await page.getByRole('heading', { name: '查找已有项目' }).waitFor();

@@ -33,12 +33,12 @@ EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看
 
 ## 下载
 
-**当前版本：Windows 1.2.1 · Android 1.1.0。**
+**当前版本：Windows 1.2.2 · Android 1.1.0。**
 
 | 平台 | 版本 | 适合谁 | 下载 |
 | --- | --- | --- | --- |
-| Windows | 安装版 | 长期使用，可选择安装位置和桌面快捷方式 | **[下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-setup.exe)** |
-| Windows | 便携版 | 不想安装，下载后直接运行 | **[下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-portable.exe)** |
+| Windows | 安装版 | 长期使用，可选择安装位置和桌面快捷方式 | **[下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-setup.exe)** |
+| Windows | 便携版 | 不想安装，下载后直接运行 | **[下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-portable.exe)** |
 | Android | 1.1.0 ARM64 安装包 | 适合大多数较新的 Android 手机，安装包更小 | **[下载 ARM64 包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 | Android | 1.1.0 通用安装包 | ARM32、ARM64、x86、x86_64 设备与模拟器 | **[下载通用包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 
@@ -75,6 +75,10 @@ AI 审查是可选功能。不配置 AI 服务，也能正常发布源码和管�
 开始审查前，EasyHub 会说明使用哪个服务、要发送什么内容，确认后才发送。私有项目会明确提醒；框选代码的说明只发送选中的代码和文件名。
 
 程序文件审查首次使用时需要安装可选组件，下载大小会提前显示。EasyHub 先在电脑上读取文件，提取部分程序逻辑、文字和调用信息，再经你确认交给所选 AI 服务分析。可以检查电脑上的文件、合并请求里的文件或发行版附件。
+
+Windows 版安装组件后，合并请求里的程序文件会与代码改动一起审查，结果汇总在同一份报告中。未安装时会给出提示，可永久忽略，也可在设置中重新开启。
+
+审查用的临时文件会在完成、失败或取消后清理；异常退出留下的临时文件会在下次启动时清理。你主动保存的下载文件会保留。
 
 **不会运行被审查的程序，也不会将原始程序文件上传给 AI 服务商。** 因为只检查部分内容，不能保证找出所有问题或证明程序安全。
 
@@ -172,6 +176,6 @@ EasyHub 采用 [Apache License 2.0](LICENSE)。第三方组件保留各自的许
 
 ## 本地 macOS 版本
 
-此源码包含 macOS 1.2.1（构建 17），对齐上游 `2276c67`：合并请求检查、选中代码解释、选择文件发布、下载管理、布局设置与浏览历史恢复；保留系统红绿灯、菜单栏、默认圆点风格和 GitHub 系统代理。
+此源码包含 macOS 1.2.2（构建 17），对齐上游 `45328b9`：项目与发行版布局、保留输入的刷新反馈、搜索历史动画、滑动筛选、程序文件审查提示和临时文件清理，包含合并请求检查、选中代码解释、选择文件发布、下载管理、布局设置与浏览历史恢复；保留系统红绿灯、菜单栏、默认圆点风格和 GitHub 系统代理。
 
 [打开本地 DMG](../build/EasyHub-macOS.dmg)，将 EasyHub 拖入「应用程序」。使用 `pnpm package:mac` 构建，当前本地安装包采用临时签名。

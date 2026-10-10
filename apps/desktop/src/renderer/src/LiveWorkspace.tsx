@@ -1,3 +1,4 @@
+import { SegmentedControl } from './components/SegmentedControl';
 import { AppUpdatePanel } from './components/AppUpdatePanel';
 import { createDraftKey, removeDraft } from './draftStore';
 import { useLocalDraft } from './useLocalDraft';
@@ -50,6 +51,7 @@ import { LayoutSettingsPanel } from './components/LayoutSettingsPanel';
 import { useLayoutPreference } from './layoutPreferences';
 import { NavigationPages } from './components/NavigationPages';
 import { SearchEmptyState } from './components/SearchEmptyState';
+import { SearchHistory } from './components/SearchHistory';
 import { usePageScroll } from './usePageScroll';
 import { usePageHistory } from './usePageHistory';
 
@@ -145,9 +147,14 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   const [comments, setComments] = useState<GitHubComment[]>([]);
   const [issueReadBusy, setIssueReadBusy] = useState(false);
   const [commits, setCommits] = useState<GitHubCommit[]>([]);
+  const [historyRefresh, setHistoryRefresh] = useState<Record<number, number>>({});
   const [commit, setCommit] = useState<GitHubCommit | null>(null);
   const [versionReturnView, setVersionReturnView] = useState<'history' | 'recent-history'>('history');
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshIcon = useRef<SVGSVGElement>(null);
+  const [refreshError, setRefreshError] = useState('');
+  const refreshInFlight = useRef(false);
   const [canCancel, setCanCancel] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -196,10 +203,11 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   const [menuFocusRequest, setMenuFocusRequest] = useState<{ target: 'proxy' | 'add-folder' | 'download-project'; id: number } | null>(null);
   const menuFocusRevision = useRef(0);
 
-  useApplicationMenu({ language, signedIn: true, busy: busy || releaseBusy, demoOnly: false }, handleApplicationMenuCommand);
+  useApplicationMenu({ language, signedIn: true, busy: busy || releaseBusy || refreshing, demoOnly: false }, handleApplicationMenuCommand);
   const projectLoad = useRef(0);
   const issueLoad = useRef(0);
   const issueDataGeneration = useRef(0);
+  const staleIssueGroups = useRef(new Set<number>());
   const issueContext = useRef<string | null>(null);
   const selectedRepoId = useRef<number | null>(null);
   const currentView = useRef<View>(view);
@@ -460,24 +468,30 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
     return () => { pages.disconnect(); observer.disconnect(); area.removeEventListener('scroll', update); };
   }, [view, repos, issues, commits, comments, busy]);
 
-  const loadRepos = useCallback(async () => {
-    cancelled.current = false; setBusy(true); setCanCancel(true); setError('');
+  const loadRepos = useCallback(async (background = false): Promise<boolean> => {
+    cancelled.current = false;
+    if (!background) { setBusy(true); setCanCancel(true); setError(''); }
     try {
       const all: GitHubRepo[] = [];
       for (let page = 1; page <= 100; page++) {
         const batch = await api<GitHubRepo[]>('repos', page);
         all.push(...batch);
-        setRepos([...all]);
+        if (!background) setRepos([...all]);
         if (batch.length < 100 || cancelled.current) break;
       }
+      if (cancelled.current) return false;
       setRepos(all);
       if (all.length) {
         void api<Record<number, GitHubActivityCount>>('activityCounts', all.map((repo) => ({ id: repo.id, owner: repo.owner.login, name: repo.name })))
           .then((counts) => { setActivityCounts(counts); setActivityError(''); })
           .catch(() => setActivityError('暂时无法获取准确的反馈数量。打开项目仍可查看内容。'));
       } else { setActivityCounts({}); setActivityError(''); }
-    } catch (cause) { if (!cancelled.current) setError(message(cause)); }
-    finally { setBusy(false); setCanCancel(false); }
+      return true;
+    } catch (cause) {
+      if (!cancelled.current) (background ? setRefreshError : setError)(message(cause));
+      return false;
+    }
+    finally { if (!background) { setBusy(false); setCanCancel(false); } }
   }, []);
 
   useEffect(() => { void loadRepos(); }, [loadRepos]);
@@ -574,30 +588,39 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
     finally { setIntroSaving(false); }
   }
 
-  async function openProject(repo: GitHubRepo, localId: string | null = null): Promise<void> {
+  async function openProject(repo: GitHubRepo, localId: string | null = null, background = false): Promise<void> {
     const request = ++projectLoad.current;
-    cancelled.current = false; setSelected(repo); setSelectedLocalId(localId); setView('project'); setReadme(''); setIssues([]); setCommits([]); setError(''); setBusy(true); setCanCancel(true); setIntroductionLoading(true); setIntroductionError('');
+    const current = (): boolean => request === projectLoad.current && !cancelled.current
+      && (!background || currentView.current === 'project' && selectedRepoId.current === repo.id);
+    cancelled.current = false;
+    if (!background) {
+      setSelected(repo); setSelectedLocalId(localId); setView('project'); setReadme(''); setIssues([]); setCommits([]); setError(''); setBusy(true); setCanCancel(true); setIntroductionLoading(true);
+    }
+    setIntroductionError('');
     try {
       const introRequest = api<string>('readme', ownerOf(repo), repo.name).catch(async (cause: unknown) => {
         const link = localLinks.find((item) => localId ? item.id === localId : item.repositoryId === repo.id);
         if (link && window.easyHub) return window.easyHub.localReadIntroduction(link.id);
         throw cause;
-      }).then((intro) => { if (request === projectLoad.current && !cancelled.current) setReadme(intro); })
-        .catch(() => { if (request === projectLoad.current && !cancelled.current) setIntroductionError('项目介绍暂时无法加载，请重试。'); })
-        .finally(() => { if (request === projectLoad.current) setIntroductionLoading(false); });
+      }).then((intro) => { if (current()) setReadme(intro); })
+        .catch(() => { if (current()) (background ? setRefreshError : setIntroductionError)('项目介绍暂时无法加载，请重试。'); })
+        .finally(() => { if (!background && request === projectLoad.current) setIntroductionLoading(false); });
       const [items, history] = await Promise.allSettled([
         api<GitHubIssuePage>('issuesPage', ownerOf(repo), repo.name, 'all', 1),
         api<GitHubCommit[]>('commits', ownerOf(repo), repo.name),
       ]);
-      if (request === projectLoad.current && !cancelled.current) {
+      if (current()) {
         if (items.status === 'fulfilled') { setIssues(items.value.items); setIssueNextPages((current) => ({ ...current, [repo.id]: items.value.nextPage })); }
-        if (history.status === 'fulfilled') setCommits(history.value);
-        if (currentView.current === 'project' && (items.status === 'rejected' || history.status === 'rejected')) setError('部分反馈或历史版本暂时无法加载，请刷新重试。');
+        if (history.status === 'fulfilled') {
+          setCommits(history.value);
+          if (background) setHistoryRefresh((current) => ({ ...current, [repo.id]: (current[repo.id] ?? 0) + 1 }));
+        }
+        if (currentView.current === 'project' && (items.status === 'rejected' || history.status === 'rejected')) (background ? setRefreshError : setError)('部分反馈或历史版本暂时无法加载，请刷新重试。');
       }
       await introRequest;
       void refreshActivityCount(repo);
-    } catch (cause) { if (request === projectLoad.current && currentView.current === 'project' && !cancelled.current) setError(message(cause)); }
-    finally { if (request === projectLoad.current) { setBusy(false); setCanCancel(false); } }
+    } catch (cause) { if (current() && currentView.current === 'project') (background ? setRefreshError : setError)(message(cause)); }
+    finally { if (!background && request === projectLoad.current) { setBusy(false); setCanCancel(false); } }
   }
 
   async function openIssue(item: GitHubIssue, project: GitHubRepo | null = selected): Promise<void> {
@@ -622,12 +645,13 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   async function toggleIssueGroup(repo: GitHubRepo): Promise<void> {
     if (expandedRepo === repo.id) { setExpandedRepo(null); return; }
     setExpandedRepo(repo.id); setError('');
-    if (issueGroups[repo.id]) return;
+    if (issueGroups[repo.id] && !staleIssueGroups.current.has(repo.id)) return;
     const generation = issueDataGeneration.current;
     cancelled.current = false; setBusy(true); setCanCancel(true);
     try {
       const result = await api<GitHubIssuePage>('issuesPage', ownerOf(repo), repo.name, 'all', 1);
       if (generation === issueDataGeneration.current && !cancelled.current) {
+        staleIssueGroups.current.delete(repo.id);
         setIssueGroups((groups) => ({ ...groups, [repo.id]: result.items }));
         setIssueNextPages((current) => ({ ...current, [repo.id]: result.nextPage }));
       }
@@ -647,7 +671,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   async function openVersion(item: GitHubCommit): Promise<void> { if (selected) await openVersionFor(selected, item); }
 
   async function sendReply(event: FormEvent): Promise<void> {
-    event.preventDefault(); if (!selected || !issue || !reply.trim()) return;
+    event.preventDefault(); if (!selected || !issue || !reply.trim() || refreshInFlight.current) return;
     const sentDraftKey = replyKey;
     const sentDraft = reply;
     setBusy(true); setError('');
@@ -660,7 +684,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   }
 
   async function changeIssueState(): Promise<void> {
-    if (!selected || !issue) return;
+    if (!selected || !issue || refreshInFlight.current) return;
     setBusy(true); setError('');
     try {
       const next = await api<GitHubIssue>('updateIssue', ownerOf(selected), selected.name, issue.number, issue.state === 'open' ? 'closed' : 'open');
@@ -739,6 +763,10 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
   }
 
   async function refreshCurrent(): Promise<void> {
+    if (refreshInFlight.current || busy || issueReadBusy) return;
+    refreshInFlight.current = true;
+    const refreshStartedAt = performance.now();
+    setRefreshing(true); setRefreshError('');
     const generation = ++issueDataGeneration.current;
     const refreshView = view;
     const refreshSelectedId = selected?.id ?? null;
@@ -746,31 +774,25 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
     const current = (): boolean => generation === issueDataGeneration.current && !cancelled.current
       && currentView.current === refreshView && selectedRepoId.current === refreshSelectedId
       && (refreshView !== 'issue' || issueContext.current === refreshIssueKey);
-    // Repositories and their issue rows have separate caches. Keep the visible
-    // group open, but invalidate every group so a later expansion reads GitHub.
+    // Mark cached groups stale without removing the rows the user is reading.
+    // A later expansion still fetches fresh data, including after a failed refresh.
     const refreshRepo = view === 'issues' ? selected ?? repos.find((repo) => repo.id === expandedRepo) : null;
-    setIssueGroups({}); setIssueNextPages({});
-    await loadRepos();
-    if (!current()) return;
-    if (view === 'issues') {
-      if (!refreshRepo) return;
-      setBusy(true); setCanCancel(true); setError('');
-      try {
+    Object.keys(issueGroups).forEach((id) => staleIssueGroups.current.add(Number(id)));
+    try {
+      if (!await loadRepos(true) || !current()) return;
+      if (view === 'issues') {
+        if (!refreshRepo) return;
         const result = await api<GitHubIssuePage>('issuesPage', ownerOf(refreshRepo), refreshRepo.name, 'all', 1);
         if (current()) {
+          staleIssueGroups.current.delete(refreshRepo.id);
           setIssueGroups((groups) => ({ ...groups, [refreshRepo.id]: result.items }));
           setIssueNextPages((current) => ({ ...current, [refreshRepo.id]: result.nextPage }));
           if (selected?.id === refreshRepo.id) setIssues(result.items);
         }
-      } catch (cause) { if (current()) setError(message(cause)); }
-      finally { setBusy(false); setCanCancel(false); }
-      return;
-    }
-    if (!selected) return;
-    if (view === 'project') { await openProject(selected, selectedLocalId); return; }
-    if (view === 'issue') { issueLoad.current += 1; setIssueReadBusy(true); }
-    setBusy(true); setCanCancel(true); setError('');
-    try {
+        return;
+      }
+      if (!selected) return;
+      if (view === 'project') { await openProject(selected, selectedLocalId, true); return; }
       const [intro, items, history] = await Promise.all([
         api<string>('readme', ownerOf(selected), selected.name),
         api<GitHubIssuePage>('issuesPage', ownerOf(selected), selected.name, 'all', 1),
@@ -778,16 +800,50 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
       ]);
       if (!current()) return;
       setReadme(intro); setIssues(items.items); setCommits(history);
+      setHistoryRefresh((current) => ({ ...current, [selected.id]: (current[selected.id] ?? 0) + 1 }));
       setIssueGroups((groups) => ({ ...groups, [selected.id]: items.items }));
       setIssueNextPages((current) => ({ ...current, [selected.id]: items.nextPage }));
       if (view === 'issue' && issue) {
         setIssue(items.items.find((item) => item.number === issue.number) ?? issue);
         const refreshedComments = await api<GitHubComment[]>('comments', ownerOf(selected), selected.name, issue.number);
-        if (current()) setComments(refreshedComments);
+        if (current()) { issueLoad.current++; setComments(refreshedComments); }
       }
-      if (view === 'version' && commit) setCommit(await api<GitHubCommit>('commit', ownerOf(selected), selected.name, commit.sha));
-    } catch (cause) { if (current()) setError(message(cause)); }
-    finally { setBusy(false); setCanCancel(false); setIssueReadBusy(false); }
+      if (view === 'version' && commit) {
+        const refreshedCommit = await api<GitHubCommit>('commit', ownerOf(selected), selected.name, commit.sha);
+        if (current()) setCommit(refreshedCommit);
+      }
+    } catch (cause) { if (current()) setRefreshError(message(cause)); }
+    finally {
+      // Fast or cached reads can finish before the browser paints a frame.
+      // Keep the click feedback visible for a full turn; data updates above are immediate.
+      const feedbackRemaining = 1200 - (performance.now() - refreshStartedAt);
+      if (feedbackRemaining > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, feedbackRemaining));
+      // Stop on the icon's own cycle boundary, rather than snapping a partial
+      // turn back to zero. Cancellation/detachment must never lock the button.
+      const icon = refreshIcon.current;
+      const rotation = icon?.getAnimations().find((animation) => animation instanceof CSSAnimation
+        && animation.animationName === 'live-spin' && animation.playState === 'running');
+      const duration = rotation?.effect?.getComputedTiming().duration;
+      if (icon?.isConnected && rotation && typeof duration === 'number' && duration > 0) {
+        await new Promise<void>((resolve) => {
+          const finish = (): void => {
+            window.clearTimeout(timeout);
+            icon.removeEventListener('animationiteration', onIteration);
+            rotation.removeEventListener('cancel', finish);
+            rotation.removeEventListener('finish', finish);
+            resolve();
+          };
+          const onIteration = (event: AnimationEvent): void => {
+            if (event.target === icon && event.animationName === 'live-spin') finish();
+          };
+          const timeout = window.setTimeout(finish, duration + 150);
+          icon.addEventListener('animationiteration', onIteration);
+          rotation.addEventListener('cancel', finish);
+          rotation.addEventListener('finish', finish);
+        });
+      }
+      refreshInFlight.current = false; setRefreshing(false);
+    }
   }
 
   function cancelReads(): void { cancelled.current = true; issueLoad.current++; setIssueReadBusy(false); void window.easyHub?.cancelGithubReads(); }
@@ -944,7 +1000,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
       <button className={nav === 'discover' ? 'active' : ''} onClick={() => navigateSidebar('discover')}><Compass size={19} />发现</button>
       <button className={nav === 'issues' ? 'active' : ''} onClick={() => navigateSidebar('issues')}><MessageCircle size={19} />问题{totalPendingIssues !== null && totalPendingIssues > 0 && <span className="nav-count">{totalPendingIssues}</span>}</button>
       <button className={nav === 'settings' ? 'active' : ''} onClick={() => navigateSidebar('settings')}><Settings2 size={19} />设置</button>
-    </nav><div className="sidebar-bottom live-sidebar-bottom"><button type="button" className="sidebar-refresh" aria-label={language === 'en' ? 'Refresh GitHub data' : '刷新 GitHub 数据'} title={language === 'en' ? 'Refresh GitHub data' : '刷新 GitHub 数据'} disabled={busy || issueReadBusy} onClick={() => void refreshCurrent()}><RotateCw size={15} className={busy ? 'live-spin' : undefined} /></button><span className="sidebar-demo live-connected"><span />{language === 'en' ? 'Connected to GitHub' : '已连接 GitHub'} · {user.login}</span></div></aside>
+    </nav><div className="sidebar-bottom live-sidebar-bottom"><button type="button" className={`sidebar-refresh${busy || issueReadBusy || refreshing ? ' is-refreshing' : ''}`} aria-label={language === 'en' ? 'Refresh GitHub data' : '刷新 GitHub 数据'} title={refreshing ? language === 'en' ? 'Refreshing GitHub data…' : '正在刷新 GitHub 数据…' : language === 'en' ? 'Refresh GitHub data' : '刷新 GitHub 数据'} aria-busy={refreshing} disabled={busy || issueReadBusy || refreshing} onClick={() => void refreshCurrent()}><RotateCw ref={refreshIcon} size={15} className={busy || issueReadBusy || refreshing ? 'live-spin' : undefined} /></button><span className="sidebar-demo live-connected"><span />{language === 'en' ? 'Connected to GitHub' : '已连接 GitHub'} · {user.login}</span></div></aside>
     <div className="main-column" ref={scrollArea}><header className={`topbar topbar-${windowStyle}`}>
       {windowStyle === 'reference' && <WindowTrafficLights onAction={(action) => { void window.easyHub?.[action](); }} />}
       <button className="topbar-brand" onClick={() => navigateSidebar('home')}><img src={appIcon} alt="" /><span>EasyHub</span></button>
@@ -985,8 +1041,8 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
 
       {view === 'projects' && <>
         <div className="page-header"><div><div className="eyebrow">你的作品</div><h1>我的项目</h1><p>所有灵感和进展，都在这里。</p></div><button className="button button-primary" onClick={() => setView('new-project')}><Plus size={18} />新建项目</button></div>
-        <div className="toolbar"><div className="segmented" role="group" aria-label="搜索范围"><button className={searchScope === 'local' ? 'selected' : ''} aria-pressed={searchScope === 'local'} onClick={() => setSearchScope('local')}>这台电脑 <span>{localLinks.length}</span></button><button className={searchScope === 'mine' ? 'selected' : ''} aria-pressed={searchScope === 'mine'} onClick={() => setSearchScope('mine')}>我的云端项目 <span>{ownRepos.length}</span></button><button className={searchScope === 'forks' ? 'selected' : ''} aria-pressed={searchScope === 'forks'} onClick={() => setSearchScope('forks')}>仓库副本 <span>{forkRepos.length}</span></button><button className={searchScope === 'public' ? 'selected' : ''} aria-pressed={searchScope === 'public'} onClick={() => setSearchScope('public')}>所有公开项目</button></div><label className="search-box"><Search size={17} /><input aria-label="筛选项目" value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { if (parseProjectAddress(search)) void openProjectAddress(search); else recordSearch(search, searchScope); } }} onBlur={() => { if (searchScope !== 'public' && !parseProjectAddress(search)) recordSearch(search, searchScope); }} placeholder={searchScope === 'public' ? '搜索公开项目' : '搜索项目'} />{search && <button type="button" className="icon-button" aria-label={language === 'en' ? 'Clear search' : '清除搜索'} onClick={() => setSearch('')}><X size={16} /></button>}</label></div>
-        {!search.trim() && searchHistory.length > 0 && <section className="search-history panel"><div className="panel-heading"><h2>搜索历史</h2><button className="text-link" onClick={clearSearchHistory}>清除全部</button></div><div className="search-history-list">{searchHistory.map((entry) => <button key={`${entry.scope}:${entry.query}`} onClick={() => selectSearchHistory(entry)}><Clock3 size={15} /><span>{entry.query}</span><small>{entry.scope === 'users' ? '用户' : entry.scope === 'public' ? '公开项目' : entry.scope === 'local' ? '这台电脑' : entry.scope === 'forks' ? '仓库副本' : '我的云端项目'}</small></button>)}</div></section>}
+        <div className="toolbar"><SegmentedControl role="group" aria-label="搜索范围"><button className={searchScope === 'local' ? 'selected' : ''} aria-pressed={searchScope === 'local'} onClick={() => setSearchScope('local')}>这台电脑 <span>{localLinks.length}</span></button><button className={searchScope === 'mine' ? 'selected' : ''} aria-pressed={searchScope === 'mine'} onClick={() => setSearchScope('mine')}>我的云端项目 <span>{ownRepos.length}</span></button><button className={searchScope === 'forks' ? 'selected' : ''} aria-pressed={searchScope === 'forks'} onClick={() => setSearchScope('forks')}>仓库副本 <span>{forkRepos.length}</span></button><button className={searchScope === 'public' ? 'selected' : ''} aria-pressed={searchScope === 'public'} onClick={() => setSearchScope('public')}>所有公开项目</button></SegmentedControl><label className="search-box"><Search size={17} /><input aria-label="筛选项目" value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { if (parseProjectAddress(search)) void openProjectAddress(search); else recordSearch(search, searchScope); } }} onBlur={() => { if (searchScope !== 'public' && !parseProjectAddress(search)) recordSearch(search, searchScope); }} placeholder={searchScope === 'public' ? '搜索公开项目' : '搜索项目'} />{search && <button type="button" className="icon-button" aria-label={language === 'en' ? 'Clear search' : '清除搜索'} onClick={() => setSearch('')}><X size={16} /></button>}</label></div>
+        {!search.trim() && <SearchHistory entries={searchHistory} onSelect={selectSearchHistory} onClear={clearSearchHistory} />}
         {searchScope === 'local' && <LocalDiscoveryPanel onAdded={refreshLocalLinks} />}
         {searchScope === 'mine' && savedPublicMatches.length > 0 && <section className="panel saved-public-section"><div className="panel-heading"><h2>已添加的公开项目</h2><span className="muted">这台电脑上的只读快捷入口</span></div>{savedPublicMatches.map((repo) => <div className="cloud-row" key={repo.id}><RepoLogo repo={repo} small /><div><button className="plain-heading" onClick={() => openPublicProject(repo)}>{repo.full_name}</button><small>{repo.description || '还没有一句介绍'}</small></div><span className="public-readonly-label">只读</span><button className="button button-quiet" onClick={() => openPublicProject(repo)}>浏览</button></div>)}</section>}
         {searchScope === 'forks' ? <ForksOverview repos={forkRepos} search={search} onClearSearch={() => setSearch('')} onOpen={(repo) => void openProject(repo)} onBrowseOriginal={(owner, name) => void browseForkOriginal(owner, name)} /> : searchScope === 'local' ? <div className="project-grid">{localLinks.filter((link) => `${link.name} ${link.localPath}`.toLowerCase().includes(search.toLowerCase())).map((link) => { const repo = repos.find((item) => item.id === link.repositoryId); const state = projectPresentation(localStatuses[link.id], remotePreviews[link.id], localErrors[link.id]); return <article className="project-card" key={link.id}><div className="card-head">{repo ? <RepoLogo repo={repo} /> : <span className="project-logo logo-sky"><Folder size={23} /></span>}</div><button className="plain-heading" onClick={() => openLocal(link, repo)}>{link.name}</button><p className="card-description">{repo?.description || '还没有项目介绍'}</p><small className="local-copy-path" title={link.localPath}>{link.localPath}</small><span className={`status status-${state.state}`}><span className="status-dot" />{state.text}</span><div className="card-footer"><span><Clock3 size={14} />{relativeDate(link.lastOpenedAt, language)}</span></div><div className="card-actions"><button className="button button-quiet" onClick={() => openLocal(link, repo)}>打开项目</button>{repo && <button className="button button-primary" onClick={() => void openProject(repo, link.id)}>查看详情</button>}</div></article>; })}{localLinks.length === 0 && <div className="empty-state"><span className="empty-icon"><FolderOpen size={28} /></span><h3>这台电脑还没有项目</h3><p>可以从 GitHub 下载，或添加已有文件夹。</p><button className="button button-primary" onClick={() => { setSelected(null); setSelectedLocalId(null); setView('local'); }}>添加项目</button></div>}</div> : <div className="cloud-list">{(searchScope === 'public' ? publicRepos : filtered).map((repo) => { const external = searchScope === 'public' && repo.owner.login !== user.login; const browse = (): void => { if (external) openPublicProject(repo); else void openProject(repo); }; return <div className="cloud-row" key={repo.id}><RepoLogo repo={repo} small /><div><button className="plain-heading" onClick={browse}>{searchScope === 'public' ? repo.full_name : repo.name}</button><small>{repo.description || '还没有一句介绍'} · {relativeDate(repo.updated_at, language)}更新</small></div><span className="cloud-private">{external ? '只读' : repo.private ? <><LockKeyhole size={14} />只有我</> : '所有人'}</span><button className="button button-quiet" onClick={browse}>{external ? '只读浏览' : '查看'}</button>{!external && <button className="button button-primary" onClick={() => { setSelected(repo); setSelectedLocalId(null); setView('local'); }}>下载 <ArrowDownToLine size={16} /></button>}</div>; })}{searchScope === 'public' ? (publicSearchBusy ? <p className="live-empty">正在搜索公开项目…</p> : publicSearchError ? <p className="live-empty live-search-error" role="alert">{publicSearchError}</p> : search.trim().length < 2 ? <p className="live-empty">输入至少 2 个字符，搜索 GitHub 上的公开项目。</p> : publicRepos.length === 0 ? <SearchEmptyState language={language} onClear={() => setSearch('')} /> : null) : filtered.length === 0 && !busy && savedPublicMatches.length === 0 && search.trim() ? <SearchEmptyState language={language} onClear={() => setSearch('')} /> : <p className="live-empty">还没有项目。</p>}</div>}
@@ -1015,7 +1071,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
 
       {view === 'project' && selected && <TranslationPreferencesContext.Provider value={{ automatic: automaticTranslation, target: translationTarget, repository: { name: selected.name, owner: selected.owner.login, fullName: selected.full_name }, names: translationNames }}>
         <button className="back-link" onClick={() => goBack(() => { setView(starredOriginProjectId === selected.id ? 'starred' : 'projects'); setStarredOriginProjectId(null); })}><ArrowLeft size={17} />{starredOriginProjectId === selected.id ? '返回收藏' : '所有项目'}</button>
-        <section className="detail-hero"><div className="detail-main"><RepoLogo repo={selected} /><div><div className="detail-name-row"><h1>{selected.name}</h1><span className="visibility-label">{selected.private ? <><LockKeyhole size={13} />只有我</> : <><Globe2 size={13} />所有人</>}</span></div>{!selected.private && selected.description ? <TranslatableContent text={selected.description} format="text" render={(value) => <p>{value}</p>} /> : <p>{selected.description || '还没有项目介绍'}</p>}<span className={`status status-${selectedState.state}`}><span className="status-dot" />{selected.archived ? '已存档 · 只读' : selectedState.text}</span></div></div><div className="detail-actions"><StarProjectButton repo={selected} /><button className="button button-primary" disabled={selected.archived} onClick={() => setView('local')}><FolderOpen size={17} />本地项目与发布源码</button>{!selected.fork && !selected.archived && (selected.permissions?.push || ownerOf(selected).toLowerCase() === user.login.toLowerCase()) && <button className="button button-quiet" disabled={busy} onClick={() => void openNewRelease()}><Tag size={17} />发布新版本</button>}<button className="button button-quiet" onClick={() => { setDownloadFocusTag(undefined); setEditReleaseOnOpen(canEditSelectedRelease); setView('downloads'); }}>{canEditSelectedRelease ? <Pencil size={17} /> : <ArrowDownToLine size={17} />}{canEditSelectedRelease ? '编辑发行版' : '下载发行版或源码'}</button></div></section>
+        <section className="detail-hero"><div className="detail-main"><RepoLogo repo={selected} /><div><div className="detail-name-row"><h1>{selected.name}</h1><span className="visibility-label">{selected.private ? <><LockKeyhole size={13} />只有我</> : <><Globe2 size={13} />所有人</>}</span></div>{!selected.private && selected.description ? <TranslatableContent text={selected.description} format="text" render={(value) => <p>{value}</p>} /> : <p>{selected.description || '还没有项目介绍'}</p>}<span className={`status status-${selectedState.state}`}><span className="status-dot" />{selected.archived ? '已存档 · 只读' : selectedState.text}</span></div></div><div className="detail-actions"><StarProjectButton repo={selected} /><button className="button button-primary" disabled={selected.archived} onClick={() => setView('local')}><FolderOpen size={17} />本地项目与发布源码</button><div className="detail-release-actions">{!selected.fork && !selected.archived && (selected.permissions?.push || ownerOf(selected).toLowerCase() === user.login.toLowerCase()) && <button className="button button-quiet" disabled={busy} onClick={() => void openNewRelease()}><Tag size={17} />发布新版本</button>}<button className="button button-quiet" onClick={() => { setDownloadFocusTag(undefined); setEditReleaseOnOpen(canEditSelectedRelease); setView('downloads'); }}>{canEditSelectedRelease ? <Pencil size={17} /> : <ArrowDownToLine size={17} />}{canEditSelectedRelease ? '编辑发行版' : '下载发行版或源码'}</button></div></div></section>
         {selected.fork && <ForkContributionPanel key={selected.id} repo={selected} localLinkId={localLinks.find((item) => item.repositoryId === selected.id)?.id} suggestedTitle={commits[0]?.commit.message.split('\n')[0] ?? ''} onOpenLocal={() => setView('local')} onBrowseOriginal={(owner, name) => void browseForkOriginal(owner, name)} onOpenExternal={(url) => void window.easyHub?.openExternalLink(url)} />}
         <div className="detail-grid"><div className="detail-primary"><section className="panel"><div className="panel-heading"><h2>项目介绍</h2><button className="text-link" disabled={selected.archived} onClick={() => void beginEditIntroduction()}><Pencil size={15} />编辑介绍</button></div>{introductionLoading ? <p className="muted" role="status">正在读取项目介绍…</p> : introductionError ? <div className="live-error" role="alert">{introductionError}<button className="text-link" onClick={() => void openProject(selected, selectedLocalId)}>重试</button></div> : readme ? !selected.private ? <TranslatableContent text={readme} format="markdown" paragraphMode render={(value) => <ReadmeMarkdown markdown={value} repository={{ owner: ownerOf(selected), name: selected.name, branch: selected.default_branch }} onOpenLink={(href) => void openReadmeLink(href, selected)} />} /> : <ReadmeMarkdown markdown={readme} repository={{ owner: ownerOf(selected), name: selected.name, branch: selected.default_branch }} onOpenLink={(href) => void openReadmeLink(href, selected)} /> : <p className="muted">这个项目还没有介绍。</p>}</section><section className="panel"><div className="panel-heading"><h2>历史版本</h2><button className="text-link" onClick={() => setView('history')}>查看全部 <ArrowRight size={16} /></button></div><div className="timeline-list">{commits.slice(0, 3).map((item) => <button className="timeline-item" key={item.sha} onClick={() => void openVersion(item)}><span className="timeline-dot" /><span><strong>{item.commit.message.split('\n')[0]}</strong><small>{item.commit.author?.date ? relativeDate(item.commit.author.date, language) : ''}</small></span><ChevronRight size={17} /></button>)}{commits.length === 0 && <p className="muted">还没有历史版本。</p>}</div></section></div><div className="detail-side"><section className="panel side-panel"><div className="panel-heading"><h2>问题</h2><span className="count-bubble">{activityCounts[selected.id]?.issues ?? (busy ? '…' : visibleIssues.length)}</span></div><p>看看大家的反馈，一起让项目变得更好。</p><button className="button button-quiet full-width" onClick={() => setView('issues')}>查看问题 <ArrowRight size={16} /></button></section><section className="panel side-panel"><div className="panel-heading"><h2>合并请求审查</h2><span className="count-bubble">{activityCounts[selected.id]?.pullRequests ?? '…'}</span></div><p>查看改进说明和修改文件，再决定是否采纳。</p><button className="button button-quiet full-width" onClick={() => { setPullReturn(selected); setPullInitialRequest(null); setView('pulls'); }}>合并请求审查 <ArrowRight size={16} /></button></section><section className="panel side-panel"><div className="panel-heading"><h2>项目状态</h2></div><div className="status-detail"><span className={`big-status-dot ${selectedState.state}`} /><div><strong>{selectedState.text}</strong><small>上次更新：{relativeDate(selected.updated_at, language)}</small></div></div><button className="text-link" onClick={() => setView('local')}>查看本地修改 <ArrowRight size={16} /></button></section></div></div>
         {(selected.owner.login.toLowerCase() === user.login.toLowerCase() || selected.permissions?.admin) && <LiveProjectDangerZone repo={selected} language={language} onUpdate={(updated) => { setSelected(updated); setRepos((items) => items.map((item) => item.id === updated.id ? updated : item)); }} onTransferred={() => {
@@ -1040,7 +1096,7 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
         <div className="page-header"><div><div className="eyebrow">一起完善作品</div><h1>问题</h1><p>查看反馈、回复想法，解决遇到的困难。</p></div></div>
         {issueSectionTabs('issues')}
         {activityError && <p className="live-error" role="alert">{activityError}</p>}
-        <DiscussionSearch filters={<div className="toolbar"><div className="segmented"><button className={issueFilter === 'open' ? 'selected' : ''} onClick={() => setIssueFilter('open')}>待处理 <span>{selected ? activityCounts[selected.id]?.issues ?? '…' : totalPendingIssues ?? '…'}</span></button><button className={issueFilter === 'closed' ? 'selected' : ''} onClick={() => setIssueFilter('closed')}>已解决</button></div>{selected && <button className="filter-project" onClick={() => setSelected(null)}>{selected.name}<X size={15} /></button>}</div>} repositories={selected ? [selected] : repos} kind="issue" state={issueFilter} language={language} search={issueSearch} onSearchChange={changeIssueSearch} onOpen={(item, repo) => void openIssue(item, repo)} />
+        <DiscussionSearch filters={<div className="toolbar"><SegmentedControl><button className={issueFilter === 'open' ? 'selected' : ''} onClick={() => setIssueFilter('open')}>待处理 <span>{selected ? activityCounts[selected.id]?.issues ?? '…' : totalPendingIssues ?? '…'}</span></button><button className={issueFilter === 'closed' ? 'selected' : ''} onClick={() => setIssueFilter('closed')}>已解决</button></SegmentedControl>{selected && <button className="filter-project" onClick={() => setSelected(null)}>{selected.name}<X size={15} /></button>}</div>} repositories={selected ? [selected] : repos} kind="issue" state={issueFilter} language={language} search={issueSearch} onSearchChange={changeIssueSearch} onOpen={(item, repo) => void openIssue(item, repo)} />
         <div hidden={issueSearchActive}>
         {selected ? <div className="issue-list">{issues.filter((item) => item.state === issueFilter).map((item) => <button className="issue-row" key={item.id} onClick={() => void openIssue(item)}><span className={`issue-indicator ${item.state === 'closed' ? 'closed' : ''}`}><CircleHelp size={19} /></span><span className="issue-row-main"><IssueListTitle issue={item} repo={selected} automatic={automaticTranslation} target={translationTarget} names={translationNames} /><small>{selected.name} · {item.user?.login || 'GitHub 用户'} · {relativeDate(item.created_at, language)}</small></span><span className="issue-comments"><MessageCircle size={16} />{item.comments}</span><ChevronRight size={18} className="chevron" /></button>)}{!busy && issues.filter((item) => item.state === issueFilter).length === 0 && <div className="empty-state"><span className="empty-icon"><MessageCircle size={28} /></span><h3>{issueFilter === 'open' ? '没有待处理的问题' : '还没有已解决的问题'}</h3><p>这里会显示项目收到的反馈。</p></div>}</div> : <div className="issue-project-list">{shownIssueRepos.map((repo) => { const expanded = expandedRepo === repo.id; const items = (issueGroups[repo.id] || []).filter((item) => item.state === issueFilter); return <section className="issue-project-group live-issue-group" key={repo.id}><button className="issue-project-header" aria-expanded={expanded} onClick={() => void toggleIssueGroup(repo)}><RepoLogo repo={repo} small /><span className="issue-project-heading"><strong>{repo.name}</strong><small>{repo.description || '还没有项目介绍'}</small></span><span className={`issue-project-count ${issueFilter === 'open' && (pendingIssueCount(repo) ?? 0) > 0 ? 'live-pending-count' : ''}`}>{issueFilter === 'open' ? `${pendingIssueCount(repo) ?? '…'} 个待处理的问题` : expanded ? `${items.length} 个已解决的问题` : '查看已解决的问题'}</span><ChevronDown className={`issue-project-chevron ${expanded ? 'expanded' : ''}`} size={19} /></button><div className="issue-project-items live-group-items" hidden={!expanded}>{expanded && (items.length ? items.map((item) => <button className="issue-row" key={item.id} onClick={() => void openIssue(item, repo)}><span className={`issue-indicator ${item.state === 'closed' ? 'closed' : ''}`}><CircleHelp size={19} /></span><span className="issue-row-main"><IssueListTitle issue={item} repo={repo} automatic={automaticTranslation} target={translationTarget} names={translationNames} /><small>{item.user?.login || 'GitHub 用户'} · {relativeDate(item.created_at, language)}</small></span><span className="issue-comments"><MessageCircle size={16} />{item.comments}</span><ChevronRight size={18} className="chevron" /></button>) : issueGroups[repo.id] && <p className="live-empty">{issueFilter === 'open' ? '没有待处理的问题' : '还没有已解决的问题'}</p>)}</div></section>; })}</div>}
         {!selected && shownIssueRepos.length === 0 && <div className="empty-state"><span className="empty-icon"><MessageCircle size={28} /></span><h3>{issueFilter === 'open' ? '没有待处理的问题' : '还没有已解决的问题'}</h3><p>这里会显示项目收到的反馈。</p></div>}
@@ -1054,13 +1110,13 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
         <div className="issue-detail"><div className="issue-title"><span className={`issue-state ${issue.state === 'closed' ? 'closed' : ''}`}>{issue.state === 'open' ? '待处理' : '已解决'}</span>{selected.private ? <h1>{issue.title}</h1> : <TranslatableContent text={issue.title} format="text" protectedNames={issueAuthorNames} render={(value) => <h1>{value}</h1>} />}<p>{selected.name} · {issue.user?.login || 'GitHub 用户'} 提出于 {date(issue.created_at)}</p></div>
         <div className="conversation"><div className="message"><div className="avatar author-avatar">{(issue.user?.login || 'G').slice(0, 1).toUpperCase()}</div><div className="message-box"><div><strong>{issue.user?.login || 'GitHub 用户'}</strong><small>{relativeDate(issue.created_at, language)}</small></div>{!selected.private && issue.body ? <TranslatableContent text={issue.body} format="markdown" paragraphMode protectedNames={issueAuthorNames} render={(value) => renderIssueMarkdown(value)} /> : renderIssueMarkdown(issue.body || '没有详细描述。')}</div></div>{comments.map((item) => <div className="message" key={item.id}><div className="avatar">{(item.user?.login || 'G').slice(0, 1).toUpperCase()}</div><div className="message-box"><div><strong>{item.user?.login || 'GitHub 用户'}</strong><small>{relativeDate(item.created_at, language)}</small></div>{selected.private ? renderIssueMarkdown(item.body) : <TranslatableContent text={item.body} format="markdown" paragraphMode protectedNames={issueAuthorNames} render={(value) => renderIssueMarkdown(value)} />}</div></div>)}</div>
         {!issueReadBusy && <PagedContinuation<GitHubComment> key={`${replyKey}:${issueLoad.current}`} action="commentsPage" args={[ownerOf(selected), selected.name, issue.number]} firstCount={comments.length} language={language} label={language === 'en' ? 'Load more replies' : '加载更多回复'} onItems={(items) => setComments((old) => [...old, ...items.filter((item) => !old.some((known) => known.id === item.id))].sort((a, b) => a.id - b.id))} />}
-        <form className="reply-card" onSubmit={(event) => void sendReply(event)}><label htmlFor="live-reply">写一条回复</label><textarea id="live-reply" rows={4} maxLength={65536} value={reply} onChange={(event) => setReply(event.target.value)} placeholder="说说你的想法或处理进度…" /><div><button type="button" className="button button-quiet" disabled={busy} onClick={() => void changeIssueState()}>{issue.state === 'open' ? '标记为已解决' : '重新打开'}</button><button className="button button-primary" disabled={busy || issueReadBusy || !reply.trim()} type="submit">发送回复 <ArrowRight size={16} /></button></div></form></div>
+        <form className="reply-card" onSubmit={(event) => void sendReply(event)}><label htmlFor="live-reply">写一条回复</label><textarea id="live-reply" rows={4} maxLength={65536} value={reply} onChange={(event) => setReply(event.target.value)} placeholder="说说你的想法或处理进度…" /><div><button type="button" className="button button-quiet" disabled={busy || refreshing} onClick={() => void changeIssueState()}>{issue.state === 'open' ? '标记为已解决' : '重新打开'}</button><button className="button button-primary" disabled={busy || issueReadBusy || refreshing || !reply.trim()} type="submit">发送回复 <ArrowRight size={16} /></button></div></form></div>
       </TranslationPreferencesContext.Provider>}
 
       {view === 'recent-history' && <><button className="back-link" onClick={() => goBack(() => setView('home'))}><ArrowLeft size={17} />返回首页</button><div className="page-header"><div><h1>最近更新</h1><p>最近项目的更新说明和历史版本。</p></div></div><div className="history-list">{recentUpdates.map(({ repo, commit: item }) => <button className="history-row" key={`${repo.id}:${item.sha}`} onClick={() => void openVersionFor(repo, item)}><RepoLogo repo={repo} small /><span className="history-main"><strong>{item.commit.message.split('\n')[0]}</strong><small>{repo.name} · {relativeDate(item.commit.author?.date ?? repo.updated_at, language)}</small></span><ChevronRight size={18} /></button>)}</div>{recentLoading && <p className="muted">正在获取最近更新…</p>}{recentError && <p className="muted">{recentError}</p>}</>}
       {view === 'history' && selected && <>
         <button className="back-link" onClick={() => goBack(() => setView('project'))}><ArrowLeft size={17} />返回项目</button><div className="page-header"><div><div className="eyebrow">{selected.name}</div><h1>历史版本</h1><p>每一次更新，都有迹可循。</p></div></div>
-        <div className="history-list">{commits.map((item) => <button className="history-row" key={item.sha} onClick={() => void openVersion(item)}><span className="history-icon"><Clock3 size={19} /></span><span className="history-main"><strong>{item.commit.message.split('\n')[0]}</strong><small>{item.commit.author?.date ? date(item.commit.author.date) : ''} · {item.author?.login || item.commit.author?.name || '未知作者'}</small></span><span className="button button-quiet small-button">查看 <ArrowRight size={15} /></span></button>)}{commits.length === 0 && !busy && <p className="live-empty">还没有历史版本。</p>}</div>{!busy && <PagedContinuation<GitHubCommit> key={selected.id} action="commitsPage" args={[ownerOf(selected), selected.name]} firstCount={commits.length} language={language} onItems={(items) => setCommits((old) => [...old, ...items.filter((item) => !old.some((known) => known.sha === item.sha))])} />}
+        <div className="history-list">{commits.map((item) => <button className="history-row" key={item.sha} onClick={() => void openVersion(item)}><span className="history-icon"><Clock3 size={19} /></span><span className="history-main"><strong>{item.commit.message.split('\n')[0]}</strong><small>{item.commit.author?.date ? date(item.commit.author.date) : ''} · {item.author?.login || item.commit.author?.name || '未知作者'}</small></span><span className="button button-quiet small-button">查看 <ArrowRight size={15} /></span></button>)}{commits.length === 0 && !busy && <p className="live-empty">还没有历史版本。</p>}</div>{!busy && <PagedContinuation<GitHubCommit> key={`${selected.id}:${historyRefresh[selected.id] ?? 0}`} action="commitsPage" args={[ownerOf(selected), selected.name]} firstCount={commits.length} language={language} onItems={(items) => setCommits((old) => [...old, ...items.filter((item) => !old.some((known) => known.sha === item.sha))])} />}
       </>}
 
       {view === 'version' && selected && commit && <>
@@ -1073,10 +1129,11 @@ export function LiveWorkspace({ user, onLogout }: { user: GitHubUser; onLogout: 
         <div className="settings-stack"><section className="panel settings-panel"><div className="settings-icon"><Globe2 size={22} /></div><div><h2>账户与连接</h2><p>已连接 GitHub：{user.login}。你的项目仍保存在 GitHub。</p><button className="button button-quiet" onClick={onLogout}>退出登录</button></div></section><section className="panel settings-panel"><div className="settings-icon blue"><Square size={22} /></div><div className="settings-panel-content"><h2>窗口控件</h2><p>选择窗口顶部按钮的外观。更改会立即生效，并保存在这台电脑上。</p><WindowControlStyleOptions value={windowStyle} onChange={setWindowStyle} /></div></section><LayoutSettingsPanel language={language} preference={layout.preference} density={layout.density} onChange={layout.setPreference} /><AiSettingsPanel language={language} />
         <section className="panel settings-panel"><div className="settings-icon blue"><Languages size={22} /></div><div className="translation-settings"><div><h2>内容翻译</h2><p>使用顶部的翻译开关查看译文，再次关闭即可查看原文。公开文本由第三方服务翻译，译文保存在这台电脑上。</p></div><div className="translation-target-row"><span>目标语言</span><StyledDropdown label="翻译目标语言" value={translationTarget} options={[{ value: 'zh-CN', label: '简体中文' }, { value: 'en', label: 'English' }]} onChange={(value) => setTranslationTarget(value as TranslationTargetLanguage)} /></div><label className="translation-names-label" htmlFor="translation-names">不翻译的名称</label><p className="translation-names-help">当前项目、作者和链接中的 GitHub 项目名称会自动保留。其他产品名或专有名称可在这里补充，每行一个。</p><textarea id="translation-names" aria-label="不翻译的名称" rows={4} maxLength={8000} value={translationNamesText} onChange={(event) => setTranslationNamesText(event.target.value)} placeholder="每行输入一个需要保留的名称" /><small className="muted">已保存 {translationNames.length} 个名称，仅保存在这台电脑上。</small></div></section>
         <HostsRepairPanel language={language} />
-        <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>{window.easyHub?.platform === 'darwin' ? language === 'en' ? 'macOS desktop · Connect directly to GitHub' : 'macOS 桌面版 · 直接连接 GitHub' : 'Windows 桌面版 · 直接连接 GitHub'}</p><span className="settings-version">版本 1.2.1</span><AppUpdatePanel language={language} /><div className="license-details"><strong>Apache 2.0</strong><span>本应用采用 Apache License 2.0 许可协议。</span><button className="text-link" onClick={() => void window.easyHub?.openLicense()}>查看许可协议 <ArrowRight size={15} /></button></div></div></section></div>
+        <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>{window.easyHub?.platform === 'darwin' ? language === 'en' ? 'macOS desktop · Connect directly to GitHub' : 'macOS 桌面版 · 直接连接 GitHub' : 'Windows 桌面版 · 直接连接 GitHub'}</p><span className="settings-version">版本 1.2.2</span><AppUpdatePanel language={language} /><div className="license-details"><strong>Apache 2.0</strong><span>本应用采用 Apache License 2.0 许可协议。</span><button className="text-link" onClick={() => void window.easyHub?.openLicense()}>查看许可协议 <ArrowRight size={15} /></button></div></div></section></div>
       </>}
     </div></main></NavigationPages>{canScrollDown && <button className="scroll-down-cue" aria-label="向下滚动" onClick={() => scrollArea.current?.scrollBy({ top: Math.max(300, scrollArea.current.clientHeight * 0.75), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })}><ChevronRight size={27} strokeWidth={2.6} style={{ transform: 'rotate(90deg)' }} /></button>}</div>
 
+    {refreshError && <div className="live-error refresh-feedback" role="alert">{refreshError}<button onClick={() => setRefreshError('')} aria-label={language === 'en' ? 'Dismiss refresh error' : '关闭刷新错误'}><X size={15} /></button></div>}
     {introEditing && selected && <IntroductionEditor initialMarkdown={introExpected} repository={{ owner: ownerOf(selected), name: selected.name, branch: selected.default_branch }} live saving={introSaving} saveError={introError} onSave={(content) => void saveIntroduction(content)} onCancel={() => setIntroEditing(false)} onOpenLink={(href) => void openReadmeLink(href, selected)} />}
 
   </div>;

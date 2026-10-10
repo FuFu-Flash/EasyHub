@@ -71,8 +71,8 @@
   gap: 18px;
 }
 
-.intro-modal .intro-editor-layout .intro-editor-source,
-.intro-modal .intro-editor-live-preview {
+.modal.intro-modal .intro-editor-layout .intro-editor-source,
+.modal.intro-modal .intro-editor-live-preview {
   display: flex;
   flex-direction: column;
   gap: 8px;

@@ -33,12 +33,12 @@ You do not need to install Git or create a separate EasyHub account. Sign in wit
 
 ## Download
 
-**Current versions: Windows 1.2.1 · Android 1.1.0.**
+**Current versions: Windows 1.2.2 · Android 1.1.0.**
 
 | Platform | Edition | Best for | Download |
 | --- | --- | --- | --- |
-| Windows | Installer | Regular use, with installation location and desktop shortcut options | **[Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-setup.exe)** |
-| Windows | Portable | Run directly without installing | **[Download portable](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-portable.exe)** |
+| Windows | Installer | Regular use, with installation location and desktop shortcut options | **[Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-setup.exe)** |
+| Windows | Portable | Run directly without installing | **[Download portable](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-portable.exe)** |
 | Android | 1.1.0 ARM64 APK | Most newer Android phones; smaller package | **[Download ARM64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 | Android | 1.1.0 universal APK | ARM32, ARM64, x86, and x86_64 devices and emulators | **[Download universal APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 
@@ -75,6 +75,10 @@ Choose OpenAI, DeepSeek, OpenRouter, or SiliconFlow in settings, enter your own 
 Before a review, EasyHub identifies the service and content to be sent. It sends the content only after your confirmation and clearly flags private projects. A selected-code explanation sends only the selected code and file name.
 
 Program file reviews require optional components on first use; their download size is shown beforehand. EasyHub reads the file on your computer and extracts parts of its logic, text, and referenced functions. After confirmation, it sends that information to your chosen AI service. You can inspect local files, pull request files, or release attachments.
+
+On Windows, once the components are installed, program files and code changes in a pull request are reviewed together in one report. If the components are missing, EasyHub shows a reminder that you can permanently dismiss and restore in settings.
+
+Temporary review files are cleaned up after completion, failure, or cancellation. Files left by an unexpected exit are cleaned up on the next launch. Downloads you choose to save are kept.
 
 **The program being reviewed is not executed, and the original program file is not uploaded to the AI service.** Only parts of the file are inspected, so the review cannot guarantee that all issues are found or prove the program is safe.
 
@@ -172,6 +176,6 @@ EasyHub uses the [Apache License 2.0](LICENSE). Third-party components retain th
 
 ## Local macOS build
 
-This checkout provides macOS 1.2.1 (17), aligned with upstream `2276c67`: pull request checks and code explanations, selected-file publishing, managed downloads, layout preferences and restored navigation history. Native macOS traffic lights, menus, the default dot style and GitHub system proxy are retained.
+This checkout provides macOS 1.2.2 (17), aligned with upstream `45328b9`: project and release layouts, refresh feedback that preserves input, search history motion, animated filters, program review notices and temporary-file cleanup. It includes pull request checks and code explanations, selected-file publishing, managed downloads, layout preferences and restored navigation history. Native macOS traffic lights, menus, the default dot style and GitHub system proxy are retained.
 
 [Open the local DMG](../build/EasyHub-macOS.dmg) and drag EasyHub into Applications. Build with `pnpm package:mac`. The local bundle is ad hoc signed.

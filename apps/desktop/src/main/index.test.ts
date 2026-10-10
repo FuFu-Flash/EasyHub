@@ -71,7 +71,7 @@ vi.mock('./services/WindowsSystemProxy', () => ({ WindowsSystemProxy: class { co
 vi.mock('./services/MacSystemProxy', () => ({ MacSystemProxy: class { constructor() { fixture.systemAdapters.push('mac'); } } }));
 vi.mock('./services/GitHubSystemRelay', () => ({ GitHubSystemRelay: class {} }));
 vi.mock('./analysis/AnalysisRuntime', () => ({ AnalysisRuntime: class { status = vi.fn(async () => ({ state: 'missing' })); } }));
-vi.mock('./analysis/BinaryAnalysisService', () => ({ BinaryAnalysisService: class { shutdown = fixture.analysisShutdown; } }));
+vi.mock('./analysis/BinaryAnalysisService', () => ({ BinaryAnalysisService: class { initialize = vi.fn(async () => {}); shutdown = fixture.analysisShutdown; } }));
 vi.mock('./analysis/analysisElectronFetch', () => ({ analysisElectronFetch: vi.fn() }));
 vi.mock('./services/hostsRepair', () => ({ HostsRepairService: fixture.hosts }));
 vi.mock('./services/AiReviewService', () => ({ AiReviewService: class { constructor(vault: unknown) { fixture.aiVaults.push(vault); } cancelAll() {} } }));

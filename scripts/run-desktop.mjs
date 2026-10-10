@@ -32,6 +32,12 @@ allowed.add('test:github-system-proxy');
 allowed.add('test:single-instance');
 allowed.add('test:binary-analysis-ui');
 allowed.add('test:live-binary-analysis');
+allowed.add('test:menu-ui');
+allowed.add('test:project-detail-layout');
+allowed.add('test:release-detail-layout');
+allowed.add('test:search-history-motion');
+allowed.add('test:program-review-notice');
+allowed.add('test:refresh-feedback');
 if (!allowed.has(task)) {
   process.stderr.write('Unknown desktop task.\n');
   process.exit(1);

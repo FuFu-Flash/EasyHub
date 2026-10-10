@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
@@ -35,14 +36,25 @@ export function ReadmeMarkdown({ markdown, repository, onOpenLink }: {
   repository?: ReadmeRepository;
   onOpenLink: (url: string) => void;
 }) {
-  return <div className="intro-markdown readme-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeSanitize]} components={{
-    a: ({ href, children }) => {
-      const target = href ? resolveReadmeUrl(href, repository, false) : null;
-      return <a href={target ?? undefined} onClick={(event) => { event.preventDefault(); if (target) onOpenLink(target); }}>{children}</a>;
-    },
-    img: ({ src, alt, width, height }) => {
-      const target = src ? resolveReadmeUrl(src, repository, true) : null;
-      return target ? <img src={target} alt={alt ?? ''} width={width} height={height} loading="lazy" /> : <span className="readme-missing-image">{alt ?? '图片'}</span>;
-    },
-  }}>{markdown}</ReactMarkdown></div>;
+  const openLink = useRef(onOpenLink);
+  useLayoutEffect(() => { openLink.current = onOpenLink; }, [onOpenLink]);
+  const owner = repository?.owner;
+  const name = repository?.name;
+  const branch = repository?.branch;
+  // Stable component types preserve loaded images and link selections when only
+  // refresh/progress state changes. Link clicks still use the latest handler.
+  const components = useMemo<Components>(() => {
+    const source = owner !== undefined && name !== undefined && branch !== undefined ? { owner, name, branch } : undefined;
+    return {
+      a: ({ href, children }) => {
+        const target = href ? resolveReadmeUrl(href, source, false) : null;
+        return <a href={target ?? undefined} onClick={(event) => { event.preventDefault(); if (target) openLink.current(target); }}>{children}</a>;
+      },
+      img: ({ src, alt, width, height }) => {
+        const target = src ? resolveReadmeUrl(src, source, true) : null;
+        return target ? <img src={target} alt={alt ?? ''} width={width} height={height} loading="lazy" /> : <span className="readme-missing-image">{alt ?? '图片'}</span>;
+      },
+    };
+  }, [owner, name, branch]);
+  return <div className="intro-markdown readme-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeSanitize]} components={components}>{markdown}</ReactMarkdown></div>;
 }
