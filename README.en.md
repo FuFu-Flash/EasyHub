@@ -25,27 +25,53 @@
 
 **Publish your work to GitHub without learning Git commands.**
 
-EasyHub is an open-source **GitHub client** for beginners. Choose a folder, review your changes, and write a short note to publish your source. Create and publish on Windows or macOS; browse projects, reply to issues, and review pull requests on Android.
+EasyHub is an open-source **GitHub client** for beginners. Choose a folder, review your changes, and write a short note to publish your source. Create and publish with the **desktop edition (Windows / macOS)**; browse projects, reply to issues, and review pull requests on Android.
 
 You do not need to install Git or create a separate EasyHub account. Sign in with your own GitHub account when you are ready to publish.
 
-> **中文简介：** EasyHub 是面向新手的开源 GitHub 客户端，提供 Windows、macOS 与 Android 版本，支持发布源码、管理发行版、合并请求审查和可选的 AI 辅助。[阅读中文说明](README.md)。
+> **中文简介：** EasyHub 是面向新手的开源 GitHub 客户端，提供桌面版（Windows / macOS）与 Android 版，支持发布源码、管理发行版、合并请求审查和可选的 AI 辅助。[阅读中文说明](README.md)。
 
-## Download
+## Download and install
 
-**Current versions: Windows 1.2.2 · macOS 1.2.2 · Android 1.1.0.**
+**Current versions: Desktop 1.2.2 · Android 1.1.0.**
 
 | Platform | Edition | Best for | Download |
 | --- | --- | --- | --- |
-| Windows | Installer | Regular use, with installation location and desktop shortcut options | **[Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-setup.exe)** |
-| Windows | Portable | Run directly without installing | **[Download portable](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-portable.exe)** |
-| macOS | 1.2.2 DMG / ZIP | Apple Silicon Macs running macOS 27 or later | **[Download DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [Download ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
+| Desktop (Windows) | Installer | Regular use, with installation location and desktop shortcut options | **[Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-setup.exe)** |
+| Desktop (Windows) | Portable | Run directly without installing | **[Download portable](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-portable.exe)** |
+| Desktop (macOS) | DMG / ZIP | Apple Silicon Macs running macOS 27 or later | **[Download DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [Download ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
 | Android | 1.1.0 ARM64 APK | Most newer Android phones; smaller package | **[Download ARM64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 | Android | 1.1.0 universal APK | ARM32, ARM64, x86, and x86_64 devices and emulators | **[Download universal APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 
 The Windows editions are for 64-bit PCs. The installer detects a previous installation location and selects “Create desktop shortcut” by default. Android requires Android 7.0 or later. The macOS edition requires an Apple Silicon Mac running macOS 27 or later. Open the DMG, drag EasyHub into Applications, and launch it from there.
 
-## Get started in three steps (Windows / macOS)
+<details>
+<summary><strong>macOS must-read: step-by-step installation guide (click to expand)</strong></summary>
+
+The current Mac app uses an **ad hoc signature**, a local developer signature. It **does not use Developer ID signing and has not been notarized by Apple**. macOS may block the first launch. Follow these steps in Finder and System Settings.
+
+### Download and copy to Applications
+
+1. **Check your Mac.** Open the Apple menu  → About This Mac to check the chip and system version. This package is for **Apple Silicon Macs running macOS 27 or later**.
+2. **Download the installer.** Choose **[Download DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** from this repository and wait for it to finish. The DMG is recommended for first-time installation.
+3. **Open the downloaded file.** In Finder → Downloads, double-click `EasyHub-macOS.dmg` and wait for its window to open.
+4. **Copy the app.** Drag the **EasyHub icon into Applications** and wait for copying to finish. For an update, quit EasyHub with `⌘Q` first, then copy and choose Replace. Local project records and sign-in stored in Keychain are preserved.
+5. **Try launching once.** In Finder → Applications, double-click EasyHub. If the home screen opens, installation is complete. If macOS says it cannot verify the developer or check the app, dismiss the message and continue below.
+
+### Allow the first launch if macOS blocks it
+
+6. **Find the app-specific exception.** Open  → System Settings → Privacy & Security and scroll to Security. Find the message about EasyHub. If you trust the copy downloaded from this repository, click Open, then Open Anyway. If Open Anyway is shown directly, click it.
+7. **Confirm and launch.** Enter your **Mac login password** when asked, then choose OK. If a launch confirmation appears, choose Open. Future launches can be made by double-clicking EasyHub in Applications.
+
+**Can't find Open Anyway?** Try opening EasyHub from Applications again, then return to System Settings. The button is generally available for about an hour after a blocked launch. The approval steps follow the [official Apple Mac User Guide](https://support.apple.com/guide/mac-help/open-an-app-by-overriding-security-settings-mh40617/mac).
+
+**If macOS says the app is damaged or will damage your computer**, stop opening it and download a fresh copy from this repository. If the warning remains, report its full text. These warnings differ from an ordinary notarization warning. [Apple's explanation of app alerts](https://support.apple.com/en-us/102445)
+
+Once installed, eject the EasyHub installation disk from Finder's sidebar. If you choose the ZIP, extract it, move EasyHub into Applications, and follow the same first-launch steps.
+
+</details>
+
+## Get started in three steps (desktop edition)
 
 1. **Sign in to GitHub.** Choose “Sign in with GitHub” in settings and authorize the app in your browser.
 2. **Choose a project.** Add an existing local folder, download one of your GitHub repositories, or create a project from a new folder.
@@ -56,15 +82,15 @@ Before publishing, EasyHub checks for new content on GitHub. If the same file ha
 - **Publish source** saves everyday changes to your project files on GitHub.
 - **Publish a release** gives others a downloadable version with a version number, description, and files such as an installer. Preview it before publishing.
 
-Not ready to sign in? Try the simulated Windows projects. **Simulated actions are not uploaded to GitHub and reset when you restart the app.**
+Not ready to sign in? Try the desktop edition's simulated projects. **Simulated actions are not uploaded to GitHub and reset when you restart the app.**
 
 ## AI help for reviews and understanding code
 
 When someone proposes changes, open “Pull request review” to read the description and changed files. Use “AI review” for a summary, potential issues, and suggestions. **You decide whether to approve and merge, or reject and close.**
 
 - **Review code changes:** inspect added and removed lines, download changed files, and optionally ask AI what deserves attention.
-- **Select code for an explanation:** on Windows, select code in local changes or a pull request and choose “Explain with AI.” The explanation follows the app's language setting.
-- **Review program files:** Windows can also inspect files such as EXE and DLL to help explain what a program may do. Ordinary code reviews need no extra components.
+- **Select code for an explanation:** in the desktop edition, select code in local changes or a pull request and choose “Explain with AI.” The explanation follows the app's language setting.
+- **Review program files:** the desktop edition can also inspect files such as EXE and DLL to help explain what a program may do. Ordinary code reviews need no extra components.
 
 AI is optional. Publishing source and managing projects do not require an AI service.
 
@@ -77,7 +103,7 @@ Before a review, EasyHub identifies the service and content to be sent. It sends
 
 Program file reviews require optional components on first use; their download size is shown beforehand. EasyHub reads the file on your computer and extracts parts of its logic, text, and referenced functions. After confirmation, it sends that information to your chosen AI service. You can inspect local files, pull request files, or release attachments.
 
-On Windows, once the components are installed, program files and code changes in a pull request are reviewed together in one report. If the components are missing, EasyHub shows a reminder that you can permanently dismiss and restore in settings.
+In the desktop edition, once the components are installed, program files and code changes in a pull request are reviewed together in one report. If the components are missing, EasyHub shows a reminder that you can permanently dismiss and restore in settings.
 
 Temporary review files are cleaned up after completion, failure, or cancellation. Files left by an unexpected exit are cleaned up on the next launch. Downloads you choose to save are kept.
 
@@ -90,7 +116,7 @@ Android 1.1.0 reviews text changes and decompiles program files locally. Downloa
 </details>
 
 <details>
-<summary><strong>More Windows features</strong></summary>
+<summary><strong>More desktop features</strong></summary>
 
 **Manage your work**
 
@@ -115,7 +141,7 @@ Android 1.1.0 reviews text changes and decompiles program files locally. Downloa
 - View download progress, speed, and remaining time in notifications. Pause, resume, or retry file downloads, then open the file or its folder.
 - Go back through browsing history and resume your previous view after switching pages.
 - Choose automatic, comfortable, or compact layouts in settings. Check for updates in “About.”
-- Enable the system proxy if GitHub connectivity is poor. Existing proxies are reused first; browsers that follow Windows proxy settings can also use it to access GitHub.
+- Enable the system proxy if GitHub connectivity is poor. Existing proxies are reused first; browsers that follow system proxy settings can also use it to access GitHub.
 - The bell counts unread notifications and clears the count when viewed. New activity and download results notify you again.
 
 </details>
@@ -142,7 +168,7 @@ Data screens offer pull to refresh with the native blue Android spinner while pr
 
 **Can I use it without a GitHub account?**
 
-Try the simulated Windows projects first. Saving to GitHub, replying to other users, or publishing releases requires your own GitHub account.
+Try the desktop edition's simulated projects first. Saving to GitHub, replying to other users, or publishing releases requires your own GitHub account.
 
 **Do I have to configure AI?**
 

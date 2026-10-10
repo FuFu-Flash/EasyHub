@@ -25,27 +25,53 @@
 
 **不会 Git 命令，也能把作品发到 GitHub。**
 
-EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看改动、写一句说明，就能发布源码。用 Windows 或 macOS 版创作和发布，用 Android 版随时浏览项目、回复问题和审查合并请求。
+EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看改动、写一句说明，就能发布源码。用**桌面版（Windows / macOS）**创作和发布，用 Android 版随时浏览项目、回复问题和审查合并请求。
 
 不需要安装 Git，也不需要另外注册 EasyHub 账号；真正发布时，使用自己的 GitHub 账号登录即可。
 
-> **English overview:** An open-source GitHub client for Windows, macOS, and Android. Publish code, manage releases, review pull requests, and get optional AI assistance. [Read the English guide](README.en.md).
+> **English overview:** An open-source GitHub client with desktop (Windows / macOS) and Android editions. Publish code, manage releases, review pull requests, and get optional AI assistance. [Read the English guide](README.en.md).
 
-## 下载
+## 下载与安装
 
-**当前版本：Windows 1.2.2 · macOS 1.2.2 · Android 1.1.0。**
+**当前版本：桌面版 1.2.2 · Android 版 1.1.0。**
 
 | 平台 | 版本 | 适合谁 | 下载 |
 | --- | --- | --- | --- |
-| Windows | 安装版 | 长期使用，可选择安装位置和桌面快捷方式 | **[下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-setup.exe)** |
-| Windows | 便携版 | 不想安装，下载后直接运行 | **[下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-portable.exe)** |
-| macOS | 1.2.2 DMG 镜像 / ZIP | Apple 芯片 Mac，macOS 27 或以上 | **[下载 DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [下载 ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
+| 桌面版（Windows） | 安装版 | 长期使用，可选择安装位置和桌面快捷方式 | **[下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-setup.exe)** |
+| 桌面版（Windows） | 便携版 | 不想安装，下载后直接运行 | **[下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-portable.exe)** |
+| 桌面版（macOS） | DMG 镜像 / ZIP | Apple 芯片 Mac，macOS 27 或以上 | **[下载 DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [下载 ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
 | Android | 1.1.0 ARM64 安装包 | 适合大多数较新的 Android 手机，安装包更小 | **[下载 ARM64 包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 | Android | 1.1.0 通用安装包 | ARM32、ARM64、x86、x86_64 设备与模拟器 | **[下载通用包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 
 Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，“创建桌面快捷方式”默认勾选。Android 版适用于 Android 7.0 及以上。macOS 版适用于 Apple 芯片 Mac，要求 macOS 27 或以上。打开 DMG，把 EasyHub 拖入 Applications，再从“应用程序”启动。
 
-## 三步上手（Windows / macOS）
+<details>
+<summary><strong>macOS 必看：保姆级安装指南（点击展开）</strong></summary>
+
+当前 Mac 安装包使用 **ad hoc 签名**，也就是开发者的本地签名，**尚未使用 Developer ID 签名，也未通过 Apple 公证**。首次打开可能被系统拦截。下面按顺序操作，全程在访达和系统设置中完成。
+
+### 先下载并放进“应用程序”
+
+1. **确认电脑支持。** 点击屏幕左上角的苹果菜单  →“关于本机”，查看芯片和系统版本。当前安装包适用于 **Apple 芯片 Mac，macOS 27 或以上**。
+2. **下载安装包。** 点击本仓库的 **[下载 DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)**，等待下载完成。第一次安装推荐使用 DMG。
+3. **打开下载的文件。** 在“访达”的“下载”文件夹里，双击 `EasyHub-macOS.dmg`，等安装窗口打开。
+4. **拖入应用程序。** 将窗口里的 **EasyHub 图标拖到 Applications（应用程序）文件夹**，等复制完成。更新旧版时，先按 `⌘Q` 完整退出 EasyHub，再复制并选择替换；本机项目记录和钥匙串中的登录会保留。
+5. **尝试打开一次。** 在访达中进入“应用程序”，双击 EasyHub。若已经进入主页，安装完成；若提示无法验证开发者或 Apple 无法检查该 App，先关闭这条提示，继续下面的步骤。
+
+### 首次被拦截时，允许打开 EasyHub
+
+6. **找到系统的允许入口。** 点击  →“系统设置”→“隐私与安全”（有些界面显示“隐私与安全性”），向下找到“安全性”区域及 EasyHub 的拦截提示。确认打开的是本仓库下载的 EasyHub 后，点击“打开”，再点击“仍要打开”；如果界面直接显示“仍要打开”，点击它即可。
+7. **完成确认并启动。** 按系统提示输入你的 **Mac 登录密码**，点击“好”；如果再次出现打开确认，点击“打开”。以后从“应用程序”双击 EasyHub 即可。
+
+**找不到“仍要打开”？** 先回到“应用程序”双击 EasyHub，让系统产生一次拦截提示，再回到系统设置。这个入口通常在尝试打开后一小时内可用。上述允许流程参考 [Apple 官方 macOS 使用手册](https://support.apple.com/zh-cn/guide/mac-help/mh40617/mac)。
+
+**如果提示“已损坏”或“将损坏你的电脑”**，先停止打开，从本仓库重新下载安装包；仍有提示时，请反馈完整报错。这类提示与普通的未公证提示不同。[Apple 对各类提示的说明](https://support.apple.com/zh-cn/102445)
+
+安装完成后，可在访达侧栏弹出 EasyHub 的安装磁盘。选择 ZIP 的用户，先解压，再把 EasyHub 拖入“应用程序”，按上面的首次打开步骤操作。
+
+</details>
+
+## 三步上手（桌面版）
 
 1. **登录 GitHub。** 在设置中选择“使用 GitHub 登录”，在浏览器中完成授权。
 2. **选择项目。** 添加电脑上的已有文件夹，下载自己的云端项目，或从新文件夹创建项目。
@@ -63,8 +89,8 @@ Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，�
 收到别人提交的改进后，在“合并请求审查”中查看说明和修改文件，按需点击“AI 审查”。AI 会提供摘要、可能存在的问题和修改建议；**批准并合入，还是拒绝并关闭，由你决定。**
 
 - **审查代码改动**：查看新增和删除的代码，下载修改文件自行检查，也可以让 AI 帮你找出需要关注的地方。
-- **框选代码，详细说明**：Windows 版支持选中本地修改或合并请求中的代码，点击“让 AI 详细说明”，解释语言跟随客户端设置。
-- **审查程序文件**：Windows 版还可按需检查 EXE、DLL 等文件，帮助了解程序可能做什么。普通代码审查无需安装额外组件。
+- **框选代码，详细说明**：桌面版支持选中本地修改或合并请求中的代码，点击“让 AI 详细说明”，解释语言跟随客户端设置。
+- **审查程序文件**：桌面版还可按需检查 EXE、DLL 等文件，帮助了解程序可能做什么。普通代码审查无需安装额外组件。
 
 AI 审查是可选功能。不配置 AI 服务，也能正常发布源码和管理项目。
 
@@ -77,7 +103,7 @@ AI 审查是可选功能。不配置 AI 服务，也能正常发布源码和管�
 
 程序文件审查首次使用时需要安装可选组件，下载大小会提前显示。EasyHub 先在电脑上读取文件，提取部分程序逻辑、文字和调用信息，再经你确认交给所选 AI 服务分析。可以检查电脑上的文件、合并请求里的文件或发行版附件。
 
-Windows 版安装组件后，合并请求里的程序文件会与代码改动一起审查，结果汇总在同一份报告中。未安装时会给出提示，可永久忽略，也可在设置中重新开启。
+桌面版安装组件后，合并请求里的程序文件会与代码改动一起审查，结果汇总在同一份报告中。未安装时会给出提示，可永久忽略，也可在设置中重新开启。
 
 审查用的临时文件会在完成、失败或取消后清理；异常退出留下的临时文件会在下次启动时清理。你主动保存的下载文件会保留。
 
@@ -90,7 +116,7 @@ Android 1.1.0 支持文字改动审查和本机程序文件审查。Java/Dalvik 
 </details>
 
 <details>
-<summary><strong>Windows 版还可以做什么</strong></summary>
+<summary><strong>桌面版还可以做什么</strong></summary>
 
 **管理自己的作品**
 
@@ -115,7 +141,7 @@ Android 1.1.0 支持文字改动审查和本机程序文件审查。Java/Dalvik 
 - 通知里查看下载进度、速度和剩余时间，暂停、继续或重试文件下载；完成后打开文件或所在文件夹。
 - 返回时逐级恢复浏览历史，切换页面后也能继续之前的浏览。
 - 设置里选择“自动适配”“舒适”或“紧凑”布局，在“关于”中检查更新。
-- GitHub 连接不顺畅时，可启用系统代理。已有代理时优先复用；使用 Windows 系统代理设置的浏览器也可通过它访问 GitHub。
+- GitHub 连接不顺畅时，可启用系统代理。已有代理时优先复用；遵循系统代理设置的浏览器也可通过它访问 GitHub。
 - 铃铛显示未读通知数量，打开查看后清零，新的待办变化和下载结果会重新提醒。
 
 </details>
@@ -142,7 +168,7 @@ APK、DEX、JAR、CLASS 和 EXE、DLL、SO、ELF、Mach-O 可配合合并请求�
 
 **没有 GitHub 账号能用吗？**
 
-可以先体验 Windows 版的模拟项目。真正保存到 GitHub、回复他人或发布版本时，需要自己的 GitHub 账号。
+可以先体验桌面版的模拟项目。真正保存到 GitHub、回复他人或发布版本时，需要自己的 GitHub 账号。
 
 **一定要配置 AI 吗？**
 
