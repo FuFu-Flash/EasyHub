@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
+import electronPath from 'electron';
 
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
 const outputDirectory = join(desktopDirectory, 'out', 'release-detail-layout-smoke');
