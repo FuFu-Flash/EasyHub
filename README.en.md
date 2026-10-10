@@ -16,14 +16,14 @@ EasyHub is a beginner-friendly, open-source **GitHub client for Windows desktop 
 
 [Visit the EasyHub website](https://fufu-flash.github.io/easyhub-website/) · [View all releases](https://github.com/FuFu-Flash/EasyHub/releases)
 
-**The latest Windows version is 1.2.0, and the Android version is 1.0.0.** An iOS version is not yet available.
+**The latest Windows version is 1.2.1, and the Android version is 1.0.0.** An iOS version is not yet available.
 
 ## Download EasyHub
 
 | Platform | Edition | Best for | Download |
 | --- | --- | --- | --- |
-| Windows | Installer | Regular use; choose the installation folder and whether to create a desktop shortcut during setup | [Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-setup.exe) |
-| Windows | Portable | Running directly after downloading, without installation | [Download portable edition](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-portable.exe) |
+| Windows | Installer | Regular use; choose the installation folder and whether to create a desktop shortcut during setup | [Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-setup.exe) |
+| Windows | Portable | Running directly after downloading, without installation | [Download portable edition](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-portable.exe) |
 | Android | Smaller package | Most newer Android phones | [Download Android package](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-arm64.apk) |
 | Android | Universal package | Try this if the smaller package will not install | [Download universal package](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk) |
 
@@ -122,4 +122,4 @@ Before each AI review, EasyHub asks for your consent. Once you confirm, the cont
 
 “Explain with AI” sends only the selected code and filename after confirmation. The explanation does not change project files or publish anything to GitHub.
 
-EasyHub is licensed under [GNU GPLv3](LICENSE).
+EasyHub is licensed under the [Apache License 2.0](LICENSE). Third-party components retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).

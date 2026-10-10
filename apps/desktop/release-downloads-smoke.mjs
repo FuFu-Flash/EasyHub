@@ -38,7 +38,8 @@ const releases = Array.from({ length: 30 }, (_, index) => ({
       content_type: 'application/octet-stream', download_count: 0, state: 'new' },
   ],
 }));
-const metrics = window.releaseDownloadsTest = { downloads: [], translations: [], cancelled: [], edits: [], reads: [] };
+const metrics = window.releaseDownloadsTest = { downloads: [], translations: [], cancelled: [], edits: [], reads: [], uploads: [], removals: [] };
+const selectedFiles = [{ id: '00000000-0000-0000-0000-000000000001', name: 'first.zip', size: 7, mimeType: 'application/zip' }, { id: '00000000-0000-0000-0000-000000000002', name: 'second.zip', size: 7, mimeType: 'application/zip' }];
 const htmlBody = '<details><summary>English</summary>\\n\\nEnglish notes with [guide](docs/guide.md).\\n\\n</details>\\n\\n[Older release](https://github.com/tester/long-notes/releases/tag/older%2F0.1)\\n\\n<script>window.unsafeRelease = true</script><img src="x" onerror="window.unsafeRelease = true" />';
 if (query.has('html')) releases[0].body = htmlBody;
 const olderRelease = { ...releases[0], id: 99, tag_name: 'older/0.1', name: 'Older release' };
@@ -62,6 +63,19 @@ window.easyHub = {
   translateContent: async (request) => { metrics.translations.push(request); return 'Translated:\\n\\n' + request.text; },
   cancelTranslation: async (id) => { metrics.cancelled.push(id); },
   onReleaseProgress: () => () => {},
+  chooseReleaseFiles: async () => selectedFiles,
+  addReleaseAssets: async (request) => {
+    metrics.uploads.push(request);
+    if (query.has('uploadHold')) await new Promise((resolve) => { metrics.resolveUpload = resolve; });
+    const release = releases.find((item) => item.id === request.releaseId);
+    const append = (file) => { if (!release.assets.some((asset) => asset.name === file.name)) release.assets.push({ id: 700 + selectedFiles.indexOf(file), name: file.name, size: 7, state: 'uploaded', content_type: 'application/zip', download_count: 0 }); };
+    if (query.has('uploadRetry') && metrics.uploads.length === 1) {
+      append(selectedFiles[0]);
+      return { status: 'failed', error: 'Second file failed. Retry unfinished files.', completedAssetIds: [selectedFiles[0].id], remainingAssetIds: [selectedFiles[1].id], retryable: true, release: { ...release } };
+    }
+    request.assetIds.map((id) => selectedFiles.find((file) => file.id === id)).forEach(append);
+    return { ...release };
+  },
   editRelease: async (request) => {
     metrics.edits.push(request);
     const release = releases.find((item) => item.id === request.releaseId);
@@ -78,7 +92,12 @@ createRoot(document.getElementById('root')).render(createElement(
     query.has('new') ? createElement(ReleaseEditor, {
       project: { name: 'Example', health: 'saved', releases: [] }, language: 'zh', busy: false,
       imageSources: {}, onRegisterInlineImage: () => {}, onPublish: () => {}, onBack: () => {},
-      onOpenUpdate: () => {}, onOpenLink: () => {},
+      onOpenUpdate: () => {}, onOpenLink: (url) => { (metrics.links ??= []).push(url); },
+      onChooseFiles: query.has('resume') ? async () => selectedFiles : undefined,
+      failure: query.has('residual') ? { status: 'failed', error: '发布失败，且未能清理 GitHub 上的草稿。', completedAssetIds: [], remainingAssetIds: [], retryable: false,
+        residualDraft: { id: 100, title: 'Example release', tagName: 'v0.01', url: 'https://github.com/tester/long-notes/releases', retainedForRetry: false } } : query.has('resume') ? {
+        status: 'failed', error: 'Retry remaining files.', completedAssetIds: [selectedFiles[0].id], remainingAssetIds: [selectedFiles[1].id], retryable: true,
+        residualDraft: { id: 100, title: 'Example release', tagName: 'v0.01', url: 'https://github.com/tester/long-notes/releases', retainedForRetry: true } } : undefined,
     }) : createElement(ReleaseDownloads, {
       repo, onBack: () => {}, onDownload: (request) => metrics.downloads.push(request),
       downloadBusy: query.has('busy'), offerAdd: query.has('offerAdd'), focusTag: query.get('focus') || undefined,
@@ -285,6 +304,44 @@ try {
   await downloads.getByRole('button', { name: '重试', exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll('.release-download-card:not(.release-source-card)').length === 31);
   assert.equal(await downloads.getByRole('alert').count(), 0);
+  await page.goto(baseUrl + '?edit&uploadRetry');
+  await editor.waitFor();
+  await editor.getByRole('button', { name: '选择文件', exact: true }).click();
+  await editor.getByRole('button', { name: '上传 2 个文件', exact: true }).click();
+  await editor.getByRole('button', { name: '重试 1 个未完成文件', exact: true }).waitFor();
+  assert.deepEqual(await editor.locator('.release-edit-assets > .release-edit-asset').evaluateAll((rows) => rows.filter((row) => row.textContent.includes('取消选择')).map((row) => row.querySelector('span').textContent)), ['second.zip']);
+  await editor.getByRole('button', { name: '重试 1 个未完成文件', exact: true }).click();
+  await editor.getByText('文件已添加到这个版本。', { exact: true }).waitFor();
+  assert.deepEqual(await page.evaluate(() => window.releaseDownloadsTest.uploads.map((request) => request.assetIds)), [
+    ['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002'],
+    ['00000000-0000-0000-0000-000000000002'],
+  ]);
+  await page.goto(baseUrl + '?edit&uploadHold');
+  await editor.waitFor();
+  await editor.getByRole('button', { name: '选择文件', exact: true }).click();
+  await editor.getByRole('button', { name: '上传 2 个文件', exact: true }).evaluate((button) => { button.click(); button.click(); });
+  await page.waitForFunction(() => Boolean(window.releaseDownloadsTest.resolveUpload));
+  assert.equal(await page.evaluate(() => window.releaseDownloadsTest.uploads.length), 1, 'Repeated clicks must not create concurrent uploads');
+  assert.equal(await editor.getByRole('button', { name: '保存版本介绍', exact: true }).isEnabled(), false);
+  assert.equal(await editor.getByRole('button', { name: '关闭编辑', exact: true }).isEnabled(), false);
+  assert.equal(await cards.first().getByRole('button', { name: '收起编辑', exact: true }).isEnabled(), false);
+  await page.evaluate(() => window.releaseDownloadsTest.resolveUpload());
+  await editor.getByText('文件已添加到这个版本。', { exact: true }).waitFor();
+  await page.goto(baseUrl + '?new&residual');
+  await page.getByRole('textbox', { name: '版本介绍', exact: true }).fill('Release notes');
+  await page.getByRole('button', { name: '预览发布效果', exact: true }).click();
+  await page.getByTestId('release-recovery').waitFor();
+  assert.match(await page.getByTestId('release-recovery').innerText(), /Example release · v0.01/);
+  assert.equal(await page.getByRole('button', { name: '确认发布新版本', exact: true }).isEnabled(), false, 'An uncleaned draft must not trigger another publication');
+  await page.getByRole('button', { name: '查看 GitHub 草稿', exact: true }).click();
+  assert.deepEqual(await page.evaluate(() => window.releaseDownloadsTest.links), ['https://github.com/tester/long-notes/releases']);
+  await page.goto(baseUrl + '?new&resume');
+  await page.getByRole('button', { name: '添加文件', exact: false }).click();
+  await page.getByRole('button', { name: '移除 first.zip', exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: '移除 first.zip', exact: true }).isEnabled(), false, 'Confirmed draft attachments must stay selected during resume');
+  assert.equal(await page.getByRole('button', { name: '移除 second.zip', exact: true }).isEnabled(), true, 'Unfinished files can still be edited');
+  assert.equal(await page.getByRole('textbox', { name: '版本号', exact: true }).isEnabled(), false, 'Resume must keep the original draft version');
+  assert.equal(await page.getByRole('button', { name: 'Alpha 测试版', exact: true }).isEnabled(), false);
   assert.deepEqual(regressions, [], 'Release feature regressions');
   assert.deepEqual(errors, []);
   console.log('Release download component regression checks passed.');

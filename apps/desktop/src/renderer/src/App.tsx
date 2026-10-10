@@ -34,6 +34,11 @@ import { ProfileMenu } from './components/ProfileMenu';
 import { LayoutSettingsPanel } from './components/LayoutSettingsPanel';
 import { AppUpdatePanel } from './components/AppUpdatePanel';
 import { useLayoutPreference } from './layoutPreferences';
+import { NavigationPages } from './components/NavigationPages';
+import { SearchEmptyState } from './components/SearchEmptyState';
+import { useDialogFocus } from './components/useDialogFocus';
+import { usePageScroll } from './usePageScroll';
+import { usePageHistory } from './usePageHistory';
 
 type Route =
   | { name: 'home' }
@@ -69,7 +74,7 @@ function readWindowControlStyle(): WindowControlStyle {
 }
 
 const statusText: Record<ProjectHealth, string> = {
-  saved: '已保存到 GitHub',
+  saved: '演示已保存 · 未上传到 GitHub',
   changes: '有尚未发布的修改',
   remote: 'GitHub 上有新内容',
 };
@@ -146,19 +151,50 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
   const [reply, setReply] = useState('');
   const [introEditProjectId, setIntroEditProjectId] = useState<string | null>(null);
   const [imageSources, setImageSources] = useState<Record<string, string>>({});
+  const [pageRevisions, setPageRevisions] = useState<Record<string, number>>({});
   const operation = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const appRoot = useRef<HTMLDivElement>(null);
   const scrollArea = useRef<HTMLDivElement>(null);
   const languageMenu = useRef<HTMLDivElement>(null);
   const localizer = useRef(createDomLocalizer());
+  const downloadDialog = useRef<HTMLDivElement>(null);
+  useDialogFocus(Boolean(downloadTarget), downloadDialog, () => setDownloadTarget(null), {
+    fallbackFocus: () => appRoot.current?.querySelector<HTMLElement>('.sidebar-nav button.active') ?? null,
+  });
+  const activeNav = route.name === 'issues' || route.name === 'issue' ? 'issues'
+    : route.name === 'settings' ? 'settings'
+      : ['projects', 'project', 'publish', 'new-project', 'new-release', 'release', 'history', 'version', 'download', 'add-folder'].includes(route.name) ? 'projects' : 'home';
+  const rememberPage = usePageScroll(`${JSON.stringify(route)}:${route.name === 'projects' ? `${projectTab}:${search}` : ''}`, scrollArea);
+  const navigationSnapshots = useRef(new Map<string, () => void>());
+  const routeKey = JSON.stringify(route);
+  const pageHistory = usePageHistory(routeKey, () => {
+    setRoute(route); setSearch(search); setProjectTab(projectTab); setIssueFilter(issueFilter); setExpandedIssueProjects(expandedIssueProjects);
+    setAccountReturnRoute(accountReturnRoute); setDraftMessage(draftMessage); setReply(reply);
+    setNewName(newName); setNewDescription(newDescription); setNewVisibility(newVisibility); setNewFolder(newFolder); setExistingFolder(existingFolder);
+    setNewIssueProject(newIssueProject); setNewIssueTitle(newIssueTitle); setNewIssueBody(newIssueBody); setShowIssueForm(showIssueForm);
+  });
+
+  function goBack(fallback: Route): void {
+    rememberPage();
+    pageHistory.back(() => navigate(fallback));
+  }
+
+  function navigateSidebar(next: 'home' | 'projects' | 'issues' | 'settings'): void {
+    if (next === activeNav) { rememberPage(); setRoute({ name: next } as Route); return; }
+    rememberPage();
+    navigationSnapshots.current.set(activeNav, () => {
+      setRoute(route); setSearch(search); setProjectTab(projectTab); setIssueFilter(issueFilter); setExpandedIssueProjects(expandedIssueProjects);
+    });
+    const restore = navigationSnapshots.current.get(next);
+    if (restore) restore();
+    else { setRoute({ name: next } as Route); setSearch(''); }
+  }
 
   useLayoutEffect(() => {
     if (appRoot.current) localizer.current.apply(appRoot.current, language);
     document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
   });
-
-  useLayoutEffect(() => { scrollArea.current?.scrollTo(0, 0); }, [route]);
 
   useEffect(() => {
     const root = appRoot.current;
@@ -194,18 +230,25 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
 
   useLayoutEffect(() => {
     const area = scrollArea.current;
-    const content = area?.querySelector('.page-content');
-    if (!area || !content) return;
+    if (!area) return;
     const update = (): void => setCanScrollDown(area.scrollTop + area.clientHeight < area.scrollHeight - 3);
     const observer = new ResizeObserver(update);
-    observer.observe(area);
-    observer.observe(content);
-    area.addEventListener('scroll', update, { passive: true });
-    update();
-    return () => {
-      observer.disconnect();
-      area.removeEventListener('scroll', update);
+    let content: Element | null = null;
+    const watchContent = (): void => {
+      const next = area.querySelector('.page-content');
+      if (next !== content) {
+        if (content) observer.unobserve(content);
+        content = next;
+        if (content) observer.observe(content);
+      }
+      update();
     };
+    observer.observe(area);
+    const pages = new MutationObserver(watchContent);
+    pages.observe(area, { childList: true, subtree: true });
+    area.addEventListener('scroll', update, { passive: true });
+    watchContent();
+    return () => { pages.disconnect(); observer.disconnect(); area.removeEventListener('scroll', update); };
   }, [route, data, language]);
 
   useEffect(() => {
@@ -250,10 +293,16 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
     .slice(0, 4);
 
   function navigate(next: Route): void {
+    rememberPage();
     setRoute(next);
     if (next.name === 'issues') setExpandedIssueProjects(next.projectId ? [next.projectId] : []);
     setSearch('');
-    scrollArea.current?.scrollTo(0, 0);
+  }
+
+  function finishOperationPage(next: Route): void {
+    // Completed forms must start fresh when opened again, and must not be a Back target.
+    setPageRevisions((current) => ({ ...current, [routeKey]: (current[routeKey] ?? 0) + 1 }));
+    pageHistory.replace(() => navigate(next));
   }
 
   function openReleaseLink(url: string): void {
@@ -265,8 +314,8 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
     runOperation('正在发布演示新版本', () => {
       const result = publishRelease(data, projectId, input);
       setData(result.state);
-      navigate({ name: 'release', projectId, releaseId: result.release.id });
-    }, '新版本已发布（演示）');
+      finishOperationPage({ name: 'release', projectId, releaseId: result.release.id });
+    }, '演示新版本已生成 · 未上传到 GitHub');
   }
 
   function beginEditIntroduction(item: Project): void {
@@ -290,7 +339,14 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
     setData(next);
     if (action === 'delete') {
       if (newIssueProject === projectId) setNewIssueProject(next.projects[0]?.id ?? '');
-      navigate({ name: 'projects' });
+      pageHistory.prune((key) => {
+        const page = JSON.parse(key) as Route;
+        if ('projectId' in page && page.projectId === projectId) return false;
+        return page.name !== 'issue' || next.issues.some((item) => item.id === page.issueId);
+      });
+      navigationSnapshots.current.delete('projects');
+      navigationSnapshots.current.delete('issues');
+      pageHistory.replace(() => navigate({ name: 'projects' }));
     }
     const messages: Record<DangerAction, string> = {
       visibility: '项目可见性已更改（演示）',
@@ -353,7 +409,7 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
     runOperation('正在创建演示项目', () => {
       const result = createProject(data, { name: newName, description: newDescription, visibility: newVisibility, localPath: newFolder });
       setData(result.state);
-      navigate({ name: 'project', projectId: result.project.id });
+      finishOperationPage({ name: 'project', projectId: result.project.id });
       setNewName(''); setNewDescription(''); setNewFolder('');
     }, '项目创建成功（演示）');
   }
@@ -365,7 +421,7 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
       const result = createProject(data, { name, description: '从现有文件夹添加的项目', visibility: 'private', localPath: existingFolder });
       setData(result.state);
       setExistingFolder('');
-      navigate({ name: 'project', projectId: result.project.id });
+      finishOperationPage({ name: 'project', projectId: result.project.id });
     }, '项目已添加（演示）');
   }
 
@@ -377,8 +433,8 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
     runOperation('正在发布演示更新', () => {
       setData((current) => publishUpdate(current, projectId, draftMessage));
       setDraftMessage('');
-      navigate({ name: 'history', projectId });
-    }, '发布成功（演示）');
+      finishOperationPage({ name: 'history', projectId });
+    }, '演示更新已保存 · 未上传到 GitHub');
   }
 
   function handleHomePublish(event: FormEvent<HTMLFormElement>): void {
@@ -390,7 +446,7 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
     runOperation('正在发布演示更新', () => {
       setData((current) => publishUpdate(current, projectId, message));
       setDraftMessage('');
-    }, '发布成功（演示）');
+    }, '演示更新已保存 · 未上传到 GitHub');
   }
 
   function handleCreateIssue(event: FormEvent<HTMLFormElement>): void {
@@ -456,17 +512,13 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
     </button>;
   }
 
-  const activeNav = route.name === 'issues' || route.name === 'issue' ? 'issues'
-    : route.name === 'settings' ? 'settings'
-      : ['projects', 'project', 'publish', 'new-release', 'release', 'history', 'version', 'download', 'add-folder'].includes(route.name) ? 'projects' : 'home';
-
   return <div className="app-shell" data-layout-preference={layout.preference} data-layout={layout.density} ref={appRoot}>
     <aside className="sidebar">
       <nav className="sidebar-nav" aria-label="主导航">
-        <button className={activeNav === 'home' ? 'active' : ''} onClick={() => navigate({ name: 'home' })}><Home size={19} />首页</button>
-        <button className={activeNav === 'projects' ? 'active' : ''} onClick={() => navigate({ name: 'projects' })}><Folder size={19} />我的项目</button>
-        <button className={activeNav === 'issues' ? 'active' : ''} onClick={() => navigate({ name: 'issues' })}><MessageCircle size={19} />问题 <span className="nav-count">{openIssueCount}</span></button>
-        <button className={activeNav === 'settings' ? 'active' : ''} onClick={() => navigate({ name: 'settings' })}><Settings2 size={19} />设置</button>
+        <button className={activeNav === 'home' ? 'active' : ''} onClick={() => navigateSidebar('home')}><Home size={19} />首页</button>
+        <button className={activeNav === 'projects' ? 'active' : ''} onClick={() => navigateSidebar('projects')}><Folder size={19} />我的项目</button>
+        <button className={activeNav === 'issues' ? 'active' : ''} onClick={() => navigateSidebar('issues')}><MessageCircle size={19} />问题 <span className="nav-count">{openIssueCount}</span></button>
+        <button className={activeNav === 'settings' ? 'active' : ''} onClick={() => navigateSidebar('settings')}><Settings2 size={19} />设置</button>
       </nav>
       <div className="sidebar-bottom"><span className="sidebar-demo"><span />{demoOnly ? '演示版 · 不连接 GitHub' : '演示模式 · 未连接 GitHub'}</span></div>
     </aside>
@@ -491,7 +543,7 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
             </div>}
           </div>
           <DemoNotifications activity={demoNotices} />
-          <button className="icon-button" aria-label="设置" onClick={() => navigate({ name: 'settings' })}><Settings2 size={20} /></button>
+          <button className="icon-button" aria-label="设置" onClick={() => navigateSidebar('settings')}><Settings2 size={20} /></button>
           <ProfileMenu avatar={language === 'en' ? 'Y' : '你'} name={language === 'en' ? 'You · Demo' : '你 · 演示账户'}
             onProfile={() => { setAccountReturnRoute(route); navigate({ name: 'profile' }); }}
             onStarred={() => { setAccountReturnRoute(route); navigate({ name: 'starred' }); }} />
@@ -504,7 +556,9 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
           </div>
         )}
       </header>
-      <main className={`page-content${route.name === 'home' ? ' page-with-footer' : ''}`}><div className="v2-page-transition" key={route.name}>
+      <NavigationPages active={`${routeKey}:${pageRevisions[routeKey] ?? 0}`}><main className={`page-content${route.name === 'home' ? ' page-with-footer' : ''}`}><div className="v2-page-transition" key={route.name}>
+        {pageHistory.hasBack && ['home', 'projects', 'issues', 'settings'].includes(route.name) && <button className="back-link" onClick={() => goBack({ name: 'home' })}><ArrowLeft size={17} />返回</button>}
+        <p className="demo-mode-notice" role="note"><Info size={16} /><span>{language === 'en' ? 'Demo mode · Not uploaded to GitHub. Demo projects and changes reset when EasyHub restarts.' : '演示模式 · 未上传到 GitHub。演示项目和修改会在重启 EasyHub 后重置。'}</span></p>
         {route.name === 'home' && <>
           <DashboardIntro projectCount={data.projects.length} unpublishedCount={localProjects.reduce((total, item) => total + item.changedFiles.length, 0)} pendingCount={openIssueCount} projectName={pendingProject?.name} onCreate={() => navigate({ name: 'new-project' })} onContinue={() => navigate(pendingProject ? { name: 'publish', projectId: pendingProject.id } : { name: 'projects' })} />
           {pendingProject ? <form className="home-publish" onSubmit={handleHomePublish}><ProjectLogo project={pendingProject} /><div className="home-publish-content"><strong>{pendingProject.name} 有 {pendingProject.changedFiles.length} 个文件发生变化</strong><label htmlFor="home-update-message">这次改了什么？</label><div className="home-publish-controls"><input id="home-update-message" value={draftMessage} onChange={(event) => setDraftMessage(event.target.value)} placeholder="例如：修复窗口缩放问题" maxLength={120} /><button className="button button-primary" type="submit" disabled={Boolean(busy)}><Send size={17} />发布更新</button></div></div><button className="icon-button home-publish-detail" type="button" aria-label="查看修改" onClick={() => navigate({ name: 'publish', projectId: pendingProject.id })}><ChevronRight size={20} /></button></form> : <div className="home-all-saved"><CheckCircle2 size={20} />目前没有尚未发布的修改。<button onClick={() => navigate({ name: 'projects' })}>查看项目 <ArrowRight size={16} /></button></div>}
@@ -513,57 +567,58 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
         </>}
 
         {route.name === 'profile' && <div className="starred-projects-page">
-          <button className="back-link" onClick={() => navigate(accountReturnRoute)}><ArrowLeft size={17} />返回</button>
+          <button className="back-link" onClick={() => goBack(accountReturnRoute)}><ArrowLeft size={17} />返回</button>
           <div className="page-header"><div><div className="eyebrow">个人空间</div><h1>个人资料</h1><p>这里展示当前账户的项目与收藏。</p></div></div>
           <section className="panel demo-profile-card"><span className="demo-profile-avatar">{language === 'en' ? 'Y' : '你'}</span><div><h2>演示账户</h2><p>当前使用演示数据。连接 GitHub 后，这里会显示真实头像和贡献记录。</p><button className="text-link" onClick={() => navigate({ name: 'starred' })}>查看我收藏的项目 <ArrowRight size={16} /></button></div></section>
         </div>}
 
         {route.name === 'starred' && <div className="starred-projects-page">
-          <button className="back-link" onClick={() => navigate(accountReturnRoute)}><ArrowLeft size={17} />返回</button>
+          <button className="back-link" onClick={() => goBack(accountReturnRoute)}><ArrowLeft size={17} />返回</button>
           <div className="page-header"><div><div className="eyebrow">你的收藏</div><h1>我收藏的项目</h1><p>这里会显示你收藏的项目。当前使用演示数据。</p></div><span className="starred-page-mark"><Star size={23} fill="currentColor" /></span></div>
           {demoStarred.length ? <div className="starred-projects-grid">{data.projects.filter((item) => demoStarred.includes(item.id)).map((item) => <button className="starred-project-card" key={item.id} onClick={() => navigate({ name: 'project', projectId: item.id })}><ProjectLogo project={item} small /><span className="starred-project-copy"><strong>{item.name}</strong><small>演示项目</small><span>{item.description || '还没有项目简介。'}</span></span><ArrowRight className="starred-project-arrow" size={18} /></button>)}</div> : <div className="starred-projects-empty"><span><FolderOpen size={27} /></span><h2>还没有收藏的项目</h2><p>打开一个项目，点“收藏项目”就能在这里找到它。</p></div>}
         </div>}
 
         {route.name === 'projects' && <>
           <div className="page-header"><div><div className="eyebrow">你的作品</div><h1>我的项目</h1><p>所有灵感和进展，都在这里。</p></div><button className="button button-primary" onClick={() => navigate({ name: 'new-project' })}><Plus size={18} />新建项目</button></div>
-          <div className="toolbar"><div className="segmented"><button className={projectTab === 'local' ? 'selected' : ''} onClick={() => setProjectTab('local')}>这台电脑 <span>{localProjects.length}</span></button><button className={projectTab === 'cloud' ? 'selected' : ''} onClick={() => setProjectTab('cloud')}>我的云端项目 <span>{cloudProjects.length}</span></button><button className={projectTab === 'users' ? 'selected' : ''} onClick={() => setProjectTab('users')}>搜索用户</button></div><label className="search-box"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={projectTab === 'users' ? '搜索用户' : '搜索项目'} /></label></div>
+          <div className="toolbar"><div className="segmented"><button className={projectTab === 'local' ? 'selected' : ''} onClick={() => setProjectTab('local')}>这台电脑 <span>{localProjects.length}</span></button><button className={projectTab === 'cloud' ? 'selected' : ''} onClick={() => setProjectTab('cloud')}>我的云端项目 <span>{cloudProjects.length}</span></button><button className={projectTab === 'users' ? 'selected' : ''} onClick={() => setProjectTab('users')}>搜索用户</button></div><label className="search-box"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={projectTab === 'users' ? '搜索用户' : '搜索项目'} />{search && <button type="button" className="icon-button" aria-label={language === 'en' ? 'Clear search' : '清除搜索'} onClick={() => setSearch('')}><X size={16} /></button>}</label></div>
           {projectTab === 'users' ? <div className="empty-state"><span className="empty-icon"><Search size={28} /></span><h3>{demoOnly ? '演示版不连接 GitHub' : '登录后搜索 GitHub 用户'}</h3><p>{demoOnly ? '安装正式版后可以搜索用户和公开项目。' : '连接 GitHub 后，可以查看头像、热门项目与个人主页。'}</p>{!demoOnly && <button className="button button-primary" onClick={onLogin}>使用 GitHub 登录 <ArrowRight size={16} /></button>}</div> : projectTab === 'local' ? <div className="project-grid">{localProjects.filter((item) => item.name.toLowerCase().includes(search.toLowerCase())).map((item) => projectCard(item))}</div> : <><div className="cloud-list">{cloudProjects.filter((item) => item.name.toLowerCase().includes(search.toLowerCase())).map((item) => <div className="cloud-row" key={item.id}><ProjectLogo project={item} small /><div><strong>{item.name}</strong><small>{item.description}</small></div><span className="cloud-private">{item.visibility === 'private' ? <><LockKeyhole size={14} />只有我</> : '所有人'}</span><button className="button button-primary" onClick={() => { setDownloadTarget({ projectId: item.id }); setDownloadFolder(''); }}>下载 <ArrowDownToLine size={16} /></button></div>)}</div>{cloudProjects.length === 0 && <EmptyState icon={<Cloud size={28} />} title="没有待下载的项目" text="你的云端项目都已在这台电脑上。" />}</>}
-          <div className="inline-note"><Info size={17} />这里是演示数据。真实项目和文件会在后续阶段接入。</div>
+          {search.trim() && projectTab !== 'users' && (projectTab === 'local' ? localProjects : cloudProjects).filter((item) => item.name.toLowerCase().includes(search.toLowerCase())).length === 0 && <SearchEmptyState language={language} onClear={() => setSearch('')} />}
+          <div className="inline-note"><Info size={17} />演示项目与修改未上传到 GitHub，重启 EasyHub 后会重置。</div>
         </>}
 
         {route.name === 'new-project' && <>
-          <button className="back-link" onClick={() => navigate({ name: 'home' })}><ArrowLeft size={17} />返回首页</button>
+          <button className="back-link" onClick={() => goBack({ name: 'home' })}><ArrowLeft size={17} />返回首页</button>
           <div className="form-page"><div className="form-intro"><div className="form-symbol"><Plus size={27} /></div><div className="eyebrow">开始新的创作</div><h1>新建项目</h1><p>给你的作品起个名字，剩下的交给 EasyHub。</p><div className="form-tip"><ShieldCheck size={19} /><span>当前是演示模式：选择文件夹后不会读取文件，也不会上传到 GitHub。</span></div></div>
             <form className="form-card" onSubmit={handleCreateProject}><label className="field"><span>项目名称 <b>*</b></span><input value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="例如：我的工具" maxLength={80} /></label><label className="field"><span>一句介绍</span><input value={newDescription} onChange={(event) => setNewDescription(event.target.value)} placeholder="用一句话介绍你的项目" maxLength={160} /></label><div className="field"><span>本地文件夹 <b>*</b></span><div className="folder-field"><FolderOpen size={19} /><span title={newFolder}>{newFolder || '还没有选择文件夹'}</span><button type="button" className="button button-quiet" onClick={() => void chooseFolder(setNewFolder)}>选择文件夹</button></div><small>演示阶段只记录路径，不会修改所选文件夹。</small></div><div className="field"><span>谁能看到？</span><div className="choice-grid"><button type="button" className={`choice ${newVisibility === 'private' ? 'chosen' : ''}`} onClick={() => setNewVisibility('private')}><span className="choice-circle">{newVisibility === 'private' && <Check size={13} />}</span><LockKeyhole size={18} /><strong>只有我</strong><small>仅自己可见</small></button><button type="button" className={`choice ${newVisibility === 'public' ? 'chosen' : ''}`} onClick={() => setNewVisibility('public')}><span className="choice-circle">{newVisibility === 'public' && <Check size={13} />}</span><Cloud size={18} /><strong>所有人</strong><small>可以分享给别人</small></button></div></div><button className="button button-primary submit-button" type="submit" disabled={Boolean(busy)}>创建项目 <ArrowRight size={18} /></button></form></div>
         </>}
 
         {route.name === 'add-folder' && <>
-          <button className="back-link" onClick={() => navigate({ name: 'home' })}><ArrowLeft size={17} />返回首页</button>
+          <button className="back-link" onClick={() => goBack({ name: 'home' })}><ArrowLeft size={17} />返回首页</button>
           <div className="narrow-page"><div className="eyebrow">已有作品</div><h1>添加现有文件夹</h1><p className="page-subtitle">选择你的作品所在的文件夹，把它放进 EasyHub。</p><section className="panel add-folder-panel"><div className="form-symbol"><FolderOpen size={26} /></div><h2>选择项目文件夹</h2><p>演示模式会用文件夹名称创建一张项目卡片，不会检查或修改其中的文件。</p><div className="folder-field"><FolderOpen size={18} /><span title={existingFolder}>{existingFolder || '还没有选择文件夹'}</span><button className="button button-quiet" onClick={() => void chooseFolder(setExistingFolder)}>选择文件夹</button></div>{existingFolder && <div className="confirm-folder"><Info size={18} /><span>要把这个文件夹创建成一个新项目吗？</span></div>}<div className="add-folder-actions"><button className="button button-quiet" onClick={() => navigate({ name: 'home' })}>取消</button><button className="button button-primary" disabled={!existingFolder || Boolean(busy)} onClick={handleAddFolder}>添加项目 <ArrowRight size={17} /></button></div></section></div>
         </>}
 
         {route.name === 'project' && project && <>
-          <button className="back-link" onClick={() => navigate({ name: 'projects' })}><ArrowLeft size={17} />所有项目</button>
+          <button className="back-link" onClick={() => goBack({ name: 'projects' })}><ArrowLeft size={17} />所有项目</button>
           <section className="detail-hero"><div className="detail-main"><ProjectLogo project={project} /><div><div className="detail-name-row"><h1>{project.name}</h1><span className="visibility-label">{project.visibility === 'private' ? <><LockKeyhole size={13} />只有我</> : <><Cloud size={13} />所有人</>}</span></div><p>{project.description || '还没有项目介绍'}</p><StatusBadge health={project.health} count={project.changedFiles.length} />{project.archived && <span className="archived-chip">已存档 · 只读</span>}</div></div><div className="detail-actions"><button type="button" className={`button button-quiet star-project-button ${demoStarred.includes(project.id) ? 'is-starred' : ''}`} aria-pressed={demoStarred.includes(project.id)} onClick={() => setDemoStarred((current) => current.includes(project.id) ? current.filter((id) => id !== project.id) : [...current, project.id])}><Star size={17} fill={demoStarred.includes(project.id) ? 'currentColor' : 'none'} />{demoStarred.includes(project.id) ? '已收藏' : '收藏项目'}</button>{project.health === 'changes' ? <button className="button button-primary" disabled={project.archived} onClick={() => navigate({ name: 'publish', projectId: project.id })}><CloudUpload size={18} />发布更新</button> : project.health === 'remote' ? <button className="button button-primary" onClick={() => runOperation('正在获取演示内容', () => setData((current) => syncProject(current, project.id)), '已获取最新内容（演示）')}><CloudDownload size={18} />获取最新</button> : <button className="button button-primary" disabled={project.archived} onClick={() => { setData((current) => addDemoChanges(current, project.id)); setToast('已模拟检测到 3 个修改'); }}><Sparkles size={17} />模拟文件修改</button>}<button className="button button-quiet" disabled={project.archived} onClick={() => navigate({ name: 'new-release', projectId: project.id })}><Tag size={17} />发布新版本</button><button className="button button-quiet" onClick={() => setToast('演示模式不会打开或修改本地文件夹')}><FolderOpen size={17} />打开文件夹</button></div></section>
           <div className="detail-grid"><div className="detail-primary"><section className="panel"><div className="panel-heading"><h2>项目介绍</h2><button className="text-link" disabled={project.archived || project.health === 'remote'} title={project.health === 'remote' ? '请先获取最新内容' : undefined} onClick={() => beginEditIntroduction(project)}><Pencil size={15} />编辑介绍</button></div><Intro readme={project.readme} onOpenLink={openReleaseLink} /></section><section className="panel"><div className="panel-heading"><h2>发布的版本</h2><button className="text-link" disabled={project.archived} onClick={() => navigate({ name: 'publish', projectId: project.id })}>发布源码 <ArrowRight size={16} /></button></div>{project.releases.length ? <div className="timeline-list">{project.releases.map((item) => <button className="timeline-item" key={item.id} onClick={() => navigate({ name: 'release', projectId: project.id, releaseId: item.id })}><span className="timeline-dot" /><span><strong>{item.title}</strong><small>{item.tagName} · {relativeTime(item.publishedAt)} · {item.assets.length} 个下载文件</small></span><ChevronRight size={17} /></button>)}</div> : <p className="muted">还没有发布可供下载的新版本。</p>}</section><section className="panel"><div className="panel-heading"><h2>历史版本</h2><button className="text-link" onClick={() => navigate({ name: 'history', projectId: project.id })}>查看全部 <ArrowRight size={16} /></button></div><div className="timeline-list">{project.history.slice(0, 3).map((item) => <button className="timeline-item" key={item.id} onClick={() => navigate({ name: 'version', projectId: project.id, versionId: item.id })}><span className="timeline-dot" /><span><strong>{item.message}</strong><small>{relativeTime(item.createdAt)} · 修改了 {item.changedFiles.length} 个文件</small></span><ChevronRight size={17} /></button>)}</div></section></div><div className="detail-side"><section className="panel side-panel"><div className="panel-heading"><h2>问题</h2><span className="count-bubble">{issueCount(project.id)}</span></div><p>看看大家的反馈，一起让项目变得更好。</p><button className="button button-quiet full-width" onClick={() => navigate({ name: 'issues', projectId: project.id })}>查看问题 <ArrowRight size={16} /></button></section><section className="panel side-panel"><div className="panel-heading"><h2>项目状态</h2></div><div className="status-detail"><span className={`big-status-dot ${project.health}`} /><div><strong>{project.health === 'changes' ? getChangeSummary(project.changedFiles) : statusText[project.health]}</strong><small>{project.health === 'changes' ? '准备好后发布你的更新' : `上次更新：${relativeTime(project.updatedAt)}`}</small></div></div>{project.health === 'changes' && <button className="text-link" disabled={project.archived} onClick={() => navigate({ name: 'publish', projectId: project.id })}>查看修改 <ArrowRight size={16} /></button>}</section></div></div>
           <ProjectDangerZone project={project} language={language} onApply={(action, targetOwner) => handleDangerAction(project.id, action, targetOwner)} />
         </>}
 
-        {route.name === 'new-release' && project && <ReleaseEditor key={project.id} project={project} language={language} busy={Boolean(busy)} imageSources={imageSources} onRegisterInlineImage={(id, source) => setImageSources((current) => ({ ...current, [id]: typeof source === 'string' ? source : URL.createObjectURL(source) }))} onPublish={(input) => handlePublishRelease(project.id, input)} onBack={() => navigate({ name: 'project', projectId: project.id })} onOpenUpdate={() => navigate({ name: 'publish', projectId: project.id })} onOpenLink={openReleaseLink} />}
+        {route.name === 'new-release' && project && <ReleaseEditor key={project.id} project={project} language={language} busy={Boolean(busy)} imageSources={imageSources} onRegisterInlineImage={(id, source) => setImageSources((current) => ({ ...current, [id]: typeof source === 'string' ? source : URL.createObjectURL(source) }))} onPublish={(input) => handlePublishRelease(project.id, input)} onBack={() => goBack({ name: 'project', projectId: project.id })} onOpenUpdate={() => navigate({ name: 'publish', projectId: project.id })} onOpenLink={openReleaseLink} />}
 
-        {route.name === 'release' && project && release && <div className="release-page"><button className="back-link" onClick={() => navigate({ name: 'project', projectId: project.id })}><ArrowLeft size={17} />返回项目</button><div className="release-page-heading"><div className="eyebrow">{project.name}</div><h1>已发布的新版本</h1><p>这个版本供其他人查看介绍和下载文件。</p></div><ReleasePreview release={release} imageSources={imageSources} language={language} onOpenLink={openReleaseLink} onAssetClick={() => setToast('演示模式没有上传文件，暂时无法下载')} /><div className="release-editor-actions"><button className="button button-quiet" onClick={() => navigate({ name: 'project', projectId: project.id })}>返回项目</button><button className="button button-primary" disabled={project.archived} onClick={() => navigate({ name: 'new-release', projectId: project.id })}>发布下一个版本 <ArrowRight size={17} /></button></div><p className="release-demo-note">当前是演示模式，版本和文件仅保存在本窗口中，没有发布到 GitHub。</p></div>}
+        {route.name === 'release' && project && release && <div className="release-page"><button className="back-link" onClick={() => goBack({ name: 'project', projectId: project.id })}><ArrowLeft size={17} />返回项目</button><div className="release-page-heading"><div className="eyebrow">{project.name}</div><h1>已发布的新版本</h1><p>这个版本供其他人查看介绍和下载文件。</p></div><ReleasePreview release={release} imageSources={imageSources} language={language} onOpenLink={openReleaseLink} onAssetClick={() => setToast('演示模式没有上传文件，暂时无法下载')} /><div className="release-editor-actions"><button className="button button-quiet" onClick={() => goBack({ name: 'project', projectId: project.id })}>返回项目</button><button className="button button-primary" disabled={project.archived} onClick={() => navigate({ name: 'new-release', projectId: project.id })}>发布下一个版本 <ArrowRight size={17} /></button></div><p className="release-demo-note">当前是演示模式，版本和文件仅保存在本窗口中，没有发布到 GitHub。</p></div>}
 
         {route.name === 'publish' && project && <>
-          <button className="back-link" onClick={() => navigate({ name: 'project', projectId: project.id })}><ArrowLeft size={17} />返回项目</button>
+          <button className="back-link" onClick={() => goBack({ name: 'project', projectId: project.id })}><ArrowLeft size={17} />返回项目</button>
           <div className="narrow-page"><div className="eyebrow">{project.name}</div><h1>发布更新</h1><p className="page-subtitle">把日常源码修改保存到 GitHub。要提供安装包和版本介绍，请使用“发布新版本”。</p><div className="publish-overview"><div className="publish-icon"><GitCompareArrows size={24} /></div><div><strong>{getChangeSummary(project.changedFiles)}</strong><span>EasyHub 已整理好这次修改</span></div><CheckCircle2 size={21} className="overview-check" /></div><form onSubmit={handlePublish} className="publish-card"><label className="field"><span>这次改了什么？</span><input value={draftMessage} onChange={(event) => setDraftMessage(event.target.value)} placeholder="例如：修复窗口缩放问题" maxLength={120} autoFocus /><small>写一句简单的话，方便以后找到这个版本。</small></label><div className="files-heading"><strong>修改内容</strong><span>{project.changedFiles.length} 个文件</span></div><div className="file-list">{project.changedFiles.map((file) => <div className="file-row" key={file.path}><span className={`file-kind kind-${file.kind}`}>{file.kind === 'added' ? <FilePlus2 size={16} /> : file.kind === 'deleted' ? <Trash2 size={16} /> : <File size={16} />}</span><span>{file.path}</span><small>{fileText[file.kind]}</small></div>)}</div><div className="publish-bottom"><span><ShieldCheck size={17} />发布前会检查云端更新</span><button className="button button-primary" type="submit" disabled={Boolean(busy) || project.archived || project.changedFiles.length === 0}>发布更新 <ArrowRight size={17} /></button></div></form><div className="inline-note"><Info size={17} />演示模式只会更新此窗口里的源码历史，不会发布可下载的新版本或上传文件。</div></div>
         </>}
 
         {route.name === 'history' && project && <>
-          <button className="back-link" onClick={() => navigate({ name: 'project', projectId: project.id })}><ArrowLeft size={17} />返回项目</button><div className="page-header"><div><div className="eyebrow">{project.name}</div><h1>历史版本</h1><p>每一次更新，都有迹可循。</p></div></div><div className="history-list">{project.history.map((item) => <button className="history-row" key={item.id} onClick={() => navigate({ name: 'version', projectId: project.id, versionId: item.id })}><span className="history-icon"><Clock3 size={19} /></span><span className="history-main"><strong>{item.message}</strong><small>{fullDate(item.createdAt, language)} · {item.author} · 修改了 {item.changedFiles.length} 个文件</small></span><span className="button button-quiet small-button">查看 <ArrowRight size={15} /></span></button>)}</div>
+          <button className="back-link" onClick={() => goBack({ name: 'project', projectId: project.id })}><ArrowLeft size={17} />返回项目</button><div className="page-header"><div><div className="eyebrow">{project.name}</div><h1>历史版本</h1><p>每一次更新，都有迹可循。</p></div></div><div className="history-list">{project.history.map((item) => <button className="history-row" key={item.id} onClick={() => navigate({ name: 'version', projectId: project.id, versionId: item.id })}><span className="history-icon"><Clock3 size={19} /></span><span className="history-main"><strong>{item.message}</strong><small>{fullDate(item.createdAt, language)} · {item.author} · 修改了 {item.changedFiles.length} 个文件</small></span><span className="button button-quiet small-button">查看 <ArrowRight size={15} /></span></button>)}</div>
         </>}
 
         {route.name === 'version' && project && version && <>
-          <button className="back-link" onClick={() => navigate({ name: 'history', projectId: project.id })}><ArrowLeft size={17} />历史版本</button><div className="narrow-page"><div className="eyebrow">{project.name} · 历史版本</div><h1>{version.message}</h1><p className="page-subtitle">{version.author} 发布于 {fullDate(version.createdAt, language)}</p><div className="version-stats"><div><strong>{version.changedFiles.length}</strong><span>修改文件</span></div><div><strong className="positive">+{version.additions}</strong><span>新增行数</span></div><div><strong className="negative">−{version.deletions}</strong><span>删除行数</span></div></div><section className="panel"><div className="panel-heading"><h2>修改文件</h2></div>{version.changedFiles.length ? <div className="file-list">{version.changedFiles.map((file) => <div className="file-row" key={file}><span className="file-kind"><File size={16} /></span><span>{file}</span></div>)}</div> : <p className="muted">这个版本没有演示文件明细。</p>}</section><button className="button button-primary version-download" onClick={() => { setDownloadTarget({ projectId: project.id, versionId: version.id }); setDownloadFolder(''); }}><ArrowDownToLine size={18} />下载这个版本</button><p className="muted download-explain">演示模式不会写入任何文件。</p></div>
+          <button className="back-link" onClick={() => goBack({ name: 'history', projectId: project.id })}><ArrowLeft size={17} />返回</button><div className="narrow-page"><div className="eyebrow">{project.name} · 历史版本</div><h1>{version.message}</h1><p className="page-subtitle">{version.author} 发布于 {fullDate(version.createdAt, language)}</p><div className="version-stats"><div><strong>{version.changedFiles.length}</strong><span>修改文件</span></div><div><strong className="positive">+{version.additions}</strong><span>新增行数</span></div><div><strong className="negative">−{version.deletions}</strong><span>删除行数</span></div></div><section className="panel"><div className="panel-heading"><h2>修改文件</h2></div>{version.changedFiles.length ? <div className="file-list">{version.changedFiles.map((file) => <div className="file-row" key={file}><span className="file-kind"><File size={16} /></span><span>{file}</span></div>)}</div> : <p className="muted">这个版本没有演示文件明细。</p>}</section><button className="button button-primary version-download" onClick={() => { setDownloadTarget({ projectId: project.id, versionId: version.id }); setDownloadFolder(''); }}><ArrowDownToLine size={18} />下载这个版本</button><p className="muted download-explain">演示模式不会写入任何文件。</p></div>
         </>}
 
         {route.name === 'issues' && <>
@@ -584,11 +639,11 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
         </>}
 
         {route.name === 'issue' && issue && <>
-          <button className="back-link" onClick={() => navigate({ name: 'issues', projectId: issue.projectId })}><ArrowLeft size={17} />返回问题</button><div className="issue-detail"><div className="issue-title"><span className={`issue-state ${issue.state}`}>{issue.state === 'open' ? '待处理' : '已解决'}</span><h1>{issue.title}</h1><p>{currentIssueProject?.name} · {issue.author} 提出于 {fullDate(issue.createdAt, language)}</p></div><div className="conversation"><div className="message"><div className="avatar author-avatar">{issue.author.slice(0, 1)}</div><div className="message-box"><div><strong>{issue.author}</strong><small>{relativeTime(issue.createdAt)}</small></div><p>{issue.body || '没有详细描述。'}</p></div></div>{issue.comments.map((comment) => <div className="message" key={comment.id}><div className="avatar">{comment.author.slice(0, 1)}</div><div className="message-box"><div><strong>{comment.author}</strong><small>{relativeTime(comment.createdAt)}</small></div><p>{comment.body}</p></div></div>)}</div><form className="reply-card" onSubmit={handleReply}><label htmlFor="reply">写一条回复</label><textarea id="reply" disabled={currentIssueProject?.archived} value={reply} onChange={(event) => setReply(event.target.value)} placeholder="说说你的想法或处理进度…" rows={4} /><div><button type="button" className="button button-quiet" disabled={currentIssueProject?.archived} onClick={() => { setData(toggleIssue(data, issue.id)); setToast(issue.state === 'open' ? '问题已标记为解决（演示）' : '问题已重新打开（演示）'); }}>{issue.state === 'open' ? '标记为已解决' : '重新打开'}</button><button className="button button-primary" type="submit" disabled={currentIssueProject?.archived}>发送回复 <ArrowRight size={16} /></button></div></form></div>
+          <button className="back-link" onClick={() => goBack({ name: 'issues', projectId: issue.projectId })}><ArrowLeft size={17} />返回问题</button><div className="issue-detail"><div className="issue-title"><span className={`issue-state ${issue.state}`}>{issue.state === 'open' ? '待处理' : '已解决'}</span><h1>{issue.title}</h1><p>{currentIssueProject?.name} · {issue.author} 提出于 {fullDate(issue.createdAt, language)}</p></div><div className="conversation"><div className="message"><div className="avatar author-avatar">{issue.author.slice(0, 1)}</div><div className="message-box"><div><strong>{issue.author}</strong><small>{relativeTime(issue.createdAt)}</small></div><p>{issue.body || '没有详细描述。'}</p></div></div>{issue.comments.map((comment) => <div className="message" key={comment.id}><div className="avatar">{comment.author.slice(0, 1)}</div><div className="message-box"><div><strong>{comment.author}</strong><small>{relativeTime(comment.createdAt)}</small></div><p>{comment.body}</p></div></div>)}</div><form className="reply-card" onSubmit={handleReply}><label htmlFor="reply">写一条回复</label><textarea id="reply" disabled={currentIssueProject?.archived} value={reply} onChange={(event) => setReply(event.target.value)} placeholder="说说你的想法或处理进度…" rows={4} /><div><button type="button" className="button button-quiet" disabled={currentIssueProject?.archived} onClick={() => { setData(toggleIssue(data, issue.id)); setToast(issue.state === 'open' ? '问题已标记为解决（演示）' : '问题已重新打开（演示）'); }}>{issue.state === 'open' ? '标记为已解决' : '重新打开'}</button><button className="button button-primary" type="submit" disabled={currentIssueProject?.archived}>发送回复 <ArrowRight size={16} /></button></div></form></div>
         </>}
 
         {route.name === 'download' && <>
-          <button className="back-link" onClick={() => navigate({ name: 'projects' })}><ArrowLeft size={17} />我的项目</button><div className="page-header"><div><div className="eyebrow">带到这台电脑</div><h1>下载项目</h1><p>选择云端项目，再选择保存位置。</p></div></div><div className="cloud-list">{cloudProjects.map((item) => <div className="cloud-row" key={item.id}><ProjectLogo project={item} small /><div><strong>{item.name}</strong><small>{item.description}</small></div><button className="button button-primary" onClick={() => { setDownloadTarget({ projectId: item.id }); setDownloadFolder(''); }}>下载 <ArrowDownToLine size={16} /></button></div>)}</div>{cloudProjects.length === 0 && <EmptyState icon={<CloudDownload size={28} />} title="所有项目都已下载" text="你可以在“我的项目”里打开它们。" />}
+          <button className="back-link" onClick={() => goBack({ name: 'projects' })}><ArrowLeft size={17} />我的项目</button><div className="page-header"><div><div className="eyebrow">带到这台电脑</div><h1>下载项目</h1><p>选择云端项目，再选择保存位置。</p></div></div><div className="cloud-list">{cloudProjects.map((item) => <div className="cloud-row" key={item.id}><ProjectLogo project={item} small /><div><strong>{item.name}</strong><small>{item.description}</small></div><button className="button button-primary" onClick={() => { setDownloadTarget({ projectId: item.id }); setDownloadFolder(''); }}>下载 <ArrowDownToLine size={16} /></button></div>)}</div>{cloudProjects.length === 0 && <EmptyState icon={<CloudDownload size={28} />} title="所有项目都已下载" text="你可以在“我的项目”里打开它们。" />}
         </>}
 
         {route.name === 'settings' && <>
@@ -617,16 +672,16 @@ function DemoApp({ onLogin, demoOnly = false }: { onLogin: () => void; demoOnly?
             <LayoutSettingsPanel language={language} preference={layout.preference} density={layout.density} onChange={layout.setPreference} />
             <AiSettingsPanel disabled={demoOnly} language={language} />
             <HostsRepairPanel disabled={demoOnly} language={language} />
-            <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>Windows 桌面版</p><span className="settings-version">版本 1.2.0</span><AppUpdatePanel language={language} /><div className="license-details"><strong>GNU GPLv3</strong><span>本应用采用 GNU General Public License 第 3 版。</span><button className="text-link" onClick={() => { if (window.easyHub) void window.easyHub.openLicense().catch(() => setToast('无法打开许可协议页面')); }}>查看许可协议 <ArrowRight size={15} /></button></div></div></section>
+            <section className="panel settings-panel"><div className="settings-icon amber"><Info size={22} /></div><div><h2>关于 EasyHub</h2><p>Windows 桌面版</p><span className="settings-version">版本 1.2.1</span><AppUpdatePanel language={language} /><div className="license-details"><strong>Apache 2.0</strong><span>本应用采用 Apache License 2.0 许可协议。</span><button className="text-link" onClick={() => { if (window.easyHub) void window.easyHub.openLicense().catch(() => setToast('无法打开许可协议页面')); }}>查看许可协议 <ArrowRight size={15} /></button></div></div></section>
           </div>
         </>}
-      </div></main>
+      </div></main></NavigationPages>
       {canScrollDown && !downloadTarget && !showIssueForm && !introEditProject && !busy && <button className="scroll-down-cue" aria-label="向下滚动" title="向下滚动" onClick={() => scrollArea.current?.scrollBy({ top: Math.max(300, scrollArea.current.clientHeight * 0.75), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })}><ChevronDown size={27} strokeWidth={2.6} aria-hidden="true" /></button>}
     </div>
 
     {introEditProject && <IntroductionEditor key={introEditProject.id} initialMarkdown={introEditProject.readme} onSave={saveIntroduction} onCancel={() => setIntroEditProjectId(null)} onOpenLink={openReleaseLink} />}
 
-    {downloadTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDownloadTarget(null); }}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="download-title"><button className="icon-button modal-close" aria-label="关闭" onClick={() => setDownloadTarget(null)}><X size={19} /></button><div className="modal-symbol"><ArrowDownToLine size={24} /></div><h2 id="download-title">{downloadTarget.versionId ? '下载这个版本' : '下载项目'}</h2><p>选择保存位置，EasyHub 会把{downloadTarget.versionId ? '这个历史版本' : '项目'}放到这台电脑。</p><div className="folder-field"><FolderOpen size={18} /><span title={downloadFolder}>{downloadFolder || '还没有选择保存位置'}</span><button className="button button-quiet" onClick={() => void chooseFolder(setDownloadFolder)}>选择位置</button></div><div className="modal-actions"><button className="button button-quiet" onClick={() => setDownloadTarget(null)}>取消</button><button className="button button-primary" disabled={!downloadFolder || Boolean(busy)} onClick={() => { const target = downloadTarget; runOperation('正在准备演示下载', () => { if (!target.versionId) { setData((current) => downloadProject(current, target.projectId, downloadFolder)); navigate({ name: 'project', projectId: target.projectId }); } setDownloadTarget(null); }, target.versionId ? '历史版本下载已演示（没有写入文件）' : '项目已经下载到电脑（演示）'); }}>下载</button></div><small>演示模式不会实际写入文件。</small></div></div>}
+    {downloadTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDownloadTarget(null); }}><div className="modal" ref={downloadDialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="download-title"><button className="icon-button modal-close" aria-label="关闭" onClick={() => setDownloadTarget(null)}><X size={19} /></button><div className="modal-symbol"><ArrowDownToLine size={24} /></div><h2 id="download-title">{downloadTarget.versionId ? '下载这个版本' : '下载项目'}</h2><p>选择保存位置，EasyHub 会把{downloadTarget.versionId ? '这个历史版本' : '项目'}放到这台电脑。</p><div className="folder-field"><FolderOpen size={18} /><span title={downloadFolder}>{downloadFolder || '还没有选择保存位置'}</span><button className="button button-quiet" onClick={() => void chooseFolder(setDownloadFolder)}>选择位置</button></div><div className="modal-actions"><button className="button button-quiet" onClick={() => setDownloadTarget(null)}>取消</button><button className="button button-primary" disabled={!downloadFolder || Boolean(busy)} onClick={() => { const target = downloadTarget; runOperation('正在准备演示下载', () => { if (!target.versionId) { setData((current) => downloadProject(current, target.projectId, downloadFolder)); navigate({ name: 'project', projectId: target.projectId }); } setDownloadTarget(null); }, target.versionId ? '历史版本下载已演示（没有写入文件）' : '项目已经下载到电脑（演示）'); }}>下载</button></div><small>演示模式不会实际写入文件。</small></div></div>}
 
     {showIssueForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowIssueForm(false); }}><form className="modal issue-modal" role="dialog" aria-modal="true" aria-labelledby="new-issue-title" onSubmit={handleCreateIssue}><button type="button" className="icon-button modal-close" aria-label="关闭" onClick={() => setShowIssueForm(false)}><X size={19} /></button><div className="modal-symbol"><MessageCircle size={24} /></div><h2 id="new-issue-title">提出问题</h2><p>描述遇到的情况，或分享一个改进想法。</p><div className="field"><span>相关项目</span><StyledDropdown label="相关项目" value={newIssueProject} options={data.projects.map((item) => ({ value: item.id, label: item.name }))} onChange={setNewIssueProject} /></div><label className="field"><span>问题标题</span><input value={newIssueTitle} onChange={(event) => setNewIssueTitle(event.target.value)} placeholder="一句话概括问题" maxLength={120} /></label><label className="field"><span>详细描述</span><textarea value={newIssueBody} onChange={(event) => setNewIssueBody(event.target.value)} placeholder="发生了什么？你希望怎样改进？" rows={4} /></label><div className="modal-actions"><button type="button" className="button button-quiet" onClick={() => setShowIssueForm(false)}>取消</button><button type="submit" className="button button-primary" disabled={!newIssueProject || data.projects.find((item) => item.id === newIssueProject)?.archived}>创建问题</button></div></form></div>}
 
@@ -643,6 +698,11 @@ export default function App() {
   const [loginBusy, setLoginBusy] = useState(false);
   const [loginError, setLoginError] = useState('');
   const loginLocalizer = useRef(createDomLocalizer());
+  const loginGeneration = useRef(0);
+  const loginStarting = useRef(false);
+  const loginDialog = useRef<HTMLDivElement>(null);
+  const loginMessage = (error: unknown): string => error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/u, '') : '登录失败，请重试。';
+  useDialogFocus(Boolean(flow || loginBusy || loginError), loginDialog, cancelLogin);
 
   useLayoutEffect(() => {
     const modal = document.querySelector<HTMLElement>('.oauth-modal');
@@ -665,25 +725,32 @@ export default function App() {
         if (!active) return;
         if (result.state === 'complete' && result.user) { setUser(result.user); setFlow(null); setLoginError(''); }
         else setFlow((current) => current ? { ...current, interval: result.interval ?? current.interval } : null);
-      }).catch((error: unknown) => { if (active) { setLoginError(error instanceof Error ? error.message : '登录失败，请重试。'); setFlow(null); } });
+      }).catch((error: unknown) => { if (active) { setLoginError(loginMessage(error)); setFlow(null); } });
     }, flow.interval * 1000);
     return () => { active = false; clearTimeout(timer); };
   }, [flow]);
 
   async function beginLogin(): Promise<void> {
-    if (!window.easyHub) return;
+    if (!window.easyHub || loginStarting.current || flow) return;
+    const generation = ++loginGeneration.current;
+    loginStarting.current = true;
     setLoginBusy(true); setLoginError('');
     try {
       const next = await window.easyHub.authStart();
+      if (generation !== loginGeneration.current) return;
       setFlow(next);
       await window.easyHub.openExternalLink(next.verificationUri);
-    } catch (error) { setLoginError(error instanceof Error ? error.message : '无法开始登录。'); }
-    finally { setLoginBusy(false); }
+    } catch (error) { if (generation === loginGeneration.current) setLoginError(loginMessage(error)); }
+    finally { if (generation === loginGeneration.current) { loginStarting.current = false; setLoginBusy(false); } }
   }
 
-  function cancelLogin(): void { setFlow(null); setLoginError(''); void window.easyHub?.authCancel(); }
+  function cancelLogin(): void {
+    loginGeneration.current++; loginStarting.current = false;
+    setLoginBusy(false); setFlow(null); setLoginError('');
+    void window.easyHub?.authCancel().catch(() => undefined);
+  }
 
   if (demoOnlyBuild) return <DemoApp onLogin={() => undefined} demoOnly />;
-  if (user) return <LiveWorkspace user={user} onLogout={() => { void window.easyHub?.authLogout().then(() => setUser(null)); }} />;
-  return <><DemoApp onLogin={() => void beginLogin()} />{(flow || loginBusy || loginError) && <div className="modal-backdrop"><div className="modal oauth-modal" role="dialog" aria-modal="true" aria-labelledby="oauth-title"><button className="icon-button modal-close" aria-label="关闭" onClick={cancelLogin}><X size={19} /></button><div className="modal-symbol"><ShieldCheck size={24} /></div><h2 id="oauth-title">使用 GitHub 登录</h2>{flow ? <><p>已在浏览器打开 GitHub。输入下面的代码并允许 EasyHub 访问你的项目。</p><strong className="oauth-code">{flow.userCode}</strong><p className="oauth-wait">等待你在 GitHub 完成确认…</p><button className="button button-quiet" onClick={() => void window.easyHub?.openExternalLink(flow.verificationUri)}>重新打开 GitHub</button></> : loginBusy ? <p>正在连接 GitHub…</p> : <><p className="release-error">{loginError}</p><button className="button button-primary" onClick={() => void beginLogin()}>重试</button></>}<div className="modal-actions"><button className="button button-quiet" onClick={cancelLogin}>取消</button></div></div></div>}</>;
+  if (user) return <LiveWorkspace key={user.login} user={user} onLogout={() => { void window.easyHub?.authLogout().then(() => setUser(null)); }} />;
+  return <><DemoApp onLogin={() => void beginLogin()} />{(flow || loginBusy || loginError) && <div className="modal-backdrop"><div className="modal oauth-modal" ref={loginDialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="oauth-title"><button className="icon-button modal-close" aria-label="关闭" onClick={cancelLogin}><X size={19} /></button><div className="modal-symbol"><ShieldCheck size={24} /></div><h2 id="oauth-title">使用 GitHub 登录</h2>{flow ? <><p>已在浏览器打开 GitHub。输入下面的代码并允许 EasyHub 访问你的项目。</p><strong className="oauth-code">{flow.userCode}</strong><p className="oauth-wait">等待你在 GitHub 完成确认…</p><button className="button button-quiet" onClick={() => void window.easyHub?.openExternalLink(flow.verificationUri)}>重新打开 GitHub</button></> : loginBusy ? <p>正在连接 GitHub…</p> : <><p className="release-error">{loginError}</p><button className="button button-primary" onClick={() => void beginLogin()}>重试</button></>}<div className="modal-actions"><button className="button button-quiet" onClick={cancelLogin}>取消</button></div></div></div>}</>;
 }

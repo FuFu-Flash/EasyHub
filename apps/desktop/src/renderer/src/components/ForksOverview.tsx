@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { GitHubRepo } from '@easyhub/github';
 import { ArrowRight, GitFork, RotateCw } from 'lucide-react';
+import { SearchEmptyState } from './SearchEmptyState';
 
-export function ForksOverview({ repos, search, onOpen, onBrowseOriginal }: {
-  repos: GitHubRepo[]; search: string; onOpen: (repo: GitHubRepo) => void; onBrowseOriginal: (owner: string, name: string) => void;
+export function ForksOverview({ repos, search, onClearSearch, onOpen, onBrowseOriginal }: {
+  repos: GitHubRepo[]; search: string; onClearSearch?: () => void; onOpen: (repo: GitHubRepo) => void; onBrowseOriginal: (owner: string, name: string) => void;
 }) {
   const [details, setDetails] = useState<Record<number, GitHubRepo>>({});
   const [loading, setLoading] = useState(false);
@@ -38,6 +39,6 @@ export function ForksOverview({ repos, search, onOpen, onBrowseOriginal }: {
       </div>;
     })}</div>
     {repos.length === 0 && <div className="empty-state"><span className="empty-icon"><GitFork size={28} /></span><h3>还没有仓库副本</h3><p>在他人的公开项目中选择“提交合并请求”，即可创建。</p></div>}
-    {repos.length > 0 && filtered.length === 0 && !loading && <p className="live-empty">没有找到仓库副本。</p>}
+    {repos.length > 0 && filtered.length === 0 && !loading && <SearchEmptyState onClear={onClearSearch ?? (() => undefined)} />}
   </section>;
 }

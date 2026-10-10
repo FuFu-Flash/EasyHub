@@ -1,8 +1,8 @@
 {
   "name": "easyhub",
   "private": true,
-  "license": "GPL-3.0-only",
-  "version": "1.2.0",
+  "license": "Apache-2.0",
+  "version": "1.2.1",
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "dev": "node scripts/run-desktop.mjs dev",
@@ -51,6 +51,12 @@
     "package:win": "node scripts/run-desktop.mjs package:win",
     "test:pull-review-tools": "node scripts/run-desktop.mjs test:pull-review-tools",
     "test:local-publish-selection": "node scripts/run-desktop.mjs test:local-publish-selection",
-    "test:code-explanation": "node scripts/run-desktop.mjs test:code-explanation"
+    "test:code-explanation": "node scripts/run-desktop.mjs test:code-explanation",
+    "test:navigation-state": "node scripts/run-desktop.mjs test:navigation-state",
+    "test:navigation-detail": "node scripts/run-desktop.mjs test:navigation-detail",
+    "test:dialog-focus": "node scripts/run-desktop.mjs test:dialog-focus",
+    "test:release-navigation": "node scripts/run-desktop.mjs test:release-navigation",
+    "test:navigation-chain": "node scripts/run-desktop.mjs test:navigation-chain",
+    "test:demo-navigation-chain": "node scripts/run-desktop.mjs test:demo-navigation-chain"
   }
 }

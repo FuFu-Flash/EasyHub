@@ -171,7 +171,7 @@ if (primaryInstance) app.whenReady().then(async () => {
 
   ipcMain.handle('easyhub:open-license', async (event) => {
     assertTrustedSender(event);
-    await shell.openExternal('https://www.gnu.org/licenses/gpl-3.0.html');
+    await shell.openExternal('https://www.apache.org/licenses/LICENSE-2.0');
   });
 
   ipcMain.handle('easyhub:hosts-status', (event) => { assertTrustedSender(event); return hostsRepairService.status(); });

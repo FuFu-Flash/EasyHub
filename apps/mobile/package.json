@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "type": "module",
   "version": "1.0.0",
-  "license": "GPL-3.0-only",
+  "license": "Apache-2.0",
   "dependencies": {
     "@easyhub/github": "workspace:*",
     "@easyhub/types": "workspace:*",

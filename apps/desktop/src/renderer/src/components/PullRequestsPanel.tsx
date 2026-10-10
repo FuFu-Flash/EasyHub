@@ -1,11 +1,12 @@
 import { createDraftKey } from '../draftStore';
 import { useLocalDraft } from '../useLocalDraft';
+import { usePageScroll } from '../usePageScroll';
 import { PagedContinuation } from './PagedContinuation';
 import { DiscussionSearch, useDiscussionSearchState } from './DiscussionSearch';
 import { PullChecksPanel } from './PullChecksPanel';
 import { PullFileChanges } from './PullFileChanges';
-import { useEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { FormEvent, RefObject } from 'react';
 import { ReadmeMarkdown } from './ReadmeMarkdown';
 import { isEmptyAddedPullFile, type GitHubComment, type GitHubPullFile, type GitHubPullRequest, type GitHubRepo } from '@easyhub/github';
 import type { AiReviewProgress, AiReviewResult, AiSettingsStatus } from '@easyhub/types';
@@ -19,7 +20,7 @@ import './aiReview.css';
 function errorText(error: unknown): string { return error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/, '') : '暂时无法完成操作，请稍后重试。'; }
 interface PullReviewSnapshot { repository: GitHubRepo; pullRequest: GitHubPullRequest; files: GitHubPullFile[]; filesTruncated: boolean }
 
-export function PullRequestsPanel({ repo, currentUser, language, showCreateButton = true, refreshKey = 0, initialRequest, onActivityChanged, onDownloadFile, onOpenAiSettings, downloadBusy = false }: {
+export function PullRequestsPanel({ repo, currentUser, language, showCreateButton = true, refreshKey = 0, initialRequest, onActivityChanged, onDownloadFile, onOpenAiSettings, onBackChange, scrollArea: parentScrollArea, downloadBusy = false }: {
   repo: GitHubRepo;
   currentUser: string;
   language: Language;
@@ -29,6 +30,8 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   onActivityChanged?: () => void;
   onDownloadFile?: (requestNumber: number, path: string, headSha: string) => Promise<void>;
   onOpenAiSettings?: () => void;
+  onBackChange?: (back: (() => void) | null, key: string, blocked: boolean) => void;
+  scrollArea?: RefObject<HTMLDivElement | null>;
   downloadBusy?: boolean;
 }) {
   const [discussionSearch, changeDiscussionSearch] = useDiscussionSearchState(currentUser, `project:${repo.id}:${repo.full_name}:pr`);
@@ -82,6 +85,23 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   const markdown = (value: string) => <ReadmeMarkdown markdown={value}
     repository={{ owner, name: repo.name, branch: repo.default_branch }}
     onOpenLink={(url) => { void window.easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} />;
+  const panelRef = useRef<HTMLElement>(null);
+  const scrollArea = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    scrollArea.current = panelRef.current?.closest<HTMLDivElement>('.main-column') ?? null;
+  }, []);
+  const rememberPage = usePageScroll(`${repo.id}:${selected?.number ?? 'list'}:${listState}:${discussionSearch.query}`, parentScrollArea ?? scrollArea, () => panelRef.current?.isConnected === true);
+  const backChange = useRef(onBackChange);
+  backChange.current = onBackChange;
+  function backToList(): void {
+    if (decisionBusy) return;
+    rememberPage();
+    viewVersion.current += 1; resetReview(); setSelected(null); setError(''); setBusy(false); setNotice('');
+  }
+  useLayoutEffect(() => {
+    onBackChange?.(selected ? backToList : null, selected ? String(selected.number) : 'list', decisionBusy);
+  });
+  useEffect(() => () => backChange.current?.(null, 'list', false), []);
 
   useEffect(() => {
     mounted.current = true;
@@ -142,6 +162,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   }
 
   async function open(item: GitHubPullRequest): Promise<void> {
+    rememberPage();
     const version = ++viewVersion.current;
     resetReview(); setDecision(null); setNotice('');
     setSnapshotReady(false); setSnapshotRepo(null); setFilesTruncated(false);
@@ -293,9 +314,9 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     finally { setSaving(false); }
   }
 
-  return <section className="panel public-browser-content pull-requests-panel">
+  return <section ref={panelRef} className="panel public-browser-content pull-requests-panel">
     {selected ? <>
-      <button className="back-link" disabled={decisionBusy} onClick={() => { viewVersion.current += 1; resetReview(); setSelected(null); setError(''); setBusy(false); setNotice(''); }}><ArrowLeft size={16} />返回合并请求审查</button>
+      <button className="back-link" disabled={decisionBusy} onClick={backToList}><ArrowLeft size={16} />返回合并请求审查</button>
       <div className="issue-detail public-issue-detail">
         <div className="issue-title"><span className={`issue-state ${selected.state === 'closed' ? 'closed' : ''}`}>{selected.merged ? '已采纳' : selected.state === 'open' ? selected.draft ? '草稿' : '待审阅' : '已关闭'}</span>{repo.private ? <h1>{selected.title}</h1> : <TranslatableContent text={selected.title} format="text" render={(value) => <h1>{value}</h1>} />}<p>{selected.user?.login || 'GitHub 用户'} · {selected.head?.label || selected.head?.ref} → {selected.base?.ref}</p></div>
         {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取内容…</p>}

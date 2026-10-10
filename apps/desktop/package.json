@@ -1,8 +1,8 @@
 {
   "name": "@easyhub/desktop",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
-  "license": "GPL-3.0-only",
+  "license": "Apache-2.0",
   "description": "EasyHub Windows desktop application",
   "author": "EasyHub",
   "main": "./out/main/index.js",
@@ -49,7 +49,13 @@
     "package:win": "node package-win.mjs",
     "test:pull-review-tools": "node pull-review-tools-smoke.mjs",
     "test:local-publish-selection": "node local-publish-selection-smoke.mjs",
-    "test:code-explanation": "node code-explanation-smoke.mjs"
+    "test:code-explanation": "node code-explanation-smoke.mjs",
+    "test:navigation-state": "node navigation-state-smoke.mjs",
+    "test:navigation-detail": "node navigation-detail-smoke.mjs",
+    "test:dialog-focus": "node dialog-focus-smoke.mjs",
+    "test:release-navigation": "node release-navigation-smoke.mjs",
+    "test:navigation-chain": "node navigation-chain-smoke.mjs",
+    "test:demo-navigation-chain": "node demo-navigation-chain-smoke.mjs"
   },
   "dependencies": {
     "@easyhub/github": "workspace:*",

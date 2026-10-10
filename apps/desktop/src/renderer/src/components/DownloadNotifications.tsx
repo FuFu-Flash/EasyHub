@@ -4,26 +4,27 @@ import { ArrowDownToLine, Bell, CheckCircle2, ChevronRight, FolderOpen, RotateCw
 import type { useDownloadCenter } from './useDownloadCenter';
 import { downloadAmount, downloadTransferText } from './downloadTransfer';
 import { useActivityNoticeReadState } from './useActivityNoticeReadState';
+import { useDialogFocus } from './useDialogFocus';
 
 type Center = ReturnType<typeof useDownloadCenter>;
 export interface ActivityNotice { id: string; title: string; detail: string; onOpen: () => void }
 
 export function DownloadNotifications({ center, savedPublicRepoIds, onAddPublic, activity = [], account = 'default' }: { center: Center; savedPublicRepoIds: number[]; onAddPublic: (repo: GitHubRepo) => void; activity?: ActivityNotice[]; account?: string }) {
   const wrapper = useRef<HTMLDivElement>(null);
+  const dialog = useRef<HTMLElement>(null);
+  useDialogFocus(center.open, dialog, () => center.setOpen(false), { fallbackFocus: () => wrapper.current?.querySelector<HTMLButtonElement>('.download-notification-trigger') ?? null });
   const { seen: seenActivity, unread: unreadActivity } = useActivityNoticeReadState(activity, center.open, account);
   const unread = unreadActivity + center.unread;
   useEffect(() => {
     if (!center.open) return;
     const pointer = (event: PointerEvent): void => { if (!wrapper.current?.contains(event.target as Node)) center.setOpen(false); };
-    const key = (event: KeyboardEvent): void => { if (event.key === 'Escape') center.setOpen(false); };
     document.addEventListener('pointerdown', pointer);
-    document.addEventListener('keydown', key);
-    return () => { document.removeEventListener('pointerdown', pointer); document.removeEventListener('keydown', key); };
+    return () => { document.removeEventListener('pointerdown', pointer); };
   }, [center.open, center.setOpen]);
 
   return <div className="download-notification-anchor" ref={wrapper}>
     <button className="icon-button download-notification-trigger" aria-label="通知" aria-expanded={center.open} onClick={() => center.setOpen((value) => !value)}><Bell size={20} />{unread > 0 && <span className="download-notification-count">{unread}</span>}</button>
-    {center.open && <section className="download-notification-panel" role="dialog" aria-label="通知">
+    {center.open && <section ref={dialog} className="download-notification-panel" role="dialog" aria-modal="true" aria-label="通知" tabIndex={-1}>
       <header><strong>通知</strong><div>{center.items.some((item) => ['complete', 'cancelled', 'failed'].includes(item.state)) && <button onClick={center.clearFinished}>清除下载记录</button>}<button aria-label="关闭通知" onClick={() => center.setOpen(false)}><X size={17} /></button></div></header>
       {activity.length > 0 && <div className="activity-notification-list"><span className="notification-section-label">项目待办</span>{activity.map((item) => <button key={item.id} className="activity-notification-item" onClick={() => { center.setOpen(false); item.onOpen(); }}><span className="activity-notification-mark" style={{ visibility: seenActivity[item.id] === item.title ? 'hidden' : 'visible' }} /><span><strong>{item.title}</strong><small>{item.detail}</small></span><ChevronRight size={16} /></button>)}</div>}
       {center.items.length > 0 && <span className="notification-section-label notification-download-label">下载</span>}

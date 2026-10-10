@@ -51,6 +51,15 @@ export interface EditReleaseRequest { owner: string; repo: string; releaseId: nu
 export interface AddReleaseAssetsRequest { owner: string; repo: string; releaseId: number; assetIds: string[] }
 export interface RemoveReleaseAssetRequest { owner: string; repo: string; releaseId: number; assetId: number }
 export interface ReleaseProgress { phase: string; loaded: number; total: number; cancelable: boolean }
+export interface ReleaseMutationFailure<TRelease> {
+  status: 'failed';
+  error: string;
+  completedAssetIds: string[];
+  remainingAssetIds: string[];
+  retryable: boolean;
+  release?: TRelease;
+  residualDraft?: { id?: number; tagName: string; title: string; url: string; retainedForRetry: boolean };
+}
 
 export interface IssueComment {
   id: string;

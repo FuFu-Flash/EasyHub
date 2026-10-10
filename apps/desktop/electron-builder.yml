@@ -15,6 +15,8 @@ extraResources:
     to: licenses
   - from: ../../LICENSE
     to: LICENSE
+  - from: ../../NOTICE
+    to: NOTICE
   - from: resources/easyhub.ico
     to: easyhub.ico
   - from: resources/easyhub.png

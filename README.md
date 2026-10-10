@@ -16,14 +16,14 @@ EasyHub 是面向新手的开源 **GitHub 客户端**，提供 Windows 桌面版
 
 [访问 EasyHub 官网](https://fufu-flash.github.io/easyhub-website/) · [查看所有发布版本](https://github.com/FuFu-Flash/EasyHub/releases)
 
-**Windows 最新版为 1.2.0，Android 版为 1.0.0。** iOS 版尚未推出。
+**Windows 最新版为 1.2.1，Android 版为 1.0.0。** iOS 版尚未推出。
 
 ## 下载 EasyHub
 
 | 平台 | 版本 | 适合谁 | 下载 |
 | --- | --- | --- | --- |
-| Windows | 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-setup.exe) |
-| Windows | 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.0/EasyHub-1.2.0-portable.exe) |
+| Windows | 安装版 | 想长期使用，可在安装时选择位置和是否创建桌面快捷方式 | [下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-setup.exe) |
+| Windows | 便携版 | 不想安装，下载后直接运行 | [下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.1/EasyHub-1.2.1-portable.exe) |
 | Android | 精简安装包 | 适合大多数较新的 Android 手机 | [下载 Android 安装包](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-arm64.apk) |
 | Android | 通用安装包 | 精简安装包无法安装时尝试 | [下载通用安装包](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.0.0/EasyHub-Android-1.0.0-universal.apk) |
 
@@ -122,4 +122,4 @@ EasyHub 不需要另注册账号，也没有自己的云端服务器。作品、
 
 使用“让 AI 详细说明”时，确认后只发送选中的代码和文件名。说明不会修改项目文件，也不会发布到 GitHub。
 
-EasyHub 采用 [GNU GPLv3 许可](LICENSE)。
+EasyHub 采用 [Apache License 2.0](LICENSE)。第三方组件保留各自的许可证，详情请见 [第三方许可说明](THIRD_PARTY_NOTICES.md)。

@@ -1,9 +1,12 @@
 import { createDraftKey } from '../draftStore';
 import { useLocalDraft } from '../useLocalDraft';
+import { usePageHistory } from '../usePageHistory';
+import { usePageScroll } from '../usePageScroll';
+import { NavigationPages } from './NavigationPages';
 import { PagedContinuation } from './PagedContinuation';
 import { DiscussionSearch, useDiscussionSearchState } from './DiscussionSearch';
-import { useEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { FormEvent, ReactNode, RefObject } from 'react';
 import type { GitHubActivityCount, GitHubComment, GitHubCommit, GitHubIssue, GitHubIssuePage, GitHubRepo } from '@easyhub/github';
 import { ArrowDownToLine, ArrowLeft, ArrowRight, Clock3, Globe2, MessageCircle, Plus, RotateCw, X } from 'lucide-react';
 import { ReadmeMarkdown } from './ReadmeMarkdown';
@@ -46,7 +49,7 @@ function PublicIssueConversation({ repo, issue, comments, protectedNames, reply,
   </div>;
 }
 
-export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOpenLink, onDownload, onForkReady, onOpenAiSettings, downloadBusy, startInDownloads = false, initialFocusTag }: {
+export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOpenLink, onDownload, onForkReady, onOpenAiSettings, downloadBusy, startInDownloads = false, initialFocusTag, scrollArea: parentScrollArea, outerBackBoundary, onPageChange }: {
   repo: GitHubRepo;
   language: Language;
   currentUser: string;
@@ -58,6 +61,9 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
   downloadBusy: boolean;
   startInDownloads?: boolean;
   initialFocusTag?: string;
+  scrollArea?: RefObject<HTMLDivElement | null>;
+  outerBackBoundary?: string | null;
+  onPageChange?: (key: string) => void;
 }) {
   const [tab, setTab] = useState<Tab>(startInDownloads ? 'downloads' : 'intro');
   const [focusTag, setFocusTag] = useState<string | undefined>(initialFocusTag);
@@ -92,6 +98,44 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
   const issueListRequest = useRef(0);
   const owner = repo.owner.login;
   const issueAuthorNames = [selectedIssue?.user?.login, ...comments.map((item) => item.user?.login)].filter((name): name is string => Boolean(name));
+  const browserRef = useRef<HTMLDivElement>(null);
+  const pullBack = useRef<(() => void) | null>(null);
+  const [pullPage, setPullPage] = useState('list');
+  const [pullBackBlocked, setPullBackBlocked] = useState(false);
+  const onPullBackChange = useCallback((back: (() => void) | null, key: string, blocked: boolean) => {
+    pullBack.current = back; setPullPage(key); setPullBackBlocked(blocked);
+  }, []);
+  const scrollArea = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    scrollArea.current = browserRef.current?.closest<HTMLDivElement>('.main-column') ?? null;
+  }, []);
+  const pageKey = JSON.stringify([repo.id, tab, focusTag, selectedIssue?.number, selectedCommit?.sha]);
+  const effectivePageKey = tab === 'pulls' ? JSON.stringify([pageKey, pullPage]) : pageKey;
+  useLayoutEffect(() => { onPageChange?.(effectivePageKey); }, [effectivePageKey, onPageChange]);
+  const rememberPage = usePageScroll(`${pageKey}:${issueFilter}:${issueSearch.query}`, parentScrollArea ?? scrollArea, () => browserRef.current?.isConnected === true);
+  const history = usePageHistory(pageKey, () => {
+    leaveDetail();
+    setTab(tab); setFocusTag(focusTag); setSelectedIssue(selectedIssue); setSelectedCommit(selectedCommit);
+    setComments(comments); setError(error); setIssueError(issueError); setHistoryError(historyError);
+    setIssueFilter(issueFilter); changeIssueSearch(issueSearch);
+    setProposalNotice(proposalNotice); setShowProposalForm(false);
+    // A request invalidated when leaving a detail must be started again on return.
+    if (busy && selectedIssue) void showIssue(selectedIssue);
+    else if (busy && selectedCommit) void showVersion(selectedCommit);
+  });
+
+  function goBack(fallback: () => void): void {
+    rememberPage();
+    if (tab === 'pulls' && pullBackBlocked) return;
+    if (outerBackBoundary === effectivePageKey) { onBack(); return; }
+    if (tab === 'pulls' && pullBack.current) { pullBack.current(); return; }
+    history.back(fallback);
+  }
+
+  function renderPage(children: ReactNode): ReactNode {
+    const cacheKey = tab === 'downloads' ? JSON.stringify([tab, focusTag ?? null]) : tab;
+    return <div ref={browserRef} style={{ display: 'contents' }}><NavigationPages active={cacheKey}>{children}</NavigationPages></div>;
+  }
 
   function leaveDetail(): void {
     detailRequest.current += 1;
@@ -99,6 +143,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
   }
 
   function changeTab(next: Tab): void {
+    rememberPage();
     if (tab !== next) { leaveDetail(); setSelectedIssue(null); setSelectedCommit(null); }
     setTab(next);
   }
@@ -123,7 +168,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
 
   useEffect(() => {
     let active = true;
-    detailRequest.current += 1;
+    const request = ++detailRequest.current;
     setTab(startInDownloads ? 'downloads' : 'intro'); setFocusTag(initialFocusTag); setSelectedIssue(null); setSelectedCommit(null); setReadme(''); setCommits([]); setError(''); setHistoryError(''); setShowProposalForm(false); setProposalNotice(''); setBusy(true);
     const github = window.easyHub?.github;
     if (!github) { setError('应用连接不可用，请重新启动 EasyHub。'); setBusy(false); return; }
@@ -137,7 +182,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
       if (intro.status === 'rejected') setError(errorText(intro.reason));
       if (history.status === 'rejected') setHistoryError(errorText(history.reason));
     })
-      .finally(() => { if (active) setBusy(false); });
+      .finally(() => { if (active && request === detailRequest.current) setBusy(false); });
     return () => { active = false; detailRequest.current += 1; };
   }, [owner, repo.name, repo.id, repo.default_branch, currentUser, startInDownloads, initialFocusTag]);
 
@@ -166,6 +211,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
   }
 
   async function showIssue(issue: GitHubIssue): Promise<void> {
+    rememberPage();
     const request = ++detailRequest.current;
     setSelectedIssue(issue); setComments([]); setError(''); setBusy(true);
     try {
@@ -207,6 +253,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
   }
 
   async function showVersion(item: GitHubCommit): Promise<void> {
+    rememberPage();
     const request = ++detailRequest.current;
     setSelectedCommit(item); setError(''); setBusy(true);
     try {
@@ -223,21 +270,21 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
     } else onOpenLink(url);
   }
 
-  if (tab === 'downloads') return <div className="public-browser" data-testid="public-project-browser"><ReleaseDownloads repo={repo} language={language} focusTag={focusTag} offerAdd onDownload={onDownload} downloadBusy={downloadBusy} onOpenLink={openReadmeLink} onBack={() => changeTab('intro')} /></div>;
-  if (tab === 'issues' && selectedIssue) return <div className="public-issue-page" data-testid="public-project-browser">
-    <button className="back-link" onClick={() => { leaveDetail(); setSelectedIssue(null); }}><ArrowLeft size={16} />返回问题</button>
+  if (tab === 'downloads') return renderPage(<div className="public-browser" data-testid="public-project-browser"><ReleaseDownloads repo={repo} language={language} focusTag={focusTag} offerAdd onDownload={onDownload} downloadBusy={downloadBusy} onOpenLink={openReadmeLink} onBack={() => goBack(startInDownloads ? onBack : () => changeTab('intro'))} /></div>);
+  if (tab === 'issues' && selectedIssue) return renderPage(<div className="public-issue-page" data-testid="public-project-browser">
+    <button className="back-link" onClick={() => goBack(() => { leaveDetail(); setSelectedIssue(null); })}><ArrowLeft size={16} />返回问题</button>
     {error && <div className="live-error" role="alert">{error}<button className="text-link" disabled={busy} onClick={() => void showIssue(selectedIssue)}>重试</button></div>}
     {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取问题内容…</p>}
     <PublicIssueConversation repo={repo} issue={selectedIssue} comments={comments} protectedNames={issueAuthorNames} reply={reply} onReplyChange={setReply} onReply={(event) => void sendReply(event)} replySaving={replySaving} onOpenLink={openReadmeLink} pagination={!busy && <PagedContinuation<GitHubComment> key={`${replyKey}:${detailRequest.current}`} action="commentsPage" args={[owner, repo.name, selectedIssue.number]} firstCount={comments.length} language={language} label={language === 'en' ? 'Load more replies' : '加载更多回复'} onItems={(items) => setComments((old) => [...old, ...items.filter((item) => !old.some((known) => known.id === item.id))].sort((a, b) => a.id - b.id))} />} />
-  </div>;
+  </div>);
 
-  return <div className="public-browser" data-testid="public-project-browser">
-    <button className="back-link" onClick={onBack}><ArrowLeft size={17} />返回搜索结果</button>
+  return renderPage(<div className="public-browser" data-testid="public-project-browser">
+    <button className="back-link" onClick={() => goBack(onBack)}><ArrowLeft size={17} />{history.hasBack || outerBackBoundary === effectivePageKey ? '返回' : '返回搜索结果'}</button>
     <section className="detail-hero public-browser-hero"><div className="detail-main"><span className="project-logo logo-sky public-owner-avatar" aria-hidden="true">{repo.owner.avatar_url ? <img src={repo.owner.avatar_url} alt="" /> : repo.owner.login.slice(0, 1).toUpperCase()}</span><div><div className="detail-name-row"><h1>{repo.full_name}</h1><span className="visibility-label"><Globe2 size={13} />{repo.private ? '仅获授权的项目' : '公开项目'}</span></div>{repo.description ? <TranslatableContent text={repo.description} format="text" render={(value) => <p>{value}</p>} /> : <p>还没有项目介绍</p>}</div></div><div className="detail-actions"><StarProjectButton repo={repo} /><button className="button button-quiet" onClick={() => { setProposalError(''); setShowProposalForm(true); }}><Plus size={17} />提出问题/建议</button><button className="button button-primary" onClick={() => { setFocusTag(undefined); changeTab('downloads'); }}><ArrowDownToLine size={17} />下载发行版或源码</button></div></section>
     {error && <div className="live-error" role="alert">{error}</div>}
     {proposalNotice && <div className="public-proposal-notice" role="status">{proposalNotice}</div>}
     <nav className="public-browser-tabs" aria-label="项目内容"><button className={tab === 'intro' ? 'selected' : ''} onClick={() => changeTab('intro')}>项目介绍</button><button className={tab === 'issues' ? 'selected' : ''} onClick={() => changeTab('issues')}>问题 <span>{activityCounts?.issues ?? `${issues.length}${nextIssuePage ? '+' : ''}`}</span></button><button className={tab === 'pulls' ? 'selected' : ''} onClick={() => changeTab('pulls')}>合并请求审查 <span>{activityCounts?.pullRequests ?? (activityUnavailable ? '—' : '…')}</span></button><button className={tab === 'history' ? 'selected' : ''} onClick={() => changeTab('history')}>历史版本</button></nav>
-    {tab === 'pulls' && <PullRequestsPanel repo={repo} currentUser={currentUser} language={language} showCreateButton={false} downloadBusy={downloadBusy} onActivityChanged={() => void refreshActivityCounts()} onOpenAiSettings={onOpenAiSettings} onDownloadFile={async (number, path, headSha) => { onDownload({ kind: 'pull-file', repo, number, path, headSha, fileName: path.split('/').pop() || path }); }} />}
+    {tab === 'pulls' && <PullRequestsPanel repo={repo} currentUser={currentUser} language={language} showCreateButton={false} scrollArea={parentScrollArea ?? scrollArea} onBackChange={onPullBackChange} downloadBusy={downloadBusy} onActivityChanged={() => void refreshActivityCounts()} onOpenAiSettings={onOpenAiSettings} onDownloadFile={async (number, path, headSha) => { onDownload({ kind: 'pull-file', repo, number, path, headSha, fileName: path.split('/').pop() || path }); }} />}
     {tab !== 'pulls' && <section className="panel public-browser-content">
       {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取项目内容…</p>}
       {tab === 'intro' && <><div className="panel-heading"><h2>项目介绍</h2></div>{readme ? <TranslatableContent text={readme} format="markdown" paragraphMode render={(value) => <ReadmeMarkdown markdown={value} repository={{ owner, name: repo.name, branch: repo.default_branch }} onOpenLink={openReadmeLink} />} /> : !busy && <p className="muted">这个项目还没有介绍。</p>}</>}
@@ -252,7 +299,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
         {(nextIssuePage || issueError) && <button className="button button-quiet pull-more" disabled={loadingIssues} onClick={() => void loadMoreIssues()}>{loadingIssues ? '正在加载…' : issueError ? '重试' : '加载更多问题'}</button>}
         </div>
       </>}
-      {tab === 'history' && <>{selectedCommit ? <><button className="back-link" onClick={() => { leaveDetail(); setSelectedCommit(null); }}><ArrowLeft size={16} />返回历史版本</button><h2>{selectedCommit.commit.message.split('\n')[0]}</h2><p className="muted">{selectedCommit.commit.author?.name || '未知作者'} · {selectedCommit.commit.author?.date ? new Date(selectedCommit.commit.author.date).toLocaleString() : ''}</p><p className="muted">修改文件：{selectedCommit.files?.length ?? '—'} · 新增 {selectedCommit.stats?.additions ?? '—'} 行 · 删除 {selectedCommit.stats?.deletions ?? '—'} 行</p>{selectedCommit.files?.map((file) => <div className="live-file" key={file.filename}>{file.filename}</div>)}<button className="button button-primary version-download" disabled={downloadBusy} onClick={() => onDownload({ kind: 'archive', repo, ref: selectedCommit.sha, fileName: `${repo.name}-${selectedCommit.sha.slice(0, 8)}.zip`, offerAdd: true })}><ArrowDownToLine size={18} />下载这个版本</button></> : <><div className="panel-heading"><h2>历史版本</h2></div>{historyError && <p className="live-error" role="alert">{historyError}</p>}{commits.map((item) => <button className="public-list-row" key={item.sha} onClick={() => void showVersion(item)}><Clock3 size={19} /><span><strong>{item.commit.message.split('\n')[0]}</strong><small>{item.commit.author?.date ? new Date(item.commit.author.date).toLocaleString() : ''}</small></span><ArrowRight size={17} /></button>)}{commits.length === 0 && !busy && !historyError && <p className="muted">还没有历史版本。</p>}{!busy && !historyError && <PagedContinuation<GitHubCommit> key={repo.id} action="commitsPage" args={[owner, repo.name]} firstCount={commits.length} language={language} onItems={(items) => setCommits((old) => [...old, ...items.filter((item) => !old.some((known) => known.sha === item.sha))])} />}</>}</>}
+      {tab === 'history' && <>{selectedCommit ? <><button className="back-link" onClick={() => goBack(() => { leaveDetail(); setSelectedCommit(null); })}><ArrowLeft size={16} />返回历史版本</button><h2>{selectedCommit.commit.message.split('\n')[0]}</h2><p className="muted">{selectedCommit.commit.author?.name || '未知作者'} · {selectedCommit.commit.author?.date ? new Date(selectedCommit.commit.author.date).toLocaleString() : ''}</p><p className="muted">修改文件：{selectedCommit.files?.length ?? '—'} · 新增 {selectedCommit.stats?.additions ?? '—'} 行 · 删除 {selectedCommit.stats?.deletions ?? '—'} 行</p>{selectedCommit.files?.map((file) => <div className="live-file" key={file.filename}>{file.filename}</div>)}<button className="button button-primary version-download" disabled={downloadBusy} onClick={() => onDownload({ kind: 'archive', repo, ref: selectedCommit.sha, fileName: `${repo.name}-${selectedCommit.sha.slice(0, 8)}.zip`, offerAdd: true })}><ArrowDownToLine size={18} />下载这个版本</button></> : <><div className="panel-heading"><h2>历史版本</h2></div>{historyError && <p className="live-error" role="alert">{historyError}</p>}{commits.map((item) => <button className="public-list-row" key={item.sha} onClick={() => void showVersion(item)}><Clock3 size={19} /><span><strong>{item.commit.message.split('\n')[0]}</strong><small>{item.commit.author?.date ? new Date(item.commit.author.date).toLocaleString() : ''}</small></span><ArrowRight size={17} /></button>)}{commits.length === 0 && !busy && !historyError && <p className="muted">还没有历史版本。</p>}{!busy && !historyError && <PagedContinuation<GitHubCommit> key={repo.id} action="commitsPage" args={[owner, repo.name]} firstCount={commits.length} language={language} onItems={(items) => setCommits((old) => [...old, ...items.filter((item) => !old.some((known) => known.sha === item.sha))])} />}</>}</>}
     </section>}
     {showProposalForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !issueSaving) setShowProposalForm(false); }}>
       <form className="modal issue-modal proposal-modal" role="dialog" aria-modal="true" aria-labelledby="public-new-proposal-title" onSubmit={(event) => void submitProposal(event)}>
@@ -268,5 +315,5 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
         <div className="modal-actions"><button type="button" className="button button-quiet" disabled={issueSaving} onClick={() => setShowProposalForm(false)}>取消</button>{proposalType === 'issue' && <button type="submit" className="button button-primary" disabled={issueSaving || !issueTitle.trim()}>创建问题</button>}</div>
       </form>
     </div>}
-  </div>;
+  </div>);
 }

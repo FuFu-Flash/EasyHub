@@ -187,6 +187,7 @@ try {
   await browser.getByRole('heading', { name: '下载发行版或源码' }).waitFor();
   await browser.getByRole('button', { name: '展开完整说明', exact: true }).click();
   const releaseTranslation = browser.locator('.release-download-card .translatable-content').first();
+  await releaseTranslation.scrollIntoViewIfNeeded();
   await releaseTranslation.getByText('译文：A downloadable version.', { exact: false }).waitFor();
   assert.equal(await app.evaluate(() => globalThis.easyhubDownloadCount), 0);
   await browser.locator('button.release-asset').filter({ hasText: 'sample-public.exe' }).click();
@@ -215,6 +216,11 @@ try {
   await sourceDownload.getByText('项目已经下载完成。').waitFor();
   assert.equal(await app.evaluate(() => globalThis.easyhubArchiveAttempts), 2);
   await browser.getByRole('button', { name: '返回项目' }).click();
+  await browser.getByRole('heading', { name: '合并请求审查', exact: true }).waitFor();
+  await browser.locator(':scope > .back-link').click();
+  await browser.locator('.public-browser-tabs button.selected').filter({ hasText: /^问题/ }).waitFor();
+  await browser.locator(':scope > .back-link').click();
+  await browser.locator('.public-browser-tabs button.selected').filter({ hasText: '项目介绍' }).waitFor();
   await browser.getByRole('button', { name: '返回搜索结果' }).click();
   await page.locator('.discover-search input').fill('');
   await page.getByRole('heading', { name: '搜索历史' }).waitFor();
@@ -239,8 +245,12 @@ try {
   assert.equal(await page.evaluate(() => window.localStorage.getItem('easyhub:translation-names:test-user')), 'Another Product\nA Custom Organization');
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
   await page.locator('.saved-public-section').getByRole('button', { name: '浏览' }).click();
+  await browser.locator('.public-browser-hero h1').getByText('another-author/sample-public', { exact: true }).waitFor();
+  await browser.locator('.public-browser-tabs button.selected').filter({ hasText: '项目介绍' }).waitFor();
   await page.getByRole('button', { name: '关闭翻译' }).waitFor();
-  await browser.locator('.translation-paragraph').filter({ hasText: 'A project anyone can browse.' }).getByText('译文：', { exact: false }).waitFor();
+  const restoredParagraph = browser.locator('.translation-paragraph').filter({ hasText: 'A project anyone can browse.' });
+  await restoredParagraph.scrollIntoViewIfNeeded();
+  await restoredParagraph.getByText('译文：', { exact: false }).waitFor();
   const latestTranslation = await app.evaluate(() => globalThis.easyhubTranslationRequests.findLast((request) => request.text.includes('A project anyone can browse.')));
   assert.equal(latestTranslation.repository.name, 'sample-public');
   assert.equal(latestTranslation.repository.owner, 'another-author');
@@ -251,7 +261,8 @@ try {
   await page.getByRole('option', { name: 'English' }).click();
   assert.equal(await page.evaluate(() => window.localStorage.getItem('easyhub:translation-target')), 'en');
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
-  await page.locator('.saved-public-section').getByRole('button', { name: '浏览' }).click();
+  await browser.locator('.public-browser-hero h1').getByText('another-author/sample-public', { exact: true }).waitFor();
+  await browser.locator('.public-browser-tabs button.selected').filter({ hasText: '项目介绍' }).waitFor();
   await browser.getByRole('button', { name: '提出问题/建议' }).click();
   await proposalForm.getByRole('radio', { name: /提交合并请求/ }).check();
   await proposalForm.getByRole('button', { name: '创建仓库副本' }).click();
@@ -262,6 +273,10 @@ try {
   await page.getByTestId('fork-contribution').getByRole('button', { name: '向原项目提交合并请求' }).click();
   await page.getByTestId('fork-contribution').getByText('合并请求已提交。').waitFor();
   await page.getByRole('button', { name: '所有项目' }).click();
+  await browser.locator('.public-browser-hero h1').getByText('another-author/sample-public', { exact: true }).waitFor();
+  await browser.locator('.public-browser-tabs button.selected').filter({ hasText: '项目介绍' }).waitFor();
+  await proposalForm.getByRole('button', { name: '取消' }).click();
+  await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
   await page.getByRole('button', { name: '仓库副本' }).click();
   await page.getByTestId('forks-overview').getByText('another-author/sample-public').waitFor();
   await page.screenshot({ path: 'out/forks-overview-smoke.png' });

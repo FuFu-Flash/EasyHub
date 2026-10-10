@@ -3,7 +3,7 @@ import type { DownloadCommand, DownloadItem, DownloadRequest } from '../../downl
 import type { LocalFileDiff, LocalPublishPreview, LocalPublishSelection } from '@easyhub/types';
 import type { FolderInspection, LocalDiscoveryResult, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
 import type { TranslationProgress, TranslationRequest } from '@easyhub/types';
-import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, PublishReleaseRequest, ReleaseProgress, RemoveReleaseAssetRequest } from '@easyhub/types';
+import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, PublishReleaseRequest, ReleaseProgress, RemoveReleaseAssetRequest, ReleaseMutationFailure } from '@easyhub/types';
 import type { GitHubCreatedRelease } from '@easyhub/github';
 import type { AiSettingsInput, AiSettingsStatus, AiReviewRequest, AiReviewResult, AiReviewProgress, AiCodeExplanationRequest, AiCodeExplanationResult } from '@easyhub/types';
 import type { GitHubProxyStatus } from '@easyhub/types';
@@ -82,9 +82,9 @@ declare global {
       authCancel: () => Promise<void>;
       authLogout: () => Promise<void>;
       chooseReleaseFiles: (inline: boolean) => Promise<PickedReleaseFile[]>;
-      publishRelease: (input: PublishReleaseRequest) => Promise<GitHubCreatedRelease>;
+      publishRelease: (input: PublishReleaseRequest) => Promise<GitHubCreatedRelease | ReleaseMutationFailure<GitHubCreatedRelease>>;
       editRelease: (input: EditReleaseRequest) => Promise<GitHubCreatedRelease>;
-      addReleaseAssets: (input: AddReleaseAssetsRequest) => Promise<GitHubCreatedRelease>;
+      addReleaseAssets: (input: AddReleaseAssetsRequest) => Promise<GitHubCreatedRelease | ReleaseMutationFailure<GitHubCreatedRelease>>;
       removeReleaseAsset: (input: RemoveReleaseAssetRequest) => Promise<GitHubCreatedRelease>;
       cancelRelease: () => Promise<void>;
       onReleaseProgress: (callback: (value: ReleaseProgress) => void) => () => void;

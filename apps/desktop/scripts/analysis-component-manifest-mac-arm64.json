@@ -112,7 +112,7 @@
   "licensing": {
     "ghidra": "Original LICENSE, legal files, matching-tag NOTICE, BOM and GPL corresponding sources are retained. Refer to the included per-component licenses.",
     "java": "Unchanged selected-module upstream legal files, NOTICE and source provenance are included; complete corresponding Java source is available alongside the binary on the same release.",
-    "application": "EasyHub application GPL v3 remains separate from third-party component terms."
+    "application": "EasyHub application code is licensed under Apache License 2.0; third-party components retain their respective license terms."
   },
   "preparation": {
     "existingArtifactsImmutable": true,

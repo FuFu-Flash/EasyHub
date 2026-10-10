@@ -16,7 +16,10 @@ interface Credential { clientId: string; accessToken: string; refreshToken?: str
 interface DeviceCode { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval?: number }
 interface TokenReply { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; interval?: number; scope?: string }
 
-const vault = new AsyncEntry('EasyHub GitHub OAuth', 'default');
+let vault: AsyncEntry | undefined;
+let loginController: AbortController | null = null;
+let credentialMutations = Promise.resolve();
+let credentialGeneration = 0;
 let credential: Credential | null | undefined;
 interface DeletionTarget { owner: string; repo: string; id: number }
 let pending: { code: string; clientId: string; expiresAt: number; interval: number; expectedLogin?: string; deleteAuthorization?: boolean; deletionTarget?: DeletionTarget } | null = null;
@@ -43,11 +46,67 @@ function validPullPath(value: unknown): value is string {
 }
 class PullRequestOperationError extends Error {}
 class DangerOperationError extends Error {}
+class CredentialStorageError extends Error {}
 const staleRequestMessage = '这个合并请求已经有新修改，请刷新后重新查看。';
+
+function credentialVault(): AsyncEntry {
+  return vault ??= new AsyncEntry('EasyHub GitHub OAuth', 'default');
+}
+
+/** A disposable, nonsecret entry proves write/read/delete access without touching the account. */
+async function checkCredentialStorage(): Promise<void> {
+  let probe: AsyncEntry | undefined;
+  let failed = false;
+  const value = `EasyHub storage check ${randomUUID()}`;
+  const signal = AbortSignal.timeout(5000);
+  try {
+    probe = new AsyncEntry('EasyHub GitHub OAuth preflight', `probe-${randomUUID()}`);
+    await probe.setPassword(value, signal);
+    if (await probe.getPassword(signal) !== value) failed = true;
+  } catch { failed = true; }
+  finally {
+    // Even a failed write can have reached the keyring. The entry contains no credentials.
+    if (probe) {
+      try { await probe.deleteCredential(AbortSignal.timeout(5000)); } catch { failed = true; }
+    }
+  }
+  if (failed) throw new CredentialStorageError('无法使用系统安全存储。请确认凭据管理器可用，或解锁系统密钥环后重试登录。');
+}
+
+function loginNetworkError(cause: unknown): Error {
+  const detail = cause instanceof Error ? `${cause.name} ${cause.message}` : '';
+  if (/TimeoutError|AbortError|TIMED_OUT|ETIMEDOUT/i.test(detail)) return new Error('连接 GitHub 超时。请检查网络，或在设置中开启 GitHub 代理后重试。');
+  if (/CERT_|CERTIFICATE|SSL_|TLS_/i.test(detail)) return new Error('无法验证 GitHub 的安全连接证书。请检查电脑时间和网络代理设置后重试。');
+  if (/PROXY_|TUNNEL_CONNECTION/i.test(detail)) return new Error('无法通过当前代理连接 GitHub。请检查系统代理，或在设置中调整 GitHub 代理后重试。');
+  if (/NAME_NOT_RESOLVED|ENOTFOUND|EAI_AGAIN|DNS_/i.test(detail)) return new Error('无法找到 GitHub 的网络地址。请检查网络，或在设置中开启 GitHub 代理后重试。');
+  return new Error('无法连接 GitHub，请检查网络，或在设置中开启 GitHub 代理后重试。');
+}
+
+async function loginResponse<T>(url: string, form: Record<string, string>, signal?: AbortSignal): Promise<T> {
+  const response = await net.fetch(url, {
+    method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(form),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000),
+  }).catch((cause: unknown) => {
+    if (signal?.aborted) throw new Error('登录已取消。');
+    throw loginNetworkError(cause);
+  });
+  if (response.status === 429) throw new Error('GitHub 登录请求过于频繁，请稍后重试。');
+  if (!response.ok) throw new Error('GitHub 登录暂时不可用，请稍后重试。');
+  try {
+    const result: unknown = await response.json();
+    if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error('Invalid login response');
+    return result as T;
+  } catch {
+    if (signal?.aborted) throw new Error('登录已取消。');
+    throw new Error('GitHub 登录返回的信息不完整。请检查网络或代理后重试。');
+  }
+}
 
 async function loadCredential(): Promise<Credential | null> {
   if (credential !== undefined) return credential;
-  const raw = await vault.getPassword();
+  let raw: string | undefined;
+  try { raw = await credentialVault().getPassword(); }
+  catch { throw new CredentialStorageError('无法读取登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试。'); }
   if (!raw) return credential = null;
   try {
     const stored: unknown = JSON.parse(raw);
@@ -58,18 +117,47 @@ async function loadCredential(): Promise<Credential | null> {
   return credential = null;
 }
 
-async function saveCredential(next: Credential): Promise<void> {
-  await vault.setPassword(JSON.stringify(next));
-  credential = next;
+function mutateCredential<T>(operation: () => Promise<T>): Promise<T> {
+  const result = credentialMutations.then(operation);
+  credentialMutations = result.then(() => undefined, () => undefined);
+  return result;
+}
+
+async function saveCredential(next: Credential, isCurrent: () => boolean = () => true, onSaved?: () => void): Promise<void> {
+  await mutateCredential(async () => {
+    if (!isCurrent()) throw new Error('登录已取消。');
+    let entry: AsyncEntry;
+    let previous: string | undefined;
+    try { entry = credentialVault(); previous = await entry.getPassword(); }
+    catch { throw new CredentialStorageError('无法读取登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试。'); }
+    if (!isCurrent()) throw new Error('登录已取消。');
+    try { await entry.setPassword(JSON.stringify(next)); }
+    catch {
+      // A write failure can be ambiguous. Keep the old account when possible.
+      try { if (previous) await entry.setPassword(previous); else await entry.deleteCredential(); }
+      catch { throw new CredentialStorageError('GitHub 已授权，但无法确认登录信息已安全保存或清理。请解锁系统安全存储后重试退出登录。'); }
+      throw new CredentialStorageError('GitHub 已授权，但无法保存登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试登录。');
+    }
+    if (!isCurrent()) {
+      try { if (previous) await entry.setPassword(previous); else await entry.deleteCredential(); }
+      catch { throw new CredentialStorageError('登录已取消，但无法清理已保存的登录信息。请解锁系统安全存储后重试退出登录。'); }
+      throw new Error('登录已取消。');
+    }
+    credential = next;
+    onSaved?.();
+  });
 }
 
 async function exchange(form: Record<string, string>): Promise<TokenReply> {
-  const response = await net.fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(form),
-    signal: AbortSignal.timeout(15000),
-  }).catch(() => { throw new Error('无法连接 GitHub，请检查网络，或在设置中开启 GitHub 代理后重试。'); });
-  if (!response.ok) throw new Error('GitHub 登录暂时不可用，请稍后重试。');
-  return response.json() as Promise<TokenReply>;
+  const result = await loginResponse<TokenReply>('https://github.com/login/oauth/access_token', form);
+  if (result.access_token !== undefined && typeof result.access_token !== 'string' ||
+      result.refresh_token !== undefined && typeof result.refresh_token !== 'string' ||
+      result.scope !== undefined && typeof result.scope !== 'string' ||
+      result.error !== undefined && typeof result.error !== 'string' ||
+      result.expires_in !== undefined && (!Number.isSafeInteger(result.expires_in) || result.expires_in <= 0)) {
+    throw new Error('GitHub 登录返回的信息不完整。请检查网络或代理后重试。');
+  }
+  return result;
 }
 
 async function accessToken(): Promise<string> {
@@ -79,7 +167,8 @@ async function accessToken(): Promise<string> {
     if (!current.refreshToken) throw new Error('GitHub 登录已过期，请重新登录。');
     const refreshed = await exchange({ client_id: current.clientId, grant_type: 'refresh_token', refresh_token: current.refreshToken });
     if (!refreshed.access_token) throw new Error('GitHub 登录已过期，请重新登录。');
-    await saveCredential({ clientId: current.clientId, accessToken: refreshed.access_token, refreshToken: refreshed.refresh_token ?? current.refreshToken, expiresAt: refreshed.expires_in ? Date.now() + refreshed.expires_in * 1000 : undefined, scopes: refreshed.scope ? refreshed.scope.split(',').map((value) => value.trim()) : current.scopes });
+    const generation = credentialGeneration;
+    await saveCredential({ clientId: current.clientId, accessToken: refreshed.access_token, refreshToken: refreshed.refresh_token ?? current.refreshToken, expiresAt: refreshed.expires_in ? Date.now() + refreshed.expires_in * 1000 : undefined, scopes: refreshed.scope ? refreshed.scope.split(',').map((value) => value.trim()) : current.scopes }, () => generation === credentialGeneration && credential === current);
     return refreshed.access_token;
   }
   return current.accessToken;
@@ -122,7 +211,7 @@ export async function getPullRequestReviewContext(owner: string, repo: string, n
     }
     return { repository, pullRequest: current, files, filesTruncated: current.changed_files !== undefined ? current.changed_files > files.length : files.length >= 3000 };
   } catch (error) {
-    if (error instanceof PullRequestOperationError) throw error;
+    if (error instanceof PullRequestOperationError || error instanceof CredentialStorageError) throw error;
     throw new PullRequestOperationError(friendlyGitHubError(error));
   }
 }
@@ -148,7 +237,7 @@ export async function loadBinaryAnalysisFile(source: Exclude<BinaryAnalysisSourc
     return { name: asset.name, size: asset.size, sha256: digest, response: await client.downloadReleaseAsset(source.owner, source.repo, source.assetId, signal) };
   } catch (cause) {
     if (signal.aborted) throw new Error('分析已取消。');
-    if (cause instanceof PullRequestOperationError) throw cause;
+    if (cause instanceof PullRequestOperationError || cause instanceof CredentialStorageError) throw cause;
     throw new Error(friendlyGitHubError(cause));
   }
 }
@@ -173,25 +262,42 @@ export async function startDeviceLogin(clientId: unknown, includeDeleteScope = f
   if (!validClientId(clientId)) invalid();
   if (includeDeleteScope) oneTimeDeletion = null;
   if (includeDeleteScope && (!deletionTarget || !validRepoPart(deletionTarget.owner) || !validRepoPart(deletionTarget.repo) || !Number.isSafeInteger(deletionTarget.id) || deletionTarget.id <= 0)) invalid();
-  const expectedLogin = includeDeleteScope ? (await client.user()).login : undefined;
-  if (includeDeleteScope && deletionTarget) {
-    const remote = await client.repo(deletionTarget.owner, deletionTarget.repo);
-    if (remote.id !== deletionTarget.id || remote.full_name !== `${deletionTarget.owner}/${deletionTarget.repo}` ||
-        !remote.permissions?.admin && remote.owner.login.toLowerCase() !== expectedLogin?.toLowerCase()) {
-      throw new DangerOperationError('项目信息或权限已变化，请刷新后重试。');
+  if (loginController) throw new Error('正在准备登录，请稍候。');
+  const controller = new AbortController();
+  loginController = controller;
+  pending = null;
+  try {
+    await checkCredentialStorage();
+    if (controller.signal.aborted) throw new Error('登录已取消。');
+    const readSignal = AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]);
+    const authRead = async <T>(operation: Promise<T>): Promise<T> => operation.catch((cause: unknown) => {
+      if (controller.signal.aborted) throw new Error('登录已取消。');
+      if (cause instanceof CredentialStorageError) throw cause;
+      if (cause instanceof GitHubError) throw new Error(friendlyGitHubError(cause));
+      throw loginNetworkError(cause);
+    });
+    const expectedLogin = includeDeleteScope ? (await authRead(client.user(readSignal))).login : undefined;
+    if (includeDeleteScope && deletionTarget) {
+      const remote = await authRead(client.repo(deletionTarget.owner, deletionTarget.repo, readSignal));
+      if (remote.id !== deletionTarget.id || remote.full_name !== `${deletionTarget.owner}/${deletionTarget.repo}` ||
+          !remote.permissions?.admin && remote.owner.login.toLowerCase() !== expectedLogin?.toLowerCase()) {
+        throw new DangerOperationError('项目信息或权限已变化，请刷新后重试。');
+      }
     }
-  }
-  const response = await net.fetch('https://github.com/login/device/code', {
-    method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: clientId, scope: includeDeleteScope ? 'repo read:user delete_repo' : 'repo read:user' }),
-    signal: AbortSignal.timeout(15000),
-  }).catch(() => { throw new Error('无法连接 GitHub，请检查网络，或在设置中开启 GitHub 代理后重试。'); });
-  if (!response.ok) throw new Error('GitHub 登录暂时不可用，请稍后重试。');
-  const result = await response.json() as DeviceCode & { error?: string };
-  if (!result.device_code || !result.user_code || result.error) throw new Error('无法开始 GitHub 登录，请检查 Client ID 和 Device Flow 设置。');
-  pending = { code: result.device_code, clientId, expiresAt: Date.now() + result.expires_in * 1000, interval: Math.max(result.interval ?? 5, 5), expectedLogin, deleteAuthorization: includeDeleteScope, deletionTarget };
-  lastPoll = 0;
-  return { userCode: result.user_code, verificationUri: result.verification_uri, expiresAt: pending.expiresAt, interval: pending.interval };
+    if (controller.signal.aborted) throw new Error('登录已取消。');
+    const result = await loginResponse<DeviceCode & { error?: string }>('https://github.com/login/device/code', {
+      client_id: clientId, scope: includeDeleteScope ? 'repo read:user delete_repo' : 'repo read:user',
+    }, controller.signal);
+    if (controller.signal.aborted) throw new Error('登录已取消。');
+    if (typeof result.device_code !== 'string' || !result.device_code || typeof result.user_code !== 'string' || !result.user_code ||
+        result.verification_uri !== 'https://github.com/login/device' || !Number.isSafeInteger(result.expires_in) || result.expires_in <= 0 || result.error ||
+        result.interval !== undefined && (!Number.isSafeInteger(result.interval) || result.interval <= 0)) {
+      throw new Error('无法开始 GitHub 登录，请检查 Client ID 和 Device Flow 设置。');
+    }
+    pending = { code: result.device_code, clientId, expiresAt: Date.now() + result.expires_in * 1000, interval: Math.max(result.interval ?? 5, 5), expectedLogin, deleteAuthorization: includeDeleteScope, deletionTarget };
+    lastPoll = 0;
+    return { userCode: result.user_code, verificationUri: result.verification_uri, expiresAt: pending.expiresAt, interval: pending.interval };
+  } finally { if (loginController === controller) loginController = null; }
 }
 
 export async function pollDeviceLogin(): Promise<{ state: 'waiting' | 'complete'; user?: GitHubUser; interval?: number }> {
@@ -208,24 +314,36 @@ export async function pollDeviceLogin(): Promise<{ state: 'waiting' | 'complete'
     if (result.error || !result.access_token) throw new Error('登录确认失败，请重新尝试。');
     if (pending !== flow) return { state: 'waiting', interval: flow.interval };
     const scopes = result.scope?.split(',').map((value) => value.trim()) ?? [];
+    const candidate = new GitHubClient(async () => result.access_token!, (input, init) => net.fetch(String(input), init));
+    const authorizedUser = await candidate.user(AbortSignal.timeout(15000)).catch((cause: unknown) => {
+      if (cause instanceof GitHubError) throw new Error(friendlyGitHubError(cause));
+      throw loginNetworkError(cause);
+    });
+    if (pending !== flow) throw new Error('登录已取消。');
     if (flow.deleteAuthorization) {
       if (!scopes.includes('delete_repo')) { pending = null; throw new Error('GitHub 未授予删除项目权限，请重新授权。'); }
-      const candidate = new GitHubClient(async () => result.access_token!, (input, init) => net.fetch(String(input), init));
-      const authorizedUser = await candidate.user();
       if (authorizedUser.login.toLowerCase() !== flow.expectedLogin?.toLowerCase()) { pending = null; throw new Error('授权的 GitHub 账号与当前账号不一致，项目没有删除。'); }
       oneTimeDeletion = { token: result.access_token, expiresAt: Date.now() + Math.min((result.expires_in ?? 600) * 1000, 600_000), target: flow.deletionTarget! };
       pending = null;
       return { state: 'complete', user: authorizedUser };
     }
-    await saveCredential({ clientId: flow.clientId, accessToken: result.access_token, refreshToken: result.refresh_token, expiresAt: result.expires_in ? Date.now() + result.expires_in * 1000 : undefined, scopes });
-    pending = null;
-    return { state: 'complete', user: await client.user() };
+    const generation = credentialGeneration;
+    await saveCredential({ clientId: flow.clientId, accessToken: result.access_token, refreshToken: result.refresh_token, expiresAt: result.expires_in ? Date.now() + result.expires_in * 1000 : undefined, scopes }, () => pending === flow && credentialGeneration === generation, () => { pending = null; });
+    return { state: 'complete', user: authorizedUser };
   } finally { polling = false; }
 }
 
-export function cancelDeviceLogin(): void { pending = null; oneTimeDeletion = null; }
+export function cancelDeviceLogin(): void { loginController?.abort(); pending = null; oneTimeDeletion = null; }
 export function cancelGithubReads(): void { for (const controller of readControllers) controller.abort(); }
-export async function logout(): Promise<void> { pending = null; oneTimeDeletion = null; await vault.deleteCredential(); credential = null; }
+export async function logout(): Promise<void> {
+  cancelDeviceLogin();
+  credentialGeneration++;
+  await mutateCredential(async () => {
+    try { await credentialVault().deleteCredential(); }
+    catch { throw new CredentialStorageError('无法清除登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试退出。'); }
+    credential = null;
+  });
+}
 
 export async function githubAction(action: unknown, args: unknown[]): Promise<unknown> {
   if (typeof action !== 'string' || !Array.isArray(args) || args.length > 4) invalid();
@@ -457,7 +575,7 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
     }
     invalid();
   } catch (error) {
-    if (error instanceof PullRequestOperationError || error instanceof DangerOperationError) throw error;
+    if (error instanceof PullRequestOperationError || error instanceof DangerOperationError || error instanceof CredentialStorageError) throw error;
     if ((action === 'acceptPullRequest' || action === 'rejectPullRequest') && error instanceof GitHubError) {
       if (error.status === 409) throw new Error(staleRequestMessage);
       if (error.status === 405) throw new Error('GitHub 暂时不允许合入，请先满足项目的检查和审批要求。');

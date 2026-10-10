@@ -594,3 +594,13 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   .layout-option { flex-direction: row; align-items: center; padding-right: 38px; }
   .layout-option-preview { flex: none; }
 }
+
+.demo-mode-notice { display:flex; align-items:flex-start; gap:8px; margin:0 0 16px; padding:10px 13px; border:1px solid #dae8fa; border-radius:10px; background:#eef5ff; color:#587497; font-size:12px; line-height:1.6; }
+.demo-mode-notice svg { flex:none; margin-top:2px; }
+.search-empty-state { width:100%; grid-column:1 / -1; }
+.search-box .icon-button, .discover-search .icon-button { flex:none; }
+
+/* Explicit page memory owns scrolling even when asynchronous comments resize the page. */
+.main-column { overflow-anchor: none; }
+/* README content in a conversation is a body, not the flex header above it. */
+.message-box > .intro-markdown.readme-markdown { display:block; padding:16px; background:#fff; border-bottom:0; }

@@ -28,6 +28,7 @@ export function ReleaseDownloads({ repo, draftAccount, onBack, onDownload, downl
   const requestGeneration = useRef(0);
   const loadingPage = useRef(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingBusy, setEditingBusy] = useState(false);
   const [expandedReleaseIds, setExpandedReleaseIds] = useState<Set<number>>(() => new Set());
   const [analysisAsset, setAnalysisAsset] = useState<{ releaseId: number; id: number; name: string } | null>(null);
   const owner = repo.owner.login;
@@ -98,7 +99,7 @@ export function ReleaseDownloads({ repo, draftAccount, onBack, onDownload, downl
   });
 
   return <div className="release-downloads" data-testid="release-downloads">
-    <button className="back-link" onClick={onBack}><ArrowLeft size={17} />返回项目</button>
+    <button className="back-link" disabled={editingBusy} onClick={onBack}><ArrowLeft size={17} />返回项目</button>
     <div className="page-header"><div><div className="eyebrow">{repo.full_name}</div><h1>{editOnOpen && canEdit ? '编辑发行版' : '下载发行版或源码'}</h1><p>{editOnOpen && canEdit ? '选择已发布的版本，修改介绍或管理下载文件。' : '选择发行版文件或源码，再保存到电脑。'}</p></div></div>
     {error && <div className="live-error" role="alert">{error}{!loading && <button type="button" className="text-link" disabled={loadingMore} onClick={() => failedPage ? void loadMore() : setReload((value) => value + 1)}>{language === 'en' ? 'Try again' : '重试'}</button>}</div>}
     {downloadBusy && <p className="muted">下载正在进行，可在右上角通知中查看进度。</p>}
@@ -113,7 +114,7 @@ export function ReleaseDownloads({ repo, draftAccount, onBack, onDownload, downl
         const expanded = expandedReleaseIds.has(release.id);
         const descriptionId = `release-description-${repo.id}-${release.id}`;
         return <section className="panel release-download-card" key={release.id}>
-        {canEdit && <div className="release-edit-entry"><button type="button" className="secondary-button" onClick={() => setEditingId((value) => value === release.id ? null : release.id)}>{translateText(editingId === release.id ? '收起编辑' : '编辑发行版', readLanguage())}</button></div>}
+        {canEdit && <div className="release-edit-entry"><button type="button" className="secondary-button" disabled={editingBusy} onClick={() => setEditingId((value) => value === release.id ? null : release.id)}>{translateText(editingId === release.id ? '收起编辑' : '编辑发行版', readLanguage())}</button></div>}
         <div className="release-download-heading"><div><span className="release-tag">{release.tag_name}</span>{release.prerelease && <span className="release-prerelease">测试版</span>}{releases[0]?.id === release.id && !release.prerelease && <span className="release-latest">最新版本</span>}{requestedTag === release.tag_name && <span className="release-latest">README 提到的版本</span>}<h2>{release.name || release.tag_name}</h2><small>{release.published_at ? new Date(release.published_at).toLocaleString() : '尚未公布时间'}</small></div></div>
         <div className="release-assets"><h3>可下载文件</h3>{release.assets.filter((asset) => asset.state === 'uploaded').map((asset) => <div className="binary-release-asset" key={asset.id}><button className="release-asset" disabled={downloadBusy} onClick={() => download(release.tag_name, asset.name, asset.id)}><FileArchive size={20} /><span><strong>{asset.name}</strong><small>{asset.label || sizeLabel(asset.size)} · 已下载 {asset.download_count.toLocaleString()} 次</small></span><ArrowDownToLine size={18} /></button>{isProgramFileName(asset.name) && <button className="button button-quiet small-button" onClick={() => setAnalysisAsset((current) => current?.id === asset.id ? null : { releaseId: release.id, id: asset.id, name: asset.name })} aria-label={`${language === 'en' ? 'AI review program file' : 'AI 审查程序文件'} ${asset.name}`}><Sparkles size={16} />{language === 'en' ? 'AI review' : 'AI 审查'}</button>}</div>)}<button className="release-asset" disabled={downloadBusy} onClick={() => download(release.tag_name, `${repo.name}-${release.tag_name}.zip`)}><FileArchive size={20} /><span><strong>项目源码 ZIP</strong><small>{release.tag_name} 的完整源码</small></span><ArrowDownToLine size={18} /></button></div>
         {analysisAsset?.releaseId === release.id && <BinaryAnalysisPanel language={language} source={{ kind: 'release', owner, repo: repo.name, assetId: analysisAsset.id, name: analysisAsset.name }} />}
@@ -126,7 +127,7 @@ export function ReleaseDownloads({ repo, draftAccount, onBack, onDownload, downl
             {expanded && (offerAdd || !repo.private ? <TranslatableContent text={release.body} format="markdown" render={renderDescription} /> : renderDescription(release.body))}
           </div>
         </>}
-        {canEdit && editingId === release.id && <ReleaseEditPanel repo={repo} release={release} draftAccount={draftAccount} onUpdated={onUpdated} onClose={() => setEditingId(null)} onOpenLink={openDescriptionLink} />}
+        {canEdit && editingId === release.id && <ReleaseEditPanel repo={repo} release={release} draftAccount={draftAccount} onUpdated={onUpdated} onClose={() => setEditingId(null)} onOpenLink={openDescriptionLink} onBusyChange={setEditingBusy} />}
       </section>;
       })}
       {nextPage !== null && <button type="button" className="button button-quiet" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? <><RotateCw size={16} className="live-spin" />{language === 'en' ? 'Loading…' : '正在加载…'}</> : language === 'en' ? 'Load more releases' : '加载更多版本'}</button>}
