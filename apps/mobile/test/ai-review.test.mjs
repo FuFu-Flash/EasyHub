@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { realpathSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { parseAiReview, reviewPullRequest, validateAiSettings } from '../features/ai/review.ts';
+import { throwIfCancelled } from '../features/network/cancellation.js';
+
+const nativeRequire = createRequire(realpathSync(new URL('../node_modules/react-native/package.json', import.meta.url)));
+const { AbortController: NativeAbortController } = nativeRequire('abort-controller/dist/abort-controller');
 
 const SHA = 'a'.repeat(40);
 const settings = { providerId: 'openai', model: 'example-model', apiKey: 'user-supplied-key' };
@@ -44,4 +50,31 @@ test('binary only changes return an explicit limited result without calling AI',
   assert.equal(result.reviewedFiles, 0);
   assert.equal(result.findings.length, 0);
   assert.match(result.summary, /没有可供 AI 审查/);
+});
+
+test('AI review and download cancellation checkpoints support the installed React Native AbortSignal', async () => {
+  const controller = new NativeAbortController();
+  assert.equal(typeof controller.signal.throwIfAborted, 'undefined');
+  assert.doesNotThrow(() => throwIfCancelled(undefined));
+  assert.doesNotThrow(() => throwIfCancelled(controller.signal));
+  const result = await reviewPullRequest({ client: { pullRequest: async () => pull, pullFilesPage: async () => [file] },
+    owner: 'writer', repo: 'app', number: 12, headSha: SHA, settings, language: 'en', signal: controller.signal,
+    fetcher: async () => Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ summary: 'Reviewed', findings: [] }) } }] }) });
+  assert.equal(result.summary, 'Reviewed');
+  controller.abort();
+  assert.throws(() => throwIfCancelled(controller.signal), { name: 'AbortError' });
+  await assert.rejects(reviewPullRequest({ client: { pullRequest: async () => { throw new Error('Must not request GitHub'); } },
+    owner: 'writer', repo: 'app', number: 12, headSha: SHA, settings, language: 'en', signal: controller.signal }), { name: 'AbortError' });
+});
+
+test('native cancellation during an AI request stops before results or completion progress', async () => {
+  const controller = new NativeAbortController();
+  const progress = [];
+  await assert.rejects(reviewPullRequest({ client: { pullRequest: async () => pull, pullFilesPage: async () => [file] },
+    owner: 'writer', repo: 'app', number: 12, headSha: SHA, settings, language: 'en', signal: controller.signal,
+    onProgress: (...value) => progress.push(value), fetcher: async () => {
+      controller.abort();
+      return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ summary: 'Must not return', findings: [] }) } }] });
+    } }), { name: 'AbortError' });
+  assert.deepEqual(progress, [[0, 1]]);
 });

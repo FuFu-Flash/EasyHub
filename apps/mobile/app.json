@@ -2,7 +2,7 @@
   "expo": {
     "name": "EasyHub",
     "slug": "easyhub",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "easyhub",
@@ -14,7 +14,7 @@
     "android": {
       "package": "app.easyhub.mobile",
       "icon": "./assets/images/icon.png",
-      "versionCode": 2,
+      "versionCode": 4,
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -24,6 +24,7 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/with-analysis.cjs",
       "expo-secure-store",
       [
         "expo-splash-screen",
@@ -37,8 +38,8 @@
         "expo-build-properties",
         {
           "android": {
-            "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true,
+            "enableMinifyInReleaseBuilds": false,
+            "enableShrinkResourcesInReleaseBuilds": false,
             "useLegacyPackaging": true
           }
         }

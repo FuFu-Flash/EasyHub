@@ -6,7 +6,7 @@ import Svg, { Path } from 'react-native-svg';
 import type { Visibility } from '@easyhub/types';
 import { useSession } from '@/features/auth/session';
 import { usePreferences } from '@/features/preferences/provider';
-import { Action, Card, Heading, Page, palette } from '@/components/elements';
+import { Action, BackLink, Card, Heading, Page, palette } from '@/components/elements';
 import { EarthIcon } from '@/components/EarthIcon';
 
 function VisibilityChoice({ value, selected, onPress, title, description }: { value: Visibility; selected: boolean; onPress: () => void; title: string; description: string }) {
@@ -36,7 +36,7 @@ export default function CreateProject() {
     } catch { setError(t('创建失败。请检查项目名称是否重复，或稍后重试。', 'Could not create the project. Check whether the name is already in use, then try again.')); }
     finally { setBusy(false); }
   };
-  return <Page><Text onPress={() => router.back()} style={{ color: palette.blue, marginBottom: 25 }}>{t('← 返回', '← Back')}</Text><Heading title={t('新建项目', 'New project')} subtitle={t('给新想法起个名字，随时分享你的作品。', 'Give your new idea a name and share your work anytime.')} />
+  return <Page><BackLink title={t('返回', 'Back')} marginBottom={25} /><Heading title={t('新建项目', 'New project')} subtitle={t('给新想法起个名字，随时分享你的作品。', 'Give your new idea a name and share your work anytime.')} />
     <Card>
       <Text style={{ fontWeight: '800', color: palette.ink, marginBottom: 8 }}>{t('项目名称', 'Project name')} <Text style={{ color: '#d66c7e' }}>*</Text></Text>
       <TextInput accessibilityLabel={t('项目名称', 'Project name')} value={name} onChangeText={setName} autoCapitalize="none" autoCorrect={false} placeholder={t('例如 MyTool', 'For example, MyTool')} maxLength={100} style={{ backgroundColor: '#fff', color: palette.ink, borderWidth: 1, borderColor: palette.border, padding: 15, borderRadius: 12, marginBottom: 18 }} />

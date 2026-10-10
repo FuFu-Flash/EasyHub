@@ -8,11 +8,15 @@
 
 <p align="center">Make GitHub as easy as posting an update.</p>
 
-EasyHub makes GitHub easier to use. Create and publish your work on Windows, then use Android to browse projects, reply to issues, download releases, and review contributions wherever you are. You do not need to learn complex Git commands.
+EasyHub makes GitHub easier to use. Create and publish source on Windows, and use Android to manage projects, reply to issues, download releases, and review contributions wherever you are. You do not need to learn complex Git commands.
 
 [Visit the EasyHub website](https://fufu-flash.github.io/easyhub-website/) · [View all releases](https://github.com/FuFu-Flash/EasyHub/releases)
 
-**The latest Windows version is 1.1.0, and the Android version is 1.0.0.** An iOS version is not yet available.
+**This checkout's Windows version is 1.1.0, and the current Android development version is 1.1.0. The public Android downloads below remain at 1.0.0.** An iOS version is not yet available.
+
+Android 1.1.0 adds manual update checks matching desktop and page transitions. The [local arm64 test APK](artifacts/EasyHub-Android-1.1.0-arm64.apk) was checked at mainstream resolutions in the Android Studio emulator; see the [update and motion verification](docs/android-update-and-motion.md).
+
+The subsequent development build adds pull to refresh to data screens, with the native blue Android loading indicator and retained search criteria and drafts: [updated arm64 test APK](artifacts/EasyHub-Android-1.1.0-pull-refresh-arm64.apk), [refresh verification](docs/android-pull-refresh.md). The version remains 1.1.0.
 
 ## Download EasyHub
 
@@ -56,15 +60,25 @@ The process **does not launch the program being reviewed or run tests for you**.
 
 Reviews show progress and can be canceled. Results describe what was checked and which files could not be completed. You can also expand the extracted program content used in the review. The output language follows your app settings.
 
-The Android edition currently reviews readable text changes. Review results are for reference, and your AI provider may charge for use. Your API key is kept in secure storage on the current device. Once configured, the settings are collapsed by default, and you can select a model directly for everyday use.
+The current Android development version supports text-change reviews and on-device program decompilation, described below. Review results are for reference, and your AI provider may charge for use. Your API key is kept in secure storage on the current device. Once configured, the settings are collapsed by default, and you can select a model directly for everyday use.
 
-## Browse on Android wherever you are
+## View and manage on Android
 
-After signing in with GitHub, you can view your projects, project introductions, issues, version history, and releases; create projects; open or reply to issues; and download the versions you need. You can also search public projects and users, browse “EasyHub Popular”, and view user profiles and contribution history. In Settings, you can switch languages and translate public project descriptions and issue titles when needed.
+These additions describe the current development source. The existing Android 1.0.0 download links do not imply that these changes are included. On-device decompiler and component-download checks were completed on the previous framework build; update and navigation checks were completed on 1.1.0. See the [parity record](docs/android-parity.md), [analysis validation record](docs/android-analysis-check.md), and [update and motion verification](docs/android-update-and-motion.md) for each build's evidence.
 
-When you receive a pull request, you can inspect the changed files, leave a review, or confirm approval and merging or rejection and closing. Android also offers optional AI reviews using the AI service you configure yourself.
+After signing in with GitHub, view your projects, introductions, issues, history, and releases; create projects; open or reply to issues; and download versions. Public repository and user searches support pagination. Paste a GitHub repository address to open it directly, switch between compact and detailed results, browse “EasyHub Popular”, and view profiles and contributions.
 
-The Android edition currently focuses on browsing and managing projects. **Selecting local folders, detecting file changes, publishing source code, and uploading new releases are still done on Windows.** Content published on Windows appears on your phone through GitHub.
+When you receive a pull request, inspect changed files and build/test checks tied to its revision, leave a review, or confirm a merge or rejection. Project issues and pull requests support title or #number searches; discussion replies and review history can load subsequent pages. Android also offers optional AI reviews using the AI service you configure yourself.
+
+Create a fork of a public project and submit changes already published from desktop or GitHub to the original project. Forks are listed separately with their parent relationship. Administrators can manage visibility, archiving, default branch protection, transfers and deletion. Deletion requires a separate GitHub authorization and entering the project name again.
+
+Translate introductions, issue bodies and comments, pull requests and release notes on demand. Translation sends text only from confirmed public repositories and preserves code, filenames, links and custom protected names. Star projects on GitHub and browse your starred list. Opening notifications clears their unread count; changed tasks notify again. Contribution history supports year selection and viewing a day's activity.
+
+**Android does not provide local projects, source editing or publishing, or release publishing and editing. These workflows remain on Windows.** View versions, download a source ZIP from the current default branch, or download source for a selected commit or release tag and release attachments. Downloads show progress, speed, and estimated time, with cancellation and retry.
+
+The current arm64 development build includes real on-device decompilation: JADX 1.5.6 reads APK, DEX, JAR, and CLASS files; radare2/r2ghidra 6.2.2 uses the native Ghidra decompiler for EXE, DLL, SO, ELF, and Mach-O files. Select a program file on your phone, or download and verify a release attachment or changed pull-request file. View sampled code, symbols, strings, and SHA-256, then share a report. Local analysis does not require an AI key. Optional AI interpretation sends extracted evidence only after you confirm the provider; it does not send the original program file or execute it.
+
+Inputs are limited to 128 MiB, with a 64 MiB limit for Java/DEX input and expanded bytecode. Analysis samples up to 12 classes or 16 native functions, displaying up to 4,000 characters per sample. Java/DEX decompilation requires Android 8.0 or later. Native analysis can terminate its child process and has a three-minute watchdog. JADX cancellation is cooperative; it cannot provide hard isolation or immediately interrupt a class already being decompiled. See the [Android parity record](docs/android-parity.md) for build instructions and limits. Windows system proxy and hosts repair remain desktop features.
 
 ## What else can you do on Windows?
 
@@ -97,7 +111,7 @@ Click the translation toggle at the top to translate public project introduction
 - The bell in the upper right shows the unread notification count, which clears when you open the notifications. Project tasks you have already seen remain available, and changes to pending tasks or download results trigger new notifications.
 - The app and installer use consistent rounded corners and progress indicators. The mouse keeps its default arrow, while text input and content selection work as usual.
 
-## “Publish Source” and “Publish New Release”
+## “Publish Source” and “Publish New Release” on Windows
 
 - **Publish Source**: Save your everyday changes to project files. This feature is connected to real GitHub projects.
 - **Publish New Release**: Enter a version number and description for your project, add images, links, and multiple download files, then preview and publish to GitHub. EasyHub suggests the next version number when you publish again.

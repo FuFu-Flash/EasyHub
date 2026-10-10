@@ -25,3 +25,17 @@ test('partial failures remain visible to the caller', async () => {
   const client = { issues: async () => { throw new Error('offline'); }, activityCounts: async () => ({ 1: { issues: 2, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 } }) };
   assert.deepEqual(await loadOpenIssues(client, [repo(1, 1)]), { groups: [], counts: { 1: { issues: 2, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 } }, failed: 1 });
 });
+
+test('open and closed issue groups use separate caches and their own counts', async () => {
+  const calls = [];
+  const client = { issues: async (_owner, _name, state) => { calls.push(state); return [{ id: state, state }]; },
+    activityCounts: async () => ({ 1: { issues: 2, closedIssues: 4, pullRequests: 0, closedPullRequests: 0 } }) };
+  const open = await loadOpenIssues(client, [repo(1, 99)]);
+  const closed = await loadOpenIssues(client, [repo(1, 99)], { state: 'closed' });
+  assert.equal(open.groups[0].count, 2);
+  assert.equal(closed.groups[0].count, 4);
+  assert.equal(closed.groups[0].issues[0].state, 'closed');
+  await loadOpenIssues(client, [repo(1, 99)]);
+  await loadOpenIssues(client, [repo(1, 99)], { state: 'closed' });
+  assert.deepEqual(calls, ['open', 'closed']);
+});

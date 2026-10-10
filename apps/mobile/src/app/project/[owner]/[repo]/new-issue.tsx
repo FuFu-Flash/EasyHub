@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSession } from '@/features/auth/session';
 import { usePreferences } from '@/features/preferences/provider';
 import { invalidateOpenIssues } from '@/features/github/openIssues';
-import { Action, Heading, Page, palette } from '@/components/elements';
+import { Action, BackLink, Heading, Page, palette } from '@/components/elements';
 
 export default function NewIssue() {
   const { owner, repo } = useLocalSearchParams<{ owner: string; repo: string }>();
@@ -26,7 +26,7 @@ export default function NewIssue() {
     finally { setBusy(false); }
   };
   return <Page>
-    <Text onPress={() => router.back()} style={{ color: palette.blue, marginBottom: 25 }}>← {t('返回', 'Back')}</Text>
+    <BackLink title={t('返回', 'Back')} marginBottom={25} />
     <Heading title={t('提出问题', 'New issue')} subtitle={`${owner}/${repo}`} />
     <Text style={{ color: palette.ink, fontWeight: '700', marginBottom: 8 }}>{t('问题标题', 'Issue title')}</Text>
     <TextInput value={title} onChangeText={setTitle} placeholder={t('简要说明遇到了什么', 'Briefly describe what happened')} style={{ padding: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: palette.border, borderRadius: 12, marginBottom: 18 }} />

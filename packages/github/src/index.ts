@@ -13,16 +13,21 @@ export interface ContributionRepository { fullName: string; isPrivate: boolean; 
 export interface Contributions { total: number; years: number[]; weeks: { contributionDays: ContributionDay[] }[]; repositories: ContributionRepository[] }
 export interface GitHubIssue { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; created_at: string; user: { login: string } | null; comments: number; pull_request?: unknown }
 export interface GitHubIssuePage { items: GitHubIssue[]; nextPage: number | null }
+export interface GitHubPage<T> { items: T[]; nextPage: number | null }
+export interface GitHubSearchPage<T> { items: T[]; page: number; totalCount: number; hasNextPage: boolean; incompleteResults: boolean }
 export interface GitHubActivityCount { issues: number; closedIssues: number; pullRequests: number; closedPullRequests: number }
 export interface GitHubActivityRepository { id: number; owner: string; name: string }
 export interface GitHubPullRepository { id: number; name: string; full_name: string; owner: { login: string } }
 export interface GitHubPullRequest { id: number; number: number; title: string; body: string | null; state: 'open' | 'closed'; draft: boolean; merged: boolean; merged_at: string | null; created_at: string; html_url: string; user: { login: string } | null; comments: number; changed_files?: number; additions?: number; deletions?: number; mergeable?: boolean | null; mergeable_state?: string; head: { ref: string; label: string; sha?: string; repo?: GitHubPullRepository | null }; base: { ref: string; sha?: string; repo?: GitHubPullRepository | null } }
 export interface GitHubPullFile { filename: string; status: string; additions: number; deletions: number; sha?: string; previous_filename?: string; patch?: string }
 export interface GitHubPullReview { id: number; state: string; body: string | null; submitted_at: string | null; user: { login: string } | null }
+export interface GitHubCheckRun { id: number; name: string; head_sha: string; status: string; conclusion: string | null; html_url: string | null; details_url: string | null; started_at: string | null; completed_at: string | null; app?: { id: number; name: string } | null; output?: { title: string | null; summary: string | null } }
+export interface GitHubCommitStatus { id: number; context: string; state: string; description: string | null; target_url: string | null; created_at: string; updated_at: string }
+export interface GitHubCheckPage<T> { items: T[]; nextPage: number | null }
+export type GitHubCheckSourcePage<T> = (GitHubCheckPage<T> & { state: 'available' }) | { state: 'forbidden' | 'unavailable'; items: []; nextPage: number };
+export interface GitHubPullChecks { headSha: string; checkRuns: GitHubCheckSourcePage<GitHubCheckRun> | null; statuses: GitHubCheckSourcePage<GitHubCommitStatus> | null }
 export type GitHubReviewEvent = 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES';
-export function isEmptyAddedPullFile(file: GitHubPullFile): boolean {
-  return file.status === 'added' && file.sha === 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391';
-}
+export { isEmptyAddedPullFile } from './pullFiles.js';
 export interface GitHubMergeResult { merged: boolean; sha: string; message: string }
 export interface GitHubComment { id: number; body: string; created_at: string; user: { login: string } | null }
 export interface GitHubCommit { sha: string; commit: { message: string; author: { name: string; date: string } | null }; author: { login: string } | null; stats?: { additions: number; deletions: number }; files?: { filename: string; status: string }[] }
@@ -100,6 +105,22 @@ export class GitHubClient {
     const result = await this.request<{ items: GitHubSearchUser[] }>(`/search/users?q=${encodeURIComponent(search)}&per_page=12`, { signal });
     return result.items.filter((user) => user.type === 'User');
   }
+  async searchPublicReposPage(query: string, page = 1, signal?: AbortSignal): Promise<GitHubSearchPage<GitHubRepo>> {
+    const result = await this.searchPage<GitHubRepo>('repositories', `${query.trim()} is:public`, page, 30, signal);
+    return { ...result, items: result.items.filter((repo) => !repo.private) };
+  }
+  async searchUsersPage(query: string, page = 1, signal?: AbortSignal): Promise<GitHubSearchPage<GitHubSearchUser>> {
+    const result = await this.searchPage<GitHubSearchUser>('users', `${query.trim()} type:user`, page, 12, signal);
+    return { ...result, items: result.items.filter((user) => user.type === 'User') };
+  }
+  private async searchPage<T>(resource: 'repositories' | 'users' | 'issues', query: string, page: number, pageSize: number, signal?: AbortSignal): Promise<GitHubSearchPage<T>> {
+    if (!Number.isSafeInteger(page) || page < 1 || page > Math.ceil(1000 / pageSize)) throw new Error('Invalid search page');
+    const result = await this.request<{ items: T[]; total_count?: number; incomplete_results?: boolean }>(`/search/${resource}?q=${encodeURIComponent(query)}&per_page=${pageSize}&page=${page}`, { signal });
+    if (!result || !Array.isArray(result.items)) throw new GitHubError(502, 'Invalid search response');
+    const totalCount = Number.isSafeInteger(result.total_count) && result.total_count! >= 0 ? result.total_count! : (page - 1) * pageSize + result.items.length;
+    return { items: result.items.slice(0, Math.max(0, 1000 - (page - 1) * pageSize)), page, totalCount,
+      hasNextPage: result.items.length > 0 && page * pageSize < Math.min(totalCount, 1000), incompleteResults: result.incomplete_results === true };
+  }
   async topStarredRepos(login: string, signal?: AbortSignal): Promise<GitHubRepo[]> {
     const search = `user:${login} is:public`;
     const result = await this.request<{ items: GitHubRepo[] }>(`/search/repositories?q=${encodeURIComponent(search)}&sort=stars&order=desc&per_page=3`, { signal });
@@ -136,8 +157,8 @@ export class GitHubClient {
   createFork(owner: string, repo: string, name: string): Promise<GitHubRepo> {
     return this.request(`${repoPath(owner, repo)}/forks`, { method: 'POST', body: JSON.stringify({ name, default_branch_only: true }) });
   }
-  compare(owner: string, repo: string, base: string, headOwner: string, head: string): Promise<GitHubComparison> {
-    return this.request(`${repoPath(owner, repo)}/compare/${encodePart(base)}...${encodePart(`${headOwner}:${head}`)}`);
+  compare(owner: string, repo: string, base: string, headOwner: string, head: string, signal?: AbortSignal): Promise<GitHubComparison> {
+    return this.request(`${repoPath(owner, repo)}/compare/${encodePart(base)}...${encodePart(`${headOwner}:${head}`)}`, { signal });
   }
   updateVisibility(owner: string, repo: string, isPrivate: boolean): Promise<GitHubRepo> {
     return this.request(repoPath(owner, repo), { method: 'PATCH', body: JSON.stringify({ private: isPrivate }) });
@@ -148,11 +169,11 @@ export class GitHubClient {
   transferRepo(owner: string, repo: string, newOwner: string): Promise<GitHubRepo> {
     return this.request(`${repoPath(owner, repo)}/transfer`, { method: 'POST', body: JSON.stringify({ new_owner: newOwner }) });
   }
-  branch(owner: string, repo: string, branch: string): Promise<GitHubBranch> {
-    return this.request(`${repoPath(owner, repo)}/branches/${encodePart(branch)}`);
+  branch(owner: string, repo: string, branch: string, signal?: AbortSignal): Promise<GitHubBranch> {
+    return this.request(`${repoPath(owner, repo)}/branches/${encodePart(branch)}`, { signal });
   }
-  branchProtection(owner: string, repo: string, branch: string): Promise<GitHubBranchProtection> {
-    return this.request(`${repoPath(owner, repo)}/branches/${encodePart(branch)}/protection`);
+  branchProtection(owner: string, repo: string, branch: string, signal?: AbortSignal): Promise<GitHubBranchProtection> {
+    return this.request(`${repoPath(owner, repo)}/branches/${encodePart(branch)}/protection`, { signal });
   }
   createBasicBranchProtection(owner: string, repo: string, branch: string): Promise<GitHubBranchProtection> {
     return this.request(`${repoPath(owner, repo)}/branches/${encodePart(branch)}/protection`, {
@@ -256,6 +277,33 @@ export class GitHubClient {
     return this.request(`${repoPath(owner, repo)}/issues/${number}`, { method: 'PATCH', body: JSON.stringify({ state }) });
   }
   comments(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubComment[]> { return this.request(`${repoPath(owner, repo)}/issues/${number}/comments?per_page=100`, { signal }); }
+  async commentsPage(owner: string, repo: string, number: number, page = 1, signal?: AbortSignal): Promise<GitHubPage<GitHubComment>> {
+    if (!Number.isSafeInteger(page) || page < 1 || page > 10000 || !Number.isSafeInteger(number) || number < 1) throw new Error('Invalid comments page');
+    const items = await this.request<GitHubComment[]>(`${repoPath(owner, repo)}/issues/${number}/comments?per_page=100&page=${page}`, { signal, cache: 'no-store' });
+    if (!Array.isArray(items) || items.length > 100) throw new GitHubError(502, 'Invalid comments response');
+    return { items, nextPage: items.length === 100 && page < 10000 ? page + 1 : null };
+  }
+  async searchDiscussions(owner: string, repo: string, text: string, kind: 'issue' | 'pr', state: 'open' | 'closed' | 'all', page = 1, signal?: AbortSignal): Promise<GitHubSearchPage<GitHubIssue>> {
+    if (![owner, repo].every((part) => /^[A-Za-z0-9_.-]{1,100}$/u.test(part) && part !== '.' && part !== '..') ||
+      !text.trim() || text.length > 200 || !['issue', 'pr'].includes(kind) || !['open', 'closed', 'all'].includes(state) ||
+      !Number.isSafeInteger(page) || page < 1 || page > 34) throw new Error('Invalid discussion search');
+    const number = /^#?(\d+)$/u.exec(text.trim());
+    if (number) {
+      const value = Number(number[1]);
+      if (!Number.isSafeInteger(value) || value < 1) throw new Error('Invalid issue number');
+      try {
+        const issue = await this.issue(owner, repo, value, signal);
+        const matches = Boolean(issue.pull_request) === (kind === 'pr') && (state === 'all' || issue.state === state);
+        return { items: matches ? [issue] : [], totalCount: matches ? 1 : 0, page: 1, hasNextPage: false, incompleteResults: false };
+      } catch (error) {
+        if (error instanceof GitHubError && error.status === 404) return { items: [], totalCount: 0, page: 1, hasNextPage: false, incompleteResults: false };
+        throw error;
+      }
+    }
+    const title = text.trim().replace(/["\\\r\n]/gu, ' ');
+    const result = await this.searchPage<GitHubIssue>('issues', `repo:${owner}/${repo} is:${kind}${state === 'all' ? '' : ` is:${state}`} in:title "${title}"`, page, 30, signal);
+    return { ...result, items: result.items.filter((item) => Boolean(item.pull_request) === (kind === 'pr')) };
+  }
   createComment(owner: string, repo: string, number: number, body: string): Promise<GitHubComment> {
     return this.request(`${repoPath(owner, repo)}/issues/${number}/comments`, { method: 'POST', body: JSON.stringify({ body }) });
   }
@@ -268,8 +316,33 @@ export class GitHubClient {
   pullRequest(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubPullRequest> {
     return this.request(`${repoPath(owner, repo)}/pulls/${number}`, { signal });
   }
+  async checkRunsPage(owner: string, repo: string, headSha: string, page = 1, signal?: AbortSignal): Promise<GitHubCheckPage<GitHubCheckRun>> {
+    if (![owner, repo].every((part) => /^[A-Za-z0-9_.-]{1,100}$/u.test(part) && part !== '.' && part !== '..') ||
+      !/^[a-f0-9]{40}$/iu.test(headSha) || !Number.isSafeInteger(page) || page < 1 || page > 10000) throw new Error('Invalid checks reference');
+    const sha = headSha.toLowerCase();
+    const result = await this.request<{ total_count?: number; check_runs: GitHubCheckRun[] }>(`${repoPath(owner, repo)}/commits/${sha}/check-runs?filter=latest&per_page=100&page=${page}`, { signal, cache: 'no-store' });
+    if (!result || !Array.isArray(result.check_runs) || result.check_runs.length > 100 ||
+      result.total_count !== undefined && (!Number.isSafeInteger(result.total_count) || result.total_count < 0) ||
+      result.check_runs.some((run) => !run || typeof run.head_sha !== 'string' || run.head_sha.toLowerCase() !== sha || typeof run.name !== 'string' || !Number.isSafeInteger(run.id)) ||
+      result.check_runs.length === 0 && result.total_count !== undefined && (page - 1) * 100 < result.total_count) throw new GitHubError(502, 'Check revision does not match');
+    return { items: result.check_runs, nextPage: result.check_runs.length > 0 &&
+      (result.total_count !== undefined ? page * 100 < result.total_count : result.check_runs.length === 100) && page < 10000 ? page + 1 : null };
+  }
+  async statusesPage(owner: string, repo: string, headSha: string, page = 1, signal?: AbortSignal): Promise<GitHubCheckPage<GitHubCommitStatus>> {
+    if (![owner, repo].every((part) => /^[A-Za-z0-9_.-]{1,100}$/u.test(part) && part !== '.' && part !== '..') ||
+      !/^[a-f0-9]{40}$/iu.test(headSha) || !Number.isSafeInteger(page) || page < 1 || page > 10000) throw new Error('Invalid status reference');
+    const items = await this.request<GitHubCommitStatus[]>(`${repoPath(owner, repo)}/commits/${headSha.toLowerCase()}/statuses?per_page=100&page=${page}`, { signal, cache: 'no-store' });
+    if (!Array.isArray(items) || items.length > 100 || items.some((item) => !item || typeof item.context !== 'string' || !Number.isSafeInteger(item.id))) throw new GitHubError(502, 'Invalid check status response');
+    return { items, nextPage: items.length === 100 && page < 10000 ? page + 1 : null };
+  }
   pullReviews(owner: string, repo: string, number: number, signal?: AbortSignal): Promise<GitHubPullReview[]> {
     return this.request(`${repoPath(owner, repo)}/pulls/${number}/reviews?per_page=100`, { signal });
+  }
+  async pullReviewsPage(owner: string, repo: string, number: number, page = 1, signal?: AbortSignal): Promise<GitHubPage<GitHubPullReview>> {
+    if (!Number.isSafeInteger(page) || page < 1 || page > 10000 || !Number.isSafeInteger(number) || number < 1) throw new Error('Invalid reviews page');
+    const items = await this.request<GitHubPullReview[]>(`${repoPath(owner, repo)}/pulls/${number}/reviews?per_page=100&page=${page}`, { signal, cache: 'no-store' });
+    if (!Array.isArray(items) || items.length > 100) throw new GitHubError(502, 'Invalid reviews response');
+    return { items, nextPage: items.length === 100 && page < 10000 ? page + 1 : null };
   }
   createPullReview(owner: string, repo: string, number: number, event: GitHubReviewEvent, body: string, commitId: string | undefined): Promise<GitHubPullReview> {
     if (!Number.isInteger(number) || number < 1 || !/^[a-f0-9]{40}$/i.test(commitId ?? '')) throw new Error('Invalid pull request review');
@@ -306,14 +379,34 @@ export class GitHubClient {
   createPullRequest(owner: string, repo: string, input: { title: string; body: string; head: string; base: string }): Promise<GitHubPullRequest> {
     return this.request(`${repoPath(owner, repo)}/pulls`, { method: 'POST', body: JSON.stringify(input) });
   }
-  openPullRequestForHead(owner: string, repo: string, headOwner: string, headBranch: string, base: string): Promise<GitHubPullRequest[]> {
+  openPullRequestForHead(owner: string, repo: string, headOwner: string, headBranch: string, base: string, signal?: AbortSignal): Promise<GitHubPullRequest[]> {
     const query = new URLSearchParams({ state: 'open', head: `${headOwner}:${headBranch}`, base, per_page: '1' });
-    return this.request(`${repoPath(owner, repo)}/pulls?${query.toString()}`);
+    return this.request(`${repoPath(owner, repo)}/pulls?${query.toString()}`, { signal });
   }
   commits(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubCommit[]> { return this.request(`${repoPath(owner, repo)}/commits?per_page=100`, { signal }); }
+  async commitsPage(owner: string, repo: string, page = 1, signal?: AbortSignal): Promise<GitHubPage<GitHubCommit>> {
+    if (!Number.isSafeInteger(page) || page < 1 || page > 10000) throw new Error('Invalid commits page');
+    let items: GitHubCommit[];
+    try { items = await this.request<GitHubCommit[]>(`${repoPath(owner, repo)}/commits?per_page=100&page=${page}`, { signal, cache: 'no-store' }); }
+    catch (error) {
+      if (error instanceof GitHubError && error.status === 409 && !signal?.aborted) return { items: [], nextPage: null };
+      throw error;
+    }
+    if (!Array.isArray(items) || items.length > 100 || items.some((item) => !item || typeof item.sha !== 'string' || !/^[a-f0-9]{40}$/iu.test(item.sha) || typeof item.commit?.message !== 'string')) throw new GitHubError(502, 'Invalid commits response');
+    return { items, nextPage: items.length === 100 && page < 10000 ? page + 1 : null };
+  }
   commit(owner: string, repo: string, sha: string, signal?: AbortSignal): Promise<GitHubCommit> { return this.request(`${repoPath(owner, repo)}/commits/${encodePart(sha)}`, { signal }); }
   releases(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubRelease[]> { return this.request(`${repoPath(owner, repo)}/releases?per_page=30`, { signal, cache: 'no-store' }); }
+  async releasesPage(owner: string, repo: string, page = 1, signal?: AbortSignal): Promise<GitHubPage<GitHubRelease>> {
+    if (!Number.isSafeInteger(page) || page < 1 || page > 10000) throw new Error('Invalid releases page');
+    const items = await this.request<GitHubRelease[]>(`${repoPath(owner, repo)}/releases?per_page=30&page=${page}`, { signal, cache: 'no-store' });
+    if (!Array.isArray(items) || items.length > 30 || items.some((item) => !item || !Number.isSafeInteger(item.id) || item.id < 1 || typeof item.tag_name !== 'string' || !item.tag_name)) throw new GitHubError(502, 'Invalid releases response');
+    return { items, nextPage: items.length === 30 && page < 10000 ? page + 1 : null };
+  }
   release(owner: string, repo: string, id: number, signal?: AbortSignal): Promise<GitHubCreatedRelease> { return this.request(`${repoPath(owner, repo)}/releases/${id}`, { signal, cache: 'no-store' }); }
+  releaseByTag(owner: string, repo: string, tag?: string, signal?: AbortSignal): Promise<GitHubCreatedRelease> {
+    return this.request(`${repoPath(owner, repo)}/releases/${tag ? `tags/${encodePart(tag)}` : 'latest'}`, { signal, cache: 'no-store' });
+  }
   createRelease(owner: string, repo: string, input: { tagName: string; target: string; name: string; body: string; prerelease: boolean }, signal?: AbortSignal): Promise<GitHubCreatedRelease> {
     return this.request(`${repoPath(owner, repo)}/releases`, { method: 'POST', body: JSON.stringify({ tag_name: input.tagName, target_commitish: input.target, name: input.name, body: input.body, draft: true, prerelease: input.prerelease }), signal });
   }
