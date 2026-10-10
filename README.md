@@ -25,26 +25,27 @@
 
 **不会 Git 命令，也能把作品发到 GitHub。**
 
-EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看改动、写一句说明，就能发布源码。用 Windows 版创作和发布，用 Android 版随时浏览项目、回复问题和审查合并请求。
+EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看改动、写一句说明，就能发布源码。用 Windows 或 macOS 版创作和发布，用 Android 版随时浏览项目、回复问题和审查合并请求。
 
 不需要安装 Git，也不需要另外注册 EasyHub 账号；真正发布时，使用自己的 GitHub 账号登录即可。
 
-> **English overview:** An open-source GitHub client for Windows and Android. Publish code, manage releases, review pull requests, and get optional AI assistance. [Read the English guide](README.en.md).
+> **English overview:** An open-source GitHub client for Windows, macOS, and Android. Publish code, manage releases, review pull requests, and get optional AI assistance. [Read the English guide](README.en.md).
 
 ## 下载
 
-**当前版本：Windows 1.2.2 · Android 1.1.0。**
+**当前版本：Windows 1.2.2 · macOS 1.2.2 · Android 1.1.0。**
 
 | 平台 | 版本 | 适合谁 | 下载 |
 | --- | --- | --- | --- |
 | Windows | 安装版 | 长期使用，可选择安装位置和桌面快捷方式 | **[下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-setup.exe)** |
 | Windows | 便携版 | 不想安装，下载后直接运行 | **[下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-portable.exe)** |
+| macOS | 1.2.2 DMG 镜像 / ZIP | Apple 芯片 Mac，macOS 27 或以上 | **[下载 DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [下载 ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
 | Android | 1.1.0 ARM64 安装包 | 适合大多数较新的 Android 手机，安装包更小 | **[下载 ARM64 包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 | Android | 1.1.0 通用安装包 | ARM32、ARM64、x86、x86_64 设备与模拟器 | **[下载通用包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 
-Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，“创建桌面快捷方式”默认勾选。Android 版适用于 Android 7.0 及以上。目前提供 Windows 和 Android 安装包。
+Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，“创建桌面快捷方式”默认勾选。Android 版适用于 Android 7.0 及以上。macOS 版适用于 Apple 芯片 Mac，要求 macOS 27 或以上。打开 DMG，把 EasyHub 拖入 Applications，再从“应用程序”启动。
 
-## 三步上手（Windows）
+## 三步上手（Windows / macOS）
 
 1. **登录 GitHub。** 在设置中选择“使用 GitHub 登录”，在浏览器中完成授权。
 2. **选择项目。** 添加电脑上的已有文件夹，下载自己的云端项目，或从新文件夹创建项目。
@@ -153,7 +154,7 @@ Windows 版尚未使用商业代码签名证书，首次运行可能出现此提
 
 **其他系统有安装包吗？**
 
-目前提供 Windows 和 Android 安装包；macOS、Linux 暂无正式应用安装包，iOS 尚未推出。
+目前提供 Windows、macOS 和 Android 安装包，下载链接见上方表格。Linux 暂无安装包，iOS 尚未推出。
 
 </details>
 
@@ -174,8 +175,8 @@ EasyHub 不需要另注册账号，也不提供自己的云端代码托管服务
 
 EasyHub 采用 [Apache License 2.0](LICENSE)。第三方组件保留各自的许可证，详见[第三方许可说明](THIRD_PARTY_NOTICES.md)。
 
-## 本地 macOS 版本
+## macOS 桌面版
 
-此源码包含 macOS 1.2.2（构建 17），对齐上游 `45328b9`：项目与发行版布局、保留输入的刷新反馈、搜索历史动画、滑动筛选、程序文件审查提示和临时文件清理，包含合并请求检查、选中代码解释、选择文件发布、下载管理、布局设置与浏览历史恢复；保留系统红绿灯、菜单栏、默认圆点风格和 GitHub 系统代理。
+macOS 1.2.2（构建 17）对齐 Windows 1.2.2 的项目与发行版布局、刷新反馈、搜索与筛选动画、程序文件审查提示和临时文件清理，支持合并请求检查、选中代码解释、选择文件发布、下载管理、布局设置和浏览历史恢复。Mac 使用系统窗口按钮和菜单栏，默认圆点风格，并适配 GitHub 系统代理。
 
-[打开本地 DMG](../build/EasyHub-macOS.dmg)，将 EasyHub 拖入「应用程序」。使用 `pnpm package:mac` 构建，当前本地安装包采用临时签名。
+安装包见上方下载表。Mac 源码和构建脚本位于 [`macos` 分支](https://github.com/FuFu-Flash/EasyHub/tree/macos)，使用 `pnpm package:mac` 构建。当前 Mac 包采用 ad hoc 签名，尚未进行 Developer ID 公证。
