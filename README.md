@@ -45,8 +45,10 @@ EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看
 
 Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，“创建桌面快捷方式”默认勾选。Android 版适用于 Android 7.0 及以上。macOS 版适用于 Apple 芯片 Mac，要求 macOS 27 或以上。打开 DMG，把 EasyHub 拖入 Applications，再从“应用程序”启动。
 
+## macOS 必看
+
 <details>
-<summary><strong>macOS 必看：保姆级安装指南（点击展开）</strong></summary>
+<summary><strong>保姆级安装指南（点击展开）</strong></summary>
 
 当前 Mac 安装包使用 **ad hoc 签名**，也就是开发者的本地签名，**尚未使用 Developer ID 签名，也未通过 Apple 公证**。首次打开可能被系统拦截。下面按顺序操作，全程在访达和系统设置中完成。
 

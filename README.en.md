@@ -45,8 +45,10 @@ You do not need to install Git or create a separate EasyHub account. Sign in wit
 
 The Windows editions are for 64-bit PCs. The installer detects a previous installation location and selects “Create desktop shortcut” by default. Android requires Android 7.0 or later. The macOS edition requires an Apple Silicon Mac running macOS 27 or later. Open the DMG, drag EasyHub into Applications, and launch it from there.
 
+## macOS must-read
+
 <details>
-<summary><strong>macOS must-read: step-by-step installation guide (click to expand)</strong></summary>
+<summary><strong>Step-by-step installation guide (click to expand)</strong></summary>
 
 The current Mac app uses an **ad hoc signature**, a local developer signature. It **does not use Developer ID signing and has not been notarized by Apple**. macOS may block the first launch. Follow these steps in Finder and System Settings.
 
