@@ -1,6 +1,6 @@
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, mkdtemp, open, realpath, rm, stat } from 'node:fs/promises';
-import { basename, join, relative, isAbsolute } from 'node:path';
+import { lstat, mkdir, mkdtemp, open, readdir, realpath, rm, stat } from 'node:fs/promises';
+import { basename, join, relative, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -9,6 +9,8 @@ import type { BinaryAnalysisProgress, BinaryAnalysisRequest, BinaryAnalysisResul
 export const MAX_ANALYSIS_FILE_BYTES = 128 * 1024 * 1024;
 const MAX_RESULTS = 8;
 const EXPIRY_MS = 60 * 60 * 1000;
+const SESSION_DIRECTORY = /^session-[A-Za-z0-9]{6}$/u;
+const MAX_STARTUP_CLEANUP = 32;
 export interface BinaryEvidence {
   format: string;
   architecture: string;
@@ -70,6 +72,33 @@ export class BinaryAnalysisService {
   private readonly results = new Map<string, { result: BinaryAnalysisResult; expiresAt: number }>();
   private job: { id: string; controller: AbortController; kind: 'installing' | 'analyzing'; finished: Promise<void>; finish: () => void } | null = null;
   constructor(private readonly root: string, private readonly runtime: BinaryRuntime, private readonly remote: RemoteLoader) {}
+
+  /** The primary application instance calls this before accepting analysis work. */
+  async initialize(): Promise<void> {
+    if (this.job) return;
+    try {
+      const info = await lstat(this.root);
+      if (!info.isDirectory() || info.isSymbolicLink()) return;
+      const entries = await readdir(this.root, { withFileTypes: true });
+      const stale = entries.filter((entry) => entry.isDirectory() && !entry.isSymbolicLink() && SESSION_DIRECTORY.test(entry.name))
+        .slice(0, MAX_STARTUP_CLEANUP);
+      // Bound startup work; a leftover from a crashed process contains only disposable snapshots.
+      await Promise.allSettled(stale.map((entry) => this.job ? Promise.resolve() : this.removeWorkspace(join(this.root, entry.name))));
+    } catch {
+      // A missing or temporarily locked private folder must not prevent application startup.
+    }
+  }
+
+  private async removeWorkspace(workspace: string): Promise<void> {
+    const child = relative(resolve(this.root), resolve(workspace));
+    if (!SESSION_DIRECTORY.test(child)) return;
+    const rootInfo = await lstat(this.root);
+    const info = await lstat(workspace);
+    if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink() || !info.isDirectory() || info.isSymbolicLink()) return;
+    const [root, target] = await Promise.all([realpath(this.root), realpath(workspace)]);
+    if (relative(root, target) !== child) return;
+    await rm(workspace, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+  }
 
   async status(): Promise<BinaryAnalysisSettingsStatus> {
     const status = await this.runtime.status();
@@ -164,14 +193,21 @@ export class BinaryAnalysisService {
         fileName = granted.name; expectedSize = granted.size;
       } else {
         const downloaded = await this.remote(input.source, signal);
-        if (!downloaded.response.ok || !downloaded.response.body) throw new Error(en ? 'The program file could not be downloaded.' : '暂时无法下载这个程序文件。');
-        fileName = name(downloaded.name); expectedSize = downloaded.size; gitSha = downloaded.gitSha; expectedSha = downloaded.sha256;
-        const advertised = Number(downloaded.response.headers.get('content-length'));
-        if (advertised > MAX_ANALYSIS_FILE_BYTES || (expectedSize !== undefined && expectedSize > MAX_ANALYSIS_FILE_BYTES)) {
-          await downloaded.response.body.cancel();
-          throw new Error(en ? 'Select a program file smaller than 128 MB.' : '请选择不超过 128 MB 的程序文件。');
+        const body = downloaded.response.body;
+        try {
+          signal.throwIfAborted();
+          if (!downloaded.response.ok || !body) throw new Error(en ? 'The program file could not be downloaded.' : '暂时无法下载这个程序文件。');
+          fileName = name(downloaded.name); expectedSize = downloaded.size; gitSha = downloaded.gitSha; expectedSha = downloaded.sha256;
+          const advertised = Number(downloaded.response.headers.get('content-length'));
+          if (advertised > MAX_ANALYSIS_FILE_BYTES || (expectedSize !== undefined && expectedSize > MAX_ANALYSIS_FILE_BYTES)) {
+            throw new Error(en ? 'Select a program file smaller than 128 MB.' : '请选择不超过 128 MB 的程序文件。');
+          }
+          stream = Readable.fromWeb(body as import('node:stream/web').ReadableStream);
+        } catch (cause) {
+          // Validation can fail before pipeline owns the stream; stop the download in that case too.
+          await body?.cancel().catch(() => undefined);
+          throw cause;
         }
-        stream = Readable.fromWeb(downloaded.response.body as import('node:stream/web').ReadableStream);
       }
       const hash = createHash('sha256');
       let size = 0;
@@ -224,7 +260,7 @@ export class BinaryAnalysisService {
       clearTimeout(timer);
       await analyzer?.stop().catch(() => undefined);
       // Only this operation's newly created directory may be removed.
-      if (workspace) { const child = relative(this.root, workspace); if (child && !isAbsolute(child) && !child.startsWith('..')) await rm(workspace, { recursive: true, force: true }).catch(() => undefined); }
+      if (workspace) await this.removeWorkspace(workspace).catch(() => undefined);
       parentSignal?.removeEventListener('abort', cancelFromParent);
       this.finishJob();
     }

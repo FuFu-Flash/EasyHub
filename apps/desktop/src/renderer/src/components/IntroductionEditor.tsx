@@ -1,3 +1,4 @@
+import { SegmentedControl } from './SegmentedControl';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { ImagePlus, Link2, X } from 'lucide-react';
 import { ReadmeMarkdown, type ReadmeRepository } from './ReadmeMarkdown';
@@ -49,7 +50,7 @@ export function IntroductionEditor({ initialMarkdown, repository, saving = false
       <div className="intro-editor-header">
         <h2 id="intro-editor-title">编辑项目介绍</h2>
         <p>{live ? '保存会替换本地介绍文件。发布源码后，GitHub 才会显示新介绍。' : '保存后会标记为尚未发布的源码修改。'}</p>
-        <div className="segmented intro-editor-tabs"><button className={mode === 'edit' ? 'selected' : ''} aria-pressed={mode === 'edit'} onClick={() => setMode('edit')}>编辑</button><button className={mode === 'preview' ? 'selected' : ''} aria-pressed={mode === 'preview'} onClick={() => setMode('preview')}>预览</button><button className={mode === 'split' ? 'selected' : ''} aria-pressed={mode === 'split'} onClick={() => setMode('split')}>边写边看</button></div>
+        <SegmentedControl className="intro-editor-tabs"><button className={mode === 'edit' ? 'selected' : ''} aria-pressed={mode === 'edit'} onClick={() => setMode('edit')}>编辑</button><button className={mode === 'preview' ? 'selected' : ''} aria-pressed={mode === 'preview'} onClick={() => setMode('preview')}>预览</button><button className={mode === 'split' ? 'selected' : ''} aria-pressed={mode === 'split'} onClick={() => setMode('split')}>边写边看</button></SegmentedControl>
       </div>
       <div className="intro-editor-body">
       {mode === 'preview' ? <div className="intro-editor-preview" role="region" aria-label="项目介绍预览">{previewContent}</div> : <>
