@@ -36,7 +36,7 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
         return { ...current, [key]: { items: page === 1 ? result : [...old, ...result.filter((item) => !old.some((known) => known.id === item.id))], nextPage: result.length === 100 ? page + 1 : null } };
       });
     } catch {
-      setErrors((current) => ({ ...current, [key]: '暂时无法获取改进请求，请稍后重试。' }));
+      setErrors((current) => ({ ...current, [key]: '暂时无法获取合并请求，请稍后重试。' }));
     } finally { setLoading(null); }
   }
 
@@ -54,7 +54,7 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
 
   return <>
     <div className="toolbar"><div className="segmented"><button className={filter === 'open' ? 'selected' : ''} onClick={() => chooseFilter('open')}>待审查 <span>{total ?? '…'}</span></button><button className={filter === 'closed' ? 'selected' : ''} onClick={() => chooseFilter('closed')}>已处理</button></div></div>
-    {visibleRepos.length === 0 && <div className="empty-state"><span className="empty-icon"><GitPullRequest size={28} /></span><h3>{filter === 'open' ? '没有待审查的改进请求' : '还没有已处理的改进请求'}</h3></div>}
+    {visibleRepos.length === 0 && <div className="empty-state"><span className="empty-icon"><GitPullRequest size={28} /></span><h3>{filter === 'open' ? '没有待审查的合并请求' : '还没有已处理的合并请求'}</h3></div>}
     <div className="issue-project-list">{visibleRepos.map((repo) => {
       const key = keyFor(repo, filter);
       const page = pages[key];
@@ -63,15 +63,15 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
       return <section className="issue-project-group live-issue-group" key={repo.id}>
         <button className="issue-project-header" aria-expanded={isExpanded} onClick={() => toggle(repo)}>
           {logo(repo)}<span className="issue-project-heading"><strong>{repo.name}</strong><small>{repo.description || '还没有项目介绍'}</small></span>
-          <span className={`issue-project-count ${filter === 'open' && count?.pullRequests ? 'live-pending-count' : ''}`}>{filter === 'open' ? count ? `${count.pullRequests} 个待审查的改进请求` : '正在获取数量…' : count ? `${count.closedPullRequests} 个已处理的改进请求` : '查看已处理的改进请求'}</span>
+          <span className={`issue-project-count ${filter === 'open' && count?.pullRequests ? 'live-pending-count' : ''}`}>{filter === 'open' ? count ? `${count.pullRequests} 个待审查的合并请求` : '正在获取数量…' : count ? `${count.closedPullRequests} 个已处理的合并请求` : '查看已处理的合并请求'}</span>
           <ChevronDown className={`issue-project-chevron ${isExpanded ? 'expanded' : ''}`} size={19} />
         </button>
         <div className="issue-project-items live-group-items" hidden={!isExpanded}>{isExpanded && <>
           {errors[key] && <p className="live-error" role="alert">{errors[key]}</p>}
           {page?.items.map((request) => <button className="issue-row" key={request.id} onClick={() => onOpen(repo, request)}><span className="issue-indicator"><GitPullRequest size={19} /></span><span className="issue-row-main"><strong>{request.title}</strong><small>{request.user?.login || 'GitHub 用户'} · {request.state === 'open' ? request.draft ? '草稿' : '待审查' : request.merged_at ? '已采纳' : '已关闭'}</small></span><span className="issue-comments"><MessageCircle size={16} />{request.comments ?? 0}</span></button>)}
-          {loading === key && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取改进请求…</p>}
-          {page && page.items.length === 0 && loading !== key && <p className="live-empty">{filter === 'open' ? '没有待审查的改进请求' : '还没有已处理的改进请求'}</p>}
-          {page?.nextPage && <button className="button button-quiet pull-more" disabled={loading === key} onClick={() => void load(repo, filter, page.nextPage!)}>加载更多改进请求</button>}
+          {loading === key && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取合并请求…</p>}
+          {page && page.items.length === 0 && loading !== key && <p className="live-empty">{filter === 'open' ? '没有待审查的合并请求' : '还没有已处理的合并请求'}</p>}
+          {page?.nextPage && <button className="button button-quiet pull-more" disabled={loading === key} onClick={() => void load(repo, filter, page.nextPage!)}>加载更多合并请求</button>}
         </>}</div>
       </section>;
     })}</div>

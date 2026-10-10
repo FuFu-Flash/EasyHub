@@ -1,0 +1,61 @@
+import groovy.json.JsonOutput
+
+plugins {
+  id 'com.android.application' version '8.12.0'
+}
+
+android {
+  namespace 'app.easyhub.frameworks.jadx'
+  compileSdk 36
+  defaultConfig {
+    applicationId 'app.easyhub.frameworks.jadx'
+    minSdk 26
+    targetSdk 36
+    versionCode 1
+    versionName '1.5.6-v1'
+  }
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+    coreLibraryDesugaringEnabled true
+  }
+  buildTypes {
+    release { minifyEnabled false; shrinkResources false }
+  }
+  packaging {
+    resources {
+      excludes += ['META-INF/DEPENDENCIES']
+      pickFirsts += ['META-INF/LICENSE', 'META-INF/LICENSE.txt', 'META-INF/NOTICE', 'META-INF/NOTICE.txt']
+    }
+  }
+}
+
+dependencies {
+  implementation 'io.github.skylot:jadx-core:1.5.6'
+  implementation 'io.github.skylot:jadx-dex-input:1.5.6'
+  implementation 'io.github.skylot:jadx-java-input:1.5.6'
+  implementation 'org.slf4j:slf4j-nop:2.0.18'
+  coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
+  constraints {
+    // Match the already validated Android runtime rather than upgrading transitives.
+    implementation 'org.slf4j:slf4j-api:2.0.18'
+    implementation 'com.google.code.gson:gson:2.14.0'
+    implementation 'com.google.guava:guava:33.6.0-jre'
+    implementation 'com.google.errorprone:error_prone_annotations:2.48.0'
+    implementation 'com.google.guava:failureaccess:1.0.3'
+    implementation 'com.google.j2objc:j2objc-annotations:3.1'
+    implementation 'org.jspecify:jspecify:1.0.0'
+  }
+}
+
+tasks.register('writeRuntimeArtifacts') {
+  doLast {
+    def artifacts = (configurations.releaseRuntimeClasspath.resolvedConfiguration.resolvedArtifacts +
+      configurations.coreLibraryDesugaring.resolvedConfiguration.resolvedArtifacts).collect { artifact ->
+      [id: artifact.moduleVersion.id.toString(), file: artifact.file.absolutePath]
+    }.sort { a, b -> a.id <=> b.id }
+    def output = layout.buildDirectory.file('runtime-artifacts.json').get().asFile
+    output.parentFile.mkdirs()
+    output.text = JsonOutput.prettyPrint(JsonOutput.toJson(artifacts)) + '\n'
+  }
+}

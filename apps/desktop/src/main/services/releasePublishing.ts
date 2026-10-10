@@ -9,7 +9,7 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 import { GitHubClient, GitHubError, friendlyGitHubError } from '@easyhub/github';
 import type { GitHubCreatedRelease, GitHubReleaseAsset } from '@easyhub/github';
-import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, PublishReleaseRequest, ReleaseProgress, RemoveReleaseAssetRequest } from '@easyhub/types';
+import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, PublishReleaseRequest, ReleaseProgress, RemoveReleaseAssetRequest, ReleaseMutationFailure } from '@easyhub/types';
 import { githubAccessToken, gitHubIdentity } from './githubService';
 import { githubOriginAgent, isEasyHubProxyChoice } from './GitHubProxyService';
 import type { GitHubOriginAgent } from './githubProxyOrigin';
@@ -17,6 +17,7 @@ import type { GitHubOriginAgent } from './githubProxyOrigin';
 const MAX_FILES = 1000;
 const MAX_FILE_SIZE = 2 * 1024 ** 3;
 const MAX_PREVIEW_SIZE = 8 * 1024 ** 2;
+const DRAFT_SELECTION_MISMATCH = '草稿中的文件与当前选择清单不一致。请先在 GitHub 查看草稿，核对附件后再继续。';
 const mimeTypes: Record<string, string> = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
   '.webp': 'image/webp', '.svg': 'image/svg+xml', '.avif': 'image/avif', '.bmp': 'image/bmp',
@@ -24,6 +25,12 @@ const mimeTypes: Record<string, string> = {
 };
 
 interface SelectedFile { path: string; name: string; size: number; modified: number; mimeType: string }
+interface UploadAttempt { confirmed: Map<string, GitHubReleaseAsset>; attempted: Set<string>; draft?: GitHubCreatedRelease }
+type ReleaseResult = GitHubCreatedRelease | ReleaseMutationFailure<GitHubCreatedRelease>;
+function releaseError(error: unknown): string {
+  if (error instanceof Error && /^[\u3400-\u9fff\u201c]/u.test(error.message)) return error.message;
+  return friendlyGitHubError(error);
+}
 
 function validPart(value: unknown): value is string { return typeof value === 'string' && /^[A-Za-z0-9_.-]{1,100}$/.test(value) && value !== '.' && value !== '..'; }
 function validTag(value: unknown): value is string {
@@ -132,6 +139,9 @@ export class ReleasePublishingService {
   private readonly selected = new Map<string, SelectedFile>();
   private active: AbortController | null = null;
   private readonly client = new GitHubClient(githubAccessToken, (input, init) => net.fetch(String(input), init));
+  private readonly attempts = new Map<string, UploadAttempt>();
+
+  constructor(private readonly sendAsset: typeof uploadAsset = uploadAsset) {}
 
   async chooseFiles(inline: boolean): Promise<PickedReleaseFile[]> {
     if (typeof inline !== 'boolean') throw new Error('文件选择方式无效。');
@@ -158,6 +168,13 @@ export class ReleasePublishingService {
 
   cancel(): void { this.active?.abort(); }
 
+  private beginOperation(): AbortController {
+    if (this.active) throw new Error('已有版本操作正在进行，请稍后。');
+    const controller = new AbortController();
+    this.active = controller;
+    return controller;
+  }
+
   private async editableRelease(owner: string, repoName: string, releaseId: number, signal?: AbortSignal): Promise<GitHubCreatedRelease> {
     const repo = await this.client.repo(owner, repoName);
     const identity = await gitHubIdentity();
@@ -169,124 +186,214 @@ export class ReleasePublishingService {
     return release;
   }
 
-  async edit(raw: unknown): Promise<GitHubCreatedRelease> {
-    const input = validateEditReleaseRequest(raw);
-    if (this.active) throw new Error('已有版本操作正在进行，请稍后。');
-    await this.editableRelease(input.owner, input.repo, input.releaseId);
-    try {
-      return await this.client.updateRelease(input.owner, input.repo, input.releaseId,
-        { name: input.title.trim(), body: input.body, prerelease: input.prerelease });
-    } catch (error) { throw new Error(friendlyGitHubError(error)); }
-  }
-
-  async addAssets(raw: unknown, progress: (value: ReleaseProgress) => void): Promise<GitHubCreatedRelease> {
-    const input = validateAddReleaseAssetsRequest(raw);
-    if (this.active) throw new Error('已有版本操作正在进行，请稍后。');
-    const chosen = input.assetIds.map((id) => this.selected.get(id));
-    if (chosen.some((file) => !file)) throw new Error('请重新选择要上传的文件。');
-    const files = chosen as SelectedFile[];
-    const release = await this.editableRelease(input.owner, input.repo, input.releaseId);
-    const existing = new Set(release.assets.map((asset) => asset.name.toLowerCase()));
-    if (files.some((file) => existing.has(file.name.toLowerCase())) || new Set(files.map((file) => file.name.toLowerCase())).size !== files.length) {
-      throw new Error('这个版本已有同名文件，请先移除旧文件或为新文件改名。');
-    }
-    if (release.assets.length + files.length > MAX_FILES) throw new Error('每个版本最多可包含 1000 个文件。');
-    for (const file of files) {
-      const details = await stat(file.path);
+  private async files(assetIds: string[], confirmed?: ReadonlyMap<string, GitHubReleaseAsset>): Promise<SelectedFile[]> {
+    const files = assetIds.map((id) => this.selected.get(id));
+    if (files.some((file) => !file)) throw new Error('请重新选择要上传的文件。');
+    const chosen = files as SelectedFile[];
+    if (new Set(chosen.map((file) => file.name.toLowerCase())).size !== chosen.length) throw new Error('同一个版本不能包含同名文件。');
+    for (let index = 0; index < chosen.length; index += 1) {
+      if (confirmed?.has(assetIds[index]!)) continue;
+      const file = chosen[index]!;
+      const details = await stat(file.path).catch(() => { throw new Error(`“${file.name}”无法读取，请重新选择。`); });
       if (!details.isFile() || details.size !== file.size || details.mtimeMs !== file.modified) throw new Error(`“${file.name}”已发生变化，请重新选择。`);
     }
-    const controller = new AbortController();
-    this.active = controller;
-    const total = files.reduce((sum, file) => sum + file.size, 0);
-    let loaded = 0;
-    try {
-      const token = await githubAccessToken();
-      for (let index = 0; index < files.length; index += 1) {
-        const file = files[index]!;
-        const id = input.assetIds[index]!;
-        const phase = `正在上传 ${file.name}`;
-        progress({ phase, loaded, total, cancelable: true });
-        const url = release.upload_url.replace(/\{.*$/, '') + `?name=${encodeURIComponent(file.name)}`;
-        const uploaded = await uploadAsset(url, file, token, controller.signal, (bytes) => {
-          loaded += bytes;
-          progress({ phase, loaded, total, cancelable: true });
-        });
-        if (uploaded.state !== 'uploaded' || uploaded.size !== file.size) throw new Error(`“${file.name}”上传后未通过检查。`);
-        this.selected.delete(id);
+    return chosen;
+  }
+
+  private async reconcile(attempt: UploadAttempt, assetIds: string[], files: SelectedFile[], release: GitHubCreatedRelease, target: { owner: string; repo: string }): Promise<void> {
+    for (let index = 0; index < files.length; index += 1) {
+      const id = assetIds[index]!;
+      const file = files[index]!;
+      const existing = release.assets.find((asset) => asset.name.toLowerCase() === file.name.toLowerCase());
+      if (!existing) { attempt.confirmed.delete(id); continue; }
+      if (attempt.attempted.has(id) && ['starter', 'new'].includes(existing.state)) {
+        await this.client.deleteReleaseAsset(target.owner, target.repo, existing.id);
+        attempt.confirmed.delete(id);
+        release.assets = release.assets.filter((asset) => asset.id !== existing.id);
+        continue;
       }
-      return await this.client.release(input.owner, input.repo, input.releaseId);
+      if (!attempt.attempted.has(id) || existing.state !== 'uploaded' || existing.size !== file.size) {
+        throw new Error(`这个版本已有同名文件“${file.name}”，请先移除旧文件或为新文件改名。`);
+      }
+      attempt.confirmed.set(id, existing);
+    }
+  }
+
+  private async uploadFiles(release: GitHubCreatedRelease, attempt: UploadAttempt, assetIds: string[], files: SelectedFile[], controller: AbortController, progress: (value: ReleaseProgress) => void): Promise<void> {
+    const token = await githubAccessToken();
+    const total = files.reduce((sum, file) => sum + file.size, 0);
+    let loaded = files.reduce((sum, file, index) => sum + (attempt.confirmed.has(assetIds[index]!) ? file.size : 0), 0);
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index]!;
+      const id = assetIds[index]!;
+      if (attempt.confirmed.has(id)) continue;
+      if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+      const phase = `正在上传 ${file.name}`;
+      progress({ phase, loaded, total, cancelable: true });
+      const url = release.upload_url.replace(/\{.*$/, '') + `?name=${encodeURIComponent(file.name)}`;
+      attempt.attempted.add(id);
+      const uploaded = await this.sendAsset(url, file, token, controller.signal, (bytes) => {
+        loaded += bytes;
+        progress({ phase, loaded: Math.min(loaded, total), total, cancelable: true });
+      });
+      if (uploaded.state !== 'uploaded' || uploaded.size !== file.size || !uploaded.browser_download_url) throw new Error(`“${file.name}”上传后未通过检查。`);
+      attempt.confirmed.set(id, uploaded);
+    }
+  }
+
+  private failure(error: string, attempt: UploadAttempt, assetIds: string[], retryable: boolean, release?: GitHubCreatedRelease): ReleaseMutationFailure<GitHubCreatedRelease> {
+    return { status: 'failed', error, retryable,
+      completedAssetIds: assetIds.filter((id) => attempt.confirmed.has(id)),
+      remainingAssetIds: assetIds.filter((id) => !attempt.confirmed.has(id)), ...(release ? { release } : {}) };
+  }
+
+  async edit(raw: unknown): Promise<GitHubCreatedRelease> {
+    const input = validateEditReleaseRequest(raw);
+    const controller = this.beginOperation();
+    try {
+      await this.editableRelease(input.owner, input.repo, input.releaseId, controller.signal);
+      return await this.client.updateRelease(input.owner, input.repo, input.releaseId,
+        { name: input.title.trim(), body: input.body, prerelease: input.prerelease }, controller.signal);
+    } catch (error) { throw new Error(releaseError(error)); }
+    finally { this.active = null; }
+  }
+
+  async addAssets(raw: unknown, progress: (value: ReleaseProgress) => void): Promise<ReleaseResult> {
+    const input = validateAddReleaseAssetsRequest(raw);
+    const controller = this.beginOperation();
+    let key = '';
+    let attempt: UploadAttempt | undefined;
+    let release: GitHubCreatedRelease | undefined;
+    try {
+      const identity = await gitHubIdentity();
+      key = `${identity.user.login.toLowerCase()}/${input.owner.toLowerCase()}/${input.repo.toLowerCase()}/${input.releaseId}`;
+      attempt = this.attempts.get(key) ?? { confirmed: new Map(), attempted: new Set() };
+      const files = await this.files(input.assetIds, attempt.confirmed);
+      release = await this.editableRelease(input.owner, input.repo, input.releaseId, controller.signal);
+      await this.reconcile(attempt, input.assetIds, files, release, input);
+      // Remote confirmation may reveal that an earlier asset was removed. In
+      // that case validate its current local file before attempting to upload it.
+      await this.files(input.assetIds, attempt.confirmed);
+      if (release.assets.length + files.filter((_file, index) => !attempt!.confirmed.has(input.assetIds[index]!)).length > MAX_FILES) throw new Error('每个版本最多可包含 1000 个文件。');
+      this.attempts.set(key, attempt);
+      await this.uploadFiles(release, attempt, input.assetIds, files, controller, progress);
+      const updated = await this.client.release(input.owner, input.repo, input.releaseId).catch(() => ({ ...release!, assets: [...release!.assets, ...[...attempt!.confirmed.values()].filter((asset) => !release!.assets.some((known) => known.id === asset.id))] }));
+      for (const id of attempt.confirmed.keys()) this.selected.delete(id);
+      this.attempts.delete(key);
+      return updated;
     } catch (error) {
-      if (controller.signal.aborted) throw new Error('上传已取消。已完成的文件仍保留在版本中。');
-      throw new Error(`${friendlyGitHubError(error)} 已完成的文件仍保留在版本中。`);
+      if (!attempt || !release) throw new Error(releaseError(error));
+      // A lost response may still have reached GitHub. Confirm it before offering retry.
+      const updated = await this.client.release(input.owner, input.repo, input.releaseId).catch(() => undefined);
+      if (updated) {
+        const chosen = input.assetIds.map((id) => this.selected.get(id)!);
+        try { await this.reconcile(attempt, input.assetIds, chosen, updated, input); } catch { /* Keep only previously confirmed files. */ }
+      }
+      const message = controller.signal.aborted ? '上传已取消。已完成的文件仍保留在版本中。' : `${releaseError(error)} 已完成的文件仍保留在版本中，重试只会上传未完成的文件。`;
+      return this.failure(message, attempt, input.assetIds, true, updated);
     } finally { this.active = null; }
   }
 
   async removeAsset(raw: unknown): Promise<GitHubCreatedRelease> {
     const input = validateRemoveReleaseAssetRequest(raw);
-    if (this.active) throw new Error('已有版本操作正在进行，请稍后。');
-    const release = await this.editableRelease(input.owner, input.repo, input.releaseId);
-    if (!release.assets.some((asset) => asset.id === input.assetId)) throw new Error('这个文件已不在当前版本中，请刷新后重试。');
+    const controller = this.beginOperation();
     try {
+      const release = await this.editableRelease(input.owner, input.repo, input.releaseId, controller.signal);
+      if (!release.assets.some((asset) => asset.id === input.assetId)) throw new Error('这个文件已不在当前版本中，请刷新后重试。');
       await this.client.deleteReleaseAsset(input.owner, input.repo, input.assetId);
       return await this.client.release(input.owner, input.repo, input.releaseId);
-    } catch (error) { throw new Error(friendlyGitHubError(error)); }
+    } catch (error) { throw new Error(releaseError(error)); }
+    finally { this.active = null; }
   }
 
-  async publish(raw: unknown, progress: (value: ReleaseProgress) => void): Promise<GitHubCreatedRelease> {
-    if (this.active) throw new Error('已有新版本正在发布，请稍后。');
+  async publish(raw: unknown, progress: (value: ReleaseProgress) => void): Promise<ReleaseResult> {
     const input = validatePublishRequest(raw);
-    const files = input.assetIds.map((id) => this.selected.get(id));
-    if (files.some((file) => !file)) throw new Error('请重新选择要上传的文件。');
-    const chosen = files as SelectedFile[];
-    const names = chosen.map((file) => file.name.toLowerCase());
-    if (new Set(names).size !== names.length) throw new Error('同一个版本不能包含同名文件。');
-    const inlineIds = [...input.body.matchAll(/easyhub-image:([a-f0-9-]{36})/g)].map((match) => match[1]!);
-    if (inlineIds.some((id) => !input.assetIds.includes(id))) throw new Error('介绍中的本地图片尚未添加，请重新选择。');
-    for (const file of chosen) {
-      const details = await stat(file.path);
-      if (!details.isFile() || details.size !== file.size || details.mtimeMs !== file.modified) throw new Error(`“${file.name}”已发生变化，请重新选择。`);
-    }
-    const controller = new AbortController();
-    this.active = controller;
-    let draft: GitHubCreatedRelease | null = null;
+    const controller = this.beginOperation();
+    let key = '';
+    let attempt: UploadAttempt = { confirmed: new Map(), attempted: new Set() };
     let finalizing = false;
+    let creating = false;
     try {
+      const inlineIds = [...input.body.matchAll(/easyhub-image:([a-f0-9-]{36})/g)].map((match) => match[1]!);
+      if (inlineIds.some((id) => !input.assetIds.includes(id))) throw new Error('介绍中的本地图片尚未添加，请重新选择。');
       const repo = await this.client.repo(input.owner, input.repo);
       const identity = await gitHubIdentity();
       if (repo.archived || !repo.permissions?.push && repo.owner.login.toLowerCase() !== identity.user.login.toLowerCase()) throw new Error('你没有发布这个项目的权限。');
+      key = `${identity.user.login.toLowerCase()}/${input.owner.toLowerCase()}/${input.repo.toLowerCase()}/tag:${input.tagName}`;
+      attempt = this.attempts.get(key) ?? attempt;
+      const chosen = await this.files(input.assetIds, attempt.confirmed);
       const total = chosen.reduce((sum, file) => sum + file.size, 0);
-      progress({ phase: '正在创建新版本', loaded: 0, total, cancelable: true });
-      draft = await this.client.createRelease(input.owner, input.repo, {
-        tagName: input.tagName, target: repo.default_branch, name: input.title.trim(), body: input.body.trim(), prerelease: input.channel !== 'stable',
-      }, controller.signal);
-      const token = await githubAccessToken();
-      const urls = new Map<string, string>();
-      let loaded = 0;
-      for (let index = 0; index < chosen.length; index += 1) {
-        const file = chosen[index]!;
-        const id = input.assetIds[index]!;
-        progress({ phase: `正在上传 ${file.name}`, loaded, total, cancelable: true });
-        const url = draft.upload_url.replace(/\{.*$/, '') + `?name=${encodeURIComponent(file.name)}`;
-        const uploaded = await uploadAsset(url, file, token, controller.signal, (bytes) => {
-          loaded += bytes;
-          progress({ phase: `正在上传 ${file.name}`, loaded, total, cancelable: true });
-        });
-        if (uploaded.state !== 'uploaded' || uploaded.size !== file.size || !uploaded.browser_download_url) throw new Error(`“${file.name}”上传后未通过检查。`);
-        // Draft assets use a temporary "untagged" URL. The final tag URL remains valid after publishing.
-        urls.set(id, releaseAssetUrl(input.owner, input.repo, input.tagName, uploaded.name));
+      if (attempt.draft) {
+        const remote = await this.client.release(input.owner, input.repo, attempt.draft.id, controller.signal);
+        if (!remote.draft) {
+          for (const id of input.assetIds) this.selected.delete(id);
+          this.attempts.delete(key);
+          return remote;
+        }
+        attempt.draft = remote;
+        const selectedNames = new Map(chosen.map((file, index) => [file.name.toLowerCase(), input.assetIds[index]!]));
+        if (remote.assets.some((asset) => {
+          const selectedId = selectedNames.get(asset.name.toLowerCase());
+          return !selectedId || !attempt.attempted.has(selectedId);
+        })) throw new Error(DRAFT_SELECTION_MISMATCH);
+        await this.reconcile(attempt, input.assetIds, chosen, remote, input);
+        await this.files(input.assetIds, attempt.confirmed);
+      } else {
+        if (this.attempts.size >= 20) throw new Error('还有未完成的版本上传，请先完成或取消它们。');
+        progress({ phase: '正在创建新版本', loaded: 0, total, cancelable: true });
+        creating = true;
+        attempt.draft = await this.client.createRelease(input.owner, input.repo, {
+          tagName: input.tagName, target: repo.default_branch, name: input.title.trim(), body: input.body.trim(), prerelease: input.channel !== 'stable',
+        }, controller.signal);
+        this.attempts.set(key, attempt);
       }
+      await this.uploadFiles(attempt.draft, attempt, input.assetIds, chosen, controller, progress);
       if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
       progress({ phase: '正在确认新版本', loaded: total, total, cancelable: false });
+      const urls = new Map([...attempt.confirmed].map(([id, asset]) => [id, releaseAssetUrl(input.owner, input.repo, input.tagName, asset.name)]));
       const body = replaceInlineImages(input.body.trim(), urls);
       finalizing = true;
-      const published = await this.client.updateRelease(input.owner, input.repo, draft.id, { body, draft: false });
+      const published = await this.client.updateRelease(input.owner, input.repo, attempt.draft.id,
+        { name: input.title.trim(), body, prerelease: input.channel !== 'stable', draft: false });
       for (const id of input.assetIds) this.selected.delete(id);
+      this.attempts.delete(key);
       return published;
     } catch (error) {
-      if (draft && !finalizing) await this.client.deleteRelease(input.owner, input.repo, draft.id).catch(() => undefined);
-      if (finalizing) throw new Error('无法确认发布结果，请先在 GitHub 检查版本，再决定是否重试。');
-      if (error instanceof Error && (error.message.startsWith('请') || error.message.startsWith('你没有') || error.message.includes('已发生变化') || error.message.includes('上传后未通过'))) throw error;
-      throw new Error(friendlyGitHubError(error));
+      if (!attempt.draft) {
+        if (creating && !(error instanceof GitHubError)) {
+          return { ...this.failure('暂时无法确认 GitHub 是否已创建草稿。请先查看版本页面，核对这个版本后再决定是否重试。', attempt, input.assetIds, false),
+            residualDraft: { tagName: input.tagName, title: input.title, url: `https://github.com/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/releases`, retainedForRetry: false } };
+        }
+        throw new Error(releaseError(error));
+      }
+      const selectionMismatch = error instanceof Error && error.message === DRAFT_SELECTION_MISMATCH;
+      const remote = await this.client.release(input.owner, input.repo, attempt.draft.id).catch(() => undefined);
+      if (remote && !remote.draft) {
+        for (const id of input.assetIds) this.selected.delete(id);
+        this.attempts.delete(key);
+        return remote;
+      }
+      if (remote) {
+        attempt.draft = remote;
+        const chosen = input.assetIds.map((id) => this.selected.get(id)!);
+        try { await this.reconcile(attempt, input.assetIds, chosen, remote, input); } catch { /* A conflict must be reviewed on the draft page. */ }
+      }
+      if (!selectionMismatch && !finalizing && (controller.signal.aborted || attempt.confirmed.size === 0)) {
+        const cancelled = controller.signal.aborted;
+        try {
+          await this.client.deleteRelease(input.owner, input.repo, attempt.draft.id);
+          this.attempts.delete(key);
+          return this.failure(cancelled ? '发布已取消，未发布草稿已清理。' : `${releaseError(error)} 未发布草稿已清理，可以重试。`, { confirmed: new Map(), attempted: new Set() }, input.assetIds, true);
+        } catch {
+          return { ...this.failure(cancelled ? '发布已取消，但未能清理 GitHub 上的草稿。请查看草稿后再决定如何处理。' : '发布失败，且未能清理 GitHub 上的草稿。请查看草稿后再决定如何处理。', attempt, input.assetIds, false),
+            residualDraft: { id: attempt.draft.id, tagName: attempt.draft.tag_name, title: attempt.draft.name || input.title,
+              url: `https://github.com/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/releases`, retainedForRetry: false } };
+        }
+      }
+      const message = selectionMismatch ? DRAFT_SELECTION_MISMATCH : finalizing ? '暂时无法确认发布结果。重试前会检查 GitHub，避免重复发布。' : `${releaseError(error)} 已完成的文件保留在未发布草稿中，重试只会上传未完成的文件。`;
+      return { ...this.failure(message, attempt, input.assetIds, !selectionMismatch), residualDraft: { id: attempt.draft.id,
+        tagName: attempt.draft.tag_name, title: attempt.draft.name || input.title,
+        url: `https://github.com/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/releases`, retainedForRetry: !selectionMismatch } };
     } finally { this.active = null; }
   }
 }

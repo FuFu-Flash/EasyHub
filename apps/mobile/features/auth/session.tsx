@@ -2,10 +2,15 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import * as SecureStore from 'expo-secure-store';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { fetch as expoFetch } from 'expo/fetch';
 import { GitHubClient, type GitHubUser } from '@easyhub/github';
 import { type Credential, refreshCredential } from './deviceFlow';
+import { createUiTestClient, simulateUiTestDownload, uiFixtureUser } from './uiTestFixtures';
+import { throwIfCancelled as checkDownloadAbort } from '../network/cancellation.js';
+import { withFreshReads } from '../network/freshReads';
 
 const key = 'easyhub.github.credential';
+const uiTestMode = __DEV__ && process.env.EXPO_PUBLIC_UI_TEST === '1';
 interface Session {
   ready: boolean; user: GitHubUser | null; client: GitHubClient | null;
   signIn(credential: Credential): Promise<void>; signOut(): Promise<void>;
@@ -29,15 +34,20 @@ function createConnection(initial: Credential): Connection {
     }).finally(() => { pending = null; });
     return (await pending).accessToken;
   };
-  return { client: new GitHubClient(token), token, deactivate: () => { active = false; } };
+  return { client: new GitHubClient(token, withFreshReads(expoFetch as typeof fetch)), token, deactivate: () => { active = false; } };
+}
+
+function createUiTestConnection(): Connection {
+  return { client: createUiTestClient(), token: async () => 'easyhub-ui-test-in-memory-only', deactivate: () => undefined };
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [connection, setConnection] = useState<Connection | null>(null);
-  const [user, setUser] = useState<GitHubUser | null>(null);
-  const [ready, setReady] = useState(false);
+  const [connection, setConnection] = useState<Connection | null>(() => uiTestMode ? createUiTestConnection() : null);
+  const [user, setUser] = useState<GitHubUser | null>(() => uiTestMode ? uiFixtureUser : null);
+  const [ready, setReady] = useState(uiTestMode);
 
   const signIn = useCallback(async (value: Credential) => {
+    if (uiTestMode) { setConnection(createUiTestConnection()); setUser(uiFixtureUser); return; }
     const next = createConnection(value);
     const account = await next.client.user();
     await SecureStore.setItemAsync(key, JSON.stringify(value));
@@ -47,23 +57,33 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [connection]);
   const signOut = useCallback(async () => {
     connection?.deactivate();
-    await SecureStore.deleteItemAsync(key);
+    if (!uiTestMode) await SecureStore.deleteItemAsync(key);
     setConnection(null); setUser(null);
   }, [connection]);
 
   const downloadAndShare = useCallback(async (path: string, name: string, onProgress: (loaded: number, total: number) => void, signal?: AbortSignal) => {
     if (!connection) throw new Error('请先使用 GitHub 登录。');
     if (!path.startsWith('/repos/') || !/^[-\w.]+$/.test(name)) throw new Error('下载地址无效。');
+    checkDownloadAbort(signal);
+    if (uiTestMode) { await simulateUiTestDownload(onProgress, signal); return; }
     const destination = new File(Paths.cache, `${Date.now()}-${name}`);
-    const downloaded = await File.downloadFileAsync(`https://api.github.com${path}`, destination, {
-      headers: { Authorization: `Bearer ${await connection.token()}`, Accept: path.includes('/releases/assets/') ? 'application/octet-stream' : 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
-      onProgress: ({ bytesWritten, totalBytes }) => onProgress(bytesWritten, totalBytes), signal,
-    });
-    if (!await Sharing.isAvailableAsync()) throw new Error('此设备暂不支持保存或分享文件。');
-    await Sharing.shareAsync(downloaded.uri);
+    try {
+      const downloaded = await File.downloadFileAsync(`https://api.github.com${path}`, destination, {
+        headers: { Authorization: `Bearer ${await connection.token()}`, Accept: path.includes('/releases/assets/') ? 'application/octet-stream' : 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+        onProgress: ({ bytesWritten, totalBytes }) => onProgress(bytesWritten, totalBytes), signal,
+      });
+      checkDownloadAbort(signal);
+      if (!await Sharing.isAvailableAsync()) throw new Error('此设备暂不支持保存或分享文件。');
+      checkDownloadAbort(signal);
+      await Sharing.shareAsync(downloaded.uri);
+    } catch (cause) {
+      try { if (destination.exists) destination.delete(); } catch { /* Preserve the download error. */ }
+      throw cause;
+    }
   }, [connection]);
 
   useEffect(() => {
+    if (uiTestMode) return;
     let active = true;
     (async () => {
       try {

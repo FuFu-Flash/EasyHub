@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { GitHubRepo } from '@easyhub/github';
-import type { FolderInspection, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
+import type { FolderInspection, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, LocalPublishSelection, SyncDecision, SyncPreview } from '@easyhub/types';
 import { ArrowLeft, Check, CheckCircle2, Download, FolderOpen, Globe2, LockKeyhole, Plus, RotateCw, Send } from 'lucide-react';
 import { ReadmeMarkdown } from './components/ReadmeMarkdown';
+import { LocalChangeSelector } from './components/LocalChangeSelector';
+import { readLanguage } from './i18n';
 
 interface Props {
   mode: 'list' | 'create';
@@ -18,8 +20,7 @@ interface Props {
   onSyncReviewOpened?: () => void;
 }
 
-const fileVerb = { added: '新增', modified: '修改', deleted: '删除', renamed: '重命名' } as const;
-function errorText(error: unknown): string { return error instanceof Error ? error.message : '操作失败，请稍后重试。'; }
+function errorText(error: unknown): string { return error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/, '') : '操作失败，请稍后重试。'; }
 
 export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, onBack, onCreated, onDownloadProject, downloadBusy, initialSyncReview, onSyncReviewOpened }: Props) {
   const [links, setLinks] = useState<LocalProjectLink[]>([]);
@@ -37,6 +38,11 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, onBa
   const [showDifferences, setShowDifferences] = useState<Record<string, boolean>>({});
   const [publishAfterSync, setPublishAfterSync] = useState<string | null>(null);
   const [updateMessage, setUpdateMessage] = useState('');
+  const [selections, setSelections] = useState<Record<string, LocalPublishSelection | null>>({});
+  const [previewRefresh, setPreviewRefresh] = useState(0);
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+  const onSelection = useCallback((id: string, selection: LocalPublishSelection | null, hasPending = false) => { setSelections((old) => ({ ...old, [id]: selection })); setPending((old) => ({ ...old, [id]: hasPending })); }, []);
+  const tr = (zh: string, en: string): string => readLanguage() === 'en' ? en : zh;
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<LocalOperationProgress | null>(null);
   const [error, setError] = useState('');
@@ -125,10 +131,12 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, onBa
   async function publish(event: FormEvent, item: LocalProjectLink): Promise<void> {
     event.preventDefault(); if (!api) return;
     await task(async () => {
-      const preview = await api.localCheckSync(item.id);
-      if (preview.state === 'blocked') { setError(preview.message ?? '暂时无法安全发布。'); return; }
-      if (preview.state === 'review') { setSyncReview({ id: item.id, preview }); setSyncChoices({}); setPublishAfterSync(item.id); return; }
-      const result = await api.localPublish(item.id, updateMessage.trim());
+      const selection = selections[item.id];
+      if (!selection || (!selection.paths.length && !pending[item.id])) { setError(tr('请先查看并选择本次发布的文件。', 'Review and select the files to publish first.')); return; }
+      let result: { changed: number };
+      try { result = await api.localPublish(item.id, updateMessage.trim(), selection); }
+      finally { await refresh(); }
+      setPreviewRefresh((value) => value + 1);
       setPublishId(null); setUpdateMessage('');
       setNotice(`发布成功，${result.changed} 个文件已保存到 GitHub。`);
       await refresh(); await onCreated();
@@ -143,6 +151,7 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, onBa
       if (preview.state === 'current') { setNotice('这个项目已经是最新的。'); setSyncReview(null); return; }
       if (preview.state === 'review') { setSyncReview({ id: item.id, preview }); setSyncChoices({}); setShowDifferences({}); setPublishAfterSync(null); return; }
       const result = await api.localSync(item.id, preview.remoteRevision, []);
+      setPreviewRefresh((value) => value + 1);
       setNotice(`已获取 GitHub 上的最新内容，更新了 ${result.updated} 个文件。`);
       await refresh();
     });
@@ -157,11 +166,10 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, onBa
       const result = await api.localSync(item.id, review.remoteRevision, decisions);
       setSyncReview(null); setSyncChoices({});
       if (publishAfterSync === item.id) {
-        const published = await api.localPublish(item.id, updateMessage.trim());
-        setPublishId(null); setUpdateMessage(''); setPublishAfterSync(null);
-        setNotice(`已获取最新内容并发布更新，${published.changed} 个文件已保存到 GitHub。`);
-        await onCreated();
+        setPublishAfterSync(null);
+        setNotice(tr('已获取最新内容，请重新查看并选择本次发布的文件。', 'Latest content received. Review and select the files to publish again.'));
       } else setNotice(`已获取最新内容，更新了 ${result.updated} 个文件。`);
+      setPreviewRefresh((value) => value + 1);
       await refresh();
     });
   }
@@ -183,14 +191,14 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, onBa
       <button className="button button-primary submit-button" disabled={busy || !name.trim() || !inspection || inspection.state === 'github'} type="submit"><Plus size={17} />创建项目</button>
     </form>}
     {visibleLinks.map((item) => { const status = statuses[item.id]; const introduction = introductions[item.id]; const repo = selectedRepo?.id === item.repositoryId ? selectedRepo : repos.find((candidate) => candidate.id === item.repositoryId); return <section className="panel live-section local-project-card" key={item.id}>
-      <div className="panel-heading"><h2>{item.name}</h2><span className="muted">{status ? status.files.length ? `${status.files.length} 个文件还没发布` : '已保存' : '正在检查文件'}</span></div>
+      <div className="panel-heading"><h2>{item.name}</h2><span className="muted">{status ? status.files.length ? `${status.files.length} 个文件还没发布` : status.pendingPublish ? tr('本地版本尚未发布', 'A local version is waiting to publish') : '已保存' : '正在检查文件'}</span></div>
       <p className="muted">{item.localPath}</p>
       {mode !== 'create' && <section aria-label="项目介绍"><div className="panel-heading"><h3>项目介绍</h3></div>{!introduction ? <p className="muted" role="status">正在读取项目介绍…</p> : introduction.error ? <div><p className="live-error" role="alert">{introduction.error}</p><button className="text-link" onClick={() => setIntroductionRefresh((value) => value + 1)}>重新读取</button></div> : introduction.content ? <ReadmeMarkdown markdown={introduction.content} repository={{ owner: item.owner, name: item.name, branch: repo?.default_branch || 'main' }} onOpenLink={(url) => { void api?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} /> : <p className="muted">这个项目还没有介绍。</p>}</section>}
-      <div className="local-actions"><button className="button button-quiet" disabled={busy} onClick={() => void api?.localOpenFolder(item.id)}><FolderOpen size={16} />打开文件夹</button><button className="button button-quiet" disabled={busy} onClick={() => { setExpandedRepoId(item.repositoryId); void task(async () => { if (api) { const next = await api.localStatus(item.id); setStatuses((old) => ({ ...old, [item.id]: next })); } }); }}><RotateCw size={16} />查看修改</button><button className="button button-quiet" disabled={busy} onClick={() => void checkLatest(item)}><RotateCw size={16} />获取最新</button>{status?.files.length ? <button className="button button-primary" disabled={busy} onClick={() => { setExpandedRepoId(item.repositoryId); setPublishId(item.id); setUpdateMessage(''); }}><Send size={16} />发布源码</button> : null}</div>
-      {expandedRepoId === item.repositoryId && status && <div className="local-changes"><div className="local-changes-heading"><strong>尚未发布的修改</strong><span>{status.files.filter((file) => file.kind === 'modified').length} 个修改 · {status.files.filter((file) => file.kind === 'added').length} 个新增 · {status.files.filter((file) => file.kind === 'deleted').length} 个删除{status.files.some((file) => file.kind === 'renamed') ? ` · ${status.files.filter((file) => file.kind === 'renamed').length} 个重命名` : ''}</span></div>{status.files.length ? <div className="local-file-list">{status.files.map((file) => <div key={file.path}><span>{fileVerb[file.kind]}</span>{file.previousPath ? `${file.previousPath} → ` : ''}{file.path}</div>)}</div> : <p className="muted">目前没有尚未发布的修改。</p>}</div>}
+      <div className="local-actions"><button className="button button-quiet" disabled={busy} onClick={() => void api?.localOpenFolder(item.id)}><FolderOpen size={16} />打开文件夹</button><button className="button button-quiet" disabled={busy} onClick={() => { setExpandedRepoId(item.repositoryId); setPreviewRefresh((value) => value + 1); void task(async () => { if (api) { const next = await api.localStatus(item.id); setStatuses((old) => ({ ...old, [item.id]: next })); } }); }}><RotateCw size={16} />查看修改</button><button className="button button-quiet" disabled={busy} onClick={() => void checkLatest(item)}><RotateCw size={16} />获取最新</button>{status && (status.files.length > 0 || status.pendingPublish) ? <button className="button button-primary" disabled={busy} onClick={() => { setExpandedRepoId(item.repositoryId); setPublishId(item.id); setUpdateMessage(status.pendingMessage ?? (status.pendingPublish ? tr('发布已保存的更新', 'Publish saved changes') : '')); }}><Send size={16} />发布源码</button> : null}</div>
+      {expandedRepoId === item.repositoryId && status && <LocalChangeSelector id={item.id} refreshKey={previewRefresh} disabled={busy} onSelection={onSelection} />}
       {status?.needsReview && <p className="live-error">这个文件夹有其他工具准备的修改，请先在该工具中完成或取消。</p>}
       {syncReview?.id === item.id && <div className="sync-review"><h3>有内容需要确认</h3><p>这些文件在另一台电脑上也修改过。请查看内容，再选择要保留的版本。</p>{syncReview.preview.files.map((file) => <div className="sync-review-file" key={file.path}><strong>{file.path}</strong><div className="local-actions"><button className="button button-quiet" type="button" onClick={() => setShowDifferences((old) => ({ ...old, [file.path]: !old[file.path] }))}>{showDifferences[file.path] ? '收起不同' : '查看不同'}</button><button className={`button ${syncChoices[file.path] === 'mine' ? 'button-primary' : 'button-quiet'}`} type="button" onClick={() => setSyncChoices((old) => ({ ...old, [file.path]: 'mine' }))}>保留我的</button><button className={`button ${syncChoices[file.path] === 'github' ? 'button-primary' : 'button-quiet'}`} type="button" onClick={() => setSyncChoices((old) => ({ ...old, [file.path]: 'github' }))}>使用 GitHub 版本</button></div>{showDifferences[file.path] && <div className="sync-review-diff"><div><span>你的版本</span><pre>{file.mine ?? '这个版本没有该文件。'}</pre></div><div><span>GitHub 上的版本</span><pre>{file.github ?? '这个版本没有该文件。'}</pre></div></div>}</div>)}<div className="local-actions"><button className="button button-quiet" type="button" onClick={() => { setSyncReview(null); setPublishAfterSync(null); }}>稍后处理</button><button className="button button-primary" type="button" disabled={busy || syncReview.preview.files.some((file) => !syncChoices[file.path])} onClick={() => void confirmSync(item)}>确认并获取最新</button></div></div>}
-      {publishId === item.id && status && <form className="local-publish" onSubmit={(event) => void publish(event, item)}><h3>发布源码</h3><p>把日常代码修改保存到 GitHub。</p><label className="field"><span>这次改了什么？</span><input aria-label="这次改了什么？" required maxLength={200} value={updateMessage} onChange={(event) => setUpdateMessage(event.target.value)} placeholder="例如：修复窗口缩放问题" /></label><div className="local-actions"><button className="button button-quiet" type="button" onClick={() => setPublishId(null)}>取消</button><button className="button button-primary" disabled={busy || status.needsReview || !updateMessage.trim()} type="submit">发布更新</button></div></form>}
+      {publishId === item.id && status && <form className="local-publish" onSubmit={(event) => void publish(event, item)}><h3>发布源码</h3><p>把日常代码修改保存到 GitHub。</p><label className="field"><span>这次改了什么？</span><input aria-label="这次改了什么？" required maxLength={200} value={updateMessage} onChange={(event) => setUpdateMessage(event.target.value)} placeholder="例如：修复窗口缩放问题" /></label><div className="local-actions"><button className="button button-quiet" type="button" onClick={() => setPublishId(null)}>取消</button><button className="button button-primary" disabled={busy || status.needsReview || !updateMessage.trim() || !selections[item.id] || (!selections[item.id]?.paths.length && !pending[item.id])} type="submit">{status.pendingPublish ? tr('重试发布', 'Retry publishing') : tr('发布选中的文件', 'Publish selected files')}</button></div></form>}
     </section>; })}
     {mode !== 'create' && <section className="panel live-section"><div className="panel-heading"><h2>我的云端项目</h2></div>{visibleRepos.filter((repo) => !links.some((item) => item.repositoryId === repo.id)).map((repo) => <div className="live-repo-row local-cloud-row" key={repo.id}><span><strong>{repo.name}</strong><small>{repo.description || '还没有一句介绍'}</small></span><button className="button button-quiet" disabled={busy || downloadBusy} onClick={() => void download(repo)}><Download size={16} />下载</button></div>)}{visibleRepos.every((repo) => links.some((item) => item.repositoryId === repo.id)) && <p className="muted"><CheckCircle2 size={16} />云端项目都已添加到电脑。</p>}</section>}
   </div>;

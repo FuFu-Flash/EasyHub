@@ -1,5 +1,9 @@
 # Third-party notices
 
+EasyHub's own source code is licensed under the Apache License, Version 2.0.
+Third-party software, routing materials and optional components retain their
+original license terms and attribution. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
 ## Optional program analysis
 
 EasyHub installs program-file analysis components only when the user chooses to install them. The Windows packages are reduced distributions prepared by EasyHub from fixed upstream releases. Existing complete installations of the supported versions can also be used.
@@ -50,4 +54,4 @@ EasyHub's GitHub routing follows the origin address and TLS SNI routing design o
 - License: GNU General Public License, version 3.0
 - Public routing configuration: https://api.steampp.net/accelerator/projectgroups
 
-The TypeScript implementation and configuration parser are independently implemented for EasyHub. The SteamTools Client SDK is not included. The full GNU GPLv3 text is distributed in the application's `LICENSE` resource.
+The TypeScript implementation and configuration parser are independently implemented for EasyHub. The SteamTools Client SDK is not included. The full GNU GPLv3 text for the upstream project is retained separately in [steamtools-GPL-3.0](apps/desktop/resources/licenses/steamtools-GPL-3.0) and distributed in the application's `licenses/steamtools-GPL-3.0` resource.

@@ -1,0 +1,32 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'app.easyhub.analysis'
+version = '1.0.0'
+
+android {
+  namespace 'app.easyhub.analysis'
+  defaultConfig {
+    minSdkVersion 24
+    versionCode 1
+    versionName '1.0.0'
+  }
+  // Framework build outputs live in native-analysis/generated, never in App assets.
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+    coreLibraryDesugaringEnabled true
+  }
+  packagingOptions {
+    resources.excludes += ['META-INF/DEPENDENCIES']
+    jniLibs.excludes += ['**/* *.so', '**/libeasyhub-radare2.so', '**/libr_*.so', '**/libcore_r2ghidra.so']
+    resources.excludes += ['assets/native-analysis/**']
+  }
+}
+
+dependencies {
+  coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
+  testImplementation 'junit:junit:4.13.2'
+}

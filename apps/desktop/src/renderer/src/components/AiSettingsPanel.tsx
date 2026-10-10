@@ -79,7 +79,7 @@ export function AiSettingsPanel({ disabled = false, language = readLanguage() }:
       </div>
       {!expanded && error && <p className="live-error" role="alert">{error}</p>}
       <div id="ai-settings-details" hidden={!expanded}>
-      <p>{t('选择 AI 服务商，填写你自己的 API Key，即可审查改进请求和程序文件。', 'Choose an AI provider and enter your own API key to review proposed changes and program files.')}</p>
+      <p>{t('选择 AI 服务商，填写你自己的 API Key，即可审查合并请求和程序文件。', 'Choose an AI provider and enter your own API key to review proposed changes and program files.')}</p>
       {disabled ? <p className="ai-settings-note">{t('演示版中不保存密钥。请使用正式版连接你的 AI 服务。', 'The demo does not store keys. Use the full edition to connect your AI service.')}</p> : <p className="ai-settings-note">{t('密钥保存在这台电脑的安全存储中。每次审查前，你都可以确认将发送的内容和服务地址。', 'Your key is kept in this computer’s secure storage. Before each review, you can confirm the content and service address.')}</p>}
       <form onSubmit={(event) => { event.preventDefault(); void act('save'); }}>
         <div className="field"><span>{t('AI 服务商', 'AI provider')}</span><StyledDropdown label={t('AI 服务商', 'AI provider')} value={providerId} disabled={locked} options={[...(saved?.providerId === 'legacy' ? [{ value: 'legacy', label: t('之前保存的服务', 'Previously saved provider') }] : []), ...AI_PROVIDERS.map((provider) => ({ value: provider.id, label: provider.name }))]} onChange={(value) => { const next = value as AiProviderId | 'legacy'; setProviderId(next); setModel(aiProvider(next)?.defaultModel ?? saved?.model ?? ''); setApiKey(''); setNotice(''); }} /></div>

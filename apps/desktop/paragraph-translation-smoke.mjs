@@ -17,6 +17,7 @@ try {
     ipcMain.handle('easyhub:github', (_event, action) => {
       if (action === 'repos') return [];
       if (action === 'searchPublicRepos') return [sampleProject];
+      if (action === 'searchPublicReposPage') return { items: [sampleProject], page: 1, totalCount: 1, hasNextPage: false, incompleteResults: false };
       if (action === 'readme') return sampleReadme;
       if (action === 'issues' || action === 'commits') return [];
       throw new Error(`Unexpected read: ${action}`);

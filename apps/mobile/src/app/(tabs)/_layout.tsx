@@ -1,8 +1,9 @@
 import { Tabs } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Easing, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePreferences } from '@/features/preferences/provider';
+import { useReducedMotion } from '@/features/motion/useReducedMotion';
 
 type TabName = 'index' | 'projects' | 'discover' | 'issues' | 'settings';
 
@@ -13,6 +14,12 @@ const labels: Record<TabName, [string, string]> = {
   issues: ['问题', 'Issues'],
   settings: ['设置', 'Settings'],
 };
+
+// Expo Router drives this opacity transition natively on Android and iOS.
+const tabFade = { animation: 'timing' as const, config: { duration: 140, easing: Easing.bezier(0.23, 1, 0.32, 1) } };
+// Keep native scene/activity bindings stable when accessibility settings change.
+// Switching fade to none on Android can leave an already visited screen invisible.
+const noTabMotion = { animation: 'timing' as const, config: { duration: 0 } };
 
 function TabIcon({ name, color }: { name: TabName; color: string }) {
   return <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
@@ -34,9 +41,10 @@ function TabIcon({ name, color }: { name: TabName; color: string }) {
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { t } = usePreferences();
+  const reducedMotion = useReducedMotion();
 
   return <Tabs
-    screenOptions={{ headerShown: false }}
+    screenOptions={{ headerShown: false, animation: 'fade', transitionSpec: reducedMotion ? noTabMotion : tabFade, sceneStyle: { backgroundColor: '#f5f8fd' }, lazy: true, freezeOnBlur: false }}
     tabBar={({ state, navigation }) => <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
       {state.routes.map((route, index) => {
         const name = route.name as TabName;

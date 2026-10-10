@@ -1,6 +1,6 @@
 export const GITHUB_CLIENT_ID = 'Ov23lixRW8K0uXzZqwMj';
 
-interface DeviceCode { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval: number }
+export interface DeviceCode { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval: number }
 export interface Credential { accessToken: string; refreshToken?: string; expiresAt?: number }
 interface TokenReply { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; interval?: number }
 
@@ -17,6 +17,11 @@ async function post<T>(path: string, data: Record<string, string>, signal?: Abor
 
 export async function requestDeviceCode(signal?: AbortSignal, transport: typeof fetch = fetch): Promise<DeviceCode> {
   return post<DeviceCode>('/device/code', { client_id: GITHUB_CLIENT_ID, scope: 'repo read:user' }, signal, transport);
+}
+
+/** Deletion credentials are requested only for a confirmed repository deletion. */
+export async function requestDeletionDeviceCode(signal?: AbortSignal, transport: typeof fetch = fetch): Promise<DeviceCode> {
+  return post<DeviceCode>('/device/code', { client_id: GITHUB_CLIENT_ID, scope: 'repo read:user delete_repo' }, signal, transport);
 }
 
 export async function refreshCredential(current: Credential, signal?: AbortSignal, transport: typeof fetch = fetch): Promise<Credential> {

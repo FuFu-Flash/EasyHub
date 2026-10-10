@@ -2,6 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { GitHubClient } from '@easyhub/github';
 
 describe('shared GitHub features used by Android', () => {
+  it('opens older release tags directly including tags with slashes', async () => {
+    const transport = vi.fn(async (_input: string | URL, _init?: RequestInit) => Response.json({ id: 99 }));
+    const client = new GitHubClient(async () => 'token', transport);
+    await client.releaseByTag('writer', 'app', 'build/v1');
+    await client.releaseByTag('writer', 'app');
+    expect(transport.mock.calls.map(([url]) => url)).toEqual(['https://api.github.com/repos/writer/app/releases/tags/build%2Fv1', 'https://api.github.com/repos/writer/app/releases/latest']);
+  });
   it('loads exact issue counts and individual issues', async () => {
     const transport = vi.fn(async (input: string | URL, _init?: RequestInit) => String(input).endsWith('/graphql')
       ? Response.json({ data: { repository: { issues: { totalCount: 127 } } } })

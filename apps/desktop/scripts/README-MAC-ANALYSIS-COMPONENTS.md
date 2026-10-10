@@ -68,7 +68,7 @@ Java retains `Contents/Home/NOTICE`, `upstream-release`, and every selected modu
 - [Java source revision 1c417fbfc2f7](https://github.com/adoptium/jdk21u/tree/1c417fbfc2f7)
 - [Temurin build revision e6ba7dec3d07654074559310376a3ae89da5f4ac](https://github.com/adoptium/temurin-build/tree/e6ba7dec3d07654074559310376a3ae89da5f4ac)
 
-If a local copy is needed, obtain that fixed official URL and validate **both** size and SHA-256 before using it. The release preparation helper provides that validation. Keep the full source attachment and notices available alongside the binary; it is separate from runtime downloads. Application GPL v3 and third-party component licenses keep their respective terms.
+If a local copy is needed, obtain that fixed official URL and validate **both** size and SHA-256 before using it. The release preparation helper provides that validation. Keep the full source attachment and notices available alongside the binary; it is separate from runtime downloads. EasyHub application code is licensed under Apache License 2.0; third-party components retain their respective license terms.
 
 ## Verification scope
 

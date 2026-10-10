@@ -1,10 +1,13 @@
 import { ArrowDownToLine, CalendarDays, FileArchive, FileImage } from 'lucide-react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import type { ProjectRelease, ReleaseAsset } from '@easyhub/types';
 import type { Language } from '../i18n';
 
 type PreviewRelease = Pick<ProjectRelease, 'tagName' | 'title' | 'body' | 'channel' | 'assets'> & Partial<Pick<ProjectRelease, 'publishedAt'>>;
+const previewSchema = { ...defaultSchema, protocols: { ...defaultSchema.protocols, src: [...(defaultSchema.protocols?.src ?? []), 'easyhub-image'] } };
 
 export function formatFileSize(size: number): string {
   if (size < 1024) return `${size} B`;
@@ -32,7 +35,7 @@ export function ReleasePreview({ release, imageSources, language, onAssetClick, 
     <div className="release-markdown">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        skipHtml
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, previewSchema]]}
         urlTransform={(url, key) => key === 'src' && url.startsWith('easyhub-image:') ? url : defaultUrlTransform(url)}
         components={{
           a: ({ href, children }) => <a href={href} onClick={(event) => { event.preventDefault(); if (href) onOpenLink?.(href); }}>{children}</a>,

@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "components": [
+    {
+      "id": "java",
+      "version": "1.5.6",
+      "abi": "any",
+      "minSdk": 26,
+      "url": "https://github.com/FuFu-Flash/EasyHub/releases/download/analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1/easyhub-jadx-1.5.6-android-v1.zip",
+      "sha256": "43d1e975413d3dbd88899225313189a96d6804d3c4469569257979ea1dc48113",
+      "downloadBytes": 2804563,
+      "manifestSha256": "b1c4011c4ded4e8e2da5827d0d32ad17e22690d523852077b9fe15b3e0d5d20a"
+    },
+    {
+      "id": "native",
+      "version": "6.2.2",
+      "abi": "arm64-v8a",
+      "minSdk": 24,
+      "url": "https://github.com/FuFu-Flash/EasyHub/releases/download/analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1/easyhub-radare2-6.2.2-android-arm64-v1.zip",
+      "sha256": "ab687d8e6c554d8d6b0b416e5178eb399a7fd661e4f5c7e98531c55395813ffe",
+      "downloadBytes": 26357764,
+      "manifestSha256": "4bc0c8731a61df5d3f06529f1b80295b464fb4f4e63ae2b9520e88d570542127"
+    }
+  ]
+}

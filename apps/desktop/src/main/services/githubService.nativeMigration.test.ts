@@ -166,3 +166,29 @@ it('uses an empty in-memory OAuth vault in automation without constructing or re
   expect(state.reads).toEqual([]); expect(state.writes).toEqual([]); expect(state.deletes).toEqual([]);
   expect(state.records.size).toBe(2);
 });
+
+it('keeps login preflight and authorized token writes in memory during automation', async () => {
+  vi.stubEnv('EASYHUB_TEST_MODE', '1');
+  const existing = JSON.stringify({ clientId: 'mock_client_id', accessToken: 'mock-existing-record' });
+  state.records.set(electronKey, existing);
+  state.records.set(nativeKey, JSON.stringify({ accessToken: 'mock-native-record' }));
+  const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith('/login/device/code')) return Response.json({ device_code: 'mock-device', user_code: 'MOCK-1234',
+      verification_uri: 'https://github.com/login/device', expires_in: 900 });
+    if (url.endsWith('/login/oauth/access_token')) return Response.json({ access_token: 'mock-memory-token' });
+    if (url.endsWith('/user')) return Response.json({ id: 42, login: 'migration-test', name: null, avatar_url: '', html_url: 'https://github.com/migration-test' });
+    throw new Error('Unexpected fixture request');
+  });
+  vi.stubGlobal('fetch', fetcher);
+  const service = await import('./githubService');
+  expect(await service.startDeviceLogin('mock_client_id')).toMatchObject({ userCode: 'MOCK-1234' });
+  expect(await service.pollDeviceLogin()).toMatchObject({ state: 'complete', user: { login: 'migration-test' } });
+  expect(await service.authStatus()).toMatchObject({ user: { login: 'migration-test' } });
+  await service.logout();
+  expect(state.constructed).toEqual([]);
+  expect(state.reads).toEqual([]); expect(state.writes).toEqual([]); expect(state.deletes).toEqual([]);
+  expect(state.records.get(electronKey)).toBe(existing);
+  expect(state.records.size).toBe(2);
+  expect(fetcher).toHaveBeenCalledTimes(4);
+});

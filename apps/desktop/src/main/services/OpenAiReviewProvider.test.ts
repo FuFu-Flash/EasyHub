@@ -8,6 +8,13 @@ const success = (content = '{"summary":"OK","findings":[]}') => new Response(JSO
 }), { status: 200, headers: { 'content-type': 'application/json' } });
 
 describe('OpenAI-compatible review provider', () => {
+  it('caps optional code-explanation output without changing the selected model or endpoint', async () => {
+    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => success('{"explanation":"Adds the values."}'));
+    const provider = new OpenAiReviewProvider(fetcher);
+    await provider.complete(credentials, 'Explain in English.', '{"selectedCode":"a+b"}', new AbortController().signal, { maxOutputTokens: 3000 });
+    expect(JSON.parse(String(fetcher.mock.calls[0]![1].body))).toMatchObject({ model: credentials.model, max_tokens: 3000 });
+    expect(fetcher.mock.calls[0]![0]).toBe('https://user-service.example/v1/chat/completions');
+  });
   it('uses only the selected endpoint and key, disables redirects, and omits ambient cookies', async () => {
     const fetcher = vi.fn(async (_url: string, _init: RequestInit) => success());
     const provider = new OpenAiReviewProvider(fetcher);

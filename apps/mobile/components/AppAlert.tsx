@@ -28,7 +28,7 @@ export function AppAlertProvider({ children }: { children: ReactNode }) {
         <View style={{ gap: 9, marginTop: dialog?.message ? 0 : 22 }}>{(dialog?.buttons.length ? dialog.buttons : [{ text: t('知道了', 'OK') }]).map((button, index) => {
           const quiet = button.style === 'cancel';
           const danger = button.style === 'destructive';
-          return <Pressable key={`${button.text}-${index}`} accessibilityRole="button" onPress={() => { setDialog(null); button.onPress?.(); }} style={{ minHeight: 45, borderRadius: 11, justifyContent: 'center', alignItems: 'center', borderWidth: 1,
+          return <Pressable key={`${button.text}-${index}`} accessibilityRole="button" onPress={() => { setDialog(null); button.onPress?.(); }} style={{ minHeight: 48, borderRadius: 11, justifyContent: 'center', alignItems: 'center', borderWidth: 1,
             borderColor: quiet ? palette.border : danger ? '#e9b7bf' : palette.blue, backgroundColor: quiet ? '#fff' : danger ? '#fff2f3' : palette.blue }}>
             <Text style={{ color: quiet ? palette.ink : danger ? '#b43449' : '#fff', fontWeight: '800', fontSize: 15 }}>{button.text || '确定'}</Text>
           </Pressable>;

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
 import { smokeExecutable, smokeEnvironment, smokeRenderer } from './smoke-runtime.mjs';
+import { installDownloadFixture } from './download-fixture.mjs';
 
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
 const outputDirectory = join(desktopDirectory, 'out', 'notifications-cursor-smoke');
@@ -58,10 +59,14 @@ try {
       if (action === 'repository' || action === 'publicRepo') return repo;
       if (action === 'isStarred') return false;
       if (action === 'searchPublicRepos') return [repo];
+      if (action === 'searchPublicReposPage') return { items: [repo], page: 1, totalCount: 1, hasNextPage: false, incompleteResults: false };
       if (action === 'trending') return { items: [repo], page: 1, hasNextPage: false };
       if (action === 'readme') return '# Notification fixture\n\nSelectable README text remains available.\n\n[Fixture link](https://example.invalid/fixture)';
-      if (action === 'releases') return [{ id: 3302, tag_name: 'v1', name: 'Fixture release', body: '', draft: false, prerelease: false, published_at: now,
-        assets: [{ id: 3303, name: 'fixture.zip', size: 1024, content_type: 'application/zip', state: 'uploaded', download_count: 0 }] }];
+      if (action === 'releases' || action === 'releasesPage') {
+        const items = [{ id: 3302, tag_name: 'v1', name: 'Fixture release', body: '', draft: false, prerelease: false, published_at: now,
+          assets: [{ id: 3303, name: 'fixture.zip', size: 1024, content_type: 'application/zip', state: 'uploaded', download_count: 0 }] }];
+        return action === 'releasesPage' ? { items, nextPage: null } : items;
+      }
       if (action === 'issues' || action === 'commits' || action === 'comments' || action === 'pullRequests' || action === 'pullRequestsPage') return [];
       if (action === 'issuesPage') return { items: [], nextPage: null };
       state.forbidden.push(action); throw new Error('Unexpected mock GitHub action: ' + action);
@@ -78,6 +83,7 @@ try {
     };
     handle('easyhub:cancel-archive', () => { state.cancellations += 1; globalThis.finishNotificationDownload('cancelled'); });
   });
+  await installDownloadFixture(app, ['easyhub:download-release-asset', 'easyhub:cancel-archive']);
   const page = await app.firstWindow();
   page.setDefaultTimeout(12_000);
   const errors = [];
@@ -127,8 +133,8 @@ try {
       assert.equal(value, 'default', label + ' must keep the normal arrow');
       cursorEvidence[label] = value;
     };
-    await cursor(download, 'disabled download button');
-    assert.equal(await download.isDisabled(), true);
+    await cursor(download, 'download queue button');
+    assert.equal(await download.isDisabled(), false, 'Further downloads must remain available while the queue is running');
     // Completion after closing produces one unread notice; reading clears it.
     await close();
     await finish('complete');

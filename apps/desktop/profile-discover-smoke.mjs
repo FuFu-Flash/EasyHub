@@ -17,6 +17,7 @@ try {
       if (action === 'contributions') return { total: 2, years: [2026, 2025], weeks: [{ contributionDays: [{ date: '2026-09-25', contributionCount: 2, color: '#40c463' }] }], repositories: [{ fullName: 'writer/example', isPrivate: false, count: 2, kind: '更新' }] };
       if (action === 'trending') return { items: [project], page: 1, hasNextPage: false };
       if (action === 'searchUsers') return [{ id: 44, login: 'writer', avatar_url: avatar, html_url: 'https://github.com/writer', type: 'User' }];
+      if (action === 'searchUsersPage') return { items: [{ id: 44, login: 'writer', avatar_url: avatar, html_url: 'https://github.com/writer', type: 'User' }], page: args[1], totalCount: 1, hasNextPage: false, incompleteResults: false };
       if (action === 'topStarredRepos') return [project];
       if (action === 'publicRepo') return project;
       if (action === 'readme') return '# Public example';
@@ -47,7 +48,7 @@ try {
   await page.locator('.trending-card').first().click();
   await page.getByTestId('public-project-browser').waitFor();
   assert.equal(await page.locator('.public-browser-hero .public-owner-avatar img').getAttribute('src'), discoverAvatar);
-  await page.getByTestId('public-project-browser').getByRole('button', { name: '改进请求 3' }).waitFor();
+  await page.getByTestId('public-project-browser').getByRole('button', { name: '合并请求审查 3' }).waitFor();
   assert.equal(await page.getByTestId('public-project-browser').getByText('发布更新').count(), 0);
   await page.locator('.sidebar-nav button').filter({ hasText: '发现' }).click();
   await page.locator('.discover-scopes button').filter({ hasText: '用户' }).click();

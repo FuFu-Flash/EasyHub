@@ -1,26 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import type { GitHubRepo } from '@easyhub/github';
 import { createDownloadTransferSampler } from './downloadTransfer';
-
-export type DownloadRequest =
-  | { kind: 'archive'; repo: GitHubRepo; ref: string; assetId?: number; fileName: string; offerAdd?: boolean }
-  | { kind: 'pull-file'; repo: GitHubRepo; number: number; path: string; headSha: string; fileName: string }
-  | { kind: 'project'; repo: GitHubRepo; fileName: string };
-
-export interface DownloadItem {
-  id: string;
-  request: DownloadRequest;
-  state: 'running' | 'complete' | 'failed' | 'cancelled';
-  percent: number | null;
-  loaded: number;
-  total: number | null;
-  bytesPerSecond: number | null;
-  phase: string;
-  path?: string;
-  localLinkId?: string;
-  error?: string;
-  seen: boolean;
-}
+import type { DownloadCommand, DownloadItem, DownloadRequest } from '../../../downloads';
+export type { DownloadItem, DownloadRequest } from '../../../downloads';
 
 export function useDownloadCenter(onProjectDownloaded: () => Promise<void>) {
   const [items, setItems] = useState<DownloadItem[]>([]);
@@ -28,9 +9,32 @@ export function useDownloadCenter(onProjectDownloaded: () => Promise<void>) {
   const active = useRef<string | null>(null);
   const starting = useRef(false);
   const nextId = useRef(1);
-  const unread = items.filter((item) => item.state !== 'running' && !item.seen).length;
+  const managed = Boolean(window.easyHub?.downloadsList);
+  const onDownloaded = useRef(onProjectDownloaded);
+  onDownloaded.current = onProjectDownloaded;
   useEffect(() => {
-    if (open && unread) setItems((current) => current.map((item) => item.state !== 'running' && !item.seen ? { ...item, seen: true } : item));
+    const api = window.easyHub;
+    if (!api?.downloadsList) return;
+    let alive = true;
+    let receivedEvent = false;
+    const completed = new Set<string>();
+    const accept = (next: DownloadItem[]): void => {
+      if (!alive) return;
+      setItems((current) => [...current.filter((item) => item.id.startsWith('download-') && item.state === 'failed'), ...next]);
+      for (const item of next) if (item.state === 'complete' && item.request.kind === 'project' && !completed.has(item.id)) {
+        completed.add(item.id); void onDownloaded.current().catch(() => undefined);
+      }
+    };
+    const stop = api.onDownloadsChanged((next) => { receivedEvent = true; accept(next); });
+    void api.downloadsList().then((next) => { if (!receivedEvent) accept(next); }).catch(() => undefined);
+    return () => { alive = false; stop(); };
+  }, []);
+  const unread = items.filter((item) => ['complete', 'failed', 'cancelled'].includes(item.state) && !item.seen).length;
+  useEffect(() => {
+    if (open && unread) {
+      if (managed) for (const item of items) if (!item.id.startsWith('download-') && !item.seen && ['complete', 'failed', 'cancelled'].includes(item.state)) void window.easyHub?.downloadsCommand(item.id, 'seen').catch(() => undefined);
+      setItems((current) => current.map((item) => ['complete', 'failed', 'cancelled'].includes(item.state) && !item.seen ? { ...item, seen: true } : item));
+    }
   }, [open, unread]);
 
   function change(id: string, update: Partial<DownloadItem>): void {
@@ -39,6 +43,24 @@ export function useDownloadCenter(onProjectDownloaded: () => Promise<void>) {
 
   async function start(request: DownloadRequest, retryId?: string): Promise<void> {
     const api = window.easyHub;
+    if (api?.downloadsEnqueue) {
+      setOpen(true);
+      try {
+        if (retryId && request.kind !== 'project' && items.some((item) => item.id === retryId) && !retryId.startsWith('download-')) await api.downloadsCommand(retryId, 'resume');
+        else {
+          const item = await api.downloadsEnqueue(request);
+          if (item && retryId && item.id !== retryId) {
+            if (!retryId.startsWith('download-')) await api.downloadsCommand(retryId, 'remove');
+            setItems((current) => current.filter((old) => old.id !== retryId));
+          }
+        }
+      } catch (cause) {
+        const error = cause instanceof Error ? cause.message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/, '') : '无法开始下载，请稍后重试。';
+        const failed: DownloadItem = { id: retryId?.startsWith('download-') ? retryId : `download-${nextId.current++}`, request, state: 'failed', loaded: 0, total: null, bytesPerSecond: null, percent: null, phase: '无法开始下载', error, seen: false };
+        setItems((current) => [failed, ...current.filter((item) => item.id !== failed.id)]);
+      }
+      return;
+    }
     if (!api || active.current || starting.current) { setOpen(true); return; }
     starting.current = true;
     let parent: string | null = null;
@@ -89,6 +111,7 @@ export function useDownloadCenter(onProjectDownloaded: () => Promise<void>) {
   }
 
   async function cancel(id: string): Promise<void> {
+    if (managed) { await control(id, 'cancel'); return; }
     if (active.current !== id || !window.easyHub) return;
     const item = items.find((entry) => entry.id === id);
     if (item?.request.kind === 'project') await window.easyHub.localCancel();
@@ -98,6 +121,7 @@ export function useDownloadCenter(onProjectDownloaded: () => Promise<void>) {
   async function openFolder(item: DownloadItem): Promise<void> {
     if (!window.easyHub) return;
     try {
+      if (managed && !item.id.startsWith('download-')) { await window.easyHub.downloadsOpen(item.id, true); return; }
       if (item.localLinkId) await window.easyHub.localOpenFolder(item.localLinkId);
       else if (item.path) await window.easyHub.revealDownloadedArchive(item.path);
     } catch (cause) { change(item.id, { error: cause instanceof Error ? cause.message : '无法打开文件夹。' }); }
@@ -105,14 +129,22 @@ export function useDownloadCenter(onProjectDownloaded: () => Promise<void>) {
 
   async function openFile(item: DownloadItem): Promise<void> {
     if (!item.path || item.request.kind === 'project' || !window.easyHub) return;
-    try { await window.easyHub.openDownloadedFile(item.path); }
+    try { if (managed && !item.id.startsWith('download-')) await window.easyHub.downloadsOpen(item.id, false); else await window.easyHub.openDownloadedFile(item.path); }
     catch (cause) { change(item.id, { error: cause instanceof Error ? cause.message : '无法打开文件。' }); }
+  }
+
+  async function control(id: string, command: DownloadCommand): Promise<void> {
+    try { await window.easyHub?.downloadsCommand(id, command); }
+    catch (cause) { change(id, { error: cause instanceof Error ? cause.message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/, '') : '操作未完成，请重试。' }); }
   }
 
   return {
     items, open, setOpen, start, cancel, openFolder, openFile, unread,
-    dismiss: (id: string) => setItems((current) => current.filter((item) => item.id !== id || item.state === 'running')),
-    clearFinished: () => setItems((current) => current.filter((item) => item.state === 'running')),
-    busy: items.some((item) => item.state === 'running'),
+    pause: (id: string) => control(id, 'pause'),
+    resume: (id: string) => control(id, 'resume'),
+    dismiss: (id: string) => { if (managed && !id.startsWith('download-')) void control(id, 'remove'); else setItems((current) => current.filter((item) => item.id !== id || item.state === 'running')); },
+    clearFinished: () => { if (managed) void window.easyHub?.downloadsClear().catch(() => undefined); setItems((current) => current.filter((item) => !['complete', 'cancelled', 'failed'].includes(item.state))); },
+    busy: managed ? false : items.some((item) => item.state === 'running'),
+    supportsPause: managed,
   };
 }

@@ -3,7 +3,7 @@ import { activityNoticeStorageKey, markActivityNoticesSeen, parseSeenActivityNot
 
 const activity = [
   { id: 'issues-1', title: 'project 有 23 个待处理的问题' },
-  { id: 'pulls-1', title: 'project 有 7 个改进请求' },
+  { id: 'pulls-1', title: 'project 有 7 个合并请求' },
 ];
 
 describe('activity notification reads', () => {

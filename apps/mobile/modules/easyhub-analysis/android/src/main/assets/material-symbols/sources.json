@@ -1,0 +1,37 @@
+{
+  "repository": "https://github.com/google/material-design-icons",
+  "commit": "49d4db35df873165d6bd6ba09b063c7dafbac2f4",
+  "style": "Rounded",
+  "size": 24,
+  "license": "Apache-2.0",
+  "icons": {
+    "back": {
+      "name": "arrow_back",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/symbols/web/arrow_back/materialsymbolsrounded/arrow_back_24px.svg"
+    },
+    "forward": {
+      "name": "arrow_forward",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/symbols/web/arrow_forward/materialsymbolsrounded/arrow_forward_24px.svg"
+    },
+    "chevron": {
+      "name": "chevron_right",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/symbols/web/chevron_right/materialsymbolsrounded/chevron_right_24px.svg"
+    },
+    "external": {
+      "name": "open_in_new",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/symbols/web/open_in_new/materialsymbolsrounded/open_in_new_24px.svg"
+    },
+    "down": {
+      "name": "arrow_downward",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/symbols/web/arrow_downward/materialsymbolsrounded/arrow_downward_24px.svg"
+    },
+    "expandMore": {
+      "name": "expand_more",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/symbols/web/expand_more/materialsymbolsrounded/expand_more_24px.svg"
+    },
+    "expandLess": {
+      "name": "expand_less",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/symbols/web/expand_less/materialsymbolsrounded/expand_less_24px.svg"
+    }
+  }
+}

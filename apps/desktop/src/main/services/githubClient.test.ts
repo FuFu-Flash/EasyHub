@@ -297,4 +297,33 @@ describe('GitHubClient', () => {
     const client = new GitHubClient(async () => 'token', async () => Response.json({ id: 41, name: 'app.exe' }, { headers: { 'content-type': 'application/vnd.github+json' } }));
     await expect(client.downloadReleaseAsset('owner', 'repo', 41)).rejects.toMatchObject({ status: 502 });
   });
+
+  it('paginates releases without treating draft filtering as the end of the list', async () => {
+    const transport = vi.fn(async (input: string | URL) => Response.json(String(input).endsWith('page=1')
+      ? Array.from({ length: 30 }, (_, id) => ({ id: id + 1, tag_name: `v1.0.${id}`, draft: id < 10 })) : [{ id: 31, tag_name: 'v1.0.30', draft: false }]));
+    const client = new GitHubClient(async () => 'token', transport);
+    const first = await client.releasesPage('owner', 'app', 1);
+    expect(first.items).toHaveLength(30);
+    expect(first.nextPage).toBe(2);
+    expect(await client.releasesPage('owner', 'app', 2)).toEqual({ items: [{ id: 31, tag_name: 'v1.0.30', draft: false }], nextPage: null });
+    expect(transport.mock.calls.map(([url]) => url)).toEqual([
+      'https://api.github.com/repos/owner/app/releases?per_page=30&page=1',
+      'https://api.github.com/repos/owner/app/releases?per_page=30&page=2',
+    ]);
+    await expect(client.releasesPage('owner', 'app', 0)).rejects.toThrow('Invalid release page');
+    await expect(client.releasesPage('owner', 'app', 1.5)).rejects.toThrow('Invalid release page');
+    expect(transport).toHaveBeenCalledTimes(2);
+  });
+
+  it('loads an older release directly by encoded tag and distinguishes not found from network errors', async () => {
+    const transport = vi.fn(async (input: string | URL) => String(input).endsWith('older%2F0.1')
+      ? Response.json({ id: 8, tag_name: 'older/0.1' }) : new Response(null, { status: String(input).endsWith('missing') ? 404 : 403 }));
+    const client = new GitHubClient(async () => 'token', transport);
+    expect(await client.releaseByTag('owner', 'app', 'older/0.1')).toMatchObject({ id: 8 });
+    expect(transport.mock.calls[0]?.[0]).toBe('https://api.github.com/repos/owner/app/releases/tags/older%2F0.1');
+    expect(await client.releaseByTag('owner', 'app', 'missing')).toBeNull();
+    await expect(client.releaseByTag('owner', 'app', 'denied')).rejects.toMatchObject({ status: 403 });
+    await expect(client.releaseByTag('owner', 'app', 'bad\ntag')).rejects.toThrow('Invalid release tag');
+    expect(transport).toHaveBeenCalledTimes(3);
+  });
 });
