@@ -174,9 +174,3 @@ EasyHub requires no separate account and provides no cloud code-hosting service 
 ## License
 
 EasyHub uses the [Apache License 2.0](LICENSE). Third-party components retain their own licenses; see [Third-party notices](THIRD_PARTY_NOTICES.md).
-
-## macOS desktop
-
-macOS 1.2.2 (build 17) aligns with Windows 1.2.2: project and release layouts, refresh feedback, search and filter animations, program review reminders, and temporary-file cleanup. It includes pull request checks, selected-code explanations, selected-file publishing, managed downloads, layout settings, and navigation history. Mac uses native window buttons and application menus, defaults to the dot style, and adapts the GitHub system proxy.
-
-Download the installer from the table above. Mac source and build scripts are on the [`macos` branch](https://github.com/FuFu-Flash/EasyHub/tree/macos); build with `pnpm package:mac`. The current Mac bundle is ad hoc signed and has not been Developer ID notarized.
