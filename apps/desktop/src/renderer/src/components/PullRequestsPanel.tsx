@@ -1,3 +1,4 @@
+import { SegmentedControl } from './SegmentedControl';
 import { createDraftKey } from '../draftStore';
 import { useLocalDraft } from '../useLocalDraft';
 import { usePageScroll } from '../usePageScroll';
@@ -9,10 +10,11 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { FormEvent, RefObject } from 'react';
 import { ReadmeMarkdown } from './ReadmeMarkdown';
 import { isEmptyAddedPullFile, type GitHubComment, type GitHubPullFile, type GitHubPullRequest, type GitHubRepo } from '@easyhub/github';
-import type { AiReviewProgress, AiReviewResult, AiSettingsStatus } from '@easyhub/types';
+import type { AiReviewProgress, AiReviewResult, AiSettingsStatus, BinaryAnalysisSettingsStatus } from '@easyhub/types';
 import { ArrowLeft, ArrowRight, Check, Download, GitPullRequest, Plus, RotateCw, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { BinaryAnalysisEvidence } from './BinaryAnalysisPanel';
 import { isProgramFileName } from '../../../shared/programFiles';
+import { PROGRAM_REVIEW_COMPONENT_STATUS_CHANGED_EVENT, requestProgramReviewSettings, useProgramReviewNotice } from '../programReviewNotice';
 import { TranslatableContent } from './TranslatableContent';
 import type { Language } from '../i18n';
 import './aiReview.css';
@@ -70,6 +72,9 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   const [aiProgress, setAiProgress] = useState<AiReviewProgress | null>(null);
   const [aiReview, setAiReview] = useState<AiReviewResult | null>(null);
   const [aiError, setAiError] = useState('');
+  const { noticesEnabled, setNoticesEnabled } = useProgramReviewNotice();
+  const [programStatus, setProgramStatus] = useState<{ key: string; status: BinaryAnalysisSettingsStatus } | null>(null);
+  const programStatusRequest = useRef(0);
   const aiRequestId = useRef<string | null>(null);
   const canceledAiRequestId = useRef<string | null>(null);
   const previousLanguage = useRef(language);
@@ -82,6 +87,32 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   const hasRevision = Boolean(selected?.head.sha);
   const hasDecisionRevision = hasRevision && Boolean(selected?.base.ref && selected.base.sha);
   const hasProgramFiles = files.some((file) => file.status !== 'removed' && !file.patch && !isEmptyAddedPullFile(file) && isProgramFileName(file.filename));
+  const programSnapshotKey = selected && snapshotReady && hasProgramFiles ? `${owner}/${repo.name}#${selected.number}:${selected.head.sha}` : null;
+  const currentProgramStatus = programStatus?.key === programSnapshotKey ? programStatus?.status : null;
+  const programComponentsMissing = currentProgramStatus?.installed === false && currentProgramStatus.state !== 'installing' && currentProgramStatus.state !== 'analyzing';
+  useEffect(() => {
+    let active = true;
+    setProgramStatus(null);
+    if (!programSnapshotKey) return;
+    const refreshStatus = async (): Promise<void> => {
+      const request = ++programStatusRequest.current;
+      try {
+        const status = await window.easyHub!.binaryAnalysisStatus();
+        if (active && request === programStatusRequest.current) setProgramStatus({ key: programSnapshotKey, status });
+      } catch {
+        if (active && request === programStatusRequest.current) setProgramStatus(null);
+      }
+    };
+    const refresh = (): void => { void refreshStatus(); };
+    refresh();
+    window.addEventListener(PROGRAM_REVIEW_COMPONENT_STATUS_CHANGED_EVENT, refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      active = false;
+      window.removeEventListener(PROGRAM_REVIEW_COMPONENT_STATUS_CHANGED_EVENT, refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [programSnapshotKey]);
   const markdown = (value: string) => <ReadmeMarkdown markdown={value}
     repository={{ owner, name: repo.name, branch: repo.default_branch }}
     onOpenLink={(url) => { void window.easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} />;
@@ -240,8 +271,13 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     const reviewGeneration = reviewVersion.current;
     setAiPreparing(true); setAiError('');
     try {
-      const settings = await window.easyHub!.aiSettings();
+      const statusRequest = ++programStatusRequest.current;
+      const [settings, status] = await Promise.all([
+        window.easyHub!.aiSettings(),
+        programSnapshotKey ? window.easyHub!.binaryAnalysisStatus().catch(() => null) : Promise.resolve(null),
+      ]);
       if (!mounted.current || version !== viewVersion.current || reviewGeneration !== reviewVersion.current) return;
+      if (statusRequest === programStatusRequest.current) setProgramStatus(status && programSnapshotKey ? { key: programSnapshotKey, status } : null);
       setAiSettings(settings);
       if (!settings.hasApiKey || !settings.model) setAiError(t('请先在设置中连接你的 AI 服务。', 'Connect your AI service in Settings first.'));
       else setAiConfirm(true);
@@ -333,6 +369,10 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
         <form className="reply-card" onSubmit={(event) => void sendReply(event)}><label htmlFor="pull-reply">{t('写一条回复', 'Write a reply')}</label><textarea id="pull-reply" rows={4} maxLength={65536} value={reply} onChange={(event) => setReply(event.target.value)} placeholder={t('说说你的想法或建议…', 'Share your thoughts or suggestions…')} /><div><span /><button className="button button-primary" disabled={replySaving || busy || !reply.trim()} type="submit">{t('发送回复', 'Send reply')}<ArrowRight size={16} /></button></div></form>
         <div className="pull-files">
           <div className="pull-files-heading"><h3>修改的文件 {selected.changed_files ?? files.length}</h3><button className="button button-quiet" disabled={busy || !snapshotReady || !hasRevision || aiPreparing || aiProgress !== null} onClick={() => void prepareAiReview()}>{aiPreparing ? <RotateCw size={16} className="live-spin" /> : <Sparkles size={16} />}{t('AI 审查', 'AI review')}</button></div>
+          {noticesEnabled && programComponentsMissing && <aside className="program-review-component-notice" role="note">
+            <div><strong>{currentProgramStatus?.state === 'error' ? t('程序文件审查组件需要重新安装', 'Program review components need to be reinstalled') : t('尚未安装程序文件审查组件', 'Program review components are not installed')}</strong><p>{t('这次请求包含程序文件。安装组件后，AI 审查会自动提取并审查它们。', 'This request includes program files. Install the components to include their extracted content in AI review.')}</p></div>
+            <div className="program-review-notice-actions">{onOpenAiSettings && <button className="button button-quiet small-button" onClick={() => { requestProgramReviewSettings(); onOpenAiSettings(); }}>{t('前往安装', 'Install components')}<ArrowRight size={15} /></button>}<button className="text-link" onClick={() => setNoticesEnabled(false)}>{t('永久忽略此提示', 'Never show this reminder')}</button></div>
+          </aside>}
           {filesTruncated && <p className="ai-settings-note">{t('本次修改的文件较多，GitHub 只返回了部分文件。请在 GitHub 上确认完整修改后再决定是否合入。', 'GitHub returned only part of this large change. Check the full changes on GitHub before deciding whether to merge.')}</p>}
           {files.map((file) => selected.head.sha && <PullFileChanges key={`${selected.head.sha}:${file.filename}`} file={file} owner={owner} repo={repo.name} number={selected.number} headSha={selected.head.sha} language={language} onOpenLink={(url) => { void window.easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} downloadControl={<button className="button button-quiet small-button" disabled={file.status === 'removed' || !onDownloadFile || !snapshotReady || !hasRevision || downloadingFile !== null || downloadBusy} onClick={() => void download(file)} aria-label={`${t('下载文件', 'Download file')} ${file.filename}`}>{downloadingFile === file.filename ? <RotateCw size={15} className="live-spin" /> : <Download size={15} />}{file.status === 'removed' ? t('已删除', 'Deleted') : t('下载', 'Download')}</button>} />)}
           {!busy && files.length === 0 && <p className="muted">{t('没有可显示的文件修改。', 'There are no file changes to display.')}</p>}
@@ -358,7 +398,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     </> : <>
       <div className="panel-heading"><div><h2>合并请求审查</h2><p className="muted">查看大家提议合入项目的修改。</p></div>{showCreateButton && <button className="button button-primary" onClick={() => { setError(''); setShowForm(true); }}><Plus size={16} />提出合并请求</button>}</div>
       {error && <p className="live-error" role="alert">{error}</p>}
-      <DiscussionSearch filters={<div className="segmented public-issue-filter">{(['all', 'open', 'closed'] as const).map((state) => <button key={state} className={listState === state ? 'selected' : ''} onClick={() => setListState(state)}>{state === 'all' ? t('全部', 'All') : state === 'open' ? t('待审阅', 'Open') : t('已关闭', 'Closed')}</button>)}</div>} repositories={[repo]} kind="pr" state={listState} language={language} search={discussionSearch} onSearchChange={changeDiscussionSearch} onOpen={(item) => { const version = viewVersion.current; void window.easyHub!.github<GitHubPullRequest>('pullRequest', owner, repo.name, item.number).then((request) => { if (mounted.current && version === viewVersion.current) void open(request); }).catch((cause: unknown) => setError(errorText(cause))); }} />
+      <DiscussionSearch filters={<SegmentedControl className="public-issue-filter">{(['all', 'open', 'closed'] as const).map((state) => <button key={state} className={listState === state ? 'selected' : ''} onClick={() => setListState(state)}>{state === 'all' ? t('全部', 'All') : state === 'open' ? t('待审阅', 'Open') : t('已关闭', 'Closed')}</button>)}</SegmentedControl>} repositories={[repo]} kind="pr" state={listState} language={language} search={discussionSearch} onSearchChange={changeDiscussionSearch} onOpen={(item) => { const version = viewVersion.current; void window.easyHub!.github<GitHubPullRequest>('pullRequest', owner, repo.name, item.number).then((request) => { if (mounted.current && version === viewVersion.current) void open(request); }).catch((cause: unknown) => setError(errorText(cause))); }} />
       <div hidden={searchActive}>
       {items.map((item) => <button className="public-list-row" key={item.id} onClick={() => void open(item)}><GitPullRequest size={19} /><span>{repo.private ? <strong>{item.title}</strong> : <TranslatableContent text={item.title} format="text" render={(value) => <strong>{value}</strong>} />}<small>{item.merged_at ? '已采纳' : item.state === 'open' ? item.draft ? '草稿' : '待审阅' : '已关闭'} · {item.user?.login || 'GitHub 用户'}</small></span><ArrowRight size={17} /></button>)}
       {!busy && !error && items.length === 0 && <p className="muted">这个项目还没有合并请求。</p>}
@@ -380,7 +420,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
       <button type="button" className="icon-button modal-close" aria-label={t('关闭', 'Close')} onClick={() => setAiConfirm(false)}><X size={19} /></button>
       <div className="modal-symbol"><Sparkles size={25} /></div><h2 id="ai-consent-title">{t('使用 AI 审查这次改进？', 'Use AI to review these changes?')}</h2>
       <p>{t('将向你配置的 AI 服务发送这次改进的标题、描述、文件名和修改内容。', 'The title, description, file names, and changes will be sent to your configured AI service.')}</p>
-      {hasProgramFiles && <p>{t('程序文件将先在本机提取内容，再一起交给 AI 审查；会发送文件信息、提取的函数代码、导入项和文本片段。只读取文件，不运行程序。', 'Program content is extracted locally and included in this AI review. File information, extracted function code, imports, and text excerpts are sent. Files are read without running the program.')}</p>}
+      {hasProgramFiles && <p>{programComponentsMissing ? t('程序文件暂不能审查；本次将审查可读取的源码修改，结果会注明未审查的文件。', 'Program files cannot be reviewed yet. Available source changes will be reviewed, and the report will identify skipped files.') : t('程序文件将先在本机提取内容，再一起交给 AI 审查；会发送文件信息、提取的函数代码、导入项和文本片段。只读取文件，不运行程序。', 'Program content is extracted locally and included in this AI review. File information, extracted function code, imports, and text excerpts are sent. Files are read without running the program.')}</p>}
       <dl className="ai-consent-service"><div><dt>{t('服务地址', 'Service address')}</dt><dd data-content-original>{aiSettings.baseUrl}</dd></div><div><dt>{t('模型名称', 'Model name')}</dt><dd data-content-original>{aiSettings.model}</dd></div><div><dt>{t('项目', 'Project')}</dt><dd data-content-original>{repo.full_name}</dd></div></dl>
       {repo.private && <p className="ai-private-notice">{t('这是私有项目。请确认你愿意将本次修改内容发送给此服务。', 'This project is private. Confirm that you want to send these changes to this service.')}</p>}
       <p>{t('服务商可能收取费用。审查结果仅在 EasyHub 中展示，是否合入由你决定。', 'Your provider may charge for this request. The review is shown in EasyHub, and you decide whether to merge.')}</p>

@@ -1,3 +1,4 @@
+import { SegmentedControl } from './SegmentedControl';
 import { createDraftKey } from '../draftStore';
 import { useLocalDraft } from '../useLocalDraft';
 import { usePageHistory } from '../usePageHistory';
@@ -290,7 +291,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
       {tab === 'intro' && <><div className="panel-heading"><h2>项目介绍</h2></div>{readme ? <TranslatableContent text={readme} format="markdown" paragraphMode render={(value) => <ReadmeMarkdown markdown={value} repository={{ owner, name: repo.name, branch: repo.default_branch }} onOpenLink={openReadmeLink} />} /> : !busy && <p className="muted">这个项目还没有介绍。</p>}</>}
       {tab === 'issues' && <>
         <div className="panel-heading"><h2>问题</h2></div>
-        <DiscussionSearch filters={<div className="segmented public-issue-filter"><button className={issueFilter === 'open' ? 'selected' : ''} disabled={loadingIssues} onClick={() => setIssueFilter('open')}>待处理</button><button className={issueFilter === 'closed' ? 'selected' : ''} disabled={loadingIssues} onClick={() => setIssueFilter('closed')}>已解决</button></div>} repositories={[repo]} kind="issue" state={issueFilter} language={language} search={issueSearch} onSearchChange={changeIssueSearch} onOpen={(item) => void showIssue(item)} />
+        <DiscussionSearch filters={<SegmentedControl className="public-issue-filter"><button className={issueFilter === 'open' ? 'selected' : ''} disabled={loadingIssues} onClick={() => setIssueFilter('open')}>待处理</button><button className={issueFilter === 'closed' ? 'selected' : ''} disabled={loadingIssues} onClick={() => setIssueFilter('closed')}>已解决</button></SegmentedControl>} repositories={[repo]} kind="issue" state={issueFilter} language={language} search={issueSearch} onSearchChange={changeIssueSearch} onOpen={(item) => void showIssue(item)} />
         <div hidden={issueSearchActive}>
         {issueError && <p className="live-error" role="alert">{issueError}</p>}
         {issues.map((item) => <button className="public-list-row" key={item.id} onClick={() => void showIssue(item)}><MessageCircle size={19} /><span><TranslatableContent text={item.title} format="text" protectedNames={item.user?.login ? [item.user.login] : []} render={(value) => <strong>{value}</strong>} /><small>{item.state === 'open' ? '待处理' : '已解决'} · {item.user?.login || 'GitHub 用户'}</small></span><ArrowRight size={17} /></button>)}

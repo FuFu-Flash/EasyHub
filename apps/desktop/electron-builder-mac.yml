@@ -2,7 +2,7 @@ appId: app.easyhub.mac
 productName: EasyHub
 buildVersion: '17'
 extraMetadata:
-  version: 1.2.1
+  version: 1.2.2
 directories:
   output: /tmp/easyhub-desktop-release
   buildResources: resources

@@ -63,8 +63,35 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .back-link { color: #7488a2; }
 .segmented { background: #e9edf4; border-radius: 12px; }
 .segmented button.selected { color: #2369de; background: #fff; box-shadow: 0 2px 8px #1c365521; }
+.segmented-animated { position: relative; isolation: isolate; }
+.segmented-animated>button { position: relative; z-index: 1; transition: color 160ms ease; }
+.segmented-animated>.segmented-indicator { position: absolute; left: 0; top: 0; pointer-events: none; background: #fff; box-shadow: 0 2px 8px #1c365521; opacity: 0; }
+.segmented-animated[data-segmented-ready="true"]>.segmented-indicator { opacity: 1; }
+.segmented-animated[data-segmented-ready="true"]>button.selected { background: transparent; box-shadow: none; }
+@media(prefers-reduced-motion:no-preference) {
+  .segmented-animated[data-segmented-motion="true"]>.segmented-indicator { transition: transform 240ms cubic-bezier(.2,.75,.25,1),width 240ms cubic-bezier(.2,.75,.25,1),height 240ms cubic-bezier(.2,.75,.25,1); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .segmented-animated>button,.segmented-animated>.segmented-indicator { transition: none; }
+}
 .search-box,.field input,.field textarea,.field select,.folder-field,.home-publish-controls input,.translation-settings select { border-color: #d9e5f4; border-radius: 10px; }
-.project-logo { border-radius: 12px; }
+.project-logo { flex-shrink: 0; border-radius: 12px; }
+/* Reserve room for actions before wrapping prose; never shrink the project avatar. */
+.detail-hero { flex-wrap: wrap; align-items: flex-start; }
+.detail-hero .detail-main { flex: 2 1 480px; min-width: 0; }
+.detail-hero .detail-main>div { flex: 1; min-width: 0; }
+.detail-hero .detail-main p { overflow-wrap: anywhere; }
+.detail-hero .detail-name-row { flex-wrap: wrap; }
+.detail-hero .visibility-label { flex-shrink: 0; }
+.detail-hero .detail-actions { flex: 1 1 360px; min-width: 0; align-self: center; }
+/* macOS font metrics need a little more room for English public-project actions. */
+.public-browser-hero .detail-actions { flex-basis: 364px; }
+.detail-hero .detail-actions .button { flex-shrink: 0; max-width: 100%; }
+.detail-release-actions { display: flex; flex-wrap: wrap; gap: 9px; min-width: 0; max-width: 100%; }
+.release-download-heading>div { min-width: 0; max-width: 100%; }
+.release-download-heading h2,.release-asset small { overflow-wrap: anywhere; }
+.release-asset>span { grid-template-columns: minmax(0,1fr); }
+.release-asset>svg { flex-shrink: 0; }
 .project-card { transition: transform .18s,box-shadow .18s; }
 .project-card:hover { box-shadow: 0 16px 30px #19304b16; }
 .cloud-row { background: #fff; }
@@ -75,6 +102,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .readme-markdown,.intro-markdown { user-select: text; -webkit-user-select: text; }
 .readme-markdown pre,.intro-markdown pre { max-width: 100%; overflow: auto; }
 .readme-markdown img,.intro-markdown img { max-width: 100%; height: auto; }
+.local-workspace { grid-template-columns: minmax(0,1fr); }
+.local-project-card>.panel-heading { flex-wrap: wrap; gap: 8px 12px; }
+.local-project-card>.panel-heading h2 { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+.local-project-card>.panel-heading .muted { flex-shrink: 0; }
+.local-project-card>p { overflow-wrap: anywhere; }
 .settings-panel { border-radius: 18px; }
 .settings-panel-content,.translation-settings,.ai-settings-content { min-width: 0; }
 .app-update-panel { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
@@ -266,6 +298,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .back-link { margin-bottom: 18px; }
 .project-grid { grid-template-columns: repeat(auto-fit,minmax(min(100%,245px),1fr)); }
 .cloud-row>div:nth-child(2) { min-width: 0; }
+.cloud-row .plain-heading { max-width: 100%; overflow-wrap: anywhere; }
 .cloud-row small { overflow-wrap: anywhere; }
 .release-description-toggle { display: inline-flex; align-items: center; gap: 7px; min-height: 35px; padding: 7px 11px; border: 1px solid #d7e3f2; border-radius: 8px; background: #f7faff; color: #365b88; font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
 .release-description-toggle:hover { border-color: #aac8ef; background: #eef5ff; }
@@ -335,8 +368,14 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 }
 @media(prefers-reduced-motion:reduce) {
   #root,#root *,#root *::before,#root *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  /* Keep the small progress indicator visible even when page motion is reduced. */
+  #root .sidebar-refresh .live-spin { animation-duration: 1s !important; animation-iteration-count: infinite !important; }
   .button:hover:not(:disabled),.project-card:hover,.starred-project-card:hover,.scroll-down-cue:hover { transform: none; }
 }
+
+.sidebar-refresh { transition:color .16s ease, background-color .16s ease; }
+.sidebar-refresh.is-refreshing { color:#2878d9; background:#eaf3ff; opacity:1; }
+.refresh-feedback { position:fixed; z-index:35; top:74px; right:18px; max-width:min(440px,calc(100vw - 36px)); margin:0; box-shadow:0 8px 24px #26364b18; }
 @media(max-width:850px) {
   .scroll-down-cue { right: 13px; }
   .form-page { grid-template-columns: 1fr; gap: 18px; }
@@ -599,6 +638,23 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .demo-mode-notice svg { flex:none; margin-top:2px; }
 .search-empty-state { width:100%; grid-column:1 / -1; }
 .search-box .icon-button, .discover-search .icon-button { flex:none; }
+
+/* History stays in one short strip; ten saved queries never push projects down. */
+.search-history.panel { display:flex; align-items:center; gap:12px; min-width:0; padding:8px 12px; margin-bottom:14px; border-radius:10px; box-shadow:none; }
+.search-history.panel .panel-heading { flex:none; gap:6px; margin:0; color:#7488a2; }
+.search-history.panel .panel-heading h2 { margin:0; font-size:12px; white-space:nowrap; }
+.search-history-list { flex:1; min-width:0; flex-wrap:nowrap; gap:6px; overflow-x:auto; scrollbar-width:none; padding:3px; margin:-3px; }
+.search-history-list::-webkit-scrollbar { display:none; }
+.search-history-list button { flex:none; min-width:0; max-width:min(280px,85%); gap:6px; padding:5px 9px; border-radius:8px; font-size:12px; line-height:18px; white-space:nowrap; }
+.search-history-list button>span { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.search-history-list button>small { flex:none; font-size:10px; }
+.search-history.panel>.text-link { flex:none; min-height:30px; font-size:12px; white-space:nowrap; }
+.search-history-list:focus-visible { outline:2px solid #90b8ff; border-radius:8px; }
+.app-shell[data-layout="compact"] .search-history.panel { gap:9px; padding:5px 9px; margin-bottom:10px; border-radius:8px; }
+.app-shell[data-layout="compact"] .search-history.panel .panel-heading { margin:0; gap:5px; }
+.app-shell[data-layout="compact"] .search-history.panel .panel-heading h2 { font-size:11px; }
+.app-shell[data-layout="compact"] .search-history-list button { padding:4px 7px; font-size:11px; line-height:16px; border-radius:6px; }
+.app-shell[data-layout="compact"] .search-history.panel>.text-link { min-height:26px; font-size:11px; }
 
 /* Explicit page memory owns scrolling even when asynchronous comments resize the page. */
 .main-column { overflow-anchor: none; }

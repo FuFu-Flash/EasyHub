@@ -1,3 +1,4 @@
+import { SegmentedControl } from './SegmentedControl';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { GitHubActivityCount, GitHubPullRequest, GitHubRepo } from '@easyhub/github';
@@ -53,7 +54,7 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
   }
 
   return <>
-    <div className="toolbar"><div className="segmented"><button className={filter === 'open' ? 'selected' : ''} onClick={() => chooseFilter('open')}>待审查 <span>{total ?? '…'}</span></button><button className={filter === 'closed' ? 'selected' : ''} onClick={() => chooseFilter('closed')}>已处理</button></div></div>
+    <div className="toolbar"><SegmentedControl><button className={filter === 'open' ? 'selected' : ''} onClick={() => chooseFilter('open')}>待审查 <span>{total ?? '…'}</span></button><button className={filter === 'closed' ? 'selected' : ''} onClick={() => chooseFilter('closed')}>已处理</button></SegmentedControl></div>
     {visibleRepos.length === 0 && <div className="empty-state"><span className="empty-icon"><GitPullRequest size={28} /></span><h3>{filter === 'open' ? '没有待审查的合并请求' : '还没有已处理的合并请求'}</h3></div>}
     <div className="issue-project-list">{visibleRepos.map((repo) => {
       const key = keyFor(repo, filter);
