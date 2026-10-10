@@ -5,7 +5,7 @@
   </tr>
   <tr>
     <td><a href="docs/images/terminal-errors.png"><img src="docs/images/terminal-errors.png" alt="Illustrative Git commands and errors in a dark terminal" width="640"></a></td>
-    <td><a href="docs/images/easyhub-client.png"><img src="docs/images/easyhub-client.png" alt="EasyHub home screen with project overview, my projects and recent updates" width="640"></a></td>
+    <td><a href="docs/images/easyhub-client-en.png"><img src="docs/images/easyhub-client-en.png" alt="EasyHub home screen with project overview, my projects and recent updates" width="640"></a></td>
   </tr>
   <tr>
     <td align="center">Illustrative terminal errors</td>
