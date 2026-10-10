@@ -1,0 +1,6 @@
+Source: https://github.com/FuFu-Flash/EasyHub
+Commit: 45328b9f61791de8549ded678175184b42ab852b
+Version: 1.2.2
+License: Apache-2.0
+The original desktop renderer, features and GitHub proxy framework are reused for macOS.
+Third-party components retain their respective licenses; see THIRD_PARTY_NOTICES.md.

@@ -57,6 +57,24 @@ async function fixture(url: string, overrides: Partial<DownloadDependencies> = {
 }
 
 describe('persistent download queue', () => {
+  it('persists history safely when two manager lifecycles overlap', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'easyhub-downloads-')); directories.push(directory);
+    const ledger = join(directory, 'history.json');
+    const dependencies: DownloadDependencies = {
+      open: async () => { throw new Error('No download should start'); },
+      clone: async () => { throw new Error('No clone should start'); },
+      confirmReplace: async () => false, changed: () => undefined,
+    };
+    const first = new DownloadManager(ledger, dependencies);
+    const second = new DownloadManager(ledger, dependencies);
+    await Promise.all([first.list(), second.list()]);
+    const results = await Promise.allSettled([first.shutdown(), second.shutdown()]);
+    expect(results.map((result) => result.status)).toEqual(['fulfilled', 'fulfilled']);
+    expect(JSON.parse(await readFile(ledger, 'utf8'))).toEqual([]);
+    expect(await readdir(directory)).toEqual(['history.json']);
+    expect((await stat(ledger)).mode & 0o777).toBe(0o600);
+  });
+
   it('pauses, requests an exact byte range, and reconstructs the file without duplicating bytes', async () => {
     const ranges: Array<{ range?: string; validator?: string }> = [];
     const url = await server((req, res) => {
@@ -118,8 +136,8 @@ describe('persistent download queue', () => {
     const ranges: (string | undefined)[] = [];
     const url = await server((req, res) => { ranges.push(req.headers.range); streamFile(res, payload, Number(req.headers.range?.match(/bytes=(\d+)/)?.[1] ?? 0)); });
     const f = await fixture(url); const item = await f.add();
-    await until(async () => (await f.manager.list())[0]!.loaded > 0);
-    await f.manager.shutdown();
+    await until(async () => (await stat(join(f.directory, `example.zip.easyhub-${item.id}.part`)).catch(() => ({ size: 0 }))).size > 0);
+    await Promise.all([f.manager.shutdown(), f.manager.shutdown()]);
     const second = new DownloadManager(f.ledger, f.dependencies); managers.push(second);
     expect((await second.list())[0]!.state).toBe('paused'); expect(ranges).toHaveLength(1);
     const record = await readFile(f.ledger, 'utf8');
@@ -127,6 +145,11 @@ describe('persistent download queue', () => {
     await second.command(item.id, 'resume'); await until(async () => (await second.list())[0]!.state === 'complete');
     expect(ranges[1]).toMatch(/^bytes=[1-9]\d*-/);
     expect(await readFile(await second.completedPath(item.id))).toEqual(payload);
+    await second.shutdown();
+    // A later quit/cleanup notification for the old lifecycle must not put its
+    // paused snapshot back over the replacement's completed download history.
+    await f.manager.shutdown();
+    expect(JSON.parse(await readFile(f.ledger, 'utf8'))[0].state).toBe('complete');
   });
 
   it('limits concurrent transfers, queues the rest, and cancels a queued task before a request is sent', async () => {

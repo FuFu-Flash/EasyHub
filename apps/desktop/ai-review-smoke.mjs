@@ -1,16 +1,19 @@
 import assert from 'node:assert/strict';
-import { isAbsolute, join } from 'node:path';
+import { join } from 'node:path';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { smokeExecutable, smokeEnvironment } from './smoke-runtime.mjs';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
 import { installDownloadFixture } from './download-fixture.mjs';
 
-const executableArgument = process.argv.find((argument) => argument.startsWith('--executable='));
-const executable = executableArgument?.slice('--executable='.length);
-if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
-const profileArgument = `--user-data-dir=${join(process.cwd(), 'out/ai-review-smoke-profile')}`;
-const app = await electron.launch({ executablePath: executable || electronPath, args: executable ? [profileArgument] : ['.', profileArgument], cwd: process.cwd() });
+const executable = smokeExecutable(process.cwd());
+const profile = await mkdtemp(join(tmpdir(), 'easyhub-ai-review-smoke-'));
+const app = await electron.launch({ executablePath: executable || electronPath, args: executable ? [] : ['.'], cwd: process.cwd(), env: smokeEnvironment(profile) });
 try {
-  await app.evaluate(({ ipcMain }) => {
+  assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
+  await app.evaluate(({ ipcMain, session }) => {
+    session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_details, callback) => callback({ cancel: true }));
     const owned = { id: 901, name: 'owned-repo', full_name: 'test-owner/owned-repo', description: 'Review example', private: false, archived: false, permissions: { admin: true, push: true, pull: true }, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'test-owner' }, open_issues_count: 0 };
     const external = { ...owned, id: 902, name: 'external-repo', full_name: 'someone/external-repo', owner: { login: 'someone' }, permissions: { admin: false, push: false, pull: true } };
     let release = { id: 77, tag_name: 'v1.0.0', name: 'Original release', body: 'Original notes', draft: false, prerelease: false, published_at: new Date().toISOString(), assets: [{ id: 88, name: 'old-file.zip', label: null, size: 12, content_type: 'application/zip', download_count: 0, state: 'uploaded' }] };
@@ -97,6 +100,7 @@ try {
   page.setDefaultTimeout(15_000);
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
+  page.setDefaultNavigationTimeout(20000);
   await page.evaluate(() => { localStorage.setItem('easyhub:language', 'zh'); localStorage.removeItem('easyhub:auto-translate'); });
   await page.reload();
   await page.locator('.live-connected').waitFor();

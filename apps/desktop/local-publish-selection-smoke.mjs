@@ -21,7 +21,7 @@ const link={id:'local-1',repositoryId:1,owner:'tester',name:'fixture',localPath:
 let files=[{path:'one.txt',kind:'modified'},{path:'keep.txt',kind:'modified'},{path:'renamed.txt',previousPath:'old.txt',kind:'renamed'},{path:'image.png',kind:'added'}];
 let revision=1,pending=false,held=null,cancelHeld=null;window.fixtureCalls=[];window.fixtureFail=false;window.holdDiff=false;window.holdCancel=false;
 const preview=()=>({files,needsReview:false,snapshot:String(revision).repeat(64),pendingPublish:pending});
-window.easyHub={localList:async()=>[link],localStatus:async()=>preview(),localReadIntroduction:async()=>'',onLocalStatus:()=>()=>{},onLocalProgress:()=>()=>{},localCancelPreview:async(id)=>{window.cancelledPreview=id;held?.();if(window.holdCancel){window.holdCancel=false;await new Promise(resolve=>cancelHeld=resolve)}},
+window.easyHub={platform:${JSON.stringify(process.platform)},localList:async()=>[link],localStatus:async()=>preview(),localReadIntroduction:async()=>'',onLocalStatus:()=>()=>{},onLocalProgress:()=>()=>{},localCancelPreview:async(id)=>{window.cancelledPreview=id;held?.();if(window.holdCancel){window.holdCancel=false;await new Promise(resolve=>cancelHeld=resolve)}},
  localPreviewChanges:async()=>preview(),localFileDiff:async(id,path,snapshot)=>{const diff=path==='image.png'?{path,kind:'added',unavailable:'binary',lines:[],additions:0,deletions:0}:{path,kind:'modified',lines:[{kind:'deleted',text:'old value',before:1},{kind:'added',text:revision===1?'new value':'fresh value',after:1}],additions:1,deletions:1};if(window.holdDiff){window.holdDiff=false;await new Promise(resolve=>held=resolve)}return diff},
  localPublish:async(id,message,selection)=>{window.fixtureCalls.push({id,message,selection});if(pending){pending=false;return{changed:selection.paths.length}}files=files.filter(file=>!selection.paths.includes(file.path));revision++;if(window.fixtureFail){window.fixtureFail=false;pending=true;throw Error('Error invoking remote method \\'easyhub:local-publish\\': Error: 本地版本已保存，请重试发布。')}return{changed:selection.paths.length}},
 };
@@ -41,9 +41,10 @@ const server = await createServer({ configFile: false, root: join(desktop, 'src/
 let browser;
 try {
   await server.listen(); const address = server.httpServer.address(); assert.ok(address && typeof address !== 'string');
-  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true });
   const page = await browser.newPage({ viewport: { width: 860, height: 680 } }); const errors = []; page.on('pageerror', (error) => errors.push(error.message));
+  await page.route('**/*', route => new URL(route.request().url()).origin === `http://127.0.0.1:${address.port}` ? route.continue() : route.abort());
   await page.goto(`http://127.0.0.1:${address.port}/local-selection-test`);
   const row = (path) => page.locator('.local-selection-file').filter({ has: page.getByRole('checkbox', { name: `发布 ${path}`, exact: true }) });
   await page.getByText('已选 4 / 4 个文件', { exact: true }).waitFor();

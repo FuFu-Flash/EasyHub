@@ -16,6 +16,7 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
   const cleanupButton = useRef<HTMLButtonElement>(null);
   const cleanupDialog = useRef<HTMLDivElement>(null);
   const t = (zh: string, en: string): string => language === 'en' ? en : zh;
+  const isMac = window.easyHub?.platform === 'darwin';
 
   useEffect(() => {
     mounted.current = true;
@@ -153,7 +154,9 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
     <div className="settings-panel-content">
       <div className="github-proxy-heading">
         <div><h2>{t('GitHub 系统代理', 'GitHub system proxy')}</h2>
-          <p>{t('让 EasyHub 和使用 Windows 系统代理设置的浏览器访问 GitHub 相关网站。', 'Connect EasyHub and browsers that use Windows system proxy settings to GitHub websites.')}</p></div>
+          <p>{isMac
+            ? t('让 EasyHub 和使用 macOS 系统代理设置的浏览器访问 GitHub 相关网站。', 'Connect EasyHub and browsers that use macOS system proxy settings to GitHub websites.')
+            : t('让 EasyHub 和使用 Windows 系统代理设置的浏览器访问 GitHub 相关网站。', 'Connect EasyHub and browsers that use Windows system proxy settings to GitHub websites.')}</p></div>
         <button type="button" role="switch" aria-label={t('GitHub 系统代理', 'GitHub system proxy')} aria-checked={status?.enabled ?? false}
           className={`easyhub-switch ${status?.enabled ? 'is-on' : ''}`} disabled={disabled || Boolean(busy) || loading || !status}
           onClick={() => void act('toggle')}><span /></button>
@@ -183,7 +186,7 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
             : <button type="button" className="button button-quiet" disabled={Boolean(busy) || loading} onClick={() => void act('refresh')}><RotateCw size={15} />{t('测试连接', 'Test connection')}</button>}
         </div>
       </div>}
-      {!disabled && status?.legacyHosts && <div className="github-proxy-legacy">
+      {!isMac && !disabled && status?.legacyHosts && <div className="github-proxy-legacy">
         <div><strong>{t('检测到旧版连接修复', 'Previous connection repair found')}</strong>
           <p>{t('可以移除旧版修复，改用这里的连接设置。', 'Remove the previous repair to use these connection settings.')}</p></div>
         <button ref={cleanupButton} type="button" className="button button-quiet" disabled={Boolean(busy) || loading} onClick={() => setConfirmCleanup(true)}>{t('移除旧版修复', 'Remove previous repair')}</button>

@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron } from 'playwright-core';
-import electronPath from 'electron';
+import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
 
 // Real signed-in renderer, isolated profile, default-deny IPC and no network.
 const desktop = dirname(fileURLToPath(import.meta.url));
@@ -19,32 +18,16 @@ const channels = [...new Set([...preload.matchAll(/ipcRenderer\.invoke\(([^,\r\n
   return literal[1];
 }))];
 assert.ok(channels.length > 40);
-const executableArgument = process.argv.find(value => value.startsWith('--executable='));
-const executable = executableArgument?.slice('--executable='.length)
-  ?? (process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'EasyHub.exe') : null);
-if (executableArgument) assert.ok(isAbsolute(executable), '--executable must be an absolute path.');
 const baseline = process.argv.includes('--baseline');
 const preferenceKey = 'easyhub:program-review-install-prompts:v1';
 const preferenceEvent = 'easyhub:program-review-notice-changed';
 const componentStatusEvent = 'easyhub:program-review-components-changed';
-const launcher = join(directory, 'launch.cjs');
-if (!executable) await writeFile(launcher, `
-const { app, ipcMain } = require('electron');
-app.setPath('userData', ${JSON.stringify(profile)});
-process.env.ELECTRON_RENDERER_URL = 'data:text/html,<title>Program review notice fixture</title>';
-globalThis.programNoticeRegister = ipcMain.handle.bind(ipcMain);
-ipcMain.handle = (channel, handler) => globalThis.programNoticeRegister(channel, channel.startsWith('easyhub:') ? () => {
-  throw new Error('Unmocked program notice fixture IPC: ' + channel);
-} : handler);
-require(${JSON.stringify(join(desktop, 'out', 'main', 'index.js'))});
-`, 'utf8');
-
 const started = Date.now();
 let checks = 0;
 const check = (condition, label) => { checks++; assert.ok(condition, label); };
-const app = await electron.launch({ executablePath: executable || electronPath,
-  args: executable ? ['--user-data-dir=' + profile] : [launcher], cwd: desktop,
-  env: { ...process.env, EASYHUB_PROXY_APP_ONLY_TEST: '1' } });
+const { app, executable, renderer } = await launchUpstreamFixture(desktop, { profile: profile,
+  launcher: join(directory, 'launch.cjs'), registerName: 'programNoticeRegister', rejectedName: 'programNoticeRejected',
+  title: 'Program review notice fixture', allowedFlags: ['--baseline'] });
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
   await app.evaluate(({ BrowserWindow, ipcMain, session }, channels) => {
@@ -59,7 +42,7 @@ try {
         return handler(event, ...args);
       });
     };
-    for (const channel of channels) mock(channel, () => {
+    for (const channel of channels.filter(channel => !['easyhub:menu-state', 'easyhub:window-set-style'].includes(channel))) mock(channel, () => {
       fixture.forbidden.push(channel);
       throw new Error('Write or unknown program notice fixture IPC blocked: ' + channel);
     });
@@ -92,6 +75,7 @@ try {
     mock('easyhub:ai-cancel-review', () => undefined);
     mock('easyhub:ai-settings', () => ({ providerId: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'fixture-model', hasApiKey: true }));
     mock('easyhub:github-proxy-status', () => ({ enabled: false, state: 'off', checkedAt: null, error: null, checks: [], legacyHosts: false }));
+    mock('easyhub:mac-proxy-status', () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }));
     mock('easyhub:binary-analysis-status', () => {
       fixture.statusCalls++;
       if (fixture.mode === 'failure') throw new Error('Fixture status is unavailable.');
@@ -130,7 +114,7 @@ try {
   page.setDefaultTimeout(12_000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  if (!executable) await app.evaluate(async ({ BrowserWindow }, file) => BrowserWindow.getAllWindows()[0].loadFile(file), join(desktop, 'out', 'renderer', 'index.html'));
+  await app.evaluate(async ({ BrowserWindow }, file) => BrowserWindow.getAllWindows()[0].loadFile(file), renderer);
   await page.evaluate(() => {
     localStorage.clear(); localStorage.setItem('easyhub:language', 'zh'); localStorage.setItem('easyhub:auto-translate', 'false');
   });
@@ -144,7 +128,7 @@ try {
     await page.getByRole('button', { name: /我的云端项目|Cloud Projects/ }).click();
     await page.locator('.cloud-row').filter({ hasText: 'notice-project' }).getByRole('button', { name: /^(查看|View)$/ }).click();
     await page.getByRole('button', { name: /^(查看问题|View Issues)$/ }).click();
-    await page.getByRole('tab', { name: /合并请求审查|Pull Request Review/ }).click();
+    await page.getByRole('tab', { name: /合并请求审查|Pull request reviews/i }).click();
     const rememberedRequest = panel.getByRole('button', { name: /^(返回合并请求审查|Back to Pull Request Reviews)$/ });
     if (await rememberedRequest.isVisible()) await rememberedRequest.click();
     await panel.locator('.public-list-row').first().waitFor();

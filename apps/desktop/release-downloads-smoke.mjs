@@ -38,7 +38,7 @@ const releases = Array.from({ length: 30 }, (_, index) => ({
       content_type: 'application/octet-stream', download_count: 0, state: 'new' },
   ],
 }));
-const metrics = window.releaseDownloadsTest = { downloads: [], translations: [], cancelled: [], edits: [], reads: [], uploads: [], removals: [] };
+const metrics = window.releaseDownloadsTest = { downloads: [], translations: [], cancelled: [], edits: [], reads: [], uploads: [], removals: [], binaryChecks: 0 };
 const selectedFiles = [{ id: '00000000-0000-0000-0000-000000000001', name: 'first.zip', size: 7, mimeType: 'application/zip' }, { id: '00000000-0000-0000-0000-000000000002', name: 'second.zip', size: 7, mimeType: 'application/zip' }];
 const htmlBody = '<details><summary>English</summary>\\n\\nEnglish notes with [guide](docs/guide.md).\\n\\n</details>\\n\\n[Older release](https://github.com/tester/long-notes/releases/tag/older%2F0.1)\\n\\n<script>window.unsafeRelease = true</script><img src="x" onerror="window.unsafeRelease = true" />';
 if (query.has('html')) releases[0].body = htmlBody;
@@ -63,6 +63,7 @@ window.easyHub = {
   translateContent: async (request) => { metrics.translations.push(request); return 'Translated:\\n\\n' + request.text; },
   cancelTranslation: async (id) => { metrics.cancelled.push(id); },
   onReleaseProgress: () => () => {},
+  binaryAnalysisStatus: async () => { metrics.binaryChecks += 1; return { installed: true, state: 'ready' }; },
   chooseReleaseFiles: async () => selectedFiles,
   addReleaseAssets: async (request) => {
     metrics.uploads.push(request);
@@ -134,6 +135,8 @@ try {
   assert.ok(address && typeof address !== 'string');
   const baseUrl = `http://127.0.0.1:${address.port}/release-downloads-test`;
   const installedBrowser = process.env.EASYHUB_TEST_BROWSER ?? [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
     'C:/Program Files/Google/Chrome/Application/chrome.exe',
     'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   ].find((path) => existsSync(path));
@@ -161,9 +164,47 @@ try {
   const source = downloads.getByRole('button', { name: '下载源码 ZIP main', exact: true });
   const sourceBox = await source.boundingBox();
   assert.ok(sourceBox && sourceBox.y + sourceBox.height < 900, 'Default branch source must be reachable without scrolling through releases');
-  const firstInstaller = cards.first().getByRole('button', { name: /^installer-v12.exe/ });
+  const firstInstaller = cards.first().getByRole('button', { name: /^installer-v12\.exe(?:\s|$)/ });
   const installerBox = await firstInstaller.boundingBox();
   assert.ok(installerBox && installerBox.y + installerBox.height < 900, 'Release assets must appear near the header with long notes');
+  const outputDirectory = join(desktopDirectory, 'out', 'release-downloads-test');
+  await mkdir(outputDirectory, { recursive: true });
+  const programAction = cards.first().getByRole('button', { name: 'AI 审查程序文件 installer-v12.exe', exact: true });
+  for (const width of [1440, 700]) {
+    await page.setViewportSize({ width, height: 900 });
+    const geometry = await cards.first().locator('.binary-release-asset').first().evaluate((row) => {
+      const [download, review] = row.querySelectorAll('button');
+      const box = (element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, height: rect.height };
+      };
+      return { download: box(download), review: box(review), viewport: innerWidth };
+    });
+    for (const button of [geometry.download, geometry.review]) {
+      assert.ok(button.left >= 0 && button.right <= geometry.viewport + 1, `Program controls overflow at ${width}px`);
+      assert.ok(button.height >= 28 && button.height <= 100, `Program control has an unusable height at ${width}px`);
+    }
+    assert.equal(geometry.download.left < geometry.review.right && geometry.download.right > geometry.review.left
+      && geometry.download.top < geometry.review.bottom && geometry.download.bottom > geometry.review.top,
+      false, `Download and AI review controls overlap at ${width}px`);
+    if (width > 700) {
+      assert.ok(Math.abs((geometry.download.top + geometry.download.bottom) / 2
+        - (geometry.review.top + geometry.review.bottom) / 2) <= 1,
+        'Wide-window download and AI review controls must align vertically');
+    }
+    await page.screenshot({ path: join(outputDirectory, `program-action-${width}.png`) });
+  }
+  await programAction.click();
+  const programPanel = cards.first().locator('.binary-analysis-panel');
+  await programPanel.getByRole('status').filter({ hasText: '已就绪' }).waitFor();
+  assert.equal(await programPanel.locator('.binary-selected-file strong').innerText(), 'installer-v12.exe');
+  assert.equal(await programPanel.getByRole('button', { name: 'AI 审查', exact: true }).isEnabled(), true);
+  assert.equal(await page.evaluate(() => window.releaseDownloadsTest.binaryChecks), 1);
+  assert.equal(await page.evaluate(() => window.releaseDownloadsTest.downloads.length), 0,
+    'Opening program review must not start a download or review');
+  await programAction.click();
+  assert.equal(await programPanel.count(), 0);
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   await source.click();
   await firstInstaller.click();
@@ -198,8 +239,6 @@ try {
   await page.setViewportSize({ width: 700, height: 900 });
   await source.scrollIntoViewIfNeeded();
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Download layout must fit a narrow window');
-  const outputDirectory = join(desktopDirectory, 'out', 'release-downloads-test');
-  await mkdir(outputDirectory, { recursive: true });
   await page.screenshot({ path: join(outputDirectory, 'collapsed-notes.png') });
 
   await page.goto(baseUrl + '?edit');

@@ -13,7 +13,12 @@ export function AppUpdatePanel({ language }: { language: Language }) {
     try {
       if (!window.easyHub) throw new Error('unavailable');
       setResult(await window.easyHub.github<AppUpdateResult>('appUpdate'));
-    } catch { setError(t('暂时无法检查更新，请稍后重试。', 'Unable to check for updates. Please try again later.')); }
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : '';
+      setError(message.includes('没有发布可用的 macOS')
+        ? t('暂时没有发布可用的 macOS 安装包，请使用项目提供的 Mac 下载路径。', 'No macOS installer has been published yet. Use the Mac download provided by the project.')
+        : t('暂时无法检查更新，请稍后重试。', 'Unable to check for updates. Please try again later.'));
+    }
     finally { setBusy(false); }
   }
   return <div className="app-update-panel">

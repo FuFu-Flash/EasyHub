@@ -28,6 +28,8 @@ async function githubProxy(): Promise<string | undefined> {
   for (const choice of choices.split(';')) {
     const match = choice.trim().match(/^(PROXY|HTTPS)\s+([^\s]+)$/i);
     if (match?.[1] && match[2]) return `${match[1].toUpperCase() === 'HTTPS' ? 'https' : 'http'}://${match[2]}`;
+    const socks = choice.trim().match(/^(SOCKS5|SOCKS4|SOCKS)\s+([^\s]+)$/i);
+    if (socks?.[2]) return `socks${socks[1]?.toUpperCase() === 'SOCKS4' ? '4a' : '5h'}://${socks[2]}`;
   }
   return undefined;
 }

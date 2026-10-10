@@ -1,15 +1,18 @@
 import assert from 'node:assert/strict';
-import { isAbsolute, join } from 'node:path';
+import { join } from 'node:path';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { smokeExecutable, smokeEnvironment } from './smoke-runtime.mjs';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
 
-const executableArgument = process.argv.find((argument) => argument.startsWith('--executable='));
-const executable = executableArgument?.slice('--executable='.length);
-if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
-const profileArgument = `--user-data-dir=${join(process.cwd(), 'out/binary-analysis-smoke-profile')}`;
-const app = await electron.launch({ executablePath: executable || electronPath, args: executable ? [profileArgument] : ['.', profileArgument], cwd: process.cwd() });
+const executable = smokeExecutable(process.cwd());
+const profile = await mkdtemp(join(tmpdir(), 'easyhub-binary-analysis-smoke-'));
+const app = await electron.launch({ executablePath: executable || electronPath, args: executable ? [] : ['.'], cwd: process.cwd(), env: smokeEnvironment(profile) });
 try {
-  await app.evaluate(({ ipcMain }) => {
+  assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
+  await app.evaluate(({ ipcMain, session }) => {
+    session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_details, callback) => callback({ cancel: true }));
     const repo = { id: 981, name: 'binary-project', full_name: 'test-owner/binary-project', description: 'Binary analysis fixture', private: false, archived: false, permissions: { admin: true, push: true, pull: true }, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'test-owner' }, open_issues_count: 0 };
     const request = { id: 982, number: 12, title: 'Update program file', body: 'A program file and a text change.', state: 'open', draft: false, merged: false, merged_at: null, created_at: new Date().toISOString(), html_url: 'https://github.com/test-owner/binary-project/pull/12', user: { login: 'contributor' }, comments: 0, changed_files: 2, head: { ref: 'program-update', label: 'contributor:program-update', sha: 'b'.repeat(40) }, base: { ref: 'main', sha: 'a'.repeat(40) } };
     const files = [{ filename: 'bin/helper.dll', status: 'added', additions: 0, deletions: 0, sha: 'c'.repeat(40) }, { filename: 'README.md', status: 'modified', additions: 1, deletions: 0, patch: '@@ -1 +1 @@\n+Updated program' }];

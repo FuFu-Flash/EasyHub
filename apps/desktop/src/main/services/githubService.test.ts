@@ -22,7 +22,9 @@ vi.mock('@napi-rs/keyring', () => ({ AsyncEntry: class {
     return vault.probes.delete(`${this.service}/${this.account}`);
   }
 } }));
-vi.mock('electron', () => ({ dialog: { showSaveDialog: desktop.save, showMessageBox: desktop.confirm }, shell: { showItemInFolder: desktop.reveal }, net: { fetch: (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init) } }));
+// Native credential migration has a separate isolated profile fixture. Omitting
+// getPath here keeps these upstream OAuth cases independent of Mac user data.
+vi.mock('electron', () => ({ app: { getVersion: () => '1.2.1' }, dialog: { showSaveDialog: desktop.save, showMessageBox: desktop.confirm }, shell: { showItemInFolder: desktop.reveal }, net: { fetch: (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init) } }));
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); vault.password = undefined; vault.probes.clear(); vault.fail = ''; vault.wrongProbe = false; vault.beforeWrite = undefined; });
 
