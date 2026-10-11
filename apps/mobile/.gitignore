@@ -45,7 +45,6 @@ yarn-error.*
 /assets/images/android-icon-background.png
 /assets/images/android-icon-monochrome.png
 /.vscode/
-/AGENTS.md
 
 # This Expo Router screen is source code, even when a local Git exclude ignores release directories.
 !src/app/project/\[owner\]/\[repo\]/release/
