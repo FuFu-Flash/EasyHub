@@ -1,6 +1,6 @@
 appId: app.easyhub.mac
 productName: EasyHub
-buildVersion: '17'
+buildVersion: '18'
 extraMetadata:
   version: 1.2.2
 directories:
@@ -11,6 +11,12 @@ files:
   - out/preload/**/*
   - out/renderer/**/*
   - package.json
+  # JS dependencies are already in the compiled bundles. Preserve the native
+  # keyring loader and its matching ARM64 addon, without a duplicate npm tree.
+  - '!node_modules/!(@napi-rs){,/**/*}'
+  - '!node_modules/@napi-rs/!(keyring|keyring-darwin-arm64){,/**/*}'
+  - '!node_modules/**/*.map'
+  - '!node_modules/**/*.d.{ts,mts,cts}'
 extraResources:
   - from: resources/easyhub.png
     to: easyhub.png
@@ -42,7 +48,7 @@ mac:
   icon: resources/easyhub.icns
   category: public.app-category.developer-tools
   minimumSystemVersion: '27.0'
-  bundleVersion: '17'
+  bundleVersion: '18'
   identity: '-'
   hardenedRuntime: false
   notarize: false

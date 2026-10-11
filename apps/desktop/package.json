@@ -37,6 +37,7 @@
     "test:live-translation": "node real-translation-check.mjs",
     "test:danger-ui": "node live-danger-smoke.mjs",
     "test:packaged": "node smoke.mjs --packaged",
+    "test:compact-package": "node compact-package-smoke.mjs --packaged",
     "test:installer-ui": "node installer-native-smoke.mjs",
     "icons": "node generate-icons.mjs",
     "build": "electron-vite build",
