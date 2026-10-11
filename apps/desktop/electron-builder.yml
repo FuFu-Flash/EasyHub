@@ -1,5 +1,6 @@
 appId: com.easyhub.desktop
 productName: EasyHub
+beforePack: ./scripts/require-compact-build.mjs
 directories:
   output: release
   buildResources: resources
@@ -8,6 +9,12 @@ files:
   - out/preload/**/*
   - out/renderer/**/*
   - package.json
+  # JavaScript dependencies are in the release bundles. Preserve the Windows
+  # keyring loader and matching native addon instead of a duplicate npm tree.
+  - '!node_modules/!(@napi-rs){,/**/*}'
+  - '!node_modules/@napi-rs/!(keyring|keyring-win32-x64-msvc){,/**/*}'
+  - '!node_modules/**/*.map'
+  - '!node_modules/**/*.d.{ts,mts,cts}'
 extraResources:
   - from: ../../THIRD_PARTY_NOTICES.md
     to: THIRD_PARTY_NOTICES.md

@@ -31,6 +31,7 @@ allowed.add('test:github-system-proxy');
 allowed.add('test:single-instance');
 allowed.add('test:binary-analysis-ui');
 allowed.add('test:live-binary-analysis');
+allowed.add('test:compact-package');
 if (!allowed.has(task)) {
   process.stderr.write('Unknown desktop task.\n');
   process.exit(1);

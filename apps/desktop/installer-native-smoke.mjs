@@ -14,7 +14,11 @@ const nativeScreenshot = join(desktop, 'out', 'installer-native-window.png');
 const setupSize = statSync(setup).size;
 const portableSize = statSync(portable).size;
 
-assert.ok(setupSize > 80 * 1024 * 1024, 'installer payload is missing');
+// Validate the executables rather than assuming a fixed compressed payload size.
+for (const executable of [setup, portable]) {
+  assert.ok(statSync(executable).size > 1024, 'installer payload is missing');
+  assert.equal(readFileSync(executable).subarray(0, 2).toString(), 'MZ', 'Windows executable header is missing');
+}
 assert.ok(setupSize - portableSize < 35 * 1024 * 1024,
   `installer adds ${((setupSize - portableSize) / 1048576).toFixed(1)} MiB above the portable app`);
 
