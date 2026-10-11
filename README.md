@@ -177,6 +177,8 @@ EasyHub 采用 [Apache License 2.0](LICENSE)。第三方组件保留各自的许
 
 ## macOS 桌面版
 
-macOS 1.2.2（构建 17）对齐 Windows 1.2.2 的项目与发行版布局、刷新反馈、搜索与筛选动画、程序文件审查提示和临时文件清理，支持合并请求检查、选中代码解释、选择文件发布、下载管理、布局设置和浏览历史恢复。Mac 使用系统窗口按钮和菜单栏，默认圆点风格，并适配 GitHub 系统代理。
+macOS 1.2.2（构建 18）对齐 Windows 1.2.2 的项目与发行版布局、刷新反馈、搜索与筛选动画、程序文件审查提示和临时文件清理，支持合并请求检查、选中代码解释、选择文件发布、下载管理、布局设置和浏览历史恢复。Mac 使用系统窗口按钮和菜单栏，默认圆点风格，并适配 GitHub 系统代理。
+
+构建 18 精简运行依赖，DMG 为 72.9 MB，比上一构建缩小 35.09%；对应源码见 [macos-v1.2.2-build18](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.2.2-build18)。
 
 安装包见上方下载表。Mac 源码和构建脚本位于 [`macos` 分支](https://github.com/FuFu-Flash/EasyHub/tree/macos)，使用 `pnpm package:mac` 构建。当前 Mac 包采用 ad hoc 签名，尚未进行 Developer ID 公证。

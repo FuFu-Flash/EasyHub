@@ -177,6 +177,8 @@ EasyHub uses the [Apache License 2.0](LICENSE). Third-party components retain th
 
 ## macOS desktop
 
-macOS 1.2.2 (build 17) aligns with Windows 1.2.2: project and release layouts, refresh feedback, search and filter animations, program review reminders, and temporary-file cleanup. It includes pull request checks, selected-code explanations, selected-file publishing, managed downloads, layout settings, and navigation history. Mac uses native window buttons and application menus, defaults to the dot style, and adapts the GitHub system proxy.
+macOS 1.2.2 (build 18) aligns with Windows 1.2.2: project and release layouts, refresh feedback, search and filter animations, program review reminders, and temporary-file cleanup. It includes pull request checks, selected-code explanations, selected-file publishing, managed downloads, layout settings, and navigation history. Mac uses native window buttons and application menus, defaults to the dot style, and adapts the GitHub system proxy.
+
+Build 18 trims runtime dependencies: the DMG is 72.9 MB, 35.09% smaller than the previous build. Matching source: [macos-v1.2.2-build18](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.2.2-build18).
 
 Download the installer from the table above. Mac source and build scripts are on the [`macos` branch](https://github.com/FuFu-Flash/EasyHub/tree/macos); build with `pnpm package:mac`. The current Mac bundle is ad hoc signed and has not been Developer ID notarized.
