@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-// Load native build tooling for the real host before simulating another OS.
+// Initialize host-native tooling before simulating another build platform.
 import 'electron-vite';
 import '@vitejs/plugin-react';
 
@@ -11,31 +11,37 @@ afterEach(() => {
   vi.resetModules();
 });
 
-async function configuration(platform: string, bundleFlag: string | undefined) {
+async function configuration(platform: string, macFlag?: string, winFlag?: string) {
   Object.defineProperty(process, 'platform', { ...originalPlatform, value: platform });
-  vi.stubEnv('EASYHUB_MAC_BUNDLE', bundleFlag);
+  vi.stubEnv('EASYHUB_MAC_BUNDLE', macFlag);
+  vi.stubEnv('EASYHUB_WIN_BUNDLE', winFlag);
   vi.resetModules();
   return (await import('../electron.vite.config')).default;
 }
 
-describe('desktop build platform isolation', () => {
-  it.each([undefined, '1'])('keeps Windows build defaults with Mac bundle flag %s', async flag => {
-    const config = await configuration('win32', flag);
+describe('desktop release build platform isolation', () => {
+  it.each([
+    ['win32', undefined, undefined],
+    ['win32', '1', undefined],
+    ['win32', undefined, '0'],
+    ['darwin', undefined, undefined],
+    ['darwin', undefined, '1'],
+    ['linux', '1', '1'],
+  ])('keeps ordinary build defaults on %s (Mac=%s, Windows=%s)', async (platform, macFlag, winFlag) => {
+    const config = await configuration(platform!, macFlag, winFlag);
     expect(config.main?.build?.minify).toBeUndefined();
     expect(config.preload?.build?.minify).toBeUndefined();
     expect(config.main?.plugins).toHaveLength(1);
     expect(config.renderer?.plugins).toHaveLength(1);
   });
 
-  it('keeps ordinary Mac development build defaults', async () => {
-    const config = await configuration('darwin', undefined);
-    expect(config.main?.build?.minify).toBeUndefined();
-    expect(config.preload?.build?.minify).toBeUndefined();
-    expect(config.main?.plugins).toHaveLength(1);
-  });
-
-  it('enables compaction and dependency notices for an explicit Mac release build', async () => {
-    const config = await configuration('darwin', '1');
+  it.each([
+    ['win32', undefined, '1'],
+    ['win32', '1', '1'],
+    ['darwin', '1', undefined],
+    ['darwin', '1', '1'],
+  ])('bundles dependencies with license notices for %s releases (Mac=%s, Windows=%s)', async (platform, macFlag, winFlag) => {
+    const config = await configuration(platform!, macFlag, winFlag);
     expect(config.main?.build?.minify).toBe('esbuild');
     expect(config.preload?.build?.minify).toBe('esbuild');
     expect(config.main?.plugins).toHaveLength(2);

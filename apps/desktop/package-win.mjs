@@ -12,6 +12,7 @@ if (!pnpmEntrypoint) {
 
 const environment = {
   ...process.env,
+  EASYHUB_WIN_BUNDLE: '1',
   ELECTRON_BUILDER_BINARIES_MIRROR:
     process.env.ELECTRON_BUILDER_BINARIES_MIRROR ?? 'https://npmmirror.com/mirrors/electron-builder-binaries/',
 };

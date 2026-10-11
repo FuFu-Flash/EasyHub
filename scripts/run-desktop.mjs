@@ -38,6 +38,7 @@ allowed.add('test:release-detail-layout');
 allowed.add('test:search-history-motion');
 allowed.add('test:program-review-notice');
 allowed.add('test:refresh-feedback');
+allowed.add('test:compact-package');
 if (!allowed.has(task)) {
   process.stderr.write('Unknown desktop task.\n');
   process.exit(1);

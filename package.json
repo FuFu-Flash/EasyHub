@@ -37,6 +37,7 @@
     "test:live-release": "node scripts/run-desktop.mjs test:live-release",
     "test:live-translation": "node scripts/run-desktop.mjs test:live-translation",
     "test:danger-ui": "node scripts/run-desktop.mjs test:danger-ui",
+    "test:compact-package": "node scripts/run-desktop.mjs test:compact-package",
     "test:packaged": "node scripts/run-desktop.mjs test:packaged",
     "test:installer-ui": "node scripts/run-desktop.mjs test:installer-ui",
     "icons": "node scripts/run-desktop.mjs icons",
