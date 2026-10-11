@@ -39,15 +39,15 @@ EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看
 | --- | --- | --- | --- |
 | 桌面版（Windows） | 安装版 | 长期使用，可选择安装位置和桌面快捷方式 | **[下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-setup.exe)** |
 | 桌面版（Windows） | 便携版 | 不想安装，下载后直接运行 | **[下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-portable.exe)** |
-| 桌面版（macOS） | DMG 镜像 / ZIP | Apple 芯片 Mac，macOS 27 或以上 | **[下载 DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [下载 ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
+| 桌面版（macOS） | DMG 镜像 / ZIP | Apple 芯片 Mac，macOS 12 或以上 | **[下载 DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [下载 ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
 | Android | 1.1.0 ARM64 安装包 | 适合大多数较新的 Android 手机，安装包更小 | **[下载 ARM64 包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 | Android | 1.1.0 通用安装包 | ARM32、ARM64、x86、x86_64 设备与模拟器 | **[下载通用包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 
-Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，“创建桌面快捷方式”默认勾选。Android 版适用于 Android 7.0 及以上。macOS 版适用于 Apple 芯片 Mac，要求 macOS 27 或以上。打开 DMG，把 EasyHub 拖入 Applications，再从“应用程序”启动。
+Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，“创建桌面快捷方式”默认勾选。Android 版适用于 Android 7.0 及以上。macOS 版适用于 Apple 芯片 Mac，要求 macOS 12 或以上。打开 DMG，把 EasyHub 拖入 Applications，再从“应用程序”启动。
 
 ## macOS 必看
 
-当前 Mac 包为 **1.2.2（构建 18）**，DMG **72.9 MB**，比上一构建缩小 **35.09%**。对应源码见 [macos-v1.2.2-build18](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.2.2-build18)。
+当前 Mac 包为 **1.2.2（构建 18）**，DMG **72.9 MB**，比上一构建缩小 **35.09%**。对应源码见 [macos-v1.2.2-build18-macos12](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.2.2-build18-macos12)。
 
 <details>
 <summary><strong>保姆级安装指南（点击展开）</strong></summary>
@@ -56,7 +56,7 @@ Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，�
 
 ### 先下载并放进“应用程序”
 
-1. **确认电脑支持。** 点击屏幕左上角的苹果菜单  →“关于本机”，查看芯片和系统版本。当前安装包适用于 **Apple 芯片 Mac，macOS 27 或以上**。
+1. **确认电脑支持。** 点击屏幕左上角的苹果菜单  →“关于本机”，查看芯片和系统版本。当前安装包适用于 **Apple 芯片 Mac，macOS 12 或以上**。
 2. **下载安装包。** 点击本仓库的 **[下载 DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)**，等待下载完成。第一次安装推荐使用 DMG。
 3. **打开下载的文件。** 在“访达”的“下载”文件夹里，双击 `EasyHub-macOS.dmg`，等安装窗口打开。
 4. **拖入应用程序。** 将窗口里的 **EasyHub 图标拖到 Applications（应用程序）文件夹**，等复制完成。更新旧版时，先按 `⌘Q` 完整退出 EasyHub，再复制并选择替换；本机项目记录和钥匙串中的登录会保留。

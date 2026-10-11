@@ -39,15 +39,15 @@ You do not need to install Git or create a separate EasyHub account. Sign in wit
 | --- | --- | --- | --- |
 | Desktop (Windows) | Installer | Regular use, with installation location and desktop shortcut options | **[Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-setup.exe)** |
 | Desktop (Windows) | Portable | Run directly without installing | **[Download portable](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-portable.exe)** |
-| Desktop (macOS) | DMG / ZIP | Apple Silicon Macs running macOS 27 or later | **[Download DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [Download ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
+| Desktop (macOS) | DMG / ZIP | Apple Silicon Macs running macOS 12 or later | **[Download DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [Download ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
 | Android | 1.1.0 ARM64 APK | Most newer Android phones; smaller package | **[Download ARM64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 | Android | 1.1.0 universal APK | ARM32, ARM64, x86, and x86_64 devices and emulators | **[Download universal APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 
-The Windows editions are for 64-bit PCs. The installer detects a previous installation location and selects “Create desktop shortcut” by default. Android requires Android 7.0 or later. The macOS edition requires an Apple Silicon Mac running macOS 27 or later. Open the DMG, drag EasyHub into Applications, and launch it from there.
+The Windows editions are for 64-bit PCs. The installer detects a previous installation location and selects “Create desktop shortcut” by default. Android requires Android 7.0 or later. The macOS edition requires an Apple Silicon Mac running macOS 12 or later. Open the DMG, drag EasyHub into Applications, and launch it from there.
 
 ## macOS must-read
 
-The current Mac package is **1.2.2 (build 18)**. The DMG is **72.9 MB**, **35.09% smaller** than the previous build. Matching source: [macos-v1.2.2-build18](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.2.2-build18).
+The current Mac package is **1.2.2 (build 18)**. The DMG is **72.9 MB**, **35.09% smaller** than the previous build. Matching source: [macos-v1.2.2-build18-macos12](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.2.2-build18-macos12).
 
 <details>
 <summary><strong>Step-by-step installation guide (click to expand)</strong></summary>
@@ -56,7 +56,7 @@ The current Mac app uses an **ad hoc signature**, a local developer signature. I
 
 ### Download and copy to Applications
 
-1. **Check your Mac.** Open the Apple menu  → About This Mac to check the chip and system version. This package is for **Apple Silicon Macs running macOS 27 or later**.
+1. **Check your Mac.** Open the Apple menu  → About This Mac to check the chip and system version. This package is for **Apple Silicon Macs running macOS 12 or later**.
 2. **Download the installer.** Choose **[Download DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** from this repository and wait for it to finish. The DMG is recommended for first-time installation.
 3. **Open the downloaded file.** In Finder → Downloads, double-click `EasyHub-macOS.dmg` and wait for its window to open.
 4. **Copy the app.** Drag the **EasyHub icon into Applications** and wait for copying to finish. For an update, quit EasyHub with `⌘Q` first, then copy and choose Replace. Local project records and sign-in stored in Keychain are preserved.
