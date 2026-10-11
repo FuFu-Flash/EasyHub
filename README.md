@@ -47,6 +47,8 @@ Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，�
 
 ## macOS 必看
 
+当前 Mac 包为 **1.2.2（构建 18）**，DMG **72.9 MB**，比上一构建缩小 **35.09%**。对应源码见 [macos-v1.2.2-build18](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.2.2-build18)。
+
 <details>
 <summary><strong>保姆级安装指南（点击展开）</strong></summary>
 
