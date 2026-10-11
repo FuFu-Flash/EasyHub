@@ -39,11 +39,11 @@ You do not need to install Git or create a separate EasyHub account. Sign in wit
 | --- | --- | --- | --- |
 | Windows | Installer | Regular use, with installation location and desktop shortcut options | **[Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-setup.exe)** |
 | Windows | Portable | Run directly without installing | **[Download portable](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-portable.exe)** |
-| macOS | 1.2.2 DMG / ZIP | Apple Silicon Macs running macOS 27 or later | **[Download DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [Download ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
+| macOS | 1.2.2 DMG / ZIP | Apple Silicon Macs running macOS 12 or later | **[Download DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [Download ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
 | Android | 1.1.0 ARM64 APK | Most newer Android phones; smaller package | **[Download ARM64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 | Android | 1.1.0 universal APK | ARM32, ARM64, x86, and x86_64 devices and emulators | **[Download universal APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 
-The Windows editions are for 64-bit PCs. The installer detects a previous installation location and selects “Create desktop shortcut” by default. Android requires Android 7.0 or later. The macOS edition requires an Apple Silicon Mac running macOS 27 or later. Open the DMG, drag EasyHub into Applications, and launch it from there.
+The Windows editions are for 64-bit PCs. The installer detects a previous installation location and selects “Create desktop shortcut” by default. Android requires Android 7.0 or later. The macOS edition requires an Apple Silicon Mac running macOS 12 or later. Open the DMG, drag EasyHub into Applications, and launch it from there.
 
 ## Get started in three steps (Windows / macOS)
 
@@ -179,6 +179,6 @@ EasyHub uses the [Apache License 2.0](LICENSE). Third-party components retain th
 
 macOS 1.2.2 (build 18) aligns with Windows 1.2.2: project and release layouts, refresh feedback, search and filter animations, program review reminders, and temporary-file cleanup. It includes pull request checks, selected-code explanations, selected-file publishing, managed downloads, layout settings, and navigation history. Mac uses native window buttons and application menus, defaults to the dot style, and adapts the GitHub system proxy.
 
-Build 18 trims runtime dependencies: the DMG is 72.9 MB, 35.09% smaller than the previous build. Matching source: [macos-v1.2.2-build18](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.2.2-build18).
+Build 18 trims runtime dependencies: the DMG is 72.9 MB, 35.09% smaller than the previous build. Matching source: [macos-v1.2.2-build18-macos12](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.2.2-build18-macos12).
 
 Download the installer from the table above. Mac source and build scripts are on the [`macos` branch](https://github.com/FuFu-Flash/EasyHub/tree/macos); build with `pnpm package:mac`. The current Mac bundle is ad hoc signed and has not been Developer ID notarized.

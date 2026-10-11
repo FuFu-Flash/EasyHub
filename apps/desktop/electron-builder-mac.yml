@@ -47,7 +47,7 @@ mac:
         - arm64
   icon: resources/easyhub.icns
   category: public.app-category.developer-tools
-  minimumSystemVersion: '27.0'
+  minimumSystemVersion: '12.0'
   bundleVersion: '18'
   identity: '-'
   hardenedRuntime: false

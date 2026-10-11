@@ -39,11 +39,11 @@ EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看
 | --- | --- | --- | --- |
 | Windows | 安装版 | 长期使用，可选择安装位置和桌面快捷方式 | **[下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-setup.exe)** |
 | Windows | 便携版 | 不想安装，下载后直接运行 | **[下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.2.2/EasyHub-1.2.2-portable.exe)** |
-| macOS | 1.2.2 DMG 镜像 / ZIP | Apple 芯片 Mac，macOS 27 或以上 | **[下载 DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [下载 ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
+| macOS | 1.2.2 DMG 镜像 / ZIP | Apple 芯片 Mac，macOS 12 或以上 | **[下载 DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [下载 ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
 | Android | 1.1.0 ARM64 安装包 | 适合大多数较新的 Android 手机，安装包更小 | **[下载 ARM64 包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 | Android | 1.1.0 通用安装包 | ARM32、ARM64、x86、x86_64 设备与模拟器 | **[下载通用包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 
-Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，“创建桌面快捷方式”默认勾选。Android 版适用于 Android 7.0 及以上。macOS 版适用于 Apple 芯片 Mac，要求 macOS 27 或以上。打开 DMG，把 EasyHub 拖入 Applications，再从“应用程序”启动。
+Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，“创建桌面快捷方式”默认勾选。Android 版适用于 Android 7.0 及以上。macOS 版适用于 Apple 芯片 Mac，要求 macOS 12 或以上。打开 DMG，把 EasyHub 拖入 Applications，再从“应用程序”启动。
 
 ## 三步上手（Windows / macOS）
 
@@ -179,6 +179,6 @@ EasyHub 采用 [Apache License 2.0](LICENSE)。第三方组件保留各自的许
 
 macOS 1.2.2（构建 18）对齐 Windows 1.2.2 的项目与发行版布局、刷新反馈、搜索与筛选动画、程序文件审查提示和临时文件清理，支持合并请求检查、选中代码解释、选择文件发布、下载管理、布局设置和浏览历史恢复。Mac 使用系统窗口按钮和菜单栏，默认圆点风格，并适配 GitHub 系统代理。
 
-构建 18 精简运行依赖，DMG 为 72.9 MB，比上一构建缩小 35.09%；对应源码见 [macos-v1.2.2-build18](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.2.2-build18)。
+构建 18 精简运行依赖，DMG 为 72.9 MB，比上一构建缩小 35.09%；对应源码见 [macos-v1.2.2-build18-macos12](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.2.2-build18-macos12)。
 
 安装包见上方下载表。Mac 源码和构建脚本位于 [`macos` 分支](https://github.com/FuFu-Flash/EasyHub/tree/macos)，使用 `pnpm package:mac` 构建。当前 Mac 包采用 ad hoc 签名，尚未进行 Developer ID 公证。
