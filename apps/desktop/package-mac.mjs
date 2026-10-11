@@ -17,11 +17,12 @@ if (!pnpmEntrypoint || !isAbsolute(pnpmEntrypoint)) {
 }
 if (!isAbsolute(releaseDirectory)) throw new Error('EASYHUB_DESKTOP_RELEASE_DIR 必须是绝对路径。');
 const metadata = JSON.parse(await readFile(join(desktopDir, 'package.json'), 'utf8'));
-if (metadata.version !== '1.2.2') throw new Error('此构建配置对应 EasyHub 1.2.2 (17)。');
+if (metadata.version !== '1.2.2') throw new Error('此构建配置对应 EasyHub 1.2.2 (18)。');
 
 const environment = { ...process.env,
   PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
   CSC_IDENTITY_AUTO_DISCOVERY: 'false',
+  EASYHUB_MAC_BUNDLE: '1',
   // Reuse the verified workspace dependencies; packaging must not auto-install.
   pnpm_config_verify_deps_before_run: 'warn' };
 // Test-only isolation and fixtures must never become release launch defaults.
@@ -56,6 +57,10 @@ try {
 } finally { await rm(iconDirectory, { recursive: true, force: true }); }
 
 run(process.execPath, [pnpmEntrypoint, 'exec', 'electron-vite', 'build']);
+// The Mac copier omits bundled JS dependencies, so an ordinary Windows/dev
+// build must never accidentally be packaged with this configuration.
+await access(join(desktopDir, 'out/main/bundled-dependency-notices.txt'), constants.R_OK);
+await access(join(desktopDir, 'out/renderer/bundled-dependency-notices.txt'), constants.R_OK);
 run(process.execPath, [pnpmEntrypoint, 'exec', 'electron-builder',
   '--config', 'electron-builder-mac.yml', '--mac', '--arm64', '--dir', '--publish', 'never',
   `--config.directories.output=${releaseDirectory}`]);
@@ -66,4 +71,4 @@ await access(join(contents, 'Resources/app.asar.unpacked'), constants.R_OK);
 await access(join(contents, 'Resources/UPSTREAM.txt'), constants.R_OK);
 await access(join(contents, 'Resources/LICENSE'), constants.R_OK);
 run('/usr/bin/codesign', ['--verify', '--deep', '--strict', application]);
-process.stdout.write(`EasyHub 1.2.2 (17) macOS arm64 app: ${application}\n`);
+process.stdout.write(`EasyHub 1.2.2 (18) macOS arm64 app: ${application}\n`);
