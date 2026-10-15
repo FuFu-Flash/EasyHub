@@ -79,8 +79,8 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, init
   const pageActive = useContext(PageActivityContext);
   const effectiveMode = createdId ? 'list' : mode;
   const activeLocalId = initialLocalId ?? createdId;
-  const visibleLinks = useMemo(() => activeLocalId ? links.filter((item) => item.id === activeLocalId)
-    : selectedRepo ? links.filter((item) => item.repositoryId === selectedRepo.id) : links, [activeLocalId, links, selectedRepo]);
+  const visibleLinks = useMemo(() => effectiveMode === 'create' ? [] : activeLocalId ? links.filter((item) => item.id === activeLocalId)
+    : selectedRepo ? links.filter((item) => item.repositoryId === selectedRepo.id) : links, [effectiveMode, activeLocalId, links, selectedRepo]);
   const selectedLink = activeLocalId ? visibleLinks[0] : null;
   const singleProject = Boolean(activeLocalId || selectedRepo || effectiveMode === 'create');
   useEffect(() => {
