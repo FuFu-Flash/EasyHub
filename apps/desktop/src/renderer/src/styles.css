@@ -94,7 +94,7 @@
 .local-selection-row label{flex-wrap:wrap;gap:5px}
 .local-selection-path{flex-basis:calc(100% - 24px);margin-left:23px}
 .local-diff-line{grid-template-columns:28px 28px 14px minmax(0,1fr)}}
-.local-sensitive-warning { color: var(--eh-color-danger); background: var(--eh-color-warning-soft); border: 1px solid var(--eh-color-danger-line); border-radius: var(--eh-radius-8); padding: var(--eh-space-10) var(--eh-space-12); margin: var(--eh-space-8) 0; overflow-wrap: anywhere; }
+.local-sensitive-warning, .modal > p.local-sensitive-warning { color: var(--eh-color-danger); background: var(--eh-color-warning-soft); border: 1px solid var(--eh-color-danger-line); border-radius: var(--eh-radius-8); padding: var(--eh-space-10) var(--eh-space-12); margin: var(--eh-space-8) 0; overflow-wrap: anywhere; }
 .local-sensitive-warning summary { font-weight: var(--eh-weight-600); }
 .local-sensitive-warning ul { margin: var(--eh-space-6) 0; }
 .local-readme { margin-top: var(--eh-space-20); }

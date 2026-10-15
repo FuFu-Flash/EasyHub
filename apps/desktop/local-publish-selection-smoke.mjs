@@ -102,6 +102,17 @@ try {
   await page.getByRole('textbox', { name: '这次改了什么？' }).fill('确认敏感文件');
   await page.getByRole('button', { name: '发布选中的文件', exact: true }).click();
   await page.getByRole('dialog', { name: '这些文件可能包含密码或密钥' }).waitFor();
+  const warningContrast = await page.locator('.modal > p.local-sensitive-warning').evaluate(node => {
+    const css = getComputedStyle(node);
+    const luminance = value => {
+      const channels = value.match(/[\d.]+/g).slice(0, 3).map(Number).map(v => v / 255);
+      return channels.map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((n, v, i) => n + v * [0.2126, 0.7152, 0.0722][i], 0);
+    };
+    const a = luminance(css.color), b = luminance(css.backgroundColor);
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  });
+  assert.ok(warningContrast >= 4.5, `Sensitive warning contrast must be readable, got ${warningContrast}`);
+  await page.screenshot({ path: join(output, 'sensitive-warning-contrast.png') });
   assert.equal(await page.evaluate(() => window.fixtureCalls.length), 3, 'Must not publish before confirmation');
   await page.keyboard.press('Escape');
   assert.equal(await page.getByRole('dialog').count(), 0);
