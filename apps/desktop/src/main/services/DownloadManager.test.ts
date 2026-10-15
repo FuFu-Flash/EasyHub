@@ -116,9 +116,16 @@ describe('persistent download queue', () => {
 
   it('restores paused downloads across restart, without resuming until the user chooses', async () => {
     const ranges: (string | undefined)[] = [];
-    const url = await server((req, res) => { ranges.push(req.headers.range); streamFile(res, payload, Number(req.headers.range?.match(/bytes=(\d+)/)?.[1] ?? 0)); });
+    const url = await server((req, res) => {
+      ranges.push(req.headers.range);
+      if (ranges.length === 1) {
+        // Restart must resume persisted bytes, even when other checks delay disk writes.
+        res.writeHead(200, { 'Content-Length': payload.length, ETag: '"file-v1"' });
+        res.write(payload.subarray(0, 8192));
+      } else streamFile(res, payload, Number(req.headers.range?.match(/bytes=(\d+)/)?.[1] ?? 0));
+    });
     const f = await fixture(url); const item = await f.add();
-    await until(async () => (await f.manager.list())[0]!.loaded > 0);
+    await until(async () => (await stat(join(f.directory, `example.zip.easyhub-${item.id}.part`)).catch(() => ({ size: 0 }))).size > 0);
     await f.manager.shutdown();
     // The stopped instance no longer owns this ledger. Teardown must not flush
     // it concurrently with the restarted instance into the same .tmp file.
