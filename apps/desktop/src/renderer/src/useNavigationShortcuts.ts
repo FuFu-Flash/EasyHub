@@ -50,7 +50,9 @@ export function useNavigationShortcuts(back: () => void, forward: () => void): v
     };
     window.addEventListener('keydown', key);
     window.addEventListener('mouseup', mouse);
-    const unsubscribe = easyHub?.onNavigate?.(navigate);
+    const unsubscribe = easyHub?.onNavigate?.((direction) => {
+      if (!editingTarget(document.activeElement)) navigate(direction);
+    });
     return () => {
       window.removeEventListener('keydown', key);
       window.removeEventListener('mouseup', mouse);

@@ -73,6 +73,11 @@ try {
   await searchDraft.press('Alt+ArrowLeft');
   assert.equal(await searchDraft.inputValue(), 'unsent search draft');
   assert.equal(await page.locator('.detail-hero h1').textContent(), 'own-project', 'Input word navigation must not leave the page.');
+  await page.waitForTimeout(120); // Do not let duplicate-event throttling mask input handling.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('easyhub:navigate', 'back'));
+  await page.waitForTimeout(120);
+  assert.equal(await page.locator('.detail-hero h1').count(), 1, 'Native browser commands must also preserve an active text input.');
+  assert.equal(await searchDraft.inputValue(), 'unsent search draft');
   await searchDraft.fill('');
   for (const kind of ['textarea', 'contenteditable']) {
     await page.evaluate(kind => {
