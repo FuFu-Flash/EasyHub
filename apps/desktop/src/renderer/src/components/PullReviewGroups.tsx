@@ -4,7 +4,7 @@ import { errorText } from '../errors';
 import { ErrorMessage } from './ErrorMessage';
 import { sumActivity } from '../activityCounts';
 import { SegmentedControl } from './SegmentedControl';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { GitHubActivityCount, GitHubPullRequest, GitHubRepo } from '@easyhub/github';
 import { ChevronDown, GitPullRequest, MessageCircle, RotateCw } from 'lucide-react';
@@ -21,9 +21,10 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
   const t = useTranslation();
   const easyHub = useEasyHub();
   const [filter, setFilter] = useState<Filter>('open');
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [pages, setPages] = useState<Record<string, Page>>({});
-  const [loading, setLoading] = useState<string | null>(null);
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const inFlight = useRef(new Set<string>());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showOthers, setShowOthers] = useState(false);
   const keyFor = (repo: GitHubRepo, state: Filter): string => `${repo.id}:${state}`;
@@ -32,10 +33,20 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
   const total = sumActivity(repos, counts, 'pullRequests');
   const emptyRepos = ordered.filter((repo) => countFor(repo) === 0);
   const visibleRepos = ordered.filter((repo) => showOthers || countFor(repo) !== 0);
+  const isOpen = (repo: GitHubRepo, state: Filter): boolean => expanded[keyFor(repo, state)] ?? (state === 'open' && (counts[repo.id]?.pullRequests ?? 0) > 0);
+
+  useEffect(() => {
+    for (const repo of visibleRepos) {
+      const key = keyFor(repo, filter);
+      if (isOpen(repo, filter) && !pages[key] && !errors[key] && !inFlight.current.has(key)) void load(repo, filter, 1);
+    }
+  }, [repos, counts, expanded, filter, pages, errors, showOthers]);
 
   async function load(repo: GitHubRepo, state: Filter, page: number): Promise<void> {
     const key = keyFor(repo, state);
-    setLoading(key);
+    if (inFlight.current.has(key)) return;
+    inFlight.current.add(key);
+    setLoading(current => ({ ...current, [key]: true }));
     setErrors((current) => ({ ...current, [key]: '' }));
     try {
       const result = await easyHub!.github<GitHubPullRequest[]>('pullRequestsPage', repo.owner.login, repo.name, state, page);
@@ -45,19 +56,17 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
       });
     } catch (cause) {
       setErrors((current) => ({ ...current, [key]: errorText(cause) }));
-    } finally { setLoading(null); }
+    } finally { inFlight.current.delete(key); setLoading(current => ({ ...current, [key]: false })); }
   }
 
   function toggle(repo: GitHubRepo): void {
-    if (expanded === repo.id) { setExpanded(null); return; }
-    setExpanded(repo.id);
-    if (!pages[keyFor(repo, filter)]) void load(repo, filter, 1);
+    const key = keyFor(repo, filter), opening = !isOpen(repo, filter);
+    setExpanded(current => ({ ...current, [key]: opening }));
+    if (opening && !pages[key]) void load(repo, filter, 1);
   }
 
   function chooseFilter(next: Filter): void {
     setFilter(next);
-    const repo = repos.find((item) => item.id === expanded);
-    if (repo && !pages[keyFor(repo, next)]) void load(repo, next, 1);
   }
 
   return <>
@@ -67,7 +76,7 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
       const key = keyFor(repo, filter);
       const page = pages[key];
       const count = counts[repo.id];
-      const isExpanded = expanded === repo.id;
+      const isExpanded = isOpen(repo, filter);
       return <section className="issue-project-group live-issue-group" key={repo.id}>
         <button className="issue-project-header" aria-expanded={isExpanded} onClick={() => toggle(repo)}>
           {logo(repo)}<span className="issue-project-heading"><strong>{repo.name}</strong><small>{repo.description || t("pullReviewGroups.noProjectDescriptionYet")}</small></span>
@@ -75,11 +84,11 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
           <ChevronDown className={`issue-project-chevron ${isExpanded ? 'expanded' : ''}`} size={19} />
         </button>
         <div className="issue-project-items live-group-items" hidden={!isExpanded}>{isExpanded && <>
-          {errors[key] && <p className="live-error" role="alert"><ErrorMessage error={errors[key]} /></p>}
+          {errors[key] && <p className="live-error" role="alert"><ErrorMessage error={errors[key]} /><button className="text-link" onClick={() => void load(repo, filter, 1)}>{t('liveWorkspace.retry')}</button></p>}
           {page?.items.map((request) => <button className="issue-row" key={request.id} onClick={() => onOpen(repo, request)}><span className="issue-indicator"><GitPullRequest size={19} /></span><span className="issue-row-main"><strong>{request.title}</strong><small>{request.user?.login || t("pullReviewGroups.githubUser")} · {request.state === 'open' ? request.draft ? t("pullReviewGroups.draft") : t("pullReviewGroups.awaitingReview") : request.merged_at ? t("pullReviewGroups.merged") : t("pullReviewGroups.closed")}</small></span><span className="issue-comments"><MessageCircle size={16} />{request.comments ?? 0}</span></button>)}
-          {loading === key && <p className="live-loading"><RotateCw size={16} className="live-spin" />{t("pullReviewGroups.loadingPullRequests")}</p>}
-          {page && page.items.length === 0 && loading !== key && <p className="live-empty">{filter === 'open' ? t("pullReviewGroups.noChangesAwaitingReview") : t("pullReviewGroups.noHandledPullRequestsYet")}</p>}
-          {page?.nextPage && <button className="button button-quiet pull-more" disabled={loading === key} onClick={() => void load(repo, filter, page.nextPage!)}>{t("pullReviewGroups.loadMorePullRequests")}</button>}
+          {loading[key] && <p className="live-loading"><RotateCw size={16} className="live-spin" />{t("pullReviewGroups.loadingPullRequests")}</p>}
+          {page && page.items.length === 0 && !loading[key] && <p className="live-empty">{filter === 'open' ? t("pullReviewGroups.noChangesAwaitingReview") : t("pullReviewGroups.noHandledPullRequestsYet")}</p>}
+          {page?.nextPage && <button className="button button-quiet pull-more" disabled={loading[key]} onClick={() => void load(repo, filter, page.nextPage!)}>{t("pullReviewGroups.loadMorePullRequests")}</button>}
         </>}</div>
       </section>;
     })}</div>
