@@ -8,7 +8,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'r
 import type { FormEvent } from 'react';
 import type { GitHubRepo } from '@easyhub/github';
 import type { ChangedFile, FolderInspection, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, LocalPublishSelection, SyncDecision, SyncPreview } from '@easyhub/types';
-import { ArrowDownToLine, FileDiff, ArrowLeft, Check, CheckCircle2, Download, FolderOpen, Globe2, LockKeyhole, Plus, RotateCw, Send } from 'lucide-react';
+import { ArrowDownToLine, FileDiff, ArrowLeft, Check, CheckCircle2, Download, FolderOpen, Globe2, LockKeyhole, Plus, RotateCw, Send, X } from 'lucide-react';
 import { ReadmeMarkdown } from './components/ReadmeMarkdown';
 import { LocalChangeSelector } from './components/LocalChangeSelector';
 
@@ -23,7 +23,7 @@ interface Props {
   initialLocalId?: string | null;
   initialPublish?: boolean;
   onBack: () => void;
-  onCreated: () => Promise<void>;
+  onCreated: (repo?: GitHubRepo) => Promise<void>;
   onDownloadProject: (repo: GitHubRepo) => Promise<void>;
   downloadBusy: boolean;
   initialSyncReview?: { id: string; preview: SyncPreview; message: string } | null;
@@ -198,8 +198,15 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, init
   }
 
   async function create(event: FormEvent): Promise<void> {
-    event.preventDefault(); if (!api || !inspection) return;
+    event.preventDefault(); if (!api || !name.trim() || !inspection && effectiveMode !== 'create') return;
     await task(async () => {
+      if (!inspection) {
+        const repo = await api.github<GitHubRepo>('createRepo', name.trim(), description.trim(), isPrivate);
+        setName(''); setDescription('');
+        setNotice(t("localWorkspace.cloudProjectCreated"));
+        await onCreated(repo);
+        return;
+      }
       const link = await api.localCreate(inspection.path, name.trim(), description.trim(), isPrivate);
       setCreatedId(link.id);
       setInspection(null); setName(''); setDescription('');
@@ -272,18 +279,18 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, init
   const visibleRepos = selectedRepo ? [selectedRepo] : selectedLink ? repos.filter((repo) => repo.id === selectedLink.repositoryId) : repos;
   return <div className="local-workspace">
     <button className="back-link" onClick={onBack}><ArrowLeft size={17} />{t("localWorkspace.back")}</button>
-    <div className="page-header"><div><h1 ref={title} tabIndex={-1}>{effectiveMode === 'create' ? t("localWorkspace.newProject") : selectedLink?.name ?? selectedRepo?.name ?? t("localWorkspace.localProjects")}</h1><p>{effectiveMode === 'create' ? t("localWorkspace.chooseAFolderAndEasyhubWillSaveItTo") : t("localWorkspace.reviewLocalChangesAndPublishTheSource")}</p></div></div>
+    <div className="page-header"><div><h1 ref={title} tabIndex={-1}>{effectiveMode === 'create' ? t("localWorkspace.newProject") : selectedLink?.name ?? selectedRepo?.name ?? t("localWorkspace.localProjects")}</h1><p>{effectiveMode === 'create' ? t("localWorkspace.createProjectHelp") : t("localWorkspace.reviewLocalChangesAndPublishTheSource")}</p></div></div>
     {error && <div className="live-error" role="alert"><ErrorMessage error={error} /></div>}
     {notice && <div className="live-notice" role="status">{notice}</div>}
-    {busy && <div className="live-loading" role="status"><RotateCw size={16} className="live-spin" />{progressLabel(progress, t)}{progress?.total ? ` ${Math.round(100 * (progress.loaded ?? 0) / progress.total)}%` : ''}{progress?.cancelable !== false && <button className="text-link" onClick={() => void api?.localCancel()}>{t("localWorkspace.cancel")}</button>}</div>}
+    {busy && <div className="live-loading" role="status"><RotateCw size={16} className="live-spin" />{progressLabel(progress, t)}{progress?.total ? ` ${Math.round(100 * (progress.loaded ?? 0) / progress.total)}%` : ''}{progress?.cancelable !== false && !(effectiveMode === 'create' && !inspection) && <button className="text-link" onClick={() => void api?.localCancel()}>{t("localWorkspace.cancel")}</button>}</div>}
     {effectiveMode === 'list' && !singleProject && <section className="panel live-section"><div className="panel-heading"><h2>{t("localWorkspace.addExistingFolder")}</h2></div><p>{t("localWorkspace.easyhubWillInspectTheFolderAndAddExistingGithub")}</p><button className="button button-quiet" disabled={busy} onClick={() => void chooseFolder()}><FolderOpen size={17} />{t("localWorkspace.chooseFolder")}</button></section>}
     {(effectiveMode === 'create' || inspection && inspection.state !== 'github') && <form className="panel live-form live-create-form" onSubmit={(event) => void create(event)}>
       <h2>{inspection?.state === 'existing' ? t("localWorkspace.createANewProjectFromThisFolder") : t("localWorkspace.createProject")}</h2>
-      <label className="field"><span>{t("localWorkspace.projectName")}</span><input aria-label={t("localWorkspace.projectName")} value={name} required maxLength={100} onChange={(event) => setName(event.target.value)} /></label>
-      <label className="field"><span>{t("localWorkspace.shortDescription")}</span><input aria-label={t("localWorkspace.shortDescription")} value={description} maxLength={350} onChange={(event) => setDescription(event.target.value)} /></label>
-      <div className="field"><span>{t("localWorkspace.localFolder")}</span><div className="folder-field"><FolderOpen size={19} /><span title={inspection?.path ?? ''}>{inspection?.path || t("localWorkspace.noFolderSelected")}</span><button type="button" className="button button-quiet" disabled={busy} onClick={() => void chooseFolder()}>{t("localWorkspace.chooseFolder")}</button></div></div>
-      <div className="field"><span>{t("localWorkspace.whoCanSeeIt")}</span><div className="choice-grid" role="group" aria-label={t("localWorkspace.whoCanSeeIt")}><button type="button" className={`choice ${isPrivate ? 'chosen' : ''}`} aria-pressed={isPrivate} onClick={() => setIsPrivate(true)}><span className="choice-circle">{isPrivate && <Check size={13} />}</span><LockKeyhole size={18} /><strong>{t("localWorkspace.onlyMe")}</strong><small>{t("localWorkspace.visibleOnlyToYou")}</small></button><button type="button" className={`choice ${!isPrivate ? 'chosen' : ''}`} aria-pressed={!isPrivate} onClick={() => setIsPrivate(false)}><span className="choice-circle">{!isPrivate && <Check size={13} />}</span><Globe2 size={18} /><strong>{t("localWorkspace.everyone")}</strong><small>{t("localWorkspace.shareItWithOthers")}</small></button></div></div>
-      <button className="button button-primary submit-button" disabled={busy || !name.trim() || !inspection || inspection.state === 'github'} type="submit"><Plus size={17} />{t("localWorkspace.createProject")}</button>
+      <label className="field"><span>{t("localWorkspace.projectName")}</span><input aria-label={t("localWorkspace.projectName")} value={name} required disabled={busy} maxLength={100} onChange={(event) => setName(event.target.value)} /></label>
+      <label className="field"><span>{t("localWorkspace.shortDescription")}</span><input aria-label={t("localWorkspace.shortDescription")} value={description} disabled={busy} maxLength={350} onChange={(event) => setDescription(event.target.value)} /></label>
+      <div className="field"><span>{effectiveMode === 'create' ? t("localWorkspace.localFolderOptional") : t("localWorkspace.localFolder")}</span><div className="folder-field"><FolderOpen size={19} /><span title={inspection?.path ?? ''}>{inspection?.path || t("localWorkspace.noFolderSelected")}</span><button type="button" className="button button-quiet" disabled={busy} onClick={() => void chooseFolder()}>{t("localWorkspace.chooseFolder")}</button>{effectiveMode === 'create' && inspection && <button type="button" className="icon-button" disabled={busy} aria-label={t("localWorkspace.clearFolder")} title={t("localWorkspace.clearFolder")} onClick={() => setInspection(null)}><X size={16} /></button>}</div>{effectiveMode === 'create' && <small className="muted">{t("localWorkspace.cloudOnlyHint")}</small>}</div>
+      <div className="field"><span>{t("localWorkspace.whoCanSeeIt")}</span><div className="choice-grid" role="group" aria-label={t("localWorkspace.whoCanSeeIt")}><button type="button" className={`choice ${isPrivate ? 'chosen' : ''}`} aria-pressed={isPrivate} disabled={busy} onClick={() => setIsPrivate(true)}><span className="choice-circle">{isPrivate && <Check size={13} />}</span><LockKeyhole size={18} /><strong>{t("localWorkspace.onlyMe")}</strong><small>{t("localWorkspace.visibleOnlyToYou")}</small></button><button type="button" className={`choice ${!isPrivate ? 'chosen' : ''}`} aria-pressed={!isPrivate} disabled={busy} onClick={() => setIsPrivate(false)}><span className="choice-circle">{!isPrivate && <Check size={13} />}</span><Globe2 size={18} /><strong>{t("localWorkspace.everyone")}</strong><small>{t("localWorkspace.shareItWithOthers")}</small></button></div></div>
+      <button className="button button-primary submit-button" disabled={busy || !name.trim() || effectiveMode !== 'create' && !inspection || inspection?.state === 'github'} type="submit"><Plus size={17} />{t("localWorkspace.createProject")}</button>
     </form>}
     {effectiveMode === 'list' && activeLocalId && linksReady && visibleLinks.length === 0 && <p className="live-empty">{t("localWorkspace.thisLocalLinkWasRemovedYouCanReturnTo")}</p>}
     {effectiveMode === 'list' && selectedRepo && linksReady && visibleLinks.length === 0 && <section className="panel live-section local-cloud-download"><h2>{t("localWorkspace.noLocalFolderYet")}</h2><p>{t("localWorkspace.downloadTheProjectToReviewFilesAndPublishChanges")}</p><button className="button button-primary" disabled={busy || downloadBusy} onClick={() => void download(selectedRepo)}><Download size={17} />{t("localWorkspace.downloadProjectFromGithub")}</button></section>}
