@@ -8,11 +8,14 @@ import { AI_PROVIDERS, testAiConnection, type AiProviderId } from '@/features/ai
 import { clearAiSettings, loadAiSettings, saveAiSettings } from '@/features/ai/settings';
 import { Action, Card, palette } from './elements';
 import { MaterialArrow } from './MaterialArrow';
+import { FeedbackNotice } from './FeedbackNotice';
+import { useSuccessNotice } from '@/features/workspace/useSuccessNotice';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
 
 export function AiReviewSettings() {
   const t = useTranslation();
   const { capture } = usePageFeedback();
+  const { value: notice, set: setNotice, dismiss: dismissNotice } = useSuccessNotice();
   const [providerId, setProviderId] = useState<AiProviderId>('openai');
   const [model, setModel] = useState<string>(AI_PROVIDERS[0].defaultModel);
   const [apiKey, setApiKey] = useState('');
@@ -41,27 +44,27 @@ export function AiReviewSettings() {
   };
   const save = async (selectedModel = model) => {
     if (locked) return;
-    setBusy(true);
+    setBusy(true); setNotice('');
     const current = capture();
     try {
       const previous = await loadAiSettings();
       const key = apiKey.trim() || (previous?.providerId === providerId ? previous.apiKey : '');
       await saveAiSettings({ providerId, model: selectedModel.trim(), apiKey: key });
       setSavedProvider(providerId); setSavedModel(selectedModel.trim()); setModel(selectedModel.trim()); setHasKey(true); setApiKey(''); setExpanded(false); setModelExpanded(false);
-      if (current()) Alert.alert(t("AiReviewSettings.aiSettingsSaved"));
+      if (current()) setNotice(t("AiReviewSettings.aiSettingsSaved"));
     } catch (reason) { if (current()) Alert.alert(t("AiReviewSettings.couldNotSaveSettings"), localizeError(reason, t, t("AiReviewSettings.pleaseTryAgain"))); }
     finally { setBusy(false); }
   };
   const test = async () => {
     if (locked || edited) return;
-    setBusy(true);
+    setBusy(true); setNotice('');
     const current = capture();
     try {
       const saved = await loadAiSettings();
       if (!saved) throw new Error(t("AiReviewSettings.saveAISettingsFirst"));
       if (saved.providerId !== providerId || saved.model !== model.trim()) throw new Error(t("AiReviewSettings.aiSettingsChangedReopenSettings"));
       await testAiConnection(saved);
-      if (current()) Alert.alert(t("AiReviewSettings.connectedAIReviewIsReady"));
+      if (current()) setNotice(t("AiReviewSettings.connectedAIReviewIsReady"));
     } catch (reason) { if (current()) Alert.alert(t("AiReviewSettings.connectionFailed"), reason instanceof Error && reason.name !== 'AbortError' ? localizeError(reason, t, t("AiReviewSettings.connectionTimedOutPleaseTryAgain")) : t("AiReviewSettings.connectionTimedOutPleaseTryAgain")); }
     finally { setBusy(false); }
   };
@@ -99,5 +102,6 @@ export function AiReviewSettings() {
       {hasKey && <Action title={t("AiReviewSettings.removeSavedAPIKey")} secondary disabled={locked} onPress={forget} />}</View>
     {edited && <Text style={{ color: palette.muted, marginTop: 10 }}>{t("AiReviewSettings.saveYourChangesBeforeTestingTheConnection")}</Text>}
     </>}
+    {notice && <FeedbackNotice key={notice.id} notice={notice} onDismiss={dismissNotice} />}
   </Card>;
 }

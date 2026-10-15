@@ -1,4 +1,6 @@
 export const zh = {
+  "common.close": "关闭",
+  "common.dismissFeedback": "关闭操作提示",
   "common.reload": "重新读取",
   "common.changeHistory": "修改记录",
   "common.pullRequest": "合并请求",

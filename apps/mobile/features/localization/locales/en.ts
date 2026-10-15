@@ -2,6 +2,8 @@ import type { zh } from './zh.ts';
 import type { CatalogMessage } from '../types.ts';
 
 export const en = {
+  "common.close": "Close",
+  "common.dismissFeedback": "Dismiss feedback",
   "common.reload": "Reload",
   "common.changeHistory": "Change history",
   "common.pullRequest": "Pull request",

@@ -18,6 +18,8 @@ import { MAX_ANALYSIS_BYTES } from '@/features/analysis/source';
 import { formatBytes } from '@/features/github/downloadProgress';
 import { useProgramReviewNotice } from '@/features/analysis/useProgramReviewNotice';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
+import { FeedbackNotice } from './FeedbackNotice';
+import { useSuccessNotice } from '@/features/workspace/useSuccessNotice';
 
 type Operation = 'choose' | 'prepare' | 'extracting' | 'reviewing' | 'install' | 'remove' | 'cancel';
 type OperationLock = { id: number; kind: Operation };
@@ -100,7 +102,7 @@ export function BinaryAnalysisSettings({ onOpenComponents }: { onOpenComponents?
   const [analysis, setAnalysis] = useState<BinaryAnalysisResult | null>(null);
   const [review, setReview] = useState<BinaryAiReviewResult | null>(null);
   const { value: error, set: setError } = usePageFeedback('');
-  const { value: notice, set: setNotice } = usePageFeedback('');
+  const { value: notice, set: setNotice, dismiss: dismissNotice } = useSuccessNotice();
   const mounted = useRef(true);
   const focused = useRef(false);
   const focusedLanguage = useRef(language);
@@ -360,7 +362,6 @@ export function BinaryAnalysisSettings({ onOpenComponents }: { onOpenComponents?
         <ReviewAction secondary title={busy === 'cancel' ? t("BinaryAnalysisSettings.canceling") : t("AiReviewSettings.cancel")} disabled={busy === 'cancel'} onPress={cancel} />
       </View>}
       {!!error && <Text accessibilityRole="alert" style={{ color: '#bf3947', lineHeight: 22, marginTop: 15 }}>{error}</Text>}
-      {!!notice && <Text accessibilityLiveRegion="polite" style={{ color: palette.muted, lineHeight: 22, marginTop: 15 }}>{notice}</Text>}
       {review && review.analysisId === analysis?.id && <View style={{ marginTop: 19, paddingTop: 17, borderTopWidth: 1, borderTopColor: palette.border }}>
         <Text style={{ color: palette.ink, fontWeight: '800', fontSize: 18 }}>{t("BinaryAnalysisSettings.aiReviewResults")}</Text>
         <Text selectable style={{ color: palette.ink, lineHeight: 23, marginTop: 11 }}>{review.summary}</Text>
@@ -378,5 +379,6 @@ export function BinaryAnalysisSettings({ onOpenComponents }: { onOpenComponents?
       </View>}
       {analysis && <ProgramEvidence key={analysis.id} analysis={analysis} />}
     </View>}
+    {notice && <FeedbackNotice key={notice.id} notice={notice} onDismiss={dismissNotice} />}
   </Card>;
 }
