@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
 import { installDownloadFixture } from './download-fixture.mjs';
+const backShortcut = process.platform === 'darwin' ? 'Meta+[' : 'Alt+ArrowLeft';
 
 const desktop = dirname(fileURLToPath(import.meta.url));
 const product = process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
@@ -29,6 +30,9 @@ try {
     const now = new Date().toISOString();
     const own = { id: 1, name: 'own-project', full_name: 'tester/own-project', owner: { login: 'tester', avatar_url: '' }, description: 'Own project', private: false, default_branch: 'main', updated_at: now, open_issues_count: 1, permissions: { push: true, admin: true } };
     const projects = Array.from({ length: 30 }, (_, index) => ({ ...own, id: index + 100, name: `public-${index}`, full_name: `writer/public-${index}`, owner: { login: 'writer', avatar_url: '' }, permissions: undefined }));
+    // Native presentation is isolated; business mutations remain blocked.
+    mock('easyhub:menu-state', () => undefined);
+    mock('easyhub:window-set-style', () => undefined);
     mock('easyhub:auth-status', () => ({ user: { id: 1, login: 'tester', name: 'Tester', avatar_url: '', html_url: '' }, clientId: null }));
     mock('easyhub:local-list', () => []);
     mock('easyhub:local-discovery-roots', () => []);
@@ -66,11 +70,11 @@ try {
   assert.ok(Math.abs(await page.locator('.main-column').evaluate(node => node.scrollTop) - position) < 5, 'Project scroll position lost.');
   await page.getByRole('button', { name: '所有项目', exact: true }).click();
   await page.getByRole('heading', { name: '设置', exact: true }).waitFor();
-  await page.keyboard.press('Alt+ArrowLeft');
+  await page.keyboard.press(backShortcut);
   await page.locator('.detail-hero h1').filter({ hasText: 'own-project' }).waitFor();
   const searchDraft = page.getByRole('combobox', { name: '搜索项目/用户', exact: true });
   await searchDraft.fill('unsent search draft');
-  await searchDraft.press('Alt+ArrowLeft');
+  await searchDraft.press(backShortcut);
   assert.equal(await searchDraft.inputValue(), 'unsent search draft');
   assert.equal(await page.locator('.detail-hero h1').textContent(), 'own-project', 'Input word navigation must not leave the page.');
   await page.waitForTimeout(120); // Do not let duplicate-event throttling mask input handling.
@@ -88,7 +92,7 @@ try {
       document.querySelector('.page-content').prepend(node);
       node.focus();
     }, kind);
-    await page.keyboard.press('Alt+ArrowLeft');
+    await page.keyboard.press(backShortcut);
     assert.equal(await page.locator('.detail-hero h1').textContent(), 'own-project', `${kind} must preserve the current page.`);
     assert.equal(await page.locator('#navigation-editing-fixture').textContent(), 'unsent editing draft');
     await page.locator('#navigation-editing-fixture').evaluate(node => node.remove());
