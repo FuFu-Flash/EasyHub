@@ -234,7 +234,9 @@ try {
   await page.getByRole('button', { name: '选择文件夹' }).click();
   await page.getByRole('textbox', { name: '项目名称' }).fill('LocalDemo');
   await page.getByRole('button', { name: '创建项目' }).click();
-  await page.getByText('项目已创建，请查看并选择要发布的文件。').waitFor();
+  await page.locator('.local-workspace').getByRole('heading', { name: 'LocalDemo', exact: true }).waitFor();
+  assert.equal(await page.locator('.local-project-card').count(), 1, 'Creation opens only the newly created local project');
+  await page.getByRole('textbox', { name: '这次改了什么？' }).waitFor();
   await page.getByRole('button', { name: '发布源码' }).click();
   await page.getByRole('textbox', { name: '这次改了什么？' }).fill('修复窗口缩放问题');
   await page.getByRole('button', { name: '发布选中的文件' }).click();

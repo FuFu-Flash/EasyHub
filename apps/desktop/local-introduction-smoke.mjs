@@ -107,7 +107,9 @@ try {
   }, join(desktopDirectory, 'out', 'renderer', 'index.html'));
   await page.locator('.live-connected').waitFor();
   const openLocal = async (index) => {
-    await page.locator('.sidebar-nav button').filter({ hasText: /我的项目|My Projects/u }).click();
+    const projects = page.locator('.sidebar-nav button').filter({ hasText: /我的项目|My Projects/u });
+    await projects.click();
+    if (!await page.getByRole('button', { name: /这台电脑|This computer/iu }).count()) await projects.click();
     await page.getByRole('button', { name: /这台电脑|This computer/u }).click();
     await page.locator('.project-card').nth(index).getByRole('button', { name: /打开项目|Open project/u, exact: true }).click();
     await page.locator('.local-workspace').waitFor();
@@ -127,13 +129,17 @@ try {
   await page.getByRole('heading', { name: 'First local introduction', exact: true }).waitFor({ timeout: 5000 });
   assert.equal(await page.getByText('Second checkout only.', { exact: true }).count(), 0, 'Changing projects must clear the prior introduction.');
   await page.locator('.sidebar-nav button').filter({ hasText: /首页|Home/u }).click();
-  await page.locator('.home-all-saved').getByRole('button').click();
+  await page.locator('.home-shortcuts').getByRole('button', { name: '添加现有文件夹', exact: true }).click();
   await page.locator('.local-project-card').nth(1).waitFor();
   assert.equal(await page.locator('.local-project-card').count(), 2, 'The general local view must clear the previously selected checkout.');
   await app.evaluate(() => { globalThis.easyHubIntroductionFixture.errors['local-0'] = '本地介绍暂时无法读取'; });
   await openLocal(0);
   await page.getByRole('alert').filter({ hasText: '本地介绍暂时无法读取' }).waitFor();
   assert.equal(await page.getByText('这个项目还没有介绍。', { exact: true }).count(), 0, 'A read error must not report an empty introduction.');
+  // A retained details element can still have a queued toggle/read after being
+  // reopened. Finish those render tasks while the fixture is still failing.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.locator('.local-readme').getByRole('button', { name: '重新读取', exact: true }).waitFor();
   await app.evaluate(() => { delete globalThis.easyHubIntroductionFixture.errors['local-0']; });
   await page.locator('.local-readme').getByRole('button', { name: '重新读取', exact: true }).click();
   await page.getByRole('heading', { name: 'First local introduction', exact: true }).waitFor();

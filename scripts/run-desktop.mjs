@@ -21,6 +21,7 @@ allowed.add('test:resilience');
 allowed.add('review:resilience');
 allowed.add('review:workspace-navigation');
 allowed.add('test:key-localization');
+allowed.add('test:new-project-layout');
 allowed.add('test:code-explanation');
 allowed.add('test:source-history');
 allowed.add('test:navigation-state');
