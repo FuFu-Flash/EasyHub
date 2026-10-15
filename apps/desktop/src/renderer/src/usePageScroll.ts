@@ -2,14 +2,19 @@ import { useLayoutEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 
 /** Account-session page positions; delayed content is allowed to grow before restoration. */
-export function usePageScroll(key: string, areaRef: RefObject<HTMLDivElement | null>, isActive: () => boolean = () => true): () => void {
+export function usePageScroll(
+  key: string,
+  areaRef: RefObject<HTMLDivElement | null>,
+  isActive: () => boolean = () => true,
+): () => void {
   const positions = useRef(new Map<string, number>());
   const current = useRef(key);
   const restoring = useRef(false);
   const active = useRef(isActive);
   active.current = isActive;
   const remember = (): void => {
-    if (active.current() && !restoring.current && areaRef.current) positions.current.set(current.current, areaRef.current.scrollTop);
+    if (active.current() && !restoring.current && areaRef.current)
+      positions.current.set(current.current, areaRef.current.scrollTop);
   };
   useLayoutEffect(() => {
     const area = areaRef.current;
@@ -31,9 +36,12 @@ export function usePageScroll(key: string, areaRef: RefObject<HTMLDivElement | n
       area.scrollTop = target;
       if (Math.abs(area.scrollTop - target) < 2) restoring.current = false;
     };
-    const stop = (): void => { restoring.current = false; };
+    const stop = (): void => {
+      restoring.current = false;
+    };
     const keyDown = (event: KeyboardEvent): void => {
-      if (event.target instanceof HTMLElement && event.target.closest('input,textarea,select,[contenteditable="true"]')) return;
+      if (event.target instanceof HTMLElement && event.target.closest('input,textarea,select,[contenteditable="true"]'))
+        return;
       if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) stop();
     };
     const observer = new ResizeObserver(restore);

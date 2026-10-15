@@ -18,11 +18,20 @@ export function StarProjectButton({ repo, onChanged }: { repo: GitHubRepo; onCha
     let active = true;
     setChecking(true);
     setError('');
-    void easyHub!.github<boolean>('isStarred', repo.owner.login, repo.name)
-      .then((value) => { if (active) setStarred(value); })
-      .catch(() => { if (active) setError(t("starProjectButton.couldNotCheckStarredStatusTryAgainLater")); })
-      .finally(() => { if (active) setChecking(false); });
-    return () => { active = false; };
+    void easyHub!
+      .github<boolean>('isStarred', repo.owner.login, repo.name)
+      .then((value) => {
+        if (active) setStarred(value);
+      })
+      .catch(() => {
+        if (active) setError(t('starProjectButton.couldNotCheckStarredStatusTryAgainLater'));
+      })
+      .finally(() => {
+        if (active) setChecking(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [repo.owner.login, repo.name]);
 
   async function toggle(): Promise<void> {
@@ -34,14 +43,35 @@ export function StarProjectButton({ repo, onChanged }: { repo: GitHubRepo; onCha
       setStarred(next);
       onChanged?.(next);
     } catch (cause) {
-      setError(errorText(cause, t("starProjectButton.couldNotUpdateTheProjectTryAgainLater")));
-    } finally { setSaving(false); }
+      setError(errorText(cause, t('starProjectButton.couldNotUpdateTheProjectTryAgainLater')));
+    } finally {
+      setSaving(false);
+    }
   }
 
-  return <span className="star-project-control">
-    <button type="button" className={`button button-quiet star-project-button ${starred ? 'is-starred' : ''}`} aria-pressed={starred} disabled={checking || saving} onClick={() => void toggle()}>
-      <Star size={17} fill={starred ? 'currentColor' : 'none'} />{checking ? t("starProjectButton.loading") : saving ? t("starProjectButton.saving") : starred ? t("starProjectButton.starred") : t("starProjectButton.starProject")}
-    </button>
-    {error && <small className="star-project-error" role="alert"><ErrorMessage error={error} /></small>}
-  </span>;
+  return (
+    <span className="star-project-control">
+      <button
+        type="button"
+        className={`button button-quiet star-project-button ${starred ? 'is-starred' : ''}`}
+        aria-pressed={starred}
+        disabled={checking || saving}
+        onClick={() => void toggle()}
+      >
+        <Star size={17} fill={starred ? 'currentColor' : 'none'} />
+        {checking
+          ? t('starProjectButton.loading')
+          : saving
+            ? t('starProjectButton.saving')
+            : starred
+              ? t('starProjectButton.starred')
+              : t('starProjectButton.starProject')}
+      </button>
+      {error && (
+        <small className="star-project-error" role="alert">
+          <ErrorMessage error={error} />
+        </small>
+      )}
+    </span>
+  );
 }

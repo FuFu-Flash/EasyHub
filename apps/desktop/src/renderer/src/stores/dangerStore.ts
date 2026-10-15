@@ -3,7 +3,12 @@ import type { MockState } from './mockStore';
 
 export type DangerAction = 'visibility' | 'protection' | 'transfer' | 'archive' | 'delete';
 
-export function applyDangerAction(state: MockState, projectId: string, action: DangerAction, targetOwner?: string): MockState {
+export function applyDangerAction(
+  state: MockState,
+  projectId: string,
+  action: DangerAction,
+  targetOwner?: string,
+): MockState {
   const project = state.projects.find((item) => item.id === projectId);
   if (!project) throw new Error('找不到这个项目');
   if (project.archived && action !== 'archive' && action !== 'delete') throw new Error('请先取消项目存档');
@@ -37,5 +42,5 @@ export function applyDangerAction(state: MockState, projectId: string, action: D
       changed = { ...project, archived: !project.archived };
       break;
   }
-  return { ...state, projects: state.projects.map((item) => item.id === projectId ? changed : item) };
+  return { ...state, projects: state.projects.map((item) => (item.id === projectId ? changed : item)) };
 }

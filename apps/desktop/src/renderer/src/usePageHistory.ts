@@ -1,16 +1,37 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { NavigationHistory } from './navigationHistory';
 
-export function usePageHistory(key: string, restore: () => void): { back: (fallback: () => void) => void; forward: () => void; replace: (navigate: () => void) => void; prune: (isValid: (key: string) => boolean) => void; hasBack: boolean; hasForward: boolean } {
+export function usePageHistory(
+  key: string,
+  restore: () => void,
+): {
+  back: (fallback: () => void) => void;
+  forward: () => void;
+  replace: (navigate: () => void) => void;
+  prune: (isValid: (key: string) => boolean) => void;
+  hasBack: boolean;
+  hasForward: boolean;
+} {
   const history = useRef(new NavigationHistory());
   const [depth, setDepth] = useState(0);
-  useLayoutEffect(() => { setDepth(history.current.record(key, restore)); });
+  useLayoutEffect(() => {
+    setDepth(history.current.record(key, restore));
+  });
   return {
     hasBack: depth > 0,
     hasForward: history.current.hasForward,
-    forward: () => { setDepth(history.current.forward()); },
-    back: (fallback) => { setDepth(history.current.back(fallback)); },
-    replace: (navigate) => { history.current.replaceNext(); navigate(); },
-    prune: (isValid) => { setDepth(history.current.prune(isValid)); },
+    forward: () => {
+      setDepth(history.current.forward());
+    },
+    back: (fallback) => {
+      setDepth(history.current.back(fallback));
+    },
+    replace: (navigate) => {
+      history.current.replaceNext();
+      navigate();
+    },
+    prune: (isValid) => {
+      setDepth(history.current.prune(isValid));
+    },
   };
 }

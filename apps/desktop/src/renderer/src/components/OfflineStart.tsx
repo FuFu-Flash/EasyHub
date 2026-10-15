@@ -11,24 +11,45 @@ export function OfflineStart({ onRetry }: { onRetry: () => void }) {
   const language = useLanguage();
   const api = useEasyHub();
   const [repair, setRepair] = useState(false);
-  return <div className="welcome-page offline-start">
-    <header className="welcome-controls" aria-label={t('liveWorkspace.windowControls')}>
-      <button className="icon-button" aria-label={t('app.minimizeWindow')} onClick={() => void api?.minimizeWindow()}><Minus size={18} /></button>
-      <button className="icon-button" aria-label={t('app.maximizeOrRestoreWindow')} onClick={() => void api?.toggleMaximizeWindow()}><Square size={16} /></button>
-      <button className="icon-button" aria-label={t('app.closeWindow')} onClick={() => void api?.closeWindow()}><X size={18} /></button>
-    </header>
-    <section>
-      <img src={appIcon} alt="EasyHub" />
-      <h1>{t('app.offlineWithoutProjectData')}</h1>
-      <p>{t('app.offlineWithoutProjectDataHelp')}</p>
-      <div className="modal-actions">
-        <button className="button button-primary" onClick={onRetry}>{t('liveWorkspace.retry')}</button>
-        <button className="button button-quiet" onClick={() => setRepair(value => !value)} aria-expanded={repair}>{t('liveWorkspace.networkRepair')}</button>
-      </div>
-      {repair && <div className="offline-network-settings">
-        <button className="back-link" onClick={() => setRepair(false)}><ArrowLeft size={16} />{t('app.backToConnection')}</button>
-        <HostsRepairPanel language={language} />
-      </div>}
-    </section>
-  </div>;
+  return (
+    <div className="welcome-page offline-start">
+      <header className="welcome-controls" aria-label={t('liveWorkspace.windowControls')}>
+        <button className="icon-button" aria-label={t('app.minimizeWindow')} onClick={() => void api?.minimizeWindow()}>
+          <Minus size={18} />
+        </button>
+        <button
+          className="icon-button"
+          aria-label={t('app.maximizeOrRestoreWindow')}
+          onClick={() => void api?.toggleMaximizeWindow()}
+        >
+          <Square size={16} />
+        </button>
+        <button className="icon-button" aria-label={t('app.closeWindow')} onClick={() => void api?.closeWindow()}>
+          <X size={18} />
+        </button>
+      </header>
+      <section>
+        <img src={appIcon} alt="EasyHub" />
+        <h1>{t('app.offlineWithoutProjectData')}</h1>
+        <p>{t('app.offlineWithoutProjectDataHelp')}</p>
+        <div className="modal-actions">
+          <button className="button button-primary" onClick={onRetry}>
+            {t('liveWorkspace.retry')}
+          </button>
+          <button className="button button-quiet" onClick={() => setRepair((value) => !value)} aria-expanded={repair}>
+            {t('liveWorkspace.networkRepair')}
+          </button>
+        </div>
+        {repair && (
+          <div className="offline-network-settings">
+            <button className="back-link" onClick={() => setRepair(false)}>
+              <ArrowLeft size={16} />
+              {t('app.backToConnection')}
+            </button>
+            <HostsRepairPanel language={language} />
+          </div>
+        )}
+      </section>
+    </div>
+  );
 }

@@ -8,15 +8,23 @@ function settingsWindow(storage: Pick<Storage, 'getItem' | 'setItem'>): EventTar
 }
 
 describe('program review installation prompts', () => {
-  it.each([null, undefined, '', 'true', 'False', 'unexpected', false, true, 0, {}])('keeps prompts enabled for an absent or invalid preference: %s', async (value) => {
-    const { parseProgramReviewNoticesEnabled } = await import('./programReviewNotice');
-    expect(parseProgramReviewNoticesEnabled(value)).toBe(true);
-    expect(parseProgramReviewNoticesEnabled('false')).toBe(false);
-  });
+  it.each([null, undefined, '', 'true', 'False', 'unexpected', false, true, 0, {}])(
+    'keeps prompts enabled for an absent or invalid preference: %s',
+    async (value) => {
+      const { parseProgramReviewNoticesEnabled } = await import('./programReviewNotice');
+      expect(parseProgramReviewNoticesEnabled(value)).toBe(true);
+      expect(parseProgramReviewNoticesEnabled('false')).toBe(false);
+    },
+  );
 
   it('uses one device preference and keeps permanent ignore after a module reload', async () => {
     const values = new Map<string, string>();
-    const storage = { getItem: vi.fn((key: string) => values.get(key) ?? null), setItem: vi.fn((key: string, value: string) => { values.set(key, value); }) };
+    const storage = {
+      getItem: vi.fn((key: string) => values.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => {
+        values.set(key, value);
+      }),
+    };
     vi.stubGlobal('window', settingsWindow(storage));
     const first = await import('./programReviewNotice');
     expect(first.readProgramReviewNoticesEnabled()).toBe(true);
@@ -30,7 +38,12 @@ describe('program review installation prompts', () => {
 
   it('restores prompts persistently and broadcasts each preference change', async () => {
     const values = new Map<string, string>();
-    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: vi.fn((key: string, value: string) => { values.set(key, value); }) };
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: vi.fn((key: string, value: string) => {
+        values.set(key, value);
+      }),
+    };
     const target = settingsWindow(storage);
     vi.stubGlobal('window', target);
     const preference = await import('./programReviewNotice');
@@ -48,14 +61,24 @@ describe('program review installation prompts', () => {
   });
 
   it('defaults to enabled when saved settings cannot be read', async () => {
-    const storage = { getItem: vi.fn(() => { throw new Error('Storage blocked'); }), setItem: vi.fn() };
+    const storage = {
+      getItem: vi.fn(() => {
+        throw new Error('Storage blocked');
+      }),
+      setItem: vi.fn(),
+    };
     vi.stubGlobal('window', settingsWindow(storage));
     const preference = await import('./programReviewNotice');
     expect(preference.readProgramReviewNoticesEnabled()).toBe(true);
   });
 
   it('keeps a failed write usable across panel remounts in the same session', async () => {
-    const storage = { getItem: vi.fn(() => null), setItem: vi.fn(() => { throw new Error('Storage full'); }) };
+    const storage = {
+      getItem: vi.fn(() => null),
+      setItem: vi.fn(() => {
+        throw new Error('Storage full');
+      }),
+    };
     const target = settingsWindow(storage);
     vi.stubGlobal('window', target);
     const preference = await import('./programReviewNotice');
@@ -70,8 +93,15 @@ describe('program review installation prompts', () => {
 
   it('recovers persistence when storage becomes available again', async () => {
     const values = new Map<string, string>();
-    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: vi.fn((key: string, value: string) => { values.set(key, value); }) };
-    storage.setItem.mockImplementationOnce(() => { throw new Error('Storage full'); });
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: vi.fn((key: string, value: string) => {
+        values.set(key, value);
+      }),
+    };
+    storage.setItem.mockImplementationOnce(() => {
+      throw new Error('Storage full');
+    });
     vi.stubGlobal('window', settingsWindow(storage));
     const preference = await import('./programReviewNotice');
     preference.writeProgramReviewNoticesEnabled(false);
@@ -88,7 +118,11 @@ describe('program review installation prompts', () => {
     expect(() => preference.writeProgramReviewNoticesEnabled(false)).not.toThrow();
     expect(preference.readProgramReviewNoticesEnabled()).toBe(false);
     const target = new EventTarget();
-    Object.defineProperty(target, 'localStorage', { get: () => { throw new Error('Storage unavailable'); } });
+    Object.defineProperty(target, 'localStorage', {
+      get: () => {
+        throw new Error('Storage unavailable');
+      },
+    });
     vi.stubGlobal('window', target);
     expect(() => preference.writeProgramReviewNoticesEnabled(true)).not.toThrow();
     expect(preference.readProgramReviewNoticesEnabled()).toBe(true);

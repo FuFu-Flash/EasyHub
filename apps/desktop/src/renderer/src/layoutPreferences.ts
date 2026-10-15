@@ -11,12 +11,15 @@ export function parseLayoutPreference(value: unknown): LayoutPreference {
 }
 
 export function readLayoutPreference(): LayoutPreference {
-  try { return parseLayoutPreference(window.localStorage.getItem(LAYOUT_PREFERENCE_KEY)); }
-  catch { return 'auto'; }
+  try {
+    return parseLayoutPreference(window.localStorage.getItem(LAYOUT_PREFERENCE_KEY));
+  } catch {
+    return 'auto';
+  }
 }
 
 export function resolveLayoutDensity(preference: LayoutPreference, compactWindow: boolean): LayoutDensity {
-  return preference === 'auto' ? compactWindow ? 'compact' : 'comfortable' : preference;
+  return preference === 'auto' ? (compactWindow ? 'compact' : 'comfortable') : preference;
 }
 
 export function useLayoutPreference(): {
@@ -44,8 +47,11 @@ export function useLayoutPreference(): {
 
   const setPreference = useCallback((next: LayoutPreference): void => {
     updatePreference(next);
-    try { window.localStorage.setItem(LAYOUT_PREFERENCE_KEY, next); }
-    catch { /* The selected layout can still apply for this session. */ }
+    try {
+      window.localStorage.setItem(LAYOUT_PREFERENCE_KEY, next);
+    } catch {
+      /* The selected layout can still apply for this session. */
+    }
   }, []);
 
   return { preference, density: resolveLayoutDensity(preference, compactWindow), setPreference };

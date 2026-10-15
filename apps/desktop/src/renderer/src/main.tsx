@@ -6,6 +6,8 @@ import './styles.css';
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <AppErrorBoundary scope="shell" shell><App /></AppErrorBoundary>
+    <AppErrorBoundary scope="shell" shell>
+      <App />
+    </AppErrorBoundary>
   </React.StrictMode>,
 );

@@ -9,7 +9,9 @@ describe('localized operation presentation', () => {
     const value = { step: 'uploading-asset' as const, fileName: '更新{count}.zip' };
     expect(progressLabel(value, getTranslator('en'))).toBe('Uploading 更新{count}.zip');
     expect(progressLabel(value, getTranslator('zh'))).toBe('正在上传 更新{count}.zip');
-    expect(progressLabel({ step: 'reviewing-file', fileName: '安装.ts' }, getTranslator('en'))).toBe('Reviewing 安装.ts…');
+    expect(progressLabel({ step: 'reviewing-file', fileName: '安装.ts' }, getTranslator('en'))).toBe(
+      'Reviewing 安装.ts…',
+    );
     expect(progressLabel(null, getTranslator('en'))).toBe('Working…');
   });
   it('localizes speeds, durations and sensitive reason codes', () => {

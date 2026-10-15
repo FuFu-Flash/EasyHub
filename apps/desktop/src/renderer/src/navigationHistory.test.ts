@@ -3,17 +3,29 @@ import { NavigationHistory } from './navigationHistory';
 
 describe('browsing history', () => {
   it('restores forward pages and discards them after a new visit', () => {
-    const history = new NavigationHistory(); let page = '';
-    for (const key of ['home', 'project', 'issue']) history.record(key, () => { page = key; });
-    history.back(() => {}); expect(page).toBe('project');
-    history.record(page, () => { page = 'project'; });
+    const history = new NavigationHistory();
+    let page = '';
+    for (const key of ['home', 'project', 'issue'])
+      history.record(key, () => {
+        page = key;
+      });
+    history.back(() => {});
+    expect(page).toBe('project');
+    history.record(page, () => {
+      page = 'project';
+    });
     expect(history.hasForward).toBe(true);
-    history.forward(); expect(page).toBe('issue');
-    history.record(page, () => { page = 'issue'; });
-    history.back(() => {}); history.record('project', () => {});
+    history.forward();
+    expect(page).toBe('issue');
+    history.record(page, () => {
+      page = 'issue';
+    });
+    history.back(() => {});
+    history.record('project', () => {});
     history.record('settings', () => {});
     expect(history.hasForward).toBe(false);
-    history.back(() => {}); history.record('project', () => {});
+    history.back(() => {});
+    history.record('project', () => {});
     history.prune((key) => key !== 'settings');
     expect(history.hasForward).toBe(false);
   });
@@ -32,7 +44,9 @@ describe('browsing history', () => {
     const history = new NavigationHistory();
     let restored = '';
     for (const key of ['list', 'deleted/project', 'other/project', 'deleted/issue', 'delete']) {
-      history.record(key, () => { restored = key; });
+      history.record(key, () => {
+        restored = key;
+      });
     }
     expect(history.prune((key) => !key.startsWith('deleted/'))).toBe(2);
     history.replaceNext();
@@ -55,16 +69,28 @@ describe('browsing history', () => {
   it('does not return to a submitted operation or loop through a fallback', () => {
     const history = new NavigationHistory();
     let restored = '';
-    history.record('project', () => { restored = 'project'; });
-    history.record('publish', () => { restored = 'publish'; });
+    history.record('project', () => {
+      restored = 'project';
+    });
+    history.record('publish', () => {
+      restored = 'publish';
+    });
     history.replaceNext();
-    history.record('release', () => { restored = 'release'; });
-    history.back(() => { restored = 'fallback'; });
+    history.record('release', () => {
+      restored = 'release';
+    });
+    history.back(() => {
+      restored = 'fallback';
+    });
     expect(restored).toBe('project');
     history.record('project', () => {});
-    history.back(() => { restored = 'fallback'; });
+    history.back(() => {
+      restored = 'fallback';
+    });
     expect(history.record('fallback', () => {})).toBe(0);
-    history.back(() => { restored = 'empty'; });
+    history.back(() => {
+      restored = 'empty';
+    });
     expect(restored).toBe('empty');
   });
   it('returns through every page and does not add restored pages again', () => {
@@ -72,22 +98,34 @@ describe('browsing history', () => {
     let page = 'search';
     for (const next of ['search', 'profile', 'project', 'issue', 'release']) {
       page = next;
-      history.record(next, () => { page = next; });
+      history.record(next, () => {
+        page = next;
+      });
     }
     for (const expected of ['issue', 'project', 'profile', 'search']) {
-      history.back(() => { page = 'fallback'; });
+      history.back(() => {
+        page = 'fallback';
+      });
       expect(page).toBe(expected);
-      history.record(page, () => { page = expected; });
+      history.record(page, () => {
+        page = expected;
+      });
     }
-    history.back(() => { page = 'fallback'; });
+    history.back(() => {
+      page = 'fallback';
+    });
     expect(page).toBe('fallback');
   });
 
   it('keeps the latest state on the same page without creating typing history', () => {
     const history = new NavigationHistory();
     let restored = '';
-    history.record('search', () => { restored = 'first'; });
-    history.record('search', () => { restored = 'writer, page 3, scroll 520'; });
+    history.record('search', () => {
+      restored = 'first';
+    });
+    history.record('search', () => {
+      restored = 'writer, page 3, scroll 520';
+    });
     expect(history.record('project', () => {})).toBe(1);
     history.back(() => {});
     expect(restored).toBe('writer, page 3, scroll 520');
@@ -96,7 +134,12 @@ describe('browsing history', () => {
   it('keeps revisits to the same project at different positions in the chain', () => {
     const history = new NavigationHistory();
     const restored: string[] = [];
-    for (const [key, state] of [['project', 'first visit'], ['issue', 'issue'], ['project', 'second visit'], ['release', 'release']]) {
+    for (const [key, state] of [
+      ['project', 'first visit'],
+      ['issue', 'issue'],
+      ['project', 'second visit'],
+      ['release', 'release'],
+    ]) {
       history.record(key!, () => restored.push(state!));
     }
     history.back(() => {});

@@ -1,12 +1,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LAYOUT_PREFERENCE_KEY, parseLayoutPreference, readLayoutPreference, resolveLayoutDensity } from './layoutPreferences';
+import {
+  LAYOUT_PREFERENCE_KEY,
+  parseLayoutPreference,
+  readLayoutPreference,
+  resolveLayoutDensity,
+} from './layoutPreferences';
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('layout preferences', () => {
-  it.each([null, undefined, '', 'unexpected', 1, {}])('uses automatic layout for an absent or invalid preference: %s', (value) => {
-    expect(parseLayoutPreference(value)).toBe('auto');
-  });
+  it.each([null, undefined, '', 'unexpected', 1, {}])(
+    'uses automatic layout for an absent or invalid preference: %s',
+    (value) => {
+      expect(parseLayoutPreference(value)).toBe('auto');
+    },
+  );
 
   it('adapts automatic layout and respects either manual override', () => {
     expect(resolveLayoutDensity('auto', true)).toBe('compact');
@@ -23,7 +31,13 @@ describe('layout preferences', () => {
   });
 
   it('keeps automatic layout available when local settings cannot be read', () => {
-    vi.stubGlobal('window', { localStorage: { getItem: () => { throw new Error('Storage unavailable'); } } });
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: () => {
+          throw new Error('Storage unavailable');
+        },
+      },
+    });
     expect(readLayoutPreference()).toBe('auto');
   });
 });

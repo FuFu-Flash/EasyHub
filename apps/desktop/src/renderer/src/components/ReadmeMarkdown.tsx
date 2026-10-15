@@ -21,42 +21,79 @@ function repositoryBase(repository: ReadmeRepository, image: boolean): string {
     : `https://github.com/${owner}/${name}/blob/${branch}/README.md`;
 }
 
-export function resolveReadmeUrl(value: string, repository: ReadmeRepository | undefined, image: boolean): string | null {
+export function resolveReadmeUrl(
+  value: string,
+  repository: ReadmeRepository | undefined,
+  image: boolean,
+): string | null {
   const source = value.trim();
   if (!source) return null;
   try {
     const base = repository ? repositoryBase(repository, image) : undefined;
-    const absolute = source.startsWith('//') ? `https:${source}` : source.startsWith('/') ? `https://github.com${source}` : source;
+    const absolute = source.startsWith('//')
+      ? `https:${source}`
+      : source.startsWith('/')
+        ? `https://github.com${source}`
+        : source;
     const url = new URL(absolute, base);
     return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
-export function ReadmeMarkdown({ markdown, repository, onOpenLink }: {
+export function ReadmeMarkdown({
+  markdown,
+  repository,
+  onOpenLink,
+}: {
   markdown: string;
   repository?: ReadmeRepository;
   onOpenLink: (url: string) => void;
 }) {
   const t = useTranslation();
   const openLink = useRef(onOpenLink);
-  useLayoutEffect(() => { openLink.current = onOpenLink; }, [onOpenLink]);
+  useLayoutEffect(() => {
+    openLink.current = onOpenLink;
+  }, [onOpenLink]);
   const owner = repository?.owner;
   const name = repository?.name;
   const branch = repository?.branch;
   // Stable component types preserve loaded images and link selections when only
   // refresh/progress state changes. Link clicks still use the latest handler.
   const components = useMemo<Components>(() => {
-    const source = owner !== undefined && name !== undefined && branch !== undefined ? { owner, name, branch } : undefined;
+    const source =
+      owner !== undefined && name !== undefined && branch !== undefined ? { owner, name, branch } : undefined;
     return {
       a: ({ href, children }) => {
         const target = href ? resolveReadmeUrl(href, source, false) : null;
-        return <a href={target ?? undefined} onClick={(event) => { event.preventDefault(); if (target) openLink.current(target); }}>{children}</a>;
+        return (
+          <a
+            href={target ?? undefined}
+            onClick={(event) => {
+              event.preventDefault();
+              if (target) openLink.current(target);
+            }}
+          >
+            {children}
+          </a>
+        );
       },
       img: ({ src, alt, width, height }) => {
         const target = src ? resolveReadmeUrl(src, source, true) : null;
-        return target ? <img src={target} alt={alt ?? ''} width={width} height={height} loading="lazy" /> : <span className="readme-missing-image">{alt ?? t("readmeMarkdown.image")}</span>;
+        return target ? (
+          <img src={target} alt={alt ?? ''} width={width} height={height} loading="lazy" />
+        ) : (
+          <span className="readme-missing-image">{alt ?? t('readmeMarkdown.image')}</span>
+        );
       },
     };
   }, [owner, name, branch]);
-  return <div className="intro-markdown readme-markdown" data-content-original><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeSanitize]} components={components}>{markdown}</ReactMarkdown></div>;
+  return (
+    <div className="intro-markdown readme-markdown" data-content-original>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeSanitize]} components={components}>
+        {markdown}
+      </ReactMarkdown>
+    </div>
+  );
 }

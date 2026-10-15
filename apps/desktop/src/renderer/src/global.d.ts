@@ -3,16 +3,52 @@ import type { GitHubUser } from '@easyhub/github';
 import type { AuthStatus } from '../../shared/auth';
 import type { DownloadCommand, DownloadItem, DownloadRequest } from '../../downloads';
 import type { LocalFileDiff, LocalPublishPreview, LocalPublishSelection } from '@easyhub/types';
-import type { FolderInspection, LocalDiscoveryResult, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
+import type {
+  FolderInspection,
+  LocalDiscoveryResult,
+  LocalOperationProgress,
+  LocalProjectLink,
+  LocalProjectStatus,
+  SyncDecision,
+  SyncPreview,
+} from '@easyhub/types';
 import type { TranslationProgress, TranslationRequest } from '@easyhub/types';
-import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, PublishReleaseRequest, ReleaseProgress, RemoveReleaseAssetRequest, ReleaseMutationFailure } from '@easyhub/types';
+import type {
+  AddReleaseAssetsRequest,
+  EditReleaseRequest,
+  PickedReleaseFile,
+  PublishReleaseRequest,
+  ReleaseProgress,
+  RemoveReleaseAssetRequest,
+  ReleaseMutationFailure,
+} from '@easyhub/types';
 import type { GitHubCreatedRelease } from '@easyhub/github';
-import type { AiSettingsInput, AiSettingsStatus, AiReviewRequest, AiReviewResult, AiReviewProgress, AiCodeExplanationRequest, AiCodeExplanationResult } from '@easyhub/types';
+import type {
+  AiSettingsInput,
+  AiSettingsStatus,
+  AiReviewRequest,
+  AiReviewResult,
+  AiReviewProgress,
+  AiCodeExplanationRequest,
+  AiCodeExplanationResult,
+} from '@easyhub/types';
 import type { AiCommitExplanationRequest, AiCommitExplanationResult } from '@easyhub/types';
 import type { GitHubProxyStatus } from '@easyhub/types';
-import type { BinaryAnalysisSettingsStatus, BinaryAnalysisSource, BinaryAnalysisRequest, BinaryAnalysisResult, BinaryAnalysisProgress, BinaryAiReviewRequest, BinaryAiReviewResult } from '@easyhub/types';
+import type {
+  BinaryAnalysisSettingsStatus,
+  BinaryAnalysisSource,
+  BinaryAnalysisRequest,
+  BinaryAnalysisResult,
+  BinaryAnalysisProgress,
+  BinaryAiReviewRequest,
+  BinaryAiReviewResult,
+} from '@easyhub/types';
 
-interface HostsRepairStatus { enabled: boolean; updatedAt: string | null; source: string }
+interface HostsRepairStatus {
+  enabled: boolean;
+  updatedAt: string | null;
+  source: string;
+}
 
 export interface MacProxySnapshot {
   status: 'disconnected' | 'connecting' | 'connected' | 'disconnecting' | 'unavailable';
@@ -51,7 +87,12 @@ declare global {
       localList: () => Promise<LocalProjectLink[]>;
       localRelocate: (id: string, path: string) => Promise<LocalProjectLink>;
       localRemove: (id: string) => Promise<void>;
-      reportRendererError?: (report: { scope: string; message: string; stack: string; componentStack: string }) => Promise<void>;
+      reportRendererError?: (report: {
+        scope: string;
+        message: string;
+        stack: string;
+        componentStack: string;
+      }) => Promise<void>;
       localDiscoveryRoots: () => Promise<string[]>;
       localDiscoveryAddRoot: (path: string) => Promise<string[]>;
       localDiscoveryRemoveRoot: (path: string) => Promise<string[]>;
@@ -107,14 +148,22 @@ declare global {
       onBinaryAnalysisProgress: (callback: (value: BinaryAnalysisProgress) => void) => () => void;
       onAiReviewProgress: (callback: (value: AiReviewProgress) => void) => () => void;
       authStart: () => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;
-      authStartDeletion: (owner: string, repo: string, id: number) => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;
+      authStartDeletion: (
+        owner: string,
+        repo: string,
+        id: number,
+      ) => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;
       authPoll: () => Promise<{ state: 'waiting' | 'complete'; user?: GitHubUser; interval?: number }>;
       authCancel: () => Promise<void>;
       authLogout: () => Promise<void>;
       chooseReleaseFiles: (inline: boolean) => Promise<PickedReleaseFile[]>;
-      publishRelease: (input: PublishReleaseRequest) => Promise<GitHubCreatedRelease | ReleaseMutationFailure<GitHubCreatedRelease>>;
+      publishRelease: (
+        input: PublishReleaseRequest,
+      ) => Promise<GitHubCreatedRelease | ReleaseMutationFailure<GitHubCreatedRelease>>;
       editRelease: (input: EditReleaseRequest) => Promise<GitHubCreatedRelease>;
-      addReleaseAssets: (input: AddReleaseAssetsRequest) => Promise<GitHubCreatedRelease | ReleaseMutationFailure<GitHubCreatedRelease>>;
+      addReleaseAssets: (
+        input: AddReleaseAssetsRequest,
+      ) => Promise<GitHubCreatedRelease | ReleaseMutationFailure<GitHubCreatedRelease>>;
       removeReleaseAsset: (input: RemoveReleaseAssetRequest) => Promise<GitHubCreatedRelease>;
       cancelRelease: () => Promise<void>;
       onReleaseProgress: (callback: (value: ReleaseProgress) => void) => () => void;
@@ -122,12 +171,20 @@ declare global {
       cancelGithubReads: () => Promise<void>;
       downloadArchive: (owner: string, repo: string, ref: string) => Promise<string | null>;
       downloadReleaseAsset: (owner: string, repo: string, assetId: number) => Promise<string | null>;
-      downloadPullRequestFile: (owner: string, repo: string, number: number, path: string, headSha: string) => Promise<string | null>;
+      downloadPullRequestFile: (
+        owner: string,
+        repo: string,
+        number: number,
+        path: string,
+        headSha: string,
+      ) => Promise<string | null>;
       revealDownloadedArchive: (path: string) => Promise<void>;
       openDownloadedFile: (path: string) => Promise<void>;
       cancelArchive: () => Promise<void>;
       onArchiveProgress: (callback: (value: number) => void) => () => void;
-      onDownloadProgress: (callback: (value: { loaded: number; total: number | null; percent: number | null }) => void) => () => void;
+      onDownloadProgress: (
+        callback: (value: { loaded: number; total: number | null; percent: number | null }) => void,
+      ) => () => void;
     };
   }
 }

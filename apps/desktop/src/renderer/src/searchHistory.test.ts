@@ -13,14 +13,21 @@ describe('search history', () => {
 
   it('ignores invalid persisted entries and separates account keys', () => {
     expect(historyKey('alice')).not.toBe(historyKey('bob'));
-    const storage = { getItem: () => JSON.stringify([{ query: 'valid', scope: 'mine' }, { query: 'bad', scope: 'unsafe' }]) };
+    const storage = {
+      getItem: () =>
+        JSON.stringify([
+          { query: 'valid', scope: 'mine' },
+          { query: 'bad', scope: 'unsafe' },
+        ]),
+    };
     expect(readSearchHistory(storage, 'alice')).toEqual([{ query: 'valid', scope: 'mine' }]);
   });
 
   it('keeps user searches separate from project searches', () => {
     const history = rememberSearch(rememberSearch([], 'writer', 'public'), 'writer', 'users');
     expect(readSearchHistory({ getItem: () => JSON.stringify(history) }, 'alice')).toEqual([
-      { query: 'writer', scope: 'users' }, { query: 'writer', scope: 'public' },
+      { query: 'writer', scope: 'users' },
+      { query: 'writer', scope: 'public' },
     ]);
   });
 });

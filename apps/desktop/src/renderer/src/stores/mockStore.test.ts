@@ -1,9 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { addComment, addDemoChanges, createInitialState, createIssue, createProject, downloadProject, publishUpdate, syncProject, toggleIssue } from './mockStore';
+import {
+  addComment,
+  addDemoChanges,
+  createInitialState,
+  createIssue,
+  createProject,
+  downloadProject,
+  publishUpdate,
+  syncProject,
+  toggleIssue,
+} from './mockStore';
 
 describe('Mock project flows', () => {
   it('creates a project, detects demo changes, publishes a named version', () => {
-    const result = createProject(createInitialState(), { name: '  我的工具  ', description: '说明', visibility: 'private', localPath: 'C:\\Demo' });
+    const result = createProject(createInitialState(), {
+      name: '  我的工具  ',
+      description: '说明',
+      visibility: 'private',
+      localPath: 'C:\\Demo',
+    });
     expect(result.project.name).toBe('我的工具');
     const changed = addDemoChanges(result.state, result.project.id);
     expect(changed.projects[0]?.changedFiles).toHaveLength(3);

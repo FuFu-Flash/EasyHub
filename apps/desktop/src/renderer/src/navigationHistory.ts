@@ -15,8 +15,10 @@ export class NavigationHistory {
 
   record(key: string, restore: () => void): number {
     if (this.current && this.current.key !== key) {
-      if (this.returning || this.replacing) { this.returning = false; this.replacing = false; }
-      else {
+      if (this.returning || this.replacing) {
+        this.returning = false;
+        this.replacing = false;
+      } else {
         this.next.length = 0;
         this.previous.push(this.current);
         if (this.previous.length > this.limit) this.previous.shift();
@@ -28,9 +30,13 @@ export class NavigationHistory {
     return this.previous.length;
   }
 
-  replaceNext(): void { this.replacing = true; }
+  replaceNext(): void {
+    this.replacing = true;
+  }
 
-  get hasForward(): boolean { return this.next.length > 0; }
+  get hasForward(): boolean {
+    return this.next.length > 0;
+  }
 
   forward(): number {
     const page = this.next.pop();
@@ -56,7 +62,10 @@ export class NavigationHistory {
       if (this.current) this.next.push(this.current);
       this.returning = true;
       page.restore();
-    } else { this.replacing = true; fallback(); }
+    } else {
+      this.replacing = true;
+      fallback();
+    }
     return this.previous.length;
   }
 }

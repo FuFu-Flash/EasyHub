@@ -6,7 +6,7 @@ import { en } from './locales/en';
 import { getTranslator, useTranslation } from './localization';
 import { LanguageContext } from './i18n';
 import type { CatalogMessage } from './localizationTypes';
-const slots = (text: string) => [...new Set([...text.matchAll(/\{([^}]+)\}/gu)].map(match => match[1]))].sort();
+const slots = (text: string) => [...new Set([...text.matchAll(/\{([^}]+)\}/gu)].map((match) => match[1]))].sort();
 describe('key based interface localization', () => {
   it('has exactly the same keys and parameters in both catalogs', () => {
     expect(Object.keys(en).sort()).toEqual(Object.keys(zh).sort());
@@ -28,10 +28,18 @@ describe('key based interface localization', () => {
   });
   it('does not reinterpret substituted names, code or placeholders', () => {
     const name = '安装 Installation {count} <code>中文</code>';
-    expect(getTranslator('en')('downloadNotifications.downloadProgressFor', { p0: name })).toBe(`Download progress for ${name}`);
+    expect(getTranslator('en')('downloadNotifications.downloadProgressFor', { p0: name })).toBe(
+      `Download progress for ${name}`,
+    );
   });
   it('uses provider language before storage effects', () => {
-    function Label() { const t = useTranslation(); return createElement('input', { placeholder: t('topbarSearch.searchProjectsUsers2'), title: t('topbarSearch.clearSearch') }); }
+    function Label() {
+      const t = useTranslation();
+      return createElement('input', {
+        placeholder: t('topbarSearch.searchProjectsUsers2'),
+        title: t('topbarSearch.clearSearch'),
+      });
+    }
     const html = renderToStaticMarkup(createElement(LanguageContext.Provider, { value: 'en' }, createElement(Label)));
     expect(html).not.toMatch(/[\u3400-\u9fff]/u);
     expect(html).toContain('Search projects/users');

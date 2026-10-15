@@ -10,7 +10,10 @@ describe('project introduction and danger zone', () => {
     expect(project.readme).toBe('# New introduction');
     expect(project.health).toBe('changes');
     expect(project.changedFiles).toContainEqual({ path: 'README.md', kind: 'modified' });
-    expect(updateProjectReadme(state, 'mytool', '# New introduction').projects.find((item) => item.id === 'mytool')!.changedFiles).toHaveLength(1);
+    expect(
+      updateProjectReadme(state, 'mytool', '# New introduction').projects.find((item) => item.id === 'mytool')!
+        .changedFiles,
+    ).toHaveLength(1);
     expect(() => updateProjectReadme(state, 'website', 'New')).toThrow('获取');
   });
 
@@ -31,7 +34,15 @@ describe('project introduction and danger zone', () => {
     expect(() => publishUpdate(state, 'minecraft', 'Update')).toThrow('取消项目存档');
     expect(() => updateProjectReadme(state, 'minecraft', 'New')).toThrow('取消项目存档');
     expect(() => createIssue(state, 'minecraft', 'Bug', 'Details')).toThrow('存档项目');
-    expect(() => publishRelease(state, 'minecraft', { tagName: 'v0.01', title: 'Release', body: 'Description', channel: 'stable', assets: [] })).toThrow('取消项目存档');
+    expect(() =>
+      publishRelease(state, 'minecraft', {
+        tagName: 'v0.01',
+        title: 'Release',
+        body: 'Description',
+        channel: 'stable',
+        assets: [],
+      }),
+    ).toThrow('取消项目存档');
     state = applyDangerAction(state, 'minecraft', 'archive');
     expect(state.projects.find((item) => item.id === 'minecraft')?.archived).toBe(false);
   });

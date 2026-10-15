@@ -16,8 +16,23 @@ function compareParts(left: number[], right: number[]): number {
 export function nextReleaseTag(releases: ProjectRelease[], channel: ReleaseChannel): string {
   const prefix = channel === 'stable' ? 'v' : channel;
   const candidates = releases.flatMap((release) => {
-    const match = release.tagName.match(channel === 'stable' ? /^v(\d+)\.(\d+)(?:\.(\d+))?$/i : new RegExp(`^${prefix}(\\d+)\\.(\\d+)$`, 'i'));
-    return match ? [{ parts: match.slice(1).filter((part): part is string => part !== undefined).map(Number), widths: match.slice(1).filter((part): part is string => part !== undefined).map((part) => part.length) }] : [];
+    const match = release.tagName.match(
+      channel === 'stable' ? /^v(\d+)\.(\d+)(?:\.(\d+))?$/i : new RegExp(`^${prefix}(\\d+)\\.(\\d+)$`, 'i'),
+    );
+    return match
+      ? [
+          {
+            parts: match
+              .slice(1)
+              .filter((part): part is string => part !== undefined)
+              .map(Number),
+            widths: match
+              .slice(1)
+              .filter((part): part is string => part !== undefined)
+              .map((part) => part.length),
+          },
+        ]
+      : [];
   });
   if (!candidates.length) return channel === 'stable' ? 'v0.01' : `${prefix}0.1`;
   const latest = candidates.sort((left, right) => compareParts(right.parts, left.parts))[0]!;
@@ -43,7 +58,12 @@ export function validateReleaseAssets(assets: ReleaseAsset[]): void {
 
 export function validateReleaseInput(existing: ProjectRelease[], input: CreateReleaseInput): void {
   const tagName = input.tagName.trim();
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(tagName) || tagName.endsWith('.') || tagName.includes('..') || tagName.endsWith('.lock')) {
+  if (
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(tagName) ||
+    tagName.endsWith('.') ||
+    tagName.includes('..') ||
+    tagName.endsWith('.lock')
+  ) {
     throw new Error('版本号只能包含字母、数字、点、短横线和下划线，并且不能以点结尾');
   }
   if (existing.some((release) => release.tagName.toLocaleLowerCase('en-US') === tagName.toLocaleLowerCase('en-US'))) {
@@ -56,7 +76,11 @@ export function validateReleaseInput(existing: ProjectRelease[], input: CreateRe
   validateReleaseAssets(input.assets);
 }
 
-export function publishRelease(state: MockState, projectId: string, input: CreateReleaseInput): { state: MockState; release: ProjectRelease } {
+export function publishRelease(
+  state: MockState,
+  projectId: string,
+  input: CreateReleaseInput,
+): { state: MockState; release: ProjectRelease } {
   const project = state.projects.find((item) => item.id === projectId);
   if (!project) throw new Error('找不到这个项目');
   if (project.archived) throw new Error('请先取消项目存档');
@@ -75,6 +99,11 @@ export function publishRelease(state: MockState, projectId: string, input: Creat
   };
   return {
     release,
-    state: { ...state, projects: state.projects.map((item) => item.id === projectId ? { ...item, releases: [release, ...item.releases] } : item) },
+    state: {
+      ...state,
+      projects: state.projects.map((item) =>
+        item.id === projectId ? { ...item, releases: [release, ...item.releases] } : item,
+      ),
+    },
   };
 }

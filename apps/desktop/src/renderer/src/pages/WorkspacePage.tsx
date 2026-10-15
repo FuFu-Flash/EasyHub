@@ -18,5 +18,29 @@ import { SettingsPage } from './SettingsPage';
 import { SourceHistoryPage } from './SourceHistoryPage';
 import { StarredPage } from './StarredPage';
 import { VersionPage } from './VersionPage';
-const pages = { home: HomePage, projects: ProjectsPage, discover: DiscoverPage, project: ProjectPage, issues: IssuesPage, issue: IssuePage, pulls: PullsPage, 'public-project': PublicPage, local: LocalPage, 'new-project': NewProjectPage, downloads: ReleasePage, 'new-release': ReleaseCreatePage, history: HistoryPage, version: VersionPage, 'recent-history': RecentHistoryPage, 'source-history': SourceHistoryPage, settings: SettingsPage, profile: ProfilePage, starred: StarredPage };
-export function WorkspacePage() { const { view } = usePageRoute(); const Page = pages[view]; return <Page />; }
+const pages = {
+  home: HomePage,
+  projects: ProjectsPage,
+  discover: DiscoverPage,
+  project: ProjectPage,
+  issues: IssuesPage,
+  issue: IssuePage,
+  pulls: PullsPage,
+  'public-project': PublicPage,
+  local: LocalPage,
+  'new-project': NewProjectPage,
+  downloads: ReleasePage,
+  'new-release': ReleaseCreatePage,
+  history: HistoryPage,
+  version: VersionPage,
+  'recent-history': RecentHistoryPage,
+  'source-history': SourceHistoryPage,
+  settings: SettingsPage,
+  profile: ProfilePage,
+  starred: StarredPage,
+};
+export function WorkspacePage() {
+  const { view } = usePageRoute();
+  const Page = pages[view];
+  return <Page />;
+}
