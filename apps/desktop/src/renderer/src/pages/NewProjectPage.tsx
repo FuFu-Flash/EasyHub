@@ -22,6 +22,6 @@ export function NewProjectPage() {
     await loadRepos(true); await refreshLocalLinks();
   };
 
- return <LocalWorkspace mode="create" repos={repos} selectedRepo={null} onBack={() => navigation.back('projects')} onCreated={onCreated} onDownloadProject={(repo) => downloads.start({ kind: 'project', repo, fileName: repo.name })} downloadBusy={downloads.busy} />;
+ return <LocalWorkspace mode="create" repos={repos} selectedRepo={null} onBack={() => navigation.back('projects')} onCreated={onCreated} onCreatedLocal={(link) => navigation.navigate('local', { repo: `${link.owner}/${link.name}`, localId: link.id, publish: true }, true)} onDownloadProject={(repo) => downloads.start({ kind: 'project', repo, fileName: repo.name })} downloadBusy={downloads.busy} />;
 
 }

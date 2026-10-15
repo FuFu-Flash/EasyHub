@@ -24,6 +24,7 @@ interface Props {
   initialPublish?: boolean;
   onBack: () => void;
   onCreated: (repo?: GitHubRepo) => Promise<void>;
+  onCreatedLocal?: (link: LocalProjectLink) => void;
   onDownloadProject: (repo: GitHubRepo) => Promise<void>;
   downloadBusy: boolean;
   initialSyncReview?: { id: string; preview: SyncPreview; message: string } | null;
@@ -31,7 +32,7 @@ interface Props {
 }
 
 
-export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, initialPublish = false, onBack, onCreated, onDownloadProject, downloadBusy, initialSyncReview, onSyncReviewOpened }: Props) {
+export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, initialPublish = false, onBack, onCreated, onCreatedLocal, onDownloadProject, downloadBusy, initialSyncReview, onSyncReviewOpened }: Props) {
   const language = useLanguage();
   const t = useTranslation(language);
   const easyHub = useEasyHub();
@@ -202,17 +203,20 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, init
     await task(async () => {
       if (!inspection) {
         const repo = await api.github<GitHubRepo>('createRepo', name.trim(), description.trim(), isPrivate);
-        setName(''); setDescription('');
+        setName(''); setDescription(''); setIsPrivate(true);
         setNotice(t("localWorkspace.cloudProjectCreated"));
         await onCreated(repo);
         return;
       }
       const link = await api.localCreate(inspection.path, name.trim(), description.trim(), isPrivate);
-      setCreatedId(link.id);
-      setInspection(null); setName(''); setDescription('');
+      setInspection(null); setName(''); setDescription(''); setIsPrivate(true);
       setNotice(t("localWorkspace.projectCreatedReviewAndSelectTheFilesToPublish"));
-      setExpandedRepoId(link.repositoryId); setPublishId(link.id); setUpdateMessage(t("localWorkspace.createProject"));
+      if (!onCreatedLocal) {
+        setCreatedId(link.id);
+        setExpandedRepoId(link.repositoryId); setPublishId(link.id); setUpdateMessage(t("localWorkspace.createProject"));
+      }
       await refresh(); await onCreated();
+      onCreatedLocal?.(link);
     });
   }
 
