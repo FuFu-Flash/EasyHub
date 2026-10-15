@@ -1,10 +1,11 @@
 import { useNoticeState } from '../useNoticeState';
+import { FeedbackNotice } from './FeedbackNotice';
 import { useTranslation } from '../localization';
 import { useEasyHub } from '../bridge';
 import { ErrorMessage } from './ErrorMessage';
 import { errorText } from '../errors';
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, KeyRound, RotateCw, Trash2 } from 'lucide-react';
+import { ChevronDown, KeyRound, RotateCw, Trash2 } from 'lucide-react';
 import type { AiProviderId, AiSettingsStatus } from '@easyhub/types';
 import { readLanguage } from '../i18n';
 import type { Language } from '../i18n';
@@ -94,7 +95,7 @@ export function AiSettingsPanel({ disabled = false, language = readLanguage() }:
         {saved?.providerId === 'legacy' && <p className="ai-settings-note">{t("aiSettingsPanel.yourPreviouslySavedProviderRemainsAvailableEnterANew")}</p>}
         {changedProvider && <p className="ai-settings-note">{t("aiSettingsPanel.enterTheApiKeyForTheNewlySelectedProvider")}</p>}
         {error && <p className="live-error" role="alert"><ErrorMessage error={error} /></p>}
-        {notice && <p className="ai-success" role="status"><Check size={16} />{notice}</p>}
+        <FeedbackNotice message={notice} language={language} onClose={() => setNotice('')} />
         <div className="ai-settings-actions">
           <button className="button button-primary" type="submit" disabled={locked || !model.trim() || (changedProvider && !apiKey.trim())}>{busy === 'save' && <RotateCw size={16} className="live-spin" />}{t("aiSettingsPanel.saveSettings")}</button>
           <button className="button button-quiet" type="button" disabled={locked || !saved?.hasApiKey || !saved.model || edited} onClick={() => void act('test')}>{busy === 'test' && <RotateCw size={16} className="live-spin" />}{t("aiSettingsPanel.testConnection")}</button>

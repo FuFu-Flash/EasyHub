@@ -1,6 +1,7 @@
 import { useNoticeState } from '../useNoticeState';
+import { FeedbackNotice } from './FeedbackNotice';
 import { progressLabel } from '../progressLabel';
-import { useTranslation } from '../localization';
+import { useLanguage, useTranslation } from '../localization';
 import { useWorkspaceStorage } from '../bridge';
 import { useEasyHub } from '../bridge';
 import { ErrorMessage } from './ErrorMessage';
@@ -26,6 +27,7 @@ export function ReleaseEditPanel({ repo, release, draftAccount, onUpdated, onClo
   onBusyChange?: (busy: boolean) => void;
 }) {
   const t = useTranslation();
+  const language = useLanguage();
   const workspaceStorage = useWorkspaceStorage();
   const easyHub = useEasyHub();
   const draftKey = draftAccount ? createDraftKey(draftAccount, repo.id, 'release-edit', release.id) : null;
@@ -140,6 +142,6 @@ export function ReleaseEditPanel({ repo, release, draftAccount, onUpdated, onClo
       {files.map((file) => <div className="release-edit-asset" key={file.id}><span>{file.name}</span><button type="button" onClick={() => setFiles((current) => current.filter((item) => item.id !== file.id))} disabled={busy}>{t("releaseEditPanel.deselect")}</button></div>)}
     </div>
     {progress && <div className="release-edit-progress"><span>{progressLabel(progress, t)}</span><progress max={Math.max(progress.total, 1)} value={Math.min(progress.loaded, Math.max(progress.total, 1))} />{progress.cancelable && <button type="button" onClick={() => void easyHub?.cancelRelease()}>{t("releaseEditPanel.cancelUpload")}</button>}</div>}
-    {error && <p className="live-error" role="alert"><ErrorMessage error={error} /></p>}{notice && <p className="release-edit-success" role="status">{notice}</p>}
+    {error && <p className="live-error" role="alert"><ErrorMessage error={error} /></p>}<FeedbackNotice message={notice} language={language} onClose={() => setNotice('')} />
   </div>;
 }

@@ -1,4 +1,5 @@
 import { useNoticeState } from '../useNoticeState';
+import { FeedbackNotice } from './FeedbackNotice';
 import { progressLabel } from '../progressLabel';
 import { useTranslation } from '../localization';
 import { useEasyHub } from '../bridge';
@@ -330,7 +331,7 @@ export function BinaryAnalysisPanel({ language, source, onOpenSettings, disabled
       {activeRequest.current && <button type="button" className="button button-quiet" onClick={() => void cancel()}>{t("binaryAnalysisPanel.cancel")}</button>}
     </div>}
     {shownError && <p className="live-error" role="alert"><ErrorMessage error={shownError} language={language} /></p>}
-    {notice && <p className="ai-success" role="status"><Check size={16} />{notice}</p>}
+    <FeedbackNotice message={notice} language={language} onClose={() => setNotice('')} />
     {onOpenSettings && ((aiSettings && (!aiSettings.hasApiKey || !aiSettings.model)) || !status?.installed) && <button type="button" className="text-link" onClick={onOpenSettings}>{t("binaryAnalysisPanel.openAiSettings")}</button>}
     {review && <section className="ai-review-result binary-analysis-result" aria-label={t("binaryAnalysisPanel.aiReviewResults")}><h3>{t("binaryAnalysisPanel.aiReviewResults")}</h3><div className="ai-review-report" data-content-original>
       <p className="ai-review-summary">{review.summary}</p><div className="ai-findings">{review.findings.map((finding, index) => <article className="ai-finding" key={`${finding.address ?? ''}:${index}`}>

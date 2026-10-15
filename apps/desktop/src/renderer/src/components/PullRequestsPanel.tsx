@@ -1,4 +1,5 @@
 import { useNoticeState } from '../useNoticeState';
+import { FeedbackNotice } from './FeedbackNotice';
 import { progressLabel } from '../progressLabel';
 import { useTranslation } from '../localization';
 import { useEasyHub } from '../bridge';
@@ -372,7 +373,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
         <div className="issue-title"><span className={`issue-state ${selected.state === 'closed' ? 'closed' : ''}`}>{selected.merged ? t("pullRequestsPanel.merged") : selected.state === 'open' ? selected.draft ? t("pullRequestsPanel.draft") : t("pullRequestsPanel.open") : t("pullRequestsPanel.closed")}</span>{repo.private ? <h1>{selected.title}</h1> : <TranslatableContent text={selected.title} format="text" render={(value) => <h1>{value}</h1>} />}<p>{selected.user?.login || t("pullRequestsPanel.githubUser")} · {selected.head?.label || selected.head?.ref} → {selected.base?.ref}</p></div>
         {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />{t("pullRequestsPanel.loadingContent")}</p>}
         {error && <p className="live-error" role="alert"><ErrorMessage error={error} language={language} /></p>}
-        {notice && <p className="ai-success" role="status"><Check size={17} />{notice}</p>}
+        <FeedbackNotice message={notice} language={language} onClose={() => setNotice('')} />
         {snapshotReady && selected.head.sha && <PullChecksPanel key={`${repo.id}:${selected.number}:${selected.head.sha}`} owner={owner} repo={repo.name} number={selected.number} headSha={selected.head.sha} language={language} onOpenLink={(url) => { void easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} />}
         {error && <button className="text-link" disabled={busy || decisionBusy} onClick={() => void open(selected)}><RotateCw size={15} />{t("pullRequestsPanel.refresh")}</button>}
         <div className="pull-files">

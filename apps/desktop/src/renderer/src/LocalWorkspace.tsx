@@ -1,4 +1,5 @@
 import { useNoticeState } from './useNoticeState';
+import { FeedbackNotice } from './components/FeedbackNotice';
 import { progressLabel } from './progressLabel';
 import { useTranslation, useLanguage } from './localization';
 import { DemoModeContext, useEasyHub } from './bridge';
@@ -285,7 +286,7 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, init
     <button className="back-link" onClick={onBack}><ArrowLeft size={17} />{t("localWorkspace.back")}</button>
     <div className="page-header"><div><h1 ref={title} tabIndex={-1}>{effectiveMode === 'create' ? t("localWorkspace.newProject") : selectedLink?.name ?? selectedRepo?.name ?? t("localWorkspace.localProjects")}</h1><p>{effectiveMode === 'create' ? t("localWorkspace.createProjectHelp") : t("localWorkspace.reviewLocalChangesAndPublishTheSource")}</p></div></div>
     {error && <div className="live-error" role="alert"><ErrorMessage error={error} /></div>}
-    {notice && <div className="live-notice" role="status">{notice}</div>}
+    <FeedbackNotice message={notice} language={language} onClose={() => setNotice('')} />
     {busy && <div className="live-loading" role="status"><RotateCw size={16} className="live-spin" />{progressLabel(progress, t)}{progress?.total ? ` ${Math.round(100 * (progress.loaded ?? 0) / progress.total)}%` : ''}{progress?.cancelable !== false && !(effectiveMode === 'create' && !inspection) && <button className="text-link" onClick={() => void api?.localCancel()}>{t("localWorkspace.cancel")}</button>}</div>}
     {effectiveMode === 'list' && !singleProject && <section className="panel live-section"><div className="panel-heading"><h2>{t("localWorkspace.addExistingFolder")}</h2></div><p>{t("localWorkspace.easyhubWillInspectTheFolderAndAddExistingGithub")}</p><button className="button button-quiet" disabled={busy} onClick={() => void chooseFolder()}><FolderOpen size={17} />{t("localWorkspace.chooseFolder")}</button></section>}
     {(effectiveMode === 'create' || inspection && inspection.state !== 'github') && <form className="panel live-form live-create-form" onSubmit={(event) => void create(event)}>
