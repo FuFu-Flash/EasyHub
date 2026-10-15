@@ -15,6 +15,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { GitHubError, isEmptyAddedPullFile, type GitHubComment, type GitHubPullFile, type GitHubPullRequest, type GitHubPullReview, type GitHubRepo, type GitHubReviewEvent } from '@easyhub/github';
 import { useSession } from '@/features/auth/session';
 import { usePreferences } from '@/features/preferences/provider';
+import { formatDate, formatDateTime } from '@/features/localization/format';
 import { usePullRefresh } from '@/features/github/usePullRefresh';
 import { invalidateOpenIssues } from '@/features/github/openIssues';
 import { AI_PROVIDERS, reviewPullRequest, type AiReviewResult, type AiSettings, type ReviewProgressDetail } from '@/features/ai/review';
@@ -420,7 +421,7 @@ function PullDetails({ owner, repo, number }: PullParameters) {
     {loading && !pull && <Loading />}{!!error && <ErrorText message={error} onRetry={refresh} />}
     {pull && <>
       <Text style={{ color: pull.merged_at ? palette.blue : pull.state === 'open' ? palette.green : palette.muted, fontWeight: '800', marginBottom: 7 }}>{pull.draft ? t("PullRequestsPanel.draft") : pull.merged_at ? t("PullRequestsPanel.accepted") : pull.state === 'open' ? t("number.awaitingReview") : t("DiscussionSearch.closed")}</Text>
-      <Heading title={translatedTitle} subtitle={`#${pull.number} · ${pull.user?.login || t("PullRequestsPanel.githubUser")} · ${new Date(pull.created_at).toLocaleDateString()}`} />
+      <Heading title={translatedTitle} subtitle={`#${pull.number} · ${pull.user?.login || t("PullRequestsPanel.githubUser")} · ${formatDate(pull.created_at, language)}`} />
       <ProgramReviewPrompt files={files} />
       {canManage && pull.state === 'open' && <Card><Text style={{ color: palette.ink, fontSize: 18, fontWeight: '800' }}>{t("number.reviewTheseChanges")}</Text><Text style={{ color: palette.muted, marginTop: 7, marginBottom: 13 }}>{pull.draft ? t("number.theAuthorIsStillPreparingTheseChangesItCanBeMerged") : t("number.approvalMergesTheChangesRejectionClosesTheRequest")}</Text><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}><Action title={t("number.reject")} secondary disabled={busy || loading || !!error} onPress={() => setDecision('reject')} /><Action title={t("number.approveAndMerge")} disabled={busy || loading || !!error || pull.draft || (pull.changed_files ?? files.length) > files.length} onPress={() => setDecision('accept')} /></View></Card>}
       {decision && <Card><Text style={{ color: palette.ink, fontWeight: '800', fontSize: 17 }}>{decision === 'accept' ? t("number.approveAndMergeTheseChanges") : t("number.rejectAndCloseThisRequest")}</Text><Text style={{ color: palette.muted, marginTop: 7 }}>{pull.title}</Text>{decision === 'reject' && <TextInput value={decisionReason} onChangeText={setDecisionReason} multiline placeholder={t("number.reasonForRejectionOptional")} style={{ borderWidth: 1, borderColor: palette.border, borderRadius: 10, minHeight: 78, padding: 10, marginTop: 12, textAlignVertical: 'top' }} />}<View style={{ marginTop: 13, gap: 8 }}><Action title={busy ? t("AiReviewSettings.working") : t("number.confirm")} disabled={busy || loading || !!error} onPress={confirmDecision} /><Action title={t("AiReviewSettings.cancel")} secondary disabled={busy || loading || !!error} onPress={() => setDecision(null)} /></View></Card>}
@@ -470,7 +471,7 @@ function PullDetails({ owner, repo, number }: PullParameters) {
         </View>}
       </Card>}
       <Text accessibilityRole="header" style={{ color: palette.ink, fontSize: 19, fontWeight: '800', marginTop: 18, marginBottom: 12 }}>{t("number.discussionReplies")} · {comments.length}</Text>
-      {comments.map((item) => <Card key={`comment-${item.id}`}><Text style={{ color: palette.ink, fontWeight: '800' }}>{item.user?.login || t("PullRequestsPanel.githubUser")}</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>{new Date(item.created_at).toLocaleString()}</Text><TranslatableMarkdown text={item.body} isPublic={isPublic} protectedNames={names} /></Card>)}
+      {comments.map((item) => <Card key={`comment-${item.id}`}><Text style={{ color: palette.ink, fontWeight: '800' }}>{item.user?.login || t("PullRequestsPanel.githubUser")}</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>{formatDateTime(item.created_at, language)}</Text><TranslatableMarkdown text={item.body} isPublic={isPublic} protectedNames={names} /></Card>)}
       {!loadingComments && nextCommentPage === null && comments.length === 0 && <Text style={{ color: palette.muted, marginBottom: 12 }}>{t("number.noDiscussionRepliesYet")}</Text>}
       {!!commentError && <ErrorText message={commentError} />}
       {commentsCancelled && <Text accessibilityLiveRegion="polite" style={{ color: palette.muted, marginBottom: 10 }}>{t("number.replyLoadingCancelledYouCanRetry")}</Text>}

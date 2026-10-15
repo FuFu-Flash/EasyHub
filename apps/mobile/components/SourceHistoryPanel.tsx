@@ -3,6 +3,7 @@ import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { isEmptyAddedPullFile, validHistoryPath, type GitHubBranch, type GitHubCommit, type GitHubPullFile } from '@easyhub/github';
 import { usePreferences } from '@/features/preferences/provider';
+import { formatDate } from '@/features/localization/format';
 import { parseCommitPatch } from '@/features/github/sourceHistory';
 import type { PagedListState } from '@/features/github/pagedList';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
@@ -65,7 +66,7 @@ export function SourceHistoryPanel({ branch, path, branches, history, viewState,
     {history.items.map(commit => <Pressable key={commit.sha} accessibilityRole="button" onPress={() => onOpen(commit.sha)}>
       <Card><View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         {!!commit.author?.avatar_url && <Image source={{ uri: commit.author.avatar_url }} style={{ width: 34, height: 34, borderRadius: 17 }} />}
-        <View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: palette.ink, fontWeight: '700', fontSize: 16 }}>{commit.commit.message.split('\n')[0]}</Text><Text style={{ color: palette.muted, marginTop: 7 }}>{commit.author?.login || commit.commit.author?.name || t("SourceHistoryPanel.unknownAuthor")} · {commit.commit.author?.date ? new Date(commit.commit.author.date).toLocaleDateString(language === 'en' ? 'en-US' : 'zh-CN') : ''}</Text><Text selectable style={{ color: palette.muted, marginTop: 5, fontFamily: 'monospace' }}>{commit.sha.slice(0, 8)}</Text></View>
+        <View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: palette.ink, fontWeight: '700', fontSize: 16 }}>{commit.commit.message.split('\n')[0]}</Text><Text style={{ color: palette.muted, marginTop: 7 }}>{commit.author?.login || commit.commit.author?.name || t("SourceHistoryPanel.unknownAuthor")} · {formatDate(commit.commit.author?.date, language)}</Text><Text selectable style={{ color: palette.muted, marginTop: 5, fontFamily: 'monospace' }}>{commit.sha.slice(0, 8)}</Text></View>
         <MaterialArrow name="chevron" color={palette.muted} />
       </View></Card>
     </Pressable>)}

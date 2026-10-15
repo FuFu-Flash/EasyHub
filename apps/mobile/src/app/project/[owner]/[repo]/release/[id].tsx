@@ -4,6 +4,8 @@ import { Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import type { GitHubRelease } from '@easyhub/github';
 import { useSession } from '@/features/auth/session';
+import { usePreferences } from '@/features/preferences/provider';
+import { formatDate } from '@/features/localization/format';
 
 import { usePullRefresh } from '@/features/github/usePullRefresh';
 import { Action, BackLink, Card, ErrorText, Heading, Loading, Page, palette } from '@/components/elements';
@@ -22,6 +24,7 @@ export default function Release() {
 
 function ReleaseDetails({ owner, repo, id }: { owner: string; repo: string; id: string }) {
   const { client, downloadAndShare, ready } = useSession();
+  const { language } = usePreferences();
   const t = useTranslation();
   const [release, setRelease] = useState<GitHubRelease | null>(null);
   const [isPublic, setIsPublic] = useState(false);
@@ -120,7 +123,7 @@ function ReleaseDetails({ owner, repo, id }: { owner: string; repo: string; id: 
     {loading && !release && <Loading />}
     {!!loadError && <ErrorText message={loadError} onRetry={refresh} />}
     {release && <>
-      <Heading title={release.name || release.tag_name} subtitle={`${release.tag_name} · ${release.prerelease ? t("id.prerelease") : t("id.stable")}${release.draft ? ` · ${t("PullRequestsPanel.draft")}` : ''}${release.published_at ? ` · ${new Date(release.published_at).toLocaleDateString()}` : ''}`} />
+      <Heading title={release.name || release.tag_name} subtitle={`${release.tag_name} · ${release.prerelease ? t("id.prerelease") : t("id.stable")}${release.draft ? ` · ${t("PullRequestsPanel.draft")}` : ''}${release.published_at ? ` · ${formatDate(release.published_at, language)}` : ''}`} />
       {!!release.body && <Card>
         <Action title={expanded ? t("id.collapseNotes") : t("id.readFullReleaseNotes")} secondary onPress={() => setExpanded((value) => !value)} />
         {expanded && <View style={{ marginTop: 12 }}><TranslatableMarkdown text={release.body} isPublic={isPublic} protectedNames={[repo, release.tag_name, release.name || '', ...release.assets.map((asset) => asset.name)]} style={{ body: { color: palette.ink, lineHeight: 23 }, link: { color: palette.blue } }} /></View>}

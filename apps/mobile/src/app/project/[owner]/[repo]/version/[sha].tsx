@@ -5,6 +5,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { validHistoryBranch, type GitHubRepo } from '@easyhub/github';
 import { useSession } from '@/features/auth/session';
 import { usePreferences } from '@/features/preferences/provider';
+import { formatDateTime } from '@/features/localization/format';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
 import { usePullRefresh } from '@/features/github/usePullRefresh';
 import { archiveTransferTitle, commitArchive } from '@/features/github/archiveDownload';
@@ -58,7 +59,7 @@ function VersionDetails({ owner, repo, sha, branch, mode }: Parameters) {
     {failedPage !== null && <ErrorText message={t("sha.couldNotLoadCodeChangesPreviouslyLoadedFilesAreKept")} onRetry={() => { void reader.retry(); }} />}
     {!!feedback.value && <ErrorText message={feedback.value} />}
     {details && <>
-      <Heading title={details.commit.message.split('\n')[0] || t("common.changeHistory")} subtitle={`${details.author?.login || details.commit.author?.name || t("SourceHistoryPanel.unknownAuthor")} · ${details.commit.author?.date ? new Date(details.commit.author.date).toLocaleString(language === 'en' ? 'en-US' : 'zh-CN') : ''}`} />
+      <Heading title={details.commit.message.split('\n')[0] || t("common.changeHistory")} subtitle={`${details.author?.login || details.commit.author?.name || t("SourceHistoryPanel.unknownAuthor")} · ${formatDateTime(details.commit.author?.date, language)}`} />
       <Card><Text selectable style={{ color: palette.muted, fontFamily: 'monospace', marginBottom: 12 }}>{details.sha}</Text>{details.commit.message.includes('\n') && <Text selectable style={{ color: palette.ink, lineHeight: 22, marginBottom: 12 }}>{details.commit.message.slice(details.commit.message.indexOf('\n') + 1).trim()}</Text>}
         <Text style={{ color: palette.ink, marginBottom: 12 }}>{t("sha.changedFiles")} {details.files?.length ?? 0}{nextPage ? '+' : ''} · +{details.stats?.additions ?? 0} / −{details.stats?.deletions ?? 0}</Text><Action title={t("sha.viewTheCompleteDiffOnGitHub")} secondary onPress={() => { void openGitHub(); }} />
       </Card>

@@ -6,6 +6,8 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Markdown from 'react-native-markdown-display';
 import { GitHubError, validHistoryBranch, validHistoryPath, type GitHubBranch, type GitHubCommit, type GitHubIssue, type GitHubRelease, type GitHubRepo } from '@easyhub/github';
 import { useSession } from '@/features/auth/session';
+import { usePreferences } from '@/features/preferences/provider';
+import { formatDate } from '@/features/localization/format';
 
 import { useTranslatedContent } from '@/features/translation/useTranslatedContent';
 import { inlineReadmeImages, resolveReadmeLinks } from '@/features/github/markdown';
@@ -46,6 +48,7 @@ export default function ProjectDetail() {
 }
 function ProjectDetails({ owner, repo, section: initialSection, mode, focusTag, issueState, historyBranch: initialHistoryBranch, historyPath: initialHistoryPath }: ProjectParameters) {
   const { client, ready, user, downloadAndShare } = useSession();
+  const { language } = usePreferences();
   const t = useTranslation();
   const [section, updateSection] = useState<Section>(initialSection || 'intro');
   const [visitedPanels, setVisitedPanels] = useState(() => ({ contribute: initialSection === 'contribute', settings: initialSection === 'settings' }));
@@ -283,7 +286,7 @@ function ProjectDetails({ owner, repo, section: initialSection, mode, focusTag, 
         {transfer.status === 'failed' && <ErrorText message={t("project.downloadFailedCheckYourConnectionAndDownloadAgain")} />}
         {(transfer.status === 'cancelled' || transfer.status === 'failed') && transfer.target && <View style={{ marginTop: 10 }}><Action title={t("project.downloadAgain")} secondary onPress={() => { if (transfer.target) void transfer.download(transfer.target); }} /></View>}
       </Card>}
-      {[...releases].sort((a, b) => Number(b.tag_name === focusTag) - Number(a.tag_name === focusTag)).map((release) => <Card key={release.id}><Text style={{ color: palette.ink, fontSize: 17, fontWeight: '800' }}>{release.name || release.tag_name}</Text><Text style={{ color: palette.muted, marginTop: 5 }}>{release.tag_name} · {release.published_at ? new Date(release.published_at).toLocaleDateString() : t("PullRequestsPanel.draft")}</Text><Text style={{ color: palette.ink, marginTop: 12, lineHeight: 22 }}>{releaseSummary(release.body) || t("project.noDescription")}</Text><View style={{ marginTop: 12 }}><Action title={t("project.viewDownloads")} secondary onPress={() => router.push({ pathname: '/project/[owner]/[repo]/release/[id]', params: { owner, repo, id: String(release.id) } })} /></View></Card>)}
+      {[...releases].sort((a, b) => Number(b.tag_name === focusTag) - Number(a.tag_name === focusTag)).map((release) => <Card key={release.id}><Text style={{ color: palette.ink, fontSize: 17, fontWeight: '800' }}>{release.name || release.tag_name}</Text><Text style={{ color: palette.muted, marginTop: 5 }}>{release.tag_name} · {release.published_at ? formatDate(release.published_at, language) : t("PullRequestsPanel.draft")}</Text><Text style={{ color: palette.ink, marginTop: 12, lineHeight: 22 }}>{releaseSummary(release.body) || t("project.noDescription")}</Text><View style={{ marginTop: 12 }}><Action title={t("project.viewDownloads")} secondary onPress={() => router.push({ pathname: '/project/[owner]/[repo]/release/[id]', params: { owner, repo, id: String(release.id) } })} /></View></Card>)}
       {releaseList.busy && <Loading />}
       {releaseList.failedPage !== null && <ErrorText message={t("project.couldNotLoadReleasesPreviouslyLoadedVersionsAreKept")} onRetry={() => { void releaseList.more(); }} />}
       {releaseList.loaded && !releaseList.busy && releaseList.failedPage === null && !releases.length && <Card><Text style={{ color: palette.muted }}>{t("project.noReleasesYet")}</Text></Card>}

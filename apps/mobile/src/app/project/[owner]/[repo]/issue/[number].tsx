@@ -5,6 +5,8 @@ import { AppAlert as Alert } from '@/components/AppAlert';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import type { GitHubComment, GitHubIssue, GitHubRepo } from '@easyhub/github';
 import { useSession } from '@/features/auth/session';
+import { usePreferences } from '@/features/preferences/provider';
+import { formatDateTime } from '@/features/localization/format';
 
 import { usePullRefresh } from '@/features/github/usePullRefresh';
 import { useTranslatedContent } from '@/features/translation/useTranslatedContent';
@@ -22,6 +24,7 @@ export default function IssueDetail() {
 }
 function IssueDetails({ owner, repo, number }: IssueParameters) {
   const { client, user, ready } = useSession();
+  const { language } = usePreferences();
   const t = useTranslation();
   const { capture } = usePageFeedback();
   const [issue, setIssue] = useState<GitHubIssue | null>(null);
@@ -114,10 +117,10 @@ function IssueDetails({ owner, repo, number }: IssueParameters) {
     {loading && !issue && <Loading />}{!!error && <ErrorText message={error} onRetry={refresh} />}
     {issue && <>
       <Text style={{ color: issue.state === 'open' ? palette.green : palette.muted, fontWeight: '700' }}>{issue.state === 'open' ? t("DiscussionSearch.open") : t("project.resolved")}</Text>
-      <Heading title={translatedTitle || issue.title} subtitle={`${issue.user?.login || t("PullRequestsPanel.githubUser")} · ${new Date(issue.created_at).toLocaleString()}`} />
+      <Heading title={translatedTitle || issue.title} subtitle={`${issue.user?.login || t("PullRequestsPanel.githubUser")} · ${formatDateTime(issue.created_at, language)}`} />
       {[{ id: issue.id, body: issue.body || '', user: issue.user?.login || t("PullRequestsPanel.githubUser"), date: issue.created_at }, ...comments.map((item) => ({ id: item.id, body: item.body, user: item.user?.login || t("PullRequestsPanel.githubUser"), date: item.created_at }))].map((message) => <View key={message.id} style={{ flexDirection: 'row', gap: 9, marginBottom: 13 }}>
         <View style={{ width: 36, height: 36, backgroundColor: '#e4f0ff', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: palette.blue, fontWeight: '800' }}>{message.user[0]?.toUpperCase()}</Text></View>
-        <Card style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: palette.ink }}>{message.user} <Text style={{ color: palette.muted, fontWeight: '400' }}>· {new Date(message.date).toLocaleString()}</Text></Text><View style={{ marginTop: 14 }}><TranslatableMarkdown text={message.body || t("number.noDescription")} isPublic={isPublic} protectedNames={names} /></View></Card>
+        <Card style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: palette.ink }}>{message.user} <Text style={{ color: palette.muted, fontWeight: '400' }}>· {formatDateTime(message.date, language)}</Text></Text><View style={{ marginTop: 14 }}><TranslatableMarkdown text={message.body || t("number.noDescription")} isPublic={isPublic} protectedNames={names} /></View></Card>
       </View>)}
       {!!commentError && <ErrorText message={commentError} onRetry={() => { void loadMoreComments(); }} />}
       {nextCommentPage !== null && <View style={{ marginBottom: 15 }}><Action title={loadingMore ? t("number.loadingReplies") : commentError ? t("number.retryReplies") : t("number.loadMoreReplies")} secondary disabled={loading || loadingMore} onPress={() => { void loadMoreComments(); }} /></View>}

@@ -1,4 +1,5 @@
 export const zh = {
+  "common.dateUnavailable": "日期未知",
   "common.close": "关闭",
   "common.dismissFeedback": "关闭操作提示",
   "common.reload": "重新读取",
