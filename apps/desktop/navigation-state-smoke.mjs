@@ -68,6 +68,26 @@ try {
   await page.getByRole('heading', { name: '设置', exact: true }).waitFor();
   await page.keyboard.press('Alt+ArrowLeft');
   await page.locator('.detail-hero h1').filter({ hasText: 'own-project' }).waitFor();
+  const searchDraft = page.getByRole('combobox', { name: '搜索项目/用户…' });
+  await searchDraft.fill('unsent search draft');
+  await searchDraft.press('Alt+ArrowLeft');
+  assert.equal(await searchDraft.inputValue(), 'unsent search draft');
+  assert.equal(await page.locator('.detail-hero h1').textContent(), 'own-project', 'Input word navigation must not leave the page.');
+  await searchDraft.fill('');
+  for (const kind of ['textarea', 'contenteditable']) {
+    await page.evaluate(kind => {
+      const node = document.createElement(kind === 'textarea' ? 'textarea' : 'div');
+      node.id = 'navigation-editing-fixture';
+      if (kind === 'contenteditable') node.contentEditable = 'true';
+      node.textContent = 'unsent editing draft';
+      document.querySelector('.page-content').prepend(node);
+      node.focus();
+    }, kind);
+    await page.keyboard.press('Alt+ArrowLeft');
+    assert.equal(await page.locator('.detail-hero h1').textContent(), 'own-project', `${kind} must preserve the current page.`);
+    assert.equal(await page.locator('#navigation-editing-fixture').textContent(), 'unsent editing draft');
+    await page.locator('#navigation-editing-fixture').evaluate(node => node.remove());
+  }
   await page.locator('.back-link').click();
   await page.getByRole('heading', { name: '我的项目', exact: true }).waitFor();
   await page.getByRole('combobox', { name: '搜索项目/用户', exact: true }).fill('not-found-unique');
