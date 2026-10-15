@@ -1,5 +1,8 @@
 /** Interface copy only; repository content never enters this catalog. */
 export const zh = {
+  'app.offlineWithoutProjectData': '暂时连不上 GitHub，还没有可显示的项目数据',
+  'app.backToConnection': '返回连接提示',
+  'app.offlineWithoutProjectDataHelp': '登录信息仍然保留。请检查网络后重试，或打开网络修复。',
   "app.yourGithubLoginHasExpiredPleaseSignInAgain": "GitHub 登录已过期，请重新登录。",
   "app.signInConfirmationExpiredPleaseStartAgain": "登录确认已过期，请重新开始。",
   "app.connectingToGithub": "正在连接 GitHub…",

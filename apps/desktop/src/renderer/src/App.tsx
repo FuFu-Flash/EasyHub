@@ -8,6 +8,7 @@ import { needsWelcome, readWelcomeChoice, saveWelcomeChoice, type WelcomeChoice 
 import { useDialogFocus } from './components/useDialogFocus';
 import { LiveWorkspace } from './LiveWorkspace';
 import { DemoWorkspace } from './DemoWorkspace';
+import { OfflineStart } from './components/OfflineStart';
 import appIcon from './assets/easyhub-icon.svg';
 
 const demoOnlyBuild = import.meta.env.VITE_EASYHUB_DEMO_ONLY === 'true';
@@ -44,7 +45,7 @@ export default function App() {
       if (result.state === 'signed-in' || !result.state && result.user) choose('login');
       const offline = result.state === 'offline';
       setAuthOffline(offline);
-      setUser(result.user ?? (offline ? { login: '', name: null, avatar_url: '', html_url: '' } : null));
+      setUser(result.user);
       if (result.state === 'expired') setLoginError(t("app.yourGithubLoginHasExpiredPleaseSignInAgain"));
     }).catch((cause: unknown) => { if (active) setLoginError(errorText(cause)); })
       .finally(() => { if (active) setAuthChecking(false); });
@@ -87,6 +88,7 @@ export default function App() {
 
   if (demoOnlyBuild) return <DemoWorkspace onLogin={() => undefined} demoOnly />;
   if (authChecking && !user) return <div className="startup-loading" role="status" aria-live="polite"><img src={appIcon} alt="EasyHub" /><p>{t("app.connectingToGithub")}</p></div>;
+  if (authOffline && !user) return <OfflineStart onRetry={() => setAuthRetry(value => value + 1)} />;
   if (user) return <LiveWorkspace key={user.login} user={user} offline={authOffline} authRetrying={authChecking} onRetryAuth={() => setAuthRetry((value) => value + 1)} onLogout={async () => { await window.easyHub?.authLogout(); setAuthState('signed-out'); setAuthOffline(false); choose('login'); setUser(null); }} />;
   return <>{needsWelcome(authState, welcomeChoice) ? <div className="welcome-page"><header className="welcome-controls"><button className="icon-button" aria-label={t("app.minimizeWindow")} onClick={() => void window.easyHub?.minimizeWindow()}><Minus size={18} /></button><button className="icon-button" aria-label={t("app.maximizeOrRestoreWindow")} onClick={() => void window.easyHub?.toggleMaximizeWindow()}><Square size={16} /></button><button className="icon-button" aria-label={t("app.closeWindow")} onClick={() => void window.easyHub?.closeWindow()}><X size={18} /></button></header><section><img src={appIcon} alt="EasyHub" /><h1>{t("app.welcomeToEasyhub")}</h1><p>{t("app.saveYourWorkExploreProjectsAndBringYourIdeas")}</p><button className="button button-primary" onClick={() => { saveWelcomeChoice('login'); void beginLogin(); }}>{t("app.signInToGithub")}</button><button className="button button-quiet" onClick={() => choose('demo')}>{t("app.exploreTheDemo")}</button></section></div> : <DemoWorkspace onLogin={() => void beginLogin()} />}{(flow || loginBusy || loginError) && <div className="modal-backdrop"><div className="modal oauth-modal" ref={loginDialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="oauth-title"><button className="icon-button modal-close" aria-label={t("app.close")} onClick={cancelLogin}><X size={19} /></button><div className="modal-symbol"><ShieldCheck size={24} /></div><h2 id="oauth-title">{t("app.signInWithGithub")}</h2>{flow ? <><p>{t("app.githubOpenedInYourBrowserEnterThisCodeAnd")}</p><strong className="oauth-code">{flow.userCode}</strong><p className="oauth-wait">{t("app.waitingForYourConfirmationOnGithub")}</p><button className="button button-quiet" onClick={() => void window.easyHub?.openExternalLink(flow.verificationUri)}>{t("app.openGithubAgain")}</button></> : loginBusy ? <p>{t("app.connectingToGithub")}</p> : <><p className="release-error"><ErrorMessage error={loginError} /></p><button className="button button-primary" onClick={() => void beginLogin()}>{t("app.retry")}</button></>}<div className="modal-actions"><button className="button button-quiet" onClick={cancelLogin}>{t("app.cancel")}</button></div></div></div>}</>;
 }

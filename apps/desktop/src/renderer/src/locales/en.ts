@@ -1,6 +1,9 @@
 import type { zh } from './zh';
 import type { CatalogMessage } from '../localizationTypes';
 export const en = {
+  'app.offlineWithoutProjectData': 'GitHub is temporarily unavailable. No project data is available yet.',
+  'app.backToConnection': 'Back to connection status',
+  'app.offlineWithoutProjectDataHelp': 'Your sign-in information is still saved. Check your connection and retry, or open network repair.',
   "app.yourGithubLoginHasExpiredPleaseSignInAgain": "Your GitHub login has expired. Please sign in again.",
   "app.signInConfirmationExpiredPleaseStartAgain": "Sign-in confirmation expired. Please start again.",
   "app.connectingToGithub": "Connecting to GitHub…",

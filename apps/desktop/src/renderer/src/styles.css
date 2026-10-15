@@ -490,6 +490,10 @@
 .welcome-page section > button { margin: var(--eh-space-6); }
 .welcome-controls { left: 0; height: 56px; justify-content: flex-end; -webkit-app-region: drag; }
 .welcome-controls button { -webkit-app-region: no-drag; }
+.offline-start > section { width: min(100%, 800px); max-width: 800px; padding-block: 80px; }
+.offline-start .modal-actions { justify-content: center; }
+.offline-network-settings { text-align: left; margin-top: var(--eh-space-24); }
+.offline-start .offline-network-settings > section { max-width: none; text-align: left; }
 /* styles.css */
 :root{;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
 /* Keep the arrow on links, disabled controls and selectable text; other interactions stay available. */
