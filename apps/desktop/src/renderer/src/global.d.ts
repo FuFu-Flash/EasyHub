@@ -147,7 +147,13 @@ declare global {
       binaryAiReview: (input: BinaryAiReviewRequest) => Promise<BinaryAiReviewResult>;
       onBinaryAnalysisProgress: (callback: (value: BinaryAnalysisProgress) => void) => () => void;
       onAiReviewProgress: (callback: (value: AiReviewProgress) => void) => () => void;
-      authStart: () => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;
+      authStart: () => Promise<{
+        userCode: string;
+        verificationUri: string;
+        expiresAt: number;
+        interval: number;
+        codeCopied?: boolean;
+      }>;
       authStartDeletion: (
         owner: string,
         repo: string,

@@ -22,7 +22,7 @@ vi.mock('@napi-rs/keyring', () => ({ AsyncEntry: class {
     return vault.probes.delete(`${this.service}/${this.account}`);
   }
 } }));
-vi.mock('electron', () => ({ dialog: { showSaveDialog: desktop.save, showMessageBox: desktop.confirm }, shell: { showItemInFolder: desktop.reveal }, net: { fetch: (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init) } }));
+vi.mock('electron', () => ({ app: {}, dialog: { showSaveDialog: desktop.save, showMessageBox: desktop.confirm }, shell: { showItemInFolder: desktop.reveal }, net: { fetch: (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init) } }));
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); vault.password = undefined; vault.probes.clear(); vault.fail = ''; vault.wrongProbe = false; vault.beforeWrite = undefined; });
 

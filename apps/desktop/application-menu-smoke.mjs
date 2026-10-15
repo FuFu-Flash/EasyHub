@@ -146,12 +146,14 @@ try {
   await settleRenderer();
   assert.deepEqual(await page.evaluate(() => window.menuSmokeCommands), [], 'A disabled signed-out command must not be dispatched');
 
-  for (const [command, title] of [['projects', '我的项目'], ['issues', '问题'], ['profile', '个人资料'], ['settings', '设置'], ['new-project', '新建项目'], ['add-folder', '添加现有文件夹'], ['download-project', '下载项目']]) {
+  for (const [command, title] of [['projects', '我的项目'], ['issues', '问题'], ['settings', '设置'], ['new-project', '新建项目'], ['add-folder', '本地项目'], ['download-project', '本地项目']]) {
     await clickMenu(command);
     await heading(title);
   }
+  await clickMenu('profile');
+  await page.locator('.profile-hero:visible').waitFor();
   await clickMenu('home');
-  await page.locator('.v2-feature-card').waitFor();
+  await page.locator('.v2-feature-card:visible').waitFor();
   await clickMenu('search');
   await page.waitForFunction(() => document.activeElement === document.querySelector('.topbar-search input'));
   await clickMenu('proxy-settings');
@@ -169,14 +171,13 @@ try {
   await clickMenu('settings');
   await heading('Settings');
   await page.locator('.language-trigger').click();
-  await page.getByRole('button', { name: '中文', exact: true }).click();
+  await page.getByRole('button', { name: 'Chinese', exact: true }).click();
   await waitForMenu((menu) => menu[1]?.label === '文件', 'Native menu did not switch back to Chinese');
 
-  // A real draft dialog blocks app navigation, while native editing roles remain.
+  // The Demo notification dialog blocks app navigation, while native editing roles remain.
   await clickMenu('issues');
-  await page.getByRole('button', { name: '提出问题', exact: true }).click();
+  await page.locator('.download-notification-trigger').click();
   await page.getByRole('dialog').waitFor();
-  await page.getByRole('textbox', { name: '问题标题', exact: true }).fill('Keep this draft');
   const modalMenu = await waitForMenu((menu) => commands.every((command) => getItem(menu, `easyhub-${command}`)?.enabled === false), 'Visible dialog did not disable application commands');
   const editRoles = flat(getItem(modalMenu, 'easyhub-edit-menu').submenu);
   assert.ok(editRoles.some((item) => item.role.toLowerCase() === 'copy' && item.enabled), 'A business dialog must not disable native Copy');
@@ -184,8 +185,8 @@ try {
   await clickMenu('home', true);
   await settleRenderer();
   assert.deepEqual(await page.evaluate(() => window.menuSmokeCommands), []);
-  assert.equal(await page.getByRole('textbox', { name: '问题标题', exact: true }).inputValue(), 'Keep this draft');
-  await page.getByRole('dialog').getByRole('button', { name: '取消', exact: true }).click();
+  assert.ok(await page.getByRole('dialog').isVisible());
+  await page.getByRole('button', { name: '关闭通知', exact: true }).click();
   await waitEnabled('home');
 
   // Switch only the in-memory auth fixture; no credential or repository is changed.
@@ -197,12 +198,12 @@ try {
   for (const command of commands) assert.equal(getItem(await menuSnapshot(), `easyhub-${command}`).enabled, true, `${command} should be available to the idle signed-in workspace`);
   await clickMenu('projects'); await heading('我的项目');
   await clickMenu('issues'); await heading('问题');
-  assert.equal(await page.getByRole('tab', { name: /^问题/ }).getAttribute('aria-selected'), 'true');
+  assert.ok(await page.locator('.sidebar-nav button.active').filter({ hasText: /^问题/ }).isVisible());
   await clickMenu('reviews'); await heading('合并请求审查');
-  assert.equal(await page.getByRole('tab', { name: /^合并请求审查/ }).getAttribute('aria-selected'), 'true');
-  assert.equal(await page.getByRole('tab', { name: /^问题/ }).getAttribute('aria-selected'), 'false');
+  assert.ok(await page.locator('.sidebar-nav button.active').filter({ hasText: /^合并请求/ }).isVisible());
+  assert.equal(await page.locator('.sidebar-nav button.active').filter({ hasText: /^问题/ }).count(), 0);
   await clickMenu('issues'); await heading('问题');
-  assert.equal(await page.getByRole('tab', { name: /^合并请求审查/ }).getAttribute('aria-selected'), 'false');
+  assert.equal(await page.locator('.sidebar-nav button.active').filter({ hasText: /^合并请求/ }).count(), 0);
   await clickMenu('discover'); await heading('发现 / 搜索');
   await clickMenu('starred'); await heading('我收藏的项目');
   await page.locator('.starred-project-card').first().waitFor();
@@ -213,7 +214,7 @@ try {
   await clickMenu('download-project'); await heading('本地项目');
   await page.waitForFunction(() => document.activeElement?.textContent?.trim() === '下载');
   await clickMenu('search');
-  await page.waitForFunction(() => document.activeElement === document.querySelector('.discover-search input'));
+  await page.waitForFunction(() => document.activeElement === document.querySelector('.topbar-search input'));
   await clickMenu('settings'); await heading('设置');
   await clickMenu('proxy-settings');
   await page.waitForFunction(() => document.activeElement?.closest('.github-proxy-panel'));

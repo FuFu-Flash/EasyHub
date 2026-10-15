@@ -1,3 +1,7 @@
+import type { MenuCommand } from '../../shared/applicationMenu';
+import { useApplicationMenu } from './useApplicationMenu';
+import { useLanguage } from './localization';
+import { WindowTrafficLights } from './components/WindowTrafficLights';
 import { useTranslation } from './localization';
 import { useEffect, useRef, useState } from 'react';
 import type { GitHubUser } from '@easyhub/github';
@@ -18,10 +22,14 @@ interface LoginFlow {
   verificationUri: string;
   expiresAt: number;
   interval: number;
+  codeCopied?: boolean;
 }
 
 export default function App() {
-  const t = useTranslation();
+  const language = useLanguage();
+  const t = useTranslation(language);
+  const [initialMenuCommand, setInitialMenuCommand] = useState<MenuCommand>();
+  const [pairingCopied, setPairingCopied] = useState(false);
   const [user, setUser] = useState<GitHubUser | null>(null);
   const [authState, setAuthState] = useState('checking');
   const [welcomeChoice, setWelcomeChoice] = useState<WelcomeChoice | null>(readWelcomeChoice);
@@ -40,6 +48,14 @@ export default function App() {
   const loginStarting = useRef(false);
   const loginDialog = useRef<HTMLDivElement>(null);
   useDialogFocus(Boolean(flow || loginBusy || loginError), loginDialog, cancelLogin);
+  useApplicationMenu(
+    { language, signedIn: false, busy: loginBusy, demoOnly: demoOnlyBuild },
+    (command) => {
+      setInitialMenuCommand(command);
+      choose('demo');
+    },
+    !user && (authChecking || needsWelcome(authState, welcomeChoice)),
+  );
 
   useEffect(() => {
     if (demoOnlyBuild) return;
@@ -117,6 +133,7 @@ export default function App() {
       const next = await window.easyHub.authStart();
       if (generation !== loginGeneration.current) return;
       setFlow(next);
+      setPairingCopied(Boolean(next.codeCopied));
       await window.easyHub.openExternalLink(next.verificationUri);
     } catch (error) {
       if (generation === loginGeneration.current) setLoginError(errorText(error));
@@ -133,11 +150,22 @@ export default function App() {
     loginStarting.current = false;
     setLoginBusy(false);
     setFlow(null);
+    setPairingCopied(false);
     setLoginError('');
     void window.easyHub?.authCancel().catch(() => undefined);
   }
 
-  if (demoOnlyBuild) return <DemoWorkspace onLogin={() => undefined} demoOnly />;
+  async function copyPairingCode(): Promise<void> {
+    if (!flow) return;
+    try {
+      setPairingCopied((await window.easyHub!.copyPairingCode?.(flow.userCode)) ?? false);
+    } catch {
+      setPairingCopied(false);
+    }
+  }
+
+  if (demoOnlyBuild)
+    return <DemoWorkspace initialMenuCommand={initialMenuCommand} onLogin={() => undefined} demoOnly />;
   if (authChecking && !user)
     return (
       <div className="startup-loading" role="status" aria-live="polite">
@@ -150,6 +178,7 @@ export default function App() {
     return (
       <LiveWorkspace
         key={user.login}
+        initialMenuCommand={initialMenuCommand}
         user={user}
         offline={authOffline}
         authRetrying={authChecking}
@@ -168,27 +197,37 @@ export default function App() {
       {needsWelcome(authState, welcomeChoice) ? (
         <div className="welcome-page">
           <header className="welcome-controls">
-            <button
-              className="icon-button"
-              aria-label={t('app.minimizeWindow')}
-              onClick={() => void window.easyHub?.minimizeWindow()}
-            >
-              <Minus size={18} />
-            </button>
-            <button
-              className="icon-button"
-              aria-label={t('app.maximizeOrRestoreWindow')}
-              onClick={() => void window.easyHub?.toggleMaximizeWindow()}
-            >
-              <Square size={16} />
-            </button>
-            <button
-              className="icon-button"
-              aria-label={t('app.closeWindow')}
-              onClick={() => void window.easyHub?.closeWindow()}
-            >
-              <X size={18} />
-            </button>
+            {window.easyHub?.platform === 'darwin' ? (
+              <WindowTrafficLights
+                onAction={(action) => {
+                  void window.easyHub?.[action]();
+                }}
+              />
+            ) : (
+              <>
+                <button
+                  className="icon-button"
+                  aria-label={t('app.minimizeWindow')}
+                  onClick={() => void window.easyHub?.minimizeWindow()}
+                >
+                  <Minus size={18} />
+                </button>
+                <button
+                  className="icon-button"
+                  aria-label={t('app.maximizeOrRestoreWindow')}
+                  onClick={() => void window.easyHub?.toggleMaximizeWindow()}
+                >
+                  <Square size={16} />
+                </button>
+                <button
+                  className="icon-button"
+                  aria-label={t('app.closeWindow')}
+                  onClick={() => void window.easyHub?.closeWindow()}
+                >
+                  <X size={18} />
+                </button>
+              </>
+            )}
           </header>
           <section>
             <img src={appIcon} alt="EasyHub" />
@@ -209,7 +248,7 @@ export default function App() {
           </section>
         </div>
       ) : (
-        <DemoWorkspace onLogin={() => void beginLogin()} />
+        <DemoWorkspace initialMenuCommand={initialMenuCommand} onLogin={() => void beginLogin()} />
       )}
       {(flow || loginBusy || loginError) && (
         <div className="modal-backdrop">
@@ -232,6 +271,10 @@ export default function App() {
               <>
                 <p>{t('app.githubOpenedInYourBrowserEnterThisCodeAnd')}</p>
                 <strong className="oauth-code">{flow.userCode}</strong>
+                {pairingCopied && <p role="status">{t('mac.pairingCopied')}</p>}
+                <button className="button button-quiet" onClick={() => void copyPairingCode()}>
+                  {t('mac.copyPairingCode')}
+                </button>
                 <p className="oauth-wait">{t('app.waitingForYourConfirmationOnGithub')}</p>
                 <button
                   className="button button-quiet"

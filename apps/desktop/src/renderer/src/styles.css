@@ -842,7 +842,7 @@
   padding-top: var(--eh-space-24);
 }
 .detail-hero.has-source-history .detail-main {
-  padding-right: 30px;
+  padding-right: var(--eh-space-16);
 }
 .source-history-page,
 .source-history-list,
@@ -3384,6 +3384,13 @@ svg {
   gap: 3px;
   margin-right: 19px;
   app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+.native-window-controls {
+  display: block;
+  flex: 0 0 70px;
+  width: 70px;
+  height: 27px;
   -webkit-app-region: no-drag;
 }
 .window-dot {
@@ -7143,7 +7150,7 @@ select:focus-visible {
   flex-shrink: 0;
 }
 .detail-hero .detail-actions {
-  flex: 1 1 360px;
+  flex: 1 1 400px;
   min-width: 0;
   align-self: center;
 }

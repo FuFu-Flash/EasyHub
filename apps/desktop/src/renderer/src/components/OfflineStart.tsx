@@ -4,6 +4,7 @@ import { useTranslation, useLanguage } from '../localization';
 import { useEasyHub } from '../bridge';
 import appIcon from '../assets/easyhub-icon.svg';
 import { HostsRepairPanel } from './HostsRepairPanel';
+import { WindowTrafficLights } from './WindowTrafficLights';
 
 /** No invented account or empty-project guidance when the first profile fetch is offline. */
 export function OfflineStart({ onRetry }: { onRetry: () => void }) {
@@ -14,19 +15,33 @@ export function OfflineStart({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="welcome-page offline-start">
       <header className="welcome-controls" aria-label={t('liveWorkspace.windowControls')}>
-        <button className="icon-button" aria-label={t('app.minimizeWindow')} onClick={() => void api?.minimizeWindow()}>
-          <Minus size={18} />
-        </button>
-        <button
-          className="icon-button"
-          aria-label={t('app.maximizeOrRestoreWindow')}
-          onClick={() => void api?.toggleMaximizeWindow()}
-        >
-          <Square size={16} />
-        </button>
-        <button className="icon-button" aria-label={t('app.closeWindow')} onClick={() => void api?.closeWindow()}>
-          <X size={18} />
-        </button>
+        {api?.platform === 'darwin' ? (
+          <WindowTrafficLights
+            onAction={(action) => {
+              void api?.[action]();
+            }}
+          />
+        ) : (
+          <>
+            <button
+              className="icon-button"
+              aria-label={t('app.minimizeWindow')}
+              onClick={() => void api?.minimizeWindow()}
+            >
+              <Minus size={18} />
+            </button>
+            <button
+              className="icon-button"
+              aria-label={t('app.maximizeOrRestoreWindow')}
+              onClick={() => void api?.toggleMaximizeWindow()}
+            >
+              <Square size={16} />
+            </button>
+            <button className="icon-button" aria-label={t('app.closeWindow')} onClick={() => void api?.closeWindow()}>
+              <X size={18} />
+            </button>
+          </>
+        )}
       </header>
       <section>
         <img src={appIcon} alt="EasyHub" />

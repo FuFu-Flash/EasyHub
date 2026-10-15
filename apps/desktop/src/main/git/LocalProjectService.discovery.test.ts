@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -21,7 +21,7 @@ afterEach(async () => { await Promise.all(temporary.splice(0).map((path) => rm(p
 
 describe('local project auto linking', () => {
   it('registers only a verified writable project from an approved location without changing its files', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'easyhub-auto-link-')); temporary.push(root);
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'easyhub-auto-link-'))); temporary.push(root);
     const search = join(root, 'Projects');
     const owned = join(search, 'Owned');
     const foreign = join(search, 'Foreign');
