@@ -112,7 +112,8 @@ try {
     return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
   });
   assert.ok(warningContrast >= 4.5, `Sensitive warning contrast must be readable, got ${warningContrast}`);
-  await page.screenshot({ path: join(output, 'sensitive-warning-contrast.png') });
+  await writeFile(join(output, 'warning-contrast.json'), JSON.stringify({ contrast: warningContrast, required: 4.5 }));
+  await page.screenshot({ path: join(output, 'sensitive-warning-contrast.png'), animations: 'disabled' });
   assert.equal(await page.evaluate(() => window.fixtureCalls.length), 3, 'Must not publish before confirmation');
   await page.keyboard.press('Escape');
   assert.equal(await page.getByRole('dialog').count(), 0);
