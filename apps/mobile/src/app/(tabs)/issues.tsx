@@ -85,7 +85,7 @@ export default function Issues() {
       ]).map((option) => <Pressable key={option.label} onPress={option.onPress} accessibilityRole="button" accessibilityState={{ selected: option.selected }} style={{ flex: option.flex, minWidth: 0, height: 41, paddingHorizontal: 3, borderRadius: 11, borderWidth: 1, borderColor: option.selected ? palette.blue : palette.border, backgroundColor: option.selected ? palette.blue : '#fff', justifyContent: 'center', alignItems: 'center' }}><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ color: option.selected ? '#fff' : palette.ink, fontSize: 12, fontWeight: '800', textAlign: 'center' }}>{option.label}</Text></Pressable>)}
     </View>
     <DiscussionSearch ref={searchRefresh} key={`${user?.login || ''}:${activityTab}`} repositories={currentRepos} kind={activityTab === 'pulls' ? 'pr' : 'issue'} state={activityTab === 'pulls' ? pullFilter : issueFilter}>
-    {busy && !refreshing && <Loading />}{!!error && <ErrorText message={error} onRetry={refresh} />}
+    {busy && !refreshing && <Loading />}{!!error && <ErrorText message={activityTab === 'pulls' ? t("PullReviewGroups.couldNotLoadChangeRequestsPleaseTryAgain") : error} onRetry={refresh} />}
     {activityTab === 'pulls' && <PullReviewGroups ref={groupsRefresh} key={user?.login || ''} repos={currentRepos} counts={currentCounts} filter={pullFilter} />}
     {activityTab === 'issues' && <>
     {failed > 0 && !busy && <Text style={{ color: '#a75728', marginBottom: 12 }}>{t("issues.someProjectsCouldNotBeCheckedPullDownToRetry")}</Text>}
