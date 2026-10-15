@@ -17,6 +17,7 @@ import{LanguageContext}from'/src/i18n.ts';import{PageActivityContext}from'/src/c
 import{LocalWorkspace}from'/src/LocalWorkspace.tsx';import{AiSettingsPanel}from'/src/components/AiSettingsPanel.tsx';
 import{BinaryAnalysisPanel}from'/src/components/BinaryAnalysisPanel.tsx';import{ReleaseEditPanel}from'/src/components/ReleaseEditPanel.tsx';
 import{PullRequestsPanel}from'/src/components/PullRequestsPanel.tsx';import{PullReviewGroups}from'/src/components/PullReviewGroups.tsx';
+import{PublicProjectBrowser}from'/src/components/PublicProjectBrowser.tsx';
 import '/src/styles.css';
 const params=new URLSearchParams(location.search),kind=params.get('case')||'offline',language=params.get('language')||'zh';
 localStorage.clear();localStorage.setItem('easyhub:language',language);localStorage.setItem('easyhub:welcome-choice','login');
@@ -27,6 +28,13 @@ const release={id:1,name:'Release fixture',tag_name:'v1',body:'Description',asse
 let pull={id:1,number:1,title:'Review fixture',state:'open',draft:false,body:'Changes to review',created_at:now,user:{login:'contributor'},head:{sha:'a'.repeat(40),ref:'feature'},base:{sha:'b'.repeat(40),ref:'main',repo:{id:1}}};
 const originalGithub=api.github;
 api.github=async(action,...args)=>{window.calls.push({action,args});
+ if(kind==='dates'){
+  if(action==='activityCounts')return{1:{issues:1,closedIssues:0,pullRequests:0,closedPullRequests:0}};
+  if(action==='readme')return'# Date fixture';
+  if(action==='commits')return[];
+  if(action==='isStarred')return false;
+  if(action==='issuesPage')return{items:[{id:1,number:1,title:'Issue date fixture',state:'open',body:'Date content',created_at:now,user:{login:'author'},comments:0}],nextPage:null};
+ }
  if(action==='pullRequestsPage'||action==='pullRequests'){if(window.fail)throw Error('Network error');return[{...pull,title:args[1]+' review'}]}
  if(action==='pullRequest')return pull;
  if(action==='pullReviewContext')return{repository:repo,pullRequest:pull,files:[],filesTruncated:false};
@@ -48,7 +56,7 @@ kind==='binary'?<BinaryAnalysisPanel language={language}/>:
 kind==='release'?<ReleaseEditPanel repo={repo} release={release} onUpdated={()=>{}} onClose={()=>{}}/>:
 <PullRequestsPanel repo={repo} currentUser="owner" language={language}/>
 }</div></PageActivityContext.Provider></>}
-createRoot(document.getElementById('root')).render(<LanguageContext.Provider value={language}>{kind==='offline'?<App/>:<div className="app-shell" data-layout={params.get('density')||'comfortable'}><main className="page-content" style={{gridColumn:'1/-1'}}>{kind==='groups'?<Groups/>:<Notices/>}</main></div>}</LanguageContext.Provider>);
+createRoot(document.getElementById('root')).render(<LanguageContext.Provider value={language}>{kind==='offline'?<App/>:<div className="app-shell" data-layout={params.get('density')||'comfortable'}><main className="page-content" style={{gridColumn:'1/-1'}}>{kind==='dates'?<PublicProjectBrowser repo={{...repo,private:false}} language="en" currentUser="owner" onBack={()=>{}} onOpenLink={()=>{}} onDownload={()=>{}} onForkReady={()=>{}} downloadBusy={false}/>:kind==='groups'?<Groups/>:<Notices/>}</main></div>}</LanguageContext.Provider>);
 `;
 const server = await createServer({ configFile: false, root: join(desktop, 'src/renderer'), plugins: [react(), {
   name: 'consistency-fixture',
@@ -105,6 +113,11 @@ try {
     assert.equal(await groups.nth(0).locator('.issue-project-header').getAttribute('aria-expanded'), 'false');
     assert.equal(await groups.nth(1).locator('.issue-project-header').getAttribute('aria-expanded'), 'true');
     results.push({ case: 'groups', asynchronousCounts: true, pendingExpanded: 2, manualCollapseRetained: true });
+    await page.goto(`${base}?case=dates&language=zh`);
+    await page.locator('.public-browser-tabs').getByRole('button', { name: /^Issues/ }).click();
+    await page.getByRole('button', { name: /Issue date fixture/ }).click();
+    assert.match(await page.locator('.public-issue-detail .message-box small').first().innerText(), /Oct/, 'Issue dates must use the explicitly selected component language');
+    results.push({ case: 'dates', explicitLanguageOverridesContext: true });
   }
   for (const kind of onlyAi ? ['ai'] : ['local', 'ai', 'binary', 'release', 'pull']) {
     console.log('Checking timed feedback: ' + kind);

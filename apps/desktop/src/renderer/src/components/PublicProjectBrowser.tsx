@@ -1,5 +1,5 @@
 import { formatDateTime } from '../format';
-import { useLanguage, useTranslation } from '../localization';
+import { useTranslation } from '../localization';
 import { useEasyHub } from '../bridge';
 import { useNestedNavigation } from '../nestedNavigation';
 import { ErrorMessage } from './ErrorMessage';
@@ -38,6 +38,7 @@ type Tab = 'intro' | 'issues' | 'pulls' | 'history' | 'source-history' | 'downlo
 
 function PublicIssueConversation({
   repo,
+  language,
   issue,
   comments,
   protectedNames,
@@ -49,6 +50,7 @@ function PublicIssueConversation({
   pagination,
 }: {
   repo: GitHubRepo;
+  language: Language;
   issue: GitHubIssue;
   comments: GitHubComment[];
   protectedNames: string[];
@@ -59,8 +61,7 @@ function PublicIssueConversation({
   onOpenLink: (url: string) => void;
   pagination: React.ReactNode;
 }) {
-  const t = useTranslation();
-  const language = useLanguage();
+  const t = useTranslation(language);
   const markdown = (value: string) => (
     <ReadmeMarkdown
       markdown={value}
@@ -593,6 +594,7 @@ export function PublicProjectBrowser({
         )}
         <PublicIssueConversation
           repo={repo}
+          language={language}
           issue={selectedIssue}
           comments={comments}
           protectedNames={issueAuthorNames}
