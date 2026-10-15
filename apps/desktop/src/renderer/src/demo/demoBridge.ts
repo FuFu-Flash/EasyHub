@@ -17,7 +17,7 @@ function signal<T>() {
 type EventValue<K extends keyof EasyHubBridge> = EasyHubBridge[K] extends ((callback: (value: infer T) => void) => unknown) | undefined ? T : never;
 
 /** A complete, per-workspace simulator. No network, files, native auth, keys or proxy writes. */
-export function createDemoBridge(native?: Pick<EasyHubBridge, 'minimizeWindow' | 'toggleMaximizeWindow' | 'closeWindow' | 'onNavigate' | 'openLicense'>) {
+export function createDemoBridge(native?: Pick<EasyHubBridge, 'minimizeWindow' | 'toggleMaximizeWindow' | 'closeWindow' | 'onNavigate' | 'openLicense' | 'platform' | 'setWindowControlStyle' | 'setMenuState' | 'onMenuCommand'>) {
   const state = createDemoState();
   const folders = new Map(state.locals.map((item) => [item.link.localPath, item]));
   const grants = new Set(folders.keys());
@@ -74,6 +74,18 @@ export function createDemoBridge(native?: Pick<EasyHubBridge, 'minimizeWindow' |
   const limited = (language: 'zh' | 'en' = 'zh'): string[] => [language === 'en' ? 'Simulated output for exploring the interface; no actual analysis was performed.' : '这是体验界面的模拟结果，没有执行实际审查。'];
   const explanation = (id: string, language: 'zh' | 'en') => operation(id, () => ({ explanation: simulatedAi(language), model: ai.model }));
   const api: Required<EasyHubBridge> = {
+    platform: native?.platform ?? 'win32',
+    setWindowControlStyle: async (style, density) => { await native?.setWindowControlStyle?.(style, density); },
+    setMenuState: async (value) => { await native?.setMenuState?.(value); },
+    onMenuCommand: (callback) => native?.onMenuCommand?.(callback) ?? (() => undefined),
+    copyPairingCode: async () => false,
+    macProxy: {
+      status: async () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }),
+      setEnabled: async () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }),
+      probe: async () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }),
+      openSettings: async () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }),
+      onChanged: () => () => undefined,
+    },
     reportRendererError: async (report) => { reports.push(copy(report)); },
     onNavigate: (callback) => { const stop = native?.onNavigate?.(callback) ?? (() => undefined); nativeStops.add(stop); return () => { nativeStops.delete(stop); stop(); }; },
     minimizeWindow: async () => { await native?.minimizeWindow(); }, toggleMaximizeWindow: async () => { await native?.toggleMaximizeWindow(); }, closeWindow: async () => { await native?.closeWindow(); }, openLicense: async () => { await native?.openLicense(); },

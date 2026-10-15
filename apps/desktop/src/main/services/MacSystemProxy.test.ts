@@ -245,7 +245,9 @@ describe('lease storage and crash guardian', () => {
   it('writes an atomic private recovery lease', async () => {
     const root = await mkdtemp(join(tmpdir(), 'easyhub-mac-proxy-store-')); roots.push(root); const path = join(root, 'lease.json'); const store = createMacProxyLeaseStore(path);
     expect(await store.load()).toBeNull(); const lease: MacProxyLease = { version: 1, previous: [direct()], applied: [{ ...direct(), automatic: { enabled: true, url: PAC } }] };
-    await store.save(lease); expect(await store.load()).toEqual(lease); expect((await stat(path)).mode & 0o777).toBe(0o600);
+    await store.save(lease); expect(await store.load()).toEqual(lease);
+    // Windows does not implement POSIX permission bits; storage behavior is still checked.
+    if (process.platform !== 'win32') expect((await stat(path)).mode & 0o777).toBe(0o600);
     await store.remove(); expect(await store.load()).toBeNull();
   });
   it('recovers an exclusive lease lock left by a killed parent', async () => {

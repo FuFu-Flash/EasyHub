@@ -43,8 +43,10 @@ const equal = (left: unknown, right: unknown): boolean => JSON.stringify(left) =
 
 /** Self-contained so the same adapter can also run in the detached crash guardian. */
 export function createMacSystemProxyAdapter(execute?: NetworksetupExecutor): MacSystemProxyAdapter {
-  const run = execute ?? ((args: string[]) => new Promise<string>((resolve, reject) => {
-    const { execFile } = require('node:child_process') as typeof import('node:child_process');
+  const run = execute ?? ((args: string[]) => {
+    // Builtin lookup survives function serialization into the crash guardian.
+    const { execFile } = process.getBuiltinModule('node:child_process');
+    return new Promise<string>((resolve, reject) => {
     execFile('/usr/sbin/networksetup', args, { timeout: 10000, maxBuffer: 256 * 1024,
       env: { ...process.env, LANG: 'C', LC_ALL: 'C' } }, (error, stdout) => {
       // networksetup sometimes reports an error with exit status zero.
@@ -52,7 +54,8 @@ export function createMacSystemProxyAdapter(execute?: NetworksetupExecutor): Mac
         reject(new Error('Unable to access macOS network proxy configuration.'));
       } else resolve(stdout);
     });
-  }));
+    });
+  });
   const same = (left: unknown, right: unknown): boolean => JSON.stringify(left) === JSON.stringify(right);
   const fields = (output: string): Record<string, string> => Object.fromEntries(output.trim().split(/\r?\n/u).map(line => {
     const colon = line.indexOf(':'); return colon < 0 ? ['', ''] : [line.slice(0, colon).trim(), line.slice(colon + 1).trim()];
@@ -156,9 +159,9 @@ function validLease(value: unknown): value is MacProxyLease {
 
 /** Cross-process coordination for the parent and its hash-bound crash guardian. */
 async function withMacLeaseLock<T>(path: string, work: () => Promise<T>): Promise<T> {
-  const fs = require('node:fs/promises') as typeof import('node:fs/promises');
-  const pathModule = require('node:path') as typeof import('node:path');
-  const { randomUUID } = require('node:crypto') as typeof import('node:crypto');
+  const fs = process.getBuiltinModule('node:fs/promises');
+  const pathModule = process.getBuiltinModule('node:path');
+  const { randomUUID } = process.getBuiltinModule('node:crypto');
   await fs.mkdir(pathModule.dirname(path), { recursive: true });
   const lockPath = `${path}.lock`; const ownerPath = pathModule.join(lockPath, 'owner.json');
   const deadline = Date.now() + 10000;

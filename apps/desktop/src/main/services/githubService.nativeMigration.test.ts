@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 
 const nativeKey = 'app.easyhub.mac:github.credential';
 const electronKey = 'EasyHub GitHub OAuth:default';
+const originalPlatform = process.platform;
 const state = vi.hoisted(() => ({
   directory: '', records: new Map<string, string>(), reads: [] as string[],
   writes: [] as string[], deletes: [] as string[], constructed: [] as string[],
@@ -45,11 +46,14 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true });
   vi.unstubAllGlobals(); vi.unstubAllEnvs();
   await rm(state.directory, { recursive: true, force: true });
 });
 
-describe.runIf(process.platform === 'darwin')('read-only native GitHub credential migration', () => {
+describe('read-only native GitHub credential migration', () => {
+  // Keychain and HTTP are mocked; run the macOS migration contract on every host.
+  beforeEach(() => { Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true }); });
   it('converts Foundation seconds and leaves the original native record unchanged', async () => {
     const expiry = Date.now() + 3600000;
     const original = JSON.stringify({ accessToken: 'mock-native-token', refreshToken: 'mock-native-refresh', expiresAt: expiry / 1000 - 978307200 });

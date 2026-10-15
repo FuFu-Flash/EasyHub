@@ -23,13 +23,14 @@ export function useApplicationMenu(state: Omit<MenuState, 'modalOpen'>, onComman
   useLayoutEffect(() => {
     const bridge = window.easyHub;
     if (!ready || bridge?.platform !== 'darwin' || !bridge.setMenuState) return;
+    const setMenuState = bridge.setMenuState;
     let lastState = '';
     const publish = (): void => {
       const next: MenuState = { ...current.current.state, modalOpen: hasBlockingDialog() };
       const serialized = JSON.stringify(next);
       if (serialized === lastState) return;
       lastState = serialized;
-      void bridge.setMenuState(next).catch(() => { lastState = ''; });
+      void setMenuState(next).catch(() => { lastState = ''; });
     };
     // Native menu clicks must not navigate behind an OAuth, download or confirmation dialog.
     const observer = new MutationObserver(publish);

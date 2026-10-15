@@ -32,7 +32,7 @@ const fixture = vi.hoisted(() => {
   const github = Object.fromEntries([
     'authStatus', 'cancelArchive', 'cancelDeviceLogin', 'cancelGithubReads', 'downloadArchive', 'downloadReleaseAsset',
     'downloadPullRequestFile', 'getPullRequestReviewContext', 'githubAction', 'logout', 'openDownloadedFile',
-    'pollDeviceLogin', 'revealDownloadedArchive', 'startDeviceLogin', 'loadBinaryAnalysisFile',
+    'pollDeviceLogin', 'revealDownloadedArchive', 'startDeviceLogin', 'loadBinaryAnalysisFile', 'loadCommitExplanation',
   ].map((name) => [name, vi.fn()]));
   const proxies: FakeProxy[] = [];
   const systemAdapters: string[] = [];
@@ -184,29 +184,29 @@ describe('macOS main-process compatibility', () => {
     expect(reopened.maximize).not.toHaveBeenCalled();
   });
 
-  it('rejects unsupported toolbar density before changing native button appearance or position', () => {
+  it('rejects unsupported toolbar density before changing native button appearance or position', async () => {
     const window = fixture.windows[0]!;
     window.setWindowButtonVisibility.mockClear();
     window.setWindowButtonPosition.mockClear();
     for (const density of [null, true, {}, 'Compact', 'dense']) {
-      expect(() => invoke('window-set-style', 'reference', density)).toThrow('布局无效');
+      await expect(invoke('window-set-style', 'reference', density)).rejects.toThrow('布局无效');
     }
     const handler = fixture.handlers.get('easyhub:window-set-style')!;
-    expect(() => handler({ sender: {}, senderFrame: {} }, 'reference', 'compact')).toThrow('来源无效');
-    expect(() => handler({ sender: window.webContents, senderFrame: {} }, 'reference', 'compact')).toThrow('来源无效');
+    await expect(handler({ sender: {}, senderFrame: {} }, 'reference', 'compact')).rejects.toThrow('来源无效');
+    await expect(handler({ sender: window.webContents, senderFrame: {} }, 'reference', 'compact')).rejects.toThrow('来源无效');
     expect(window.setWindowButtonVisibility).not.toHaveBeenCalled();
     expect(window.setWindowButtonPosition).not.toHaveBeenCalled();
   });
 
-  it('rejects invalid styles and foreign window or child-frame callers without changing native controls', () => {
+  it('rejects invalid styles and foreign window or child-frame callers without changing native controls', async () => {
     const window = fixture.windows[0]!;
     window.setWindowButtonVisibility.mockClear();
     for (const invalid of [null, undefined, true, {}, 'mac', 'Reference']) {
-      expect(() => invoke('window-set-style', invalid)).toThrow('样式无效');
+      await expect(invoke('window-set-style', invalid)).rejects.toThrow('样式无效');
     }
     const handler = fixture.handlers.get('easyhub:window-set-style')!;
-    expect(() => handler({ sender: {}, senderFrame: {} }, 'windows')).toThrow('来源无效');
-    expect(() => handler({ sender: window.webContents, senderFrame: {} }, 'windows')).toThrow('来源无效');
+    await expect(handler({ sender: {}, senderFrame: {} }, 'windows')).rejects.toThrow('来源无效');
+    await expect(handler({ sender: window.webContents, senderFrame: {} }, 'windows')).rejects.toThrow('来源无效');
     expect(window.setWindowButtonVisibility).not.toHaveBeenCalled();
     expect(window.setWindowButtonPosition).not.toHaveBeenCalled();
   });
@@ -270,14 +270,14 @@ describe('macOS main-process compatibility', () => {
     expect(await invoke('auth-start')).toMatchObject({ userCode: 'LOCAL-1234', verificationUri: 'https://github.com/login/device', codeCopied: true });
     await invoke('open-external-link', 'https://github.com/login/device');
     expect(fixture.order).toEqual(['copy:LOCAL-1234', 'browser']);
-    expect(invoke('copy-pairing-code', 'UNRELATED')).toBe(false);
-    expect(invoke('copy-pairing-code', 'LOCAL-1234')).toBe(true);
+    expect(await invoke('copy-pairing-code', 'UNRELATED')).toBe(false);
+    expect(await invoke('copy-pairing-code', 'LOCAL-1234')).toBe(true);
     fixture.github.startDeviceLogin!.mockResolvedValue(flow('LOCAL-5678'));
     await invoke('auth-start');
-    expect(invoke('copy-pairing-code', 'LOCAL-1234')).toBe(false);
-    expect(invoke('copy-pairing-code', 'LOCAL-5678')).toBe(true);
+    expect(await invoke('copy-pairing-code', 'LOCAL-1234')).toBe(false);
+    expect(await invoke('copy-pairing-code', 'LOCAL-5678')).toBe(true);
     invoke('auth-cancel');
-    expect(invoke('copy-pairing-code', 'LOCAL-5678')).toBe(false);
+    expect(await invoke('copy-pairing-code', 'LOCAL-5678')).toBe(false);
   });
 
   it('reports clipboard failure without preventing device authorization or the browser action', async () => {
@@ -308,13 +308,13 @@ describe('macOS main-process compatibility', () => {
     expect(fixture.defaultSession.setProxy).not.toHaveBeenCalled();
   });
 
-  it('rejects proxy and clipboard calls from a foreign webContents or child frame', () => {
+  it('rejects proxy and clipboard calls from a foreign webContents or child frame', async () => {
     for (const name of ['github-proxy-status', 'github-proxy-set-enabled', 'copy-pairing-code', 'binary-analysis-status', 'binary-analyze']) {
       const handler = fixture.handlers.get(`easyhub:${name}`)!;
-      expect(() => handler({ sender: {}, senderFrame: {} }, 'LOCAL-1234')).toThrow('来源无效');
-      expect(() => handler({ sender: fixture.windows[0]!.webContents, senderFrame: {} }, 'LOCAL-1234')).toThrow('来源无效');
+      await expect(handler({ sender: {}, senderFrame: {} }, 'LOCAL-1234')).rejects.toThrow('来源无效');
+      await expect(handler({ sender: fixture.windows[0]!.webContents, senderFrame: {} }, 'LOCAL-1234')).rejects.toThrow('来源无效');
     }
-    expect(() => invoke('github-proxy-set-enabled', 'yes')).toThrow('设置无效');
+    await expect(invoke('github-proxy-set-enabled', 'yes')).rejects.toThrow('设置无效');
   });
 
   it('waits for analysis, system proxy and downloads before completing application quit', async () => {
@@ -357,8 +357,8 @@ describe('macOS main-process compatibility', () => {
     expect(fixture.downloads.open).toHaveBeenCalledExactlyOnceWith('fixture-task', true);
     for (const name of ['downloads-list', 'downloads-enqueue', 'downloads-command', 'downloads-clear', 'downloads-open']) {
       const handler = fixture.handlers.get(`easyhub:${name}`)!;
-      expect(() => handler({ sender: {}, senderFrame: {} }, request)).toThrow('来源无效');
-      expect(() => handler({ sender: fixture.windows[0]!.webContents, senderFrame: {} }, request)).toThrow('来源无效');
+      await expect(handler({ sender: {}, senderFrame: {} }, request)).rejects.toThrow('来源无效');
+      await expect(handler({ sender: fixture.windows[0]!.webContents, senderFrame: {} }, request)).rejects.toThrow('来源无效');
     }
     expect(fixture.downloads.enqueue).toHaveBeenCalledOnce();
   });
@@ -397,15 +397,15 @@ describe('macOS main-process compatibility', () => {
     expect(findMenuItem('easyhub-profile').enabled).toBe(true);
   });
 
-  it('rejects incomplete, mistyped or extra state fields and untrusted frames without marking the renderer ready', () => {
+  it('rejects incomplete, mistyped or extra state fields and untrusted frames without marking the renderer ready', async () => {
     for (const value of [null, [], {}, { ...state(), language: 'fr' }, { ...state(), busy: 1 },
       { ...state(), signedIn: 'true' }, { language: 'zh', signedIn: true, busy: false, modalOpen: false },
       { ...state(), unexpected: true }]) {
-      expect(() => invoke('menu-state', value)).toThrow('菜单状态无效');
+      await expect(invoke('menu-state', value)).rejects.toThrow('菜单状态无效');
     }
     const handler = fixture.handlers.get('easyhub:menu-state')!;
-    expect(() => handler({ sender: {}, senderFrame: {} }, state())).toThrow('来源无效');
-    expect(() => handler({ sender: fixture.windows[0]!.webContents, senderFrame: {} }, state())).toThrow('来源无效');
+    await expect(handler({ sender: {}, senderFrame: {} }, state())).rejects.toThrow('来源无效');
+    await expect(handler({ sender: fixture.windows[0]!.webContents, senderFrame: {} }, state())).rejects.toThrow('来源无效');
     expect(findMenuItem('easyhub-home').enabled).toBe(false);
   });
 

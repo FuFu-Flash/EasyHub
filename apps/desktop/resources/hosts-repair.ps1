@@ -1,4 +1,4 @@
-param([Parameter(Mandatory = $true)][string] $PayloadPath)
+﻿param([Parameter(Mandatory = $true)][string] $PayloadPath)
 $ErrorActionPreference = 'Stop'
 $resultPath = $null
 try {
