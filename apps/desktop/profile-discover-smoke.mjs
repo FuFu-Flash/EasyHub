@@ -26,13 +26,10 @@ try {
     });
   });
   const page = await app.firstWindow();
-  page.setDefaultTimeout(15000);
-  page.setDefaultNavigationTimeout(20000);
   await page.evaluate(() => window.localStorage.setItem('easyhub:search-display-mode', 'compact'));
   await page.reload();
   await page.locator('.live-connected').waitFor();
   await page.locator('.topbar-profile').click();
-  await page.getByRole('menuitem', { name: '个人资料', exact: true }).click();
   await page.locator('.profile-hero').waitFor();
   assert.equal(await page.locator('.profile-avatar').count(), 1);
   await page.screenshot({ path: 'out/profile-smoke.png' });
@@ -49,7 +46,7 @@ try {
   await page.getByTestId('public-project-browser').waitFor();
   assert.equal(await page.locator('.public-browser-hero .public-owner-avatar img').getAttribute('src'), discoverAvatar);
   await page.getByTestId('public-project-browser').getByRole('button', { name: '合并请求审查 3' }).waitFor();
-  assert.equal(await page.getByTestId('public-project-browser').getByText('发布更新').count(), 0);
+  assert.equal(await page.getByTestId('public-project-browser').getByText('发布源码').count(), 0);
   await page.locator('.sidebar-nav button').filter({ hasText: '发现' }).click();
   await page.locator('.discover-scopes button').filter({ hasText: '用户' }).click();
   await page.locator('.discover-search input').fill('writer');

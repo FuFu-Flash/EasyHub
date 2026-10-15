@@ -392,7 +392,7 @@ def main():
         },
         'zipTimestamp': '2026-06-05T00:00:00Z', 'zlibVersion': zlib.ZLIB_VERSION,
         'packagingElapsedSeconds': round(time.monotonic() - started, 3),
-        'liveAnalysisComparison': 'Validated separately with the slim Java runtime; packaging proof alone does not establish analysis equivalence.',
+        'liveAnalysisComparison': 'Performed separately by the root agent with the slim Java runtime; packaging proof alone does not establish analysis equivalence.',
         'productionApplicationChanged': False, 'officialArchiveChanged': False, 'networkRequests': False,
     }
     staged_image.rename(image)

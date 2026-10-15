@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
+import { _electron as electron } from 'playwright-core';
+import electronPath from 'electron';
 import { installDownloadFixture } from './download-fixture.mjs';
 
 // The actual renderer and preload with deny-by-default IPC and blocked network.
@@ -11,14 +12,25 @@ const desktop = dirname(fileURLToPath(import.meta.url));
 const packaged = process.argv.includes('--packaged');
 const chainCase = process.argv.find(value => value.startsWith('--case='))?.slice(7) ?? 'issue-release';
 const programmaticScroll = process.argv.includes('--programmatic-scroll');
+const product = packaged ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'navigation-chain-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
-const { app, executable, renderer } = await launchUpstreamFixture(desktop, {
-  profile: join(run, 'profile'), launcher: join(run, 'launch.cjs'),
-  registerName: 'registerChainFixture', rejectedName: 'rejectedChainIPC', title: 'Navigation chain fixture',
-  allowedFlags: ['--programmatic-scroll', ...process.argv.slice(2).filter(value => value.startsWith('--case='))]
-});
+const launcher = join(run, 'launch.cjs');
+await writeFile(launcher, `
+const { app, ipcMain } = require('electron');
+app.setPath('userData', ${JSON.stringify(join(run, 'profile'))});
+process.env.EASYHUB_PROXY_APP_ONLY_TEST = '1';
+process.env.ELECTRON_RENDERER_URL = 'data:text/html,Navigation chain fixture';
+globalThis.registerChainFixture = ipcMain.handle.bind(ipcMain);
+globalThis.rejectedChainIPC = [];
+ipcMain.handle = (channel, handler) => globalThis.registerChainFixture(channel, channel.startsWith('easyhub:') ? () => {
+  globalThis.rejectedChainIPC.push(channel);
+  throw new Error('Unexpected navigation fixture IPC: ' + channel);
+} : handler);
+require(${JSON.stringify(join(product, 'out', 'main', 'index.js'))});
+`);
+const app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
 const completed = [];
 let lastExpectedScroll = null;
 try {
@@ -88,7 +100,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), renderer);
+  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), join(product, 'out', 'renderer', 'index.html'));
   await page.locator('.live-connected').waitFor();
   await page.setViewportSize({ width: 1060, height: 700 });
   const nav = name => page.locator('.sidebar-nav').getByRole('button', { name: name === '问题' ? /^问题/ : name, exact: name !== '问题' });
@@ -163,7 +175,8 @@ try {
   } else if (chainCase === 'profile') {
   await nav('发现').click();
   await page.getByRole('button', { name: '用户搜索', exact: true }).click();
-  await page.getByRole('textbox', { name: '搜索用户', exact: true }).fill('writer');
+  await page.getByRole('combobox', { name: '搜索项目/用户', exact: true }).fill('writer');
+  await page.getByRole('combobox').press('Enter');
   await page.getByRole('button', { name: '查看 writer 的主页', exact: true }).click();
   await page.locator('.contribution-years').getByRole('button', { name: '2025', exact: true }).click();
   await page.locator('.contribution-cell').first().click();
@@ -179,7 +192,7 @@ try {
   completed.push('profile-repository-profile-year-day-position-return');
   await page.locator('.profile-page').getByRole('button', { name: '返回', exact: true }).click();
   await page.locator('.user-search-card').waitFor();
-  assert.equal(await page.getByRole('textbox', { name: '搜索用户', exact: true }).inputValue(), 'writer');
+  assert.equal(await page.getByRole('combobox', { name: '搜索项目/用户', exact: true }).inputValue(), 'writer');
   completed.push('profile-user-search-query-return');
   } else if (chainCase === 'public-pull') {
   await nav('发现').click();
@@ -234,7 +247,7 @@ try {
   assert.equal(await nav('设置').getAttribute('class'), 'active', 'Chronological Back must activate the Settings sidebar category.');
   await assertScroll(settingsPosition, 'Chronological return must restore Settings position.');
   completed.push('public-issue-sidebar-return-back-settings');
-  await page.locator('.live-page > .v2-page-transition > .back-link').click();
+  await page.keyboard.press('Alt+ArrowLeft');
   await page.locator('#public-issue-reply').waitFor();
   assert.equal(await page.locator('#public-issue-reply').inputValue(), 'Chronological return must preserve my reply');
   await assertScroll(detailPosition, 'Settings Back must restore the earlier public issue.');

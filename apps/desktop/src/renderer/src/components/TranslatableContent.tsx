@@ -1,3 +1,4 @@
+import { useEasyHub } from '../bridge';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { TranslationRequest, TranslationTargetLanguage } from '@easyhub/types';
@@ -30,6 +31,7 @@ export function TranslatableContent(props: TranslatableContentProps) {
 }
 
 function WholeTranslatableContent({ text, format, render, className = '', protectedNames = [] }: TranslatableContentProps) {
+  const easyHub = useEasyHub();
   const { automatic, target, repository, names = [] } = useContext(TranslationPreferencesContext);
   const glossary = JSON.stringify({ repository, names, protectedNames });
   const element = useRef<HTMLDivElement>(null);
@@ -48,7 +50,7 @@ function WholeTranslatableContent({ text, format, render, className = '', protec
   useEffect(() => { if (!automatic) setFailed(false); }, [automatic]);
   useEffect(() => {
     if (!automatic || !visible || translation !== null || failed || !text.trim()) return;
-    const api = window.easyHub;
+    const api = easyHub;
     if (!api) { setFailed(true); return; }
     let active = true;
     const id = `translation-${Date.now()}-${++requestNumber}`;

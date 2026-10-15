@@ -1,18 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNoticeState } from './useNoticeState';
+import { progressLabel } from './progressLabel';
+import { useTranslation, useLanguage } from './localization';
+import { DemoModeContext, useEasyHub } from './bridge';
+import { ErrorMessage } from './components/ErrorMessage';
+import { errorText, readAppError } from './errors';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { GitHubRepo } from '@easyhub/github';
-import type { FolderInspection, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, LocalPublishSelection, SyncDecision, SyncPreview } from '@easyhub/types';
-import { ArrowLeft, Check, CheckCircle2, Download, FolderOpen, Globe2, LockKeyhole, Plus, RotateCw, Send } from 'lucide-react';
+import type { ChangedFile, FolderInspection, LocalOperationProgress, LocalProjectLink, LocalProjectStatus, LocalPublishSelection, SyncDecision, SyncPreview } from '@easyhub/types';
+import { ArrowDownToLine, FileDiff, ArrowLeft, Check, CheckCircle2, Download, FolderOpen, Globe2, LockKeyhole, Plus, RotateCw, Send } from 'lucide-react';
 import { ReadmeMarkdown } from './components/ReadmeMarkdown';
 import { LocalChangeSelector } from './components/LocalChangeSelector';
-import { readLanguage } from './i18n';
+
+import { useDialogFocus } from './components/useDialogFocus';
+import { sensitiveReasonText } from './sensitiveReasonText';
+import { PageActivityContext } from './components/NavigationPages';
 
 interface Props {
   mode: 'list' | 'create';
   repos: GitHubRepo[];
   selectedRepo: GitHubRepo | null;
   initialLocalId?: string | null;
-  refreshRevision?: number;
+  initialPublish?: boolean;
   onBack: () => void;
   onCreated: () => Promise<void>;
   onDownloadProject: (repo: GitHubRepo) => Promise<void>;
@@ -21,18 +30,29 @@ interface Props {
   onSyncReviewOpened?: () => void;
 }
 
-function errorText(error: unknown): string { return error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/, '') : '操作失败，请稍后重试。'; }
 
-export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, refreshRevision = 0, onBack, onCreated, onDownloadProject, downloadBusy, initialSyncReview, onSyncReviewOpened }: Props) {
+export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, initialPublish = false, onBack, onCreated, onDownloadProject, downloadBusy, initialSyncReview, onSyncReviewOpened }: Props) {
+  const language = useLanguage();
+  const t = useTranslation(language);
+  const easyHub = useEasyHub();
+  const demoMode = useContext(DemoModeContext);
   const [links, setLinks] = useState<LocalProjectLink[]>([]);
+  const [linksReady, setLinksReady] = useState(false);
   const [statuses, setStatuses] = useState<Record<string, LocalProjectStatus>>({});
+  const [statusErrors, setStatusErrors] = useState<Record<string, string>>({});
+  const refreshEpoch = useRef(0);
+  const actionLock = useRef(false);
+  const [removeTarget, setRemoveTarget] = useState<LocalProjectLink | null>(null);
+  const removeDialog = useRef<HTMLDivElement>(null);
+  const title = useRef<HTMLHeadingElement>(null);
   const [introductions, setIntroductions] = useState<Record<string, { content: string; error: string }>>({});
   const [introductionRefresh, setIntroductionRefresh] = useState(0);
   const [inspection, setInspection] = useState<FolderInspection | null>(null);
+  const [createdId, setCreatedId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPrivate, setIsPrivate] = useState(true);
-  const [publishId, setPublishId] = useState<string | null>(null);
+  const [publishId, setPublishId] = useState<string | null>(initialPublish ? initialLocalId ?? null : null);
   const [expandedRepoId, setExpandedRepoId] = useState<number | null>(selectedRepo?.id ?? null);
   const [syncReview, setSyncReview] = useState<{ id: string; preview: SyncPreview } | null>(null);
   const [syncChoices, setSyncChoices] = useState<Record<string, SyncDecision['choice']>>({});
@@ -42,30 +62,68 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, refr
   const [selections, setSelections] = useState<Record<string, LocalPublishSelection | null>>({});
   const [previewRefresh, setPreviewRefresh] = useState(0);
   const [pending, setPending] = useState<Record<string, boolean>>({});
-  const onSelection = useCallback((id: string, selection: LocalPublishSelection | null, hasPending = false) => { setSelections((old) => ({ ...old, [id]: selection })); setPending((old) => ({ ...old, [id]: hasPending })); }, []);
-  const tr = (zh: string, en: string): string => readLanguage() === 'en' ? en : zh;
+  const [sensitiveSelections, setSensitiveSelections] = useState<Record<string, ChangedFile[]>>({});
+  const [sensitiveConfirm, setSensitiveConfirm] = useState<{ item: LocalProjectLink; selection: LocalPublishSelection; message: string } | null>(null);
+  const confirmDialog = useRef<HTMLDivElement>(null);
+  const publishInput = useRef<HTMLInputElement>(null);
+  const focusedPublish = useRef<string | null>(null);
+  const onSelection = useCallback((id: string, selection: LocalPublishSelection | null, hasPending = false, sensitiveFiles: ChangedFile[] = []) => { setSelections((old) => ({ ...old, [id]: selection })); setPending((old) => ({ ...old, [id]: hasPending })); setSensitiveSelections((old) => ({ ...old, [id]: sensitiveFiles })); }, []);
+  useDialogFocus(Boolean(sensitiveConfirm), confirmDialog, () => setSensitiveConfirm(null));
+  useDialogFocus(Boolean(removeTarget), removeDialog, () => { if (!actionLock.current) setRemoveTarget(null); }, { fallbackFocus: () => title.current });
+  
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<LocalOperationProgress | null>(null);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const api = window.easyHub;
-  const visibleLinks = useMemo(() => initialLocalId ? links.filter((item) => item.id === initialLocalId)
-    : selectedRepo ? links.filter((item) => item.repositoryId === selectedRepo.id) : links, [initialLocalId, links, selectedRepo]);
-  const selectedLink = initialLocalId ? visibleLinks[0] : null;
+  const [notice, setNotice] = useNoticeState(language);
+  const api = easyHub;
+  const pageActive = useContext(PageActivityContext);
+  const effectiveMode = createdId ? 'list' : mode;
+  const activeLocalId = initialLocalId ?? createdId;
+  const visibleLinks = useMemo(() => activeLocalId ? links.filter((item) => item.id === activeLocalId)
+    : selectedRepo ? links.filter((item) => item.repositoryId === selectedRepo.id) : links, [activeLocalId, links, selectedRepo]);
+  const selectedLink = activeLocalId ? visibleLinks[0] : null;
+  const singleProject = Boolean(activeLocalId || selectedRepo || effectiveMode === 'create');
+  useEffect(() => {
+    if (!publishId) { focusedPublish.current = null; return; }
+    if (!statuses[publishId] || focusedPublish.current === publishId) return;
+    const frame = requestAnimationFrame(() => {
+      const input = publishInput.current;
+      if (!input) return;
+      focusedPublish.current = publishId;
+      input.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+      input.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [publishId, statuses]);
 
   const refresh = useCallback(async () => {
     if (!api) return;
+    const epoch = ++refreshEpoch.current;
     const items = await api.localList();
-    setLinks(items);
-    for (const item of items) {
-      try { const status = await api.localStatus(item.id); setStatuses((old) => ({ ...old, [item.id]: status })); }
-      catch { /* The folder may have moved. The publish action will show a precise error. */ }
-    }
+    if (epoch !== refreshEpoch.current) return;
+    setLinks(items); setLinksReady(true);
+    await Promise.allSettled(items.map(async (item) => {
+      try {
+        const status = await api.localStatus(item.id);
+        if (epoch !== refreshEpoch.current) return;
+        setStatuses((old) => ({ ...old, [item.id]: status }));
+        setStatusErrors((old) => { const next = { ...old }; delete next[item.id]; return next; });
+      } catch (cause) {
+        if (epoch !== refreshEpoch.current) return;
+        setStatusErrors((old) => ({ ...old, [item.id]: errorText(cause) }));
+        setStatuses((old) => { const next = { ...old }; delete next[item.id]; return next; });
+      }
+    }));
   }, [api]);
 
-  useEffect(() => { void refresh().catch((cause) => setError(errorText(cause))); }, [refresh, refreshRevision]);
   useEffect(() => {
-    if (!api || mode === 'create') return;
+    if (!pageActive) return;
+    const check = (): void => { if (!actionLock.current) void refresh().catch((cause) => setError(errorText(cause))); };
+    check(); window.addEventListener('focus', check);
+    return () => { refreshEpoch.current += 1; window.removeEventListener('focus', check); };
+  }, [pageActive, refresh]);
+  useEffect(() => {
+    if (!api || effectiveMode === 'create') return;
     let active = true;
     setIntroductions({});
     for (const item of visibleLinks) {
@@ -76,7 +134,7 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, refr
       });
     }
     return () => { active = false; };
-  }, [api, mode, visibleLinks, introductionRefresh]);
+  }, [api, effectiveMode, visibleLinks, introductionRefresh]);
   useEffect(() => {
     if (!initialSyncReview) return;
     setSyncReview({ id: initialSyncReview.id, preview: initialSyncReview.preview });
@@ -92,10 +150,36 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, refr
   }, [api]);
 
   async function task(work: () => Promise<void>): Promise<void> {
+    if (actionLock.current) return;
+    actionLock.current = true;
     setBusy(true); setError(''); setNotice(''); setProgress(null);
     try { await work(); }
     catch (cause) { setError(errorText(cause)); }
-    finally { setBusy(false); setProgress(null); }
+    finally { actionLock.current = false; setBusy(false); setProgress(null); }
+  }
+
+  async function relocate(item: LocalProjectLink): Promise<void> {
+    if (!api) return;
+    await task(async () => {
+      const path = await api.chooseFolder();
+      if (!path) return;
+      await api.localRelocate(item.id, path);
+      setPublishId(null); setSyncReview(null);
+      setSelections((old) => ({ ...old, [item.id]: null }));
+      setPreviewRefresh((value) => value + 1); setIntroductionRefresh((value) => value + 1);
+      await refresh(); await onCreated();
+      setNotice(t("localWorkspace.localLocationUpdatedReviewTheFileChangesAgain"));
+    });
+  }
+
+  async function remove(item: LocalProjectLink): Promise<void> {
+    if (!api) return;
+    await task(async () => {
+      await api.localRemove(item.id);
+      setRemoveTarget(null); setPublishId(null); setSyncReview(null);
+      await refresh(); await onCreated();
+      setNotice(t("localWorkspace.removedFromThisComputerSProjectListYourFiles"));
+    });
   }
 
   async function chooseFolder(): Promise<void> {
@@ -108,7 +192,7 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, refr
       setName(result.name ?? path.split(/[\\/]/).filter(Boolean).at(-1) ?? '');
       if (result.state === 'github') {
         const link = await api.localConnect(path);
-        setInspection(null); setNotice(`${link.name} 已添加到我的项目。`); await refresh();
+        setInspection(null); setNotice(t("localWorkspace.addedToMyProjects", { p0: link.name })); await refresh();
       }
     });
   }
@@ -117,8 +201,10 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, refr
     event.preventDefault(); if (!api || !inspection) return;
     await task(async () => {
       const link = await api.localCreate(inspection.path, name.trim(), description.trim(), isPrivate);
+      setCreatedId(link.id);
       setInspection(null); setName(''); setDescription('');
-      setNotice(`${link.name} 创建成功，文件已发布到 GitHub。`);
+      setNotice(t("localWorkspace.projectCreatedReviewAndSelectTheFilesToPublish"));
+      setExpandedRepoId(link.repositoryId); setPublishId(link.id); setUpdateMessage(t("localWorkspace.createProject"));
       await refresh(); await onCreated();
     });
   }
@@ -131,15 +217,23 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, refr
 
   async function publish(event: FormEvent, item: LocalProjectLink): Promise<void> {
     event.preventDefault(); if (!api) return;
+    const selection = selections[item.id];
+    if (!selection || (!selection.paths.length && !pending[item.id])) { setError(t("localWorkspace.reviewAndSelectTheFilesToPublishFirst")); return; }
+    if (sensitiveSelections[item.id]?.length && !pending[item.id]) { setSensitiveConfirm({ item, selection, message: updateMessage.trim() }); return; }
+    await publishSelection(item, selection, updateMessage.trim());
+  }
+
+  async function publishSelection(item: LocalProjectLink, selection: LocalPublishSelection, message: string): Promise<void> {
+    if (!api) return;
+    setSensitiveConfirm(null);
     await task(async () => {
-      const selection = selections[item.id];
-      if (!selection || (!selection.paths.length && !pending[item.id])) { setError(tr('请先查看并选择本次发布的文件。', 'Review and select the files to publish first.')); return; }
       let result: { changed: number };
-      try { result = await api.localPublish(item.id, updateMessage.trim(), selection); }
+      try { result = await api.localPublish(item.id, message, selection); }
+      catch (cause) { if (errorText(cause).includes('[SENSITIVE_FILES]')) { setExpandedRepoId(item.repositoryId); setPublishId(item.id); setPreviewRefresh((value) => value + 1); } throw cause; }
       finally { await refresh(); }
       setPreviewRefresh((value) => value + 1);
       setPublishId(null); setUpdateMessage('');
-      setNotice(`发布成功，${result.changed} 个文件已保存到 GitHub。`);
+      setNotice(demoMode ? t("localWorkspace.demoPublicationCompletedChangesToFilesAreSavedOnly", { p0: result.changed }) : t("localWorkspace.publishedSuccessfullyFilesSavedToGithub", { p0: result.changed }));
       await refresh(); await onCreated();
     });
   }
@@ -148,12 +242,12 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, refr
     if (!api) return;
     await task(async () => {
       const preview = await api.localCheckSync(item.id);
-      if (preview.state === 'blocked') { setError(preview.message ?? '暂时无法安全获取最新内容。'); return; }
-      if (preview.state === 'current') { setNotice('这个项目已经是最新的。'); setSyncReview(null); return; }
+      if (preview.state === 'blocked') { setError(preview.message ?? t("localWorkspace.cannotSafelyGetTheLatestChangesRightNow")); return; }
+      if (preview.state === 'current') { setNotice(t("localWorkspace.thisProjectIsUpToDate")); setSyncReview(null); return; }
       if (preview.state === 'review') { setSyncReview({ id: item.id, preview }); setSyncChoices({}); setShowDifferences({}); setPublishAfterSync(null); return; }
       const result = await api.localSync(item.id, preview.remoteRevision, []);
       setPreviewRefresh((value) => value + 1);
-      setNotice(`已获取 GitHub 上的最新内容，更新了 ${result.updated} 个文件。`);
+      setNotice(t("localWorkspace.retrievedTheLatestChangesFromGithubAndUpdatedFiles", { p0: result.updated }));
       await refresh();
     });
   }
@@ -161,15 +255,15 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, refr
   async function confirmSync(item: LocalProjectLink): Promise<void> {
     if (!api || syncReview?.id !== item.id) return;
     const review = syncReview.preview;
-    if (review.files.some((file) => !syncChoices[file.path])) { setError('请先为每个文件选择要保留的版本。'); return; }
+    if (review.files.some((file) => !syncChoices[file.path])) { setError(t("localWorkspace.chooseAVersionForEachFileFirst")); return; }
     await task(async () => {
       const decisions = review.files.map((file) => ({ path: file.path, choice: syncChoices[file.path]! }));
       const result = await api.localSync(item.id, review.remoteRevision, decisions);
       setSyncReview(null); setSyncChoices({});
       if (publishAfterSync === item.id) {
         setPublishAfterSync(null);
-        setNotice(tr('已获取最新内容，请重新查看并选择本次发布的文件。', 'Latest content received. Review and select the files to publish again.'));
-      } else setNotice(`已获取最新内容，更新了 ${result.updated} 个文件。`);
+        setNotice(t("localWorkspace.latestContentReceivedReviewAndSelectTheFilesTo"));
+      } else setNotice(t("localWorkspace.retrievedTheLatestChangesAndUpdatedFiles", { p0: result.updated }));
       setPreviewRefresh((value) => value + 1);
       await refresh();
     });
@@ -177,30 +271,41 @@ export function LocalWorkspace({ mode, repos, selectedRepo, initialLocalId, refr
 
   const visibleRepos = selectedRepo ? [selectedRepo] : selectedLink ? repos.filter((repo) => repo.id === selectedLink.repositoryId) : repos;
   return <div className="local-workspace">
-    <button className="back-link" onClick={onBack}><ArrowLeft size={17} />返回</button>
-    <div className="page-header"><div><h1>{mode === 'create' ? '新建项目' : selectedLink?.name ?? selectedRepo?.name ?? '本地项目'}</h1><p>{mode === 'create' ? '选择一个文件夹，EasyHub 会把它保存到 GitHub。' : '查看本地文件的修改并发布源码。'}</p></div></div>
-    {error && <div className="live-error" role="alert">{error}</div>}
+    <button className="back-link" onClick={onBack}><ArrowLeft size={17} />{t("localWorkspace.back")}</button>
+    <div className="page-header"><div><h1 ref={title} tabIndex={-1}>{effectiveMode === 'create' ? t("localWorkspace.newProject") : selectedLink?.name ?? selectedRepo?.name ?? t("localWorkspace.localProjects")}</h1><p>{effectiveMode === 'create' ? t("localWorkspace.chooseAFolderAndEasyhubWillSaveItTo") : t("localWorkspace.reviewLocalChangesAndPublishTheSource")}</p></div></div>
+    {error && <div className="live-error" role="alert"><ErrorMessage error={error} /></div>}
     {notice && <div className="live-notice" role="status">{notice}</div>}
-    {busy && <div className="live-loading" role="status"><RotateCw size={16} className="live-spin" />{progress?.phase ?? '正在处理…'}{progress?.total ? ` ${Math.round(100 * (progress.loaded ?? 0) / progress.total)}%` : ''}{progress?.cancelable !== false && <button className="text-link" onClick={() => void api?.localCancel()}>取消</button>}</div>}
-    {mode === 'list' && !selectedRepo && <section className="panel live-section"><div className="panel-heading"><h2>添加现有文件夹</h2></div><p>EasyHub 会检查文件夹，已有的 GitHub 项目会直接加入。</p><button className="button button-quiet" disabled={busy} onClick={() => void chooseFolder()}><FolderOpen size={17} />选择文件夹</button></section>}
-    {(mode === 'create' || inspection && inspection.state !== 'github') && <form className="panel live-form live-create-form" onSubmit={(event) => void create(event)}>
-      <h2>{inspection?.state === 'existing' ? '要把这个文件夹创建成一个新项目吗？' : '创建项目'}</h2>
-      <label className="field"><span>项目名称</span><input aria-label="项目名称" value={name} required maxLength={100} onChange={(event) => setName(event.target.value)} /></label>
-      <label className="field"><span>一句介绍</span><input aria-label="一句介绍" value={description} maxLength={350} onChange={(event) => setDescription(event.target.value)} /></label>
-      <div className="field"><span>本地文件夹</span><div className="folder-field"><FolderOpen size={19} /><span title={inspection?.path ?? ''}>{inspection?.path || '还没有选择文件夹'}</span><button type="button" className="button button-quiet" disabled={busy} onClick={() => void chooseFolder()}>选择文件夹</button></div></div>
-      <div className="field"><span>谁能看到？</span><div className="choice-grid" role="group" aria-label="谁能看到？"><button type="button" className={`choice ${isPrivate ? 'chosen' : ''}`} aria-pressed={isPrivate} onClick={() => setIsPrivate(true)}><span className="choice-circle">{isPrivate && <Check size={13} />}</span><LockKeyhole size={18} /><strong>只有我</strong><small>仅自己可见</small></button><button type="button" className={`choice ${!isPrivate ? 'chosen' : ''}`} aria-pressed={!isPrivate} onClick={() => setIsPrivate(false)}><span className="choice-circle">{!isPrivate && <Check size={13} />}</span><Globe2 size={18} /><strong>所有人</strong><small>可以分享给别人</small></button></div></div>
-      <button className="button button-primary submit-button" disabled={busy || !name.trim() || !inspection || inspection.state === 'github'} type="submit"><Plus size={17} />创建项目</button>
+    {busy && <div className="live-loading" role="status"><RotateCw size={16} className="live-spin" />{progressLabel(progress, t)}{progress?.total ? ` ${Math.round(100 * (progress.loaded ?? 0) / progress.total)}%` : ''}{progress?.cancelable !== false && <button className="text-link" onClick={() => void api?.localCancel()}>{t("localWorkspace.cancel")}</button>}</div>}
+    {effectiveMode === 'list' && !singleProject && <section className="panel live-section"><div className="panel-heading"><h2>{t("localWorkspace.addExistingFolder")}</h2></div><p>{t("localWorkspace.easyhubWillInspectTheFolderAndAddExistingGithub")}</p><button className="button button-quiet" disabled={busy} onClick={() => void chooseFolder()}><FolderOpen size={17} />{t("localWorkspace.chooseFolder")}</button></section>}
+    {(effectiveMode === 'create' || inspection && inspection.state !== 'github') && <form className="panel live-form live-create-form" onSubmit={(event) => void create(event)}>
+      <h2>{inspection?.state === 'existing' ? t("localWorkspace.createANewProjectFromThisFolder") : t("localWorkspace.createProject")}</h2>
+      <label className="field"><span>{t("localWorkspace.projectName")}</span><input aria-label={t("localWorkspace.projectName")} value={name} required maxLength={100} onChange={(event) => setName(event.target.value)} /></label>
+      <label className="field"><span>{t("localWorkspace.shortDescription")}</span><input aria-label={t("localWorkspace.shortDescription")} value={description} maxLength={350} onChange={(event) => setDescription(event.target.value)} /></label>
+      <div className="field"><span>{t("localWorkspace.localFolder")}</span><div className="folder-field"><FolderOpen size={19} /><span title={inspection?.path ?? ''}>{inspection?.path || t("localWorkspace.noFolderSelected")}</span><button type="button" className="button button-quiet" disabled={busy} onClick={() => void chooseFolder()}>{t("localWorkspace.chooseFolder")}</button></div></div>
+      <div className="field"><span>{t("localWorkspace.whoCanSeeIt")}</span><div className="choice-grid" role="group" aria-label={t("localWorkspace.whoCanSeeIt")}><button type="button" className={`choice ${isPrivate ? 'chosen' : ''}`} aria-pressed={isPrivate} onClick={() => setIsPrivate(true)}><span className="choice-circle">{isPrivate && <Check size={13} />}</span><LockKeyhole size={18} /><strong>{t("localWorkspace.onlyMe")}</strong><small>{t("localWorkspace.visibleOnlyToYou")}</small></button><button type="button" className={`choice ${!isPrivate ? 'chosen' : ''}`} aria-pressed={!isPrivate} onClick={() => setIsPrivate(false)}><span className="choice-circle">{!isPrivate && <Check size={13} />}</span><Globe2 size={18} /><strong>{t("localWorkspace.everyone")}</strong><small>{t("localWorkspace.shareItWithOthers")}</small></button></div></div>
+      <button className="button button-primary submit-button" disabled={busy || !name.trim() || !inspection || inspection.state === 'github'} type="submit"><Plus size={17} />{t("localWorkspace.createProject")}</button>
     </form>}
-    {visibleLinks.map((item) => { const status = statuses[item.id]; const introduction = introductions[item.id]; const repo = selectedRepo?.id === item.repositoryId ? selectedRepo : repos.find((candidate) => candidate.id === item.repositoryId); return <section className="panel live-section local-project-card" key={item.id}>
-      <div className="panel-heading"><h2>{item.name}</h2><span className="muted">{status ? status.files.length ? `${status.files.length} 个文件还没发布` : status.pendingPublish ? tr('本地版本尚未发布', 'A local version is waiting to publish') : '已保存' : '正在检查文件'}</span></div>
+    {effectiveMode === 'list' && activeLocalId && linksReady && visibleLinks.length === 0 && <p className="live-empty">{t("localWorkspace.thisLocalLinkWasRemovedYouCanReturnTo")}</p>}
+    {effectiveMode === 'list' && selectedRepo && linksReady && visibleLinks.length === 0 && <section className="panel live-section local-cloud-download"><h2>{t("localWorkspace.noLocalFolderYet")}</h2><p>{t("localWorkspace.downloadTheProjectToReviewFilesAndPublishChanges")}</p><button className="button button-primary" disabled={busy || downloadBusy} onClick={() => void download(selectedRepo)}><Download size={17} />{t("localWorkspace.downloadProjectFromGithub")}</button></section>}
+    {visibleLinks.map((item) => { const status = statuses[item.id]; const statusError = statusErrors[item.id]; const missing = statusError && (readAppError(statusError).code === 'NOT_FOUND' || /ENOENT|ENOTDIR|找不到这个文件夹/.test(statusError)); const introduction = introductions[item.id]; const repo = selectedRepo?.id === item.repositoryId ? selectedRepo : repos.find((candidate) => candidate.id === item.repositoryId); return <section className="panel live-section local-project-card" key={item.id}>
+      <div className="panel-heading">{!singleProject && <h2>{item.name}</h2>}<span className="muted">{statusError ? t("localWorkspace.checkLocalLocation") : status ? status.files.length ? t("localWorkspace.filesNotPublished", { p0: status.files.length }) : status.pendingPublish ? t("localWorkspace.savedLocalChangesAreWaitingToPublish") : t("localWorkspace.saved") : t("localWorkspace.checkingFiles")}</span></div>
       <p className="muted">{item.localPath}</p>
-      {mode !== 'create' && <section aria-label="项目介绍"><div className="panel-heading"><h3>项目介绍</h3></div>{!introduction ? <p className="muted" role="status">正在读取项目介绍…</p> : introduction.error ? <div><p className="live-error" role="alert">{introduction.error}</p><button className="text-link" onClick={() => setIntroductionRefresh((value) => value + 1)}>重新读取</button></div> : introduction.content ? <ReadmeMarkdown markdown={introduction.content} repository={{ owner: item.owner, name: item.name, branch: repo?.default_branch || 'main' }} onOpenLink={(url) => { void api?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} /> : <p className="muted">这个项目还没有介绍。</p>}</section>}
-      <div className="local-actions"><button className="button button-quiet" disabled={busy} onClick={() => void api?.localOpenFolder(item.id)}><FolderOpen size={16} />打开文件夹</button><button className="button button-quiet" disabled={busy} onClick={() => { setExpandedRepoId(item.repositoryId); setPreviewRefresh((value) => value + 1); void task(async () => { if (api) { const next = await api.localStatus(item.id); setStatuses((old) => ({ ...old, [item.id]: next })); } }); }}><RotateCw size={16} />查看修改</button><button className="button button-quiet" disabled={busy} onClick={() => void checkLatest(item)}><RotateCw size={16} />获取最新</button>{status && (status.files.length > 0 || status.pendingPublish) ? <button className="button button-primary" disabled={busy} onClick={() => { setExpandedRepoId(item.repositoryId); setPublishId(item.id); setUpdateMessage(status.pendingMessage ?? (status.pendingPublish ? tr('发布已保存的更新', 'Publish saved changes') : '')); }}><Send size={16} />发布源码</button> : null}</div>
+      {statusError ? <div className="local-folder-error" role="alert"><h3>{missing ? t("localWorkspace.cannotFindThisFolder") : t("localWorkspace.cannotReadThisFolderRightNow")}</h3><p>{t("localWorkspace.ifYouMovedTheFolderSelectItsNewLocation")}</p>{missing ? <details><summary>{t("localWorkspace.viewDetails")}</summary><pre data-content-original>{readAppError(statusError).detail}</pre></details> : <ErrorMessage error={statusError} />}<div className="local-actions"><button className="button button-primary" disabled={busy} onClick={() => void relocate(item)}>{t("localWorkspace.chooseNewLocation")}</button><button className="button button-quiet" disabled={busy} onClick={() => void task(refresh)}>{t("localWorkspace.retry")}</button><button className="button button-quiet" disabled={busy} onClick={() => setRemoveTarget(item)}>{t("localWorkspace.remove")}</button></div></div> : <>
+      <div className="local-actions"><button className="button button-quiet" disabled={busy} onClick={() => void task(async () => { await api?.localOpenFolder(item.id); })}><FolderOpen size={16} />{t("localWorkspace.openFolder")}</button><button className="button button-quiet" disabled={busy} onClick={() => { setExpandedRepoId(item.repositoryId); setPreviewRefresh((value) => value + 1); void task(async () => { if (api) { const next = await api.localStatus(item.id); setStatuses((old) => ({ ...old, [item.id]: next })); } }); }}><FileDiff size={16} />{t("localWorkspace.viewChanges")}</button><button className="button button-quiet" disabled={busy} onClick={() => void checkLatest(item)}><ArrowDownToLine size={16} />{t("localWorkspace.getLatest")}</button>{status && (status.files.length > 0 || status.pendingPublish) ? <button className="button button-primary" disabled={busy} onClick={() => { setExpandedRepoId(item.repositoryId); setPublishId(item.id); setUpdateMessage(status.pendingMessage ?? (status.pendingPublish ? t("localWorkspace.publishSavedChanges") : '')); }}><Send size={16} />{t("localWorkspace.publishSourceCode")}</button> : null}</div>
       {expandedRepoId === item.repositoryId && status && <LocalChangeSelector id={item.id} refreshKey={previewRefresh} disabled={busy} onSelection={onSelection} />}
-      {status?.needsReview && <p className="live-error">这个文件夹有其他工具准备的修改，请先在该工具中完成或取消。</p>}
-      {syncReview?.id === item.id && <div className="sync-review"><h3>有内容需要确认</h3><p>这些文件在另一台电脑上也修改过。请查看内容，再选择要保留的版本。</p>{syncReview.preview.files.map((file) => <div className="sync-review-file" key={file.path}><strong>{file.path}</strong><div className="local-actions"><button className="button button-quiet" type="button" onClick={() => setShowDifferences((old) => ({ ...old, [file.path]: !old[file.path] }))}>{showDifferences[file.path] ? '收起不同' : '查看不同'}</button><button className={`button ${syncChoices[file.path] === 'mine' ? 'button-primary' : 'button-quiet'}`} type="button" onClick={() => setSyncChoices((old) => ({ ...old, [file.path]: 'mine' }))}>保留我的</button><button className={`button ${syncChoices[file.path] === 'github' ? 'button-primary' : 'button-quiet'}`} type="button" onClick={() => setSyncChoices((old) => ({ ...old, [file.path]: 'github' }))}>使用 GitHub 版本</button></div>{showDifferences[file.path] && <div className="sync-review-diff"><div><span>你的版本</span><pre>{file.mine ?? '这个版本没有该文件。'}</pre></div><div><span>GitHub 上的版本</span><pre>{file.github ?? '这个版本没有该文件。'}</pre></div></div>}</div>)}<div className="local-actions"><button className="button button-quiet" type="button" onClick={() => { setSyncReview(null); setPublishAfterSync(null); }}>稍后处理</button><button className="button button-primary" type="button" disabled={busy || syncReview.preview.files.some((file) => !syncChoices[file.path])} onClick={() => void confirmSync(item)}>确认并获取最新</button></div></div>}
-      {publishId === item.id && status && <form className="local-publish" onSubmit={(event) => void publish(event, item)}><h3>发布源码</h3><p>把日常代码修改保存到 GitHub。</p><label className="field"><span>这次改了什么？</span><input aria-label="这次改了什么？" required maxLength={200} value={updateMessage} onChange={(event) => setUpdateMessage(event.target.value)} placeholder="例如：修复窗口缩放问题" /></label><div className="local-actions"><button className="button button-quiet" type="button" onClick={() => setPublishId(null)}>取消</button><button className="button button-primary" disabled={busy || status.needsReview || !updateMessage.trim() || !selections[item.id] || (!selections[item.id]?.paths.length && !pending[item.id])} type="submit">{status.pendingPublish ? tr('重试发布', 'Retry publishing') : tr('发布选中的文件', 'Publish selected files')}</button></div></form>}
+      {status?.needsReview && <p className="live-error">{t("localWorkspace.anotherToolHasPreparedChangesInThisFolderFinish")}</p>}
+      {syncReview?.id === item.id && <div className="sync-review"><h3>{t("localWorkspace.contentNeedsYourChoice")}</h3><p>{t("localWorkspace.theseFilesWereAlsoChangedOnAnotherComputerReview")}</p>{syncReview.preview.files.map((file) => <div className="sync-review-file" key={file.path}><strong>{file.path}</strong><div className="local-actions"><button className="button button-quiet" type="button" onClick={() => setShowDifferences((old) => ({ ...old, [file.path]: !old[file.path] }))}>{showDifferences[file.path] ? t("localWorkspace.hideComparison") : t("localWorkspace.compareVersions")}</button><button className={`button ${syncChoices[file.path] === 'mine' ? 'button-primary' : 'button-quiet'}`} type="button" onClick={() => setSyncChoices((old) => ({ ...old, [file.path]: 'mine' }))}>{t("localWorkspace.keepMine")}</button><button className={`button ${syncChoices[file.path] === 'github' ? 'button-primary' : 'button-quiet'}`} type="button" onClick={() => setSyncChoices((old) => ({ ...old, [file.path]: 'github' }))}>{t("localWorkspace.useGithubVersion")}</button></div>{showDifferences[file.path] && <div className="sync-review-diff"><div><span>{t("localWorkspace.yourVersion")}</span><pre>{file.mine ?? t("localWorkspace.thisVersionHasNoFile")}</pre></div><div><span>{t("localWorkspace.versionOnGithub")}</span><pre>{file.github ?? t("localWorkspace.thisVersionHasNoFile")}</pre></div></div>}</div>)}<div className="local-actions"><button className="button button-quiet" type="button" onClick={() => { setSyncReview(null); setPublishAfterSync(null); }}>{t("localWorkspace.decideLater")}</button><button className="button button-primary" type="button" disabled={busy || syncReview.preview.files.some((file) => !syncChoices[file.path])} onClick={() => void confirmSync(item)}>{t("localWorkspace.confirmAndGetLatest")}</button></div></div>}
+      {publishId === item.id && status && <form className="local-publish" onSubmit={(event) => void publish(event, item)}><h3>{t("localWorkspace.publishSourceCode")}</h3><p className={repo?.private ? "" : "local-sensitive-warning"}>{repo?.private ? t("localWorkspace.targetRepositoryPrivateVisibleToAuthorizedPeopleOnly") : t("localWorkspace.targetRepositoryPublicAnyoneCanReadPublishedFilesDo")}</p><label className="field"><span>{t("localWorkspace.whatChanged")}</span><input ref={publishInput} aria-label={t("localWorkspace.whatChanged")} required maxLength={200} value={updateMessage} onChange={(event) => setUpdateMessage(event.target.value)} placeholder={t("localWorkspace.forExampleFixWindowResizing")} /></label><div className="local-actions"><button className="button button-quiet" type="button" onClick={() => setPublishId(null)}>{t("localWorkspace.cancel")}</button><button className="button button-primary" disabled={busy || status.needsReview || !updateMessage.trim() || !selections[item.id] || (!selections[item.id]?.paths.length && !pending[item.id])} type="submit">{status.pendingPublish ? t("localWorkspace.retryPublishing") : t("localWorkspace.publishSelectedFiles")}</button></div></form>}
+      {effectiveMode !== 'create' && <details className="local-readme" onToggle={(event) => { if (event.currentTarget.open) setIntroductionRefresh((value) => value + 1); }}><summary>{t("localWorkspace.projectIntroduction")}</summary><section aria-label={t("localWorkspace.projectIntroduction")}><div className="panel-heading"><h3>{t("localWorkspace.projectIntroduction")}</h3></div>{!introduction ? <p className="muted" role="status">{t("localWorkspace.loadingProjectIntroduction")}</p> : introduction.error ? <div><p className="live-error" role="alert"><ErrorMessage error={introduction.error} /></p><button className="text-link" onClick={() => setIntroductionRefresh((value) => value + 1)}>{t("localWorkspace.readAgain")}</button></div> : introduction.content ? <ReadmeMarkdown markdown={introduction.content} repository={{ owner: item.owner, name: item.name, branch: repo?.default_branch || 'main' }} onOpenLink={(url) => { void api?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} /> : <p className="muted">{t("localWorkspace.thisProjectHasNoIntroductionYet")}</p>}</section></details>}
+      </>}
     </section>; })}
-    {mode !== 'create' && <section className="panel live-section"><div className="panel-heading"><h2>我的云端项目</h2></div>{visibleRepos.filter((repo) => !links.some((item) => item.repositoryId === repo.id)).map((repo) => <div className="live-repo-row local-cloud-row" key={repo.id}><span><strong>{repo.name}</strong><small>{repo.description || '还没有一句介绍'}</small></span><button className="button button-quiet" disabled={busy || downloadBusy} onClick={() => void download(repo)}><Download size={16} />下载</button></div>)}{visibleRepos.every((repo) => links.some((item) => item.repositoryId === repo.id)) && <p className="muted"><CheckCircle2 size={16} />云端项目都已添加到电脑。</p>}</section>}
+    {effectiveMode !== 'create' && !singleProject && <section className="panel live-section"><div className="panel-heading"><h2>{t("localWorkspace.cloudProjects")}</h2></div>{visibleRepos.filter((repo) => !links.some((item) => item.repositoryId === repo.id)).map((repo) => <div className="live-repo-row local-cloud-row" key={repo.id}><span><strong>{repo.name}</strong><small>{repo.description || t("localWorkspace.noDescriptionYet")}</small></span><button className="button button-quiet" disabled={busy || downloadBusy} onClick={() => void download(repo)}><Download size={16} />{t("localWorkspace.download")}</button></div>)}{visibleRepos.every((repo) => links.some((item) => item.repositoryId === repo.id)) && <p className="muted"><CheckCircle2 size={16} />{t("localWorkspace.allCloudProjectsAreOnThisComputer")}</p>}</section>}
+    {removeTarget && <div className="modal-backdrop"><div className="modal" ref={removeDialog} role="dialog" aria-modal="true" aria-labelledby="remove-local-title"><h2 id="remove-local-title">{t("localWorkspace.removeLocalProjectLink")}</h2><p data-content-original>{removeTarget.name}</p><p>{t("localWorkspace.thisOnlyRemovesTheLinkFromThisComputerS")}</p><div className="modal-actions"><button className="button button-quiet" disabled={busy} onClick={() => setRemoveTarget(null)}>{t("localWorkspace.cancel")}</button><button className="button danger-confirm" disabled={busy} onClick={() => void remove(removeTarget)}>{t("localWorkspace.confirmRemoval")}</button></div></div></div>}
+    {sensitiveConfirm && <div className="modal-backdrop" role="presentation"><div className="modal" role="dialog" aria-modal="true" aria-labelledby="sensitive-confirm-title" ref={confirmDialog}>
+      <h2 id="sensitive-confirm-title">{t("localWorkspace.theseFilesMayContainPasswordsOrKeys")}</h2>
+      <p className="local-sensitive-warning">{t("localWorkspace.checkTheseFilesAnyoneWithAccessToThisRepository")}</p>
+      <ul>{sensitiveSelections[sensitiveConfirm.item.id]?.map((file) => <li key={file.path}><strong>{file.path}</strong><ul>{file.sensitiveReasons?.map((reason) => <li key={reason}>{sensitiveReasonText(reason, language)}</li>)}</ul></li>)}</ul>
+      <div className="modal-actions"><button className="button button-quiet" onClick={() => setSensitiveConfirm(null)}>{t("localWorkspace.backToReview")}</button><button className="button danger-confirm" onClick={() => void publishSelection(sensitiveConfirm.item, { ...sensitiveConfirm.selection, sensitiveConfirmed: true }, sensitiveConfirm.message)}>{t("localWorkspace.confirmPublicationOfTheseFiles")}</button></div>
+    </div></div>}
   </div>;
 }

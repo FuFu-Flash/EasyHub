@@ -1,3 +1,4 @@
+import { useEasyHub } from '../bridge';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { TranslationRequest, TranslationTargetLanguage } from '@easyhub/types';
@@ -14,6 +15,7 @@ function Paragraph({ paragraph, definitions, render, automatic, target, reposito
   repository?: TranslationRequest['repository'];
   names: string[];
 }) {
+  const easyHub = useEasyHub();
   const element = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [translated, setTranslated] = useState<string | null>(null);
@@ -32,7 +34,7 @@ function Paragraph({ paragraph, definitions, render, automatic, target, reposito
   useEffect(() => { if (!automatic) setFailed(false); }, [automatic]);
   useEffect(() => {
     if (!paragraph.hasProse || !automatic || !visible || translated !== null || failed) return;
-    const api = window.easyHub;
+    const api = easyHub;
     if (!api) { setFailed(true); return; }
     let active = true;
     const id = `paragraph-${Date.now()}-${++paragraphRequestNumber}`;

@@ -1,4 +1,5 @@
-export interface ActivityNoticeIdentity { id: string; title: string }
+export interface ActivityNoticeIdentity { id: string; title: string; revision?: string }
+export function activityNoticeRevision(item: ActivityNoticeIdentity): string { return item.revision ?? item.title; }
 export type SeenActivityNotices = Record<string, string>;
 export type ActivityNoticeStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -20,7 +21,7 @@ export function readSeenActivityNotices(storage: ActivityNoticeStorage | undefin
 }
 
 export function unreadActivityNoticeCount(activity: readonly ActivityNoticeIdentity[], seen: SeenActivityNotices): number {
-  return activity.filter((item) => seen[item.id] !== item.title).length;
+  return activity.filter((item) => seen[item.id] !== activityNoticeRevision(item)).length;
 }
 
 /** Records the displayed rows, retaining recent distinct entries and the full title used to detect updates. */
@@ -29,7 +30,7 @@ export function markActivityNoticesSeen(current: SeenActivityNotices, activity: 
   const entries = new Map(Object.entries(current));
   for (const item of activity) {
     entries.delete(item.id);
-    entries.set(item.id, item.title);
+    entries.set(item.id, activityNoticeRevision(item));
   }
   const ordered = [...entries];
   // Keep every displayed row read in this window even when the current list exceeds the storage limit.

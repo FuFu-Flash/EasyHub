@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
+import { _electron as electron } from 'playwright-core';
+import electronPath from 'electron';
 
 // Exercise the real signed-in renderer without exposing account data or allowing writes.
 const desktop = dirname(fileURLToPath(import.meta.url));
@@ -18,14 +19,32 @@ const channels = [...new Set([...preload.matchAll(/ipcRenderer\.invoke\(([^,\r\n
   return literal[1];
 }))];
 assert.ok(channels.length > 40);
+const executableArgument = process.argv.find(value => value.startsWith('--executable='));
+const executable = executableArgument?.slice('--executable='.length)
+  ?? (process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'EasyHub.exe') : null);
+if (executableArgument) assert.ok(isAbsolute(executable), '--executable must be an absolute path.');
 const baseline = process.argv.includes('--baseline');
+const launcher = join(directory, 'launch.cjs');
+if (!executable) await writeFile(launcher, `
+const { app, ipcMain } = require('electron');
+app.setPath('userData', ${JSON.stringify(profile)});
+process.env.ELECTRON_RENDERER_URL = 'data:text/html,<title>History and motion fixture</title>';
+globalThis.historyRegister = ipcMain.handle.bind(ipcMain);
+globalThis.historyRejected = [];
+ipcMain.handle = (channel, handler) => globalThis.historyRegister(channel, channel.startsWith('easyhub:') ? () => {
+  globalThis.historyRejected.push(channel);
+  throw new Error('Unmocked history fixture IPC: ' + channel);
+} : handler);
+require(${JSON.stringify(join(desktop, 'out', 'main', 'index.js'))});
+`, 'utf8');
+
 const started = Date.now();
 const measurements = [];
 let checks = 0;
 const check = (condition, label) => { checks++; assert.ok(condition, label); };
-const { app, executable, renderer } = await launchUpstreamFixture(desktop, { profile: profile,
-  launcher: join(directory, 'launch.cjs'), registerName: 'historyRegister', rejectedName: 'historyRejected',
-  title: 'History and motion fixture', allowedFlags: ['--baseline'] });
+const app = await electron.launch({ executablePath: executable || electronPath,
+  args: executable ? ['--user-data-dir=' + profile] : [launcher], cwd: desktop,
+  env: { ...process.env, EASYHUB_PROXY_APP_ONLY_TEST: '1' } });
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
   await app.evaluate(({ BrowserWindow, ipcMain, session }, channels) => {
@@ -40,7 +59,7 @@ try {
         return handler(...args);
       });
     };
-    for (const channel of channels.filter(channel => !['easyhub:menu-state', 'easyhub:window-set-style'].includes(channel))) mock(channel, () => {
+    for (const channel of channels) mock(channel, () => {
       fixture.forbidden.push(channel);
       throw new Error('Write or unknown history fixture IPC blocked: ' + channel);
     });
@@ -56,7 +75,6 @@ try {
     mock('easyhub:github-cancel', () => undefined);
     mock('easyhub:ai-settings', () => ({ providerId: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', hasApiKey: false }));
     mock('easyhub:github-proxy-status', () => ({ enabled: false, state: 'off', checkedAt: null, error: null, checks: [], legacyHosts: false }));
-    mock('easyhub:mac-proxy-status', () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }));
     mock('easyhub:binary-analysis-status', () => ({ installed: false, state: 'missing', engineVersion: '12.1.2' }));
     mock('easyhub:github', (action, ...args) => {
       fixture.reads.push(action);
@@ -77,7 +95,7 @@ try {
   page.setDefaultTimeout(12_000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(async ({ BrowserWindow }, file) => BrowserWindow.getAllWindows()[0].loadFile(file), renderer);
+  if (!executable) await app.evaluate(async ({ BrowserWindow }, file) => BrowserWindow.getAllWindows()[0].loadFile(file), join(desktop, 'out', 'renderer', 'index.html'));
   const history = Array.from({ length: 10 }, (_, index) => ({ query: index === 9 ? 'LongUnbrokenQuery'.repeat(11).slice(0, 200)
     : `历史搜索项目 ${index + 1}`, scope: index % 2 ? 'mine' : 'local' }));
   const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -287,8 +305,7 @@ try {
   }
   assert.deepEqual(await app.evaluate(() => globalThis.historyFixture.forbidden), []);
   assert.deepEqual(await app.evaluate(() => globalThis.historyRejected ?? []), []);
-  await writeFile(join(output, baseline ? 'baseline-isolation.json' : 'isolation.json'), JSON.stringify({ blockedByDefaultChannels: channels.filter(channel => !['easyhub:menu-state', 'easyhub:window-set-style'].includes(channel)).length,
-    allowedNativeUIChannels: ['easyhub:menu-state', 'easyhub:window-set-style'], credentialStore: 'memory',
+  await writeFile(join(output, baseline ? 'baseline-isolation.json' : 'isolation.json'), JSON.stringify({ blockedByDefaultChannels: channels.length,
     executable: executable ?? 'development-renderer', baseline, historyLayoutCases: baseline ? 2 : 14,
     forbiddenCalls: [], unexpectedIpcCalls: [], externalNetworkBlocked: true, systemProxyIntegrationDisabled: true, checks,
     elapsedMs: Date.now() - started }, null, 2) + '\n');

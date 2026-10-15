@@ -1,5 +1,5 @@
+import { runDemoChecks } from './demo-checks.mjs';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, realpath, rm, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
@@ -17,16 +17,12 @@ await new Promise((resolve) => imageServer.listen(0, '127.0.0.1', resolve));
 const imageUrl = `http://127.0.0.1:${imageServer.address().port}/intro.png`;
 const selectedFolder = await mkdtemp(join(tmpdir(), 'easyhub-ui-smoke-'));
 const profile = await mkdtemp(join(tmpdir(), 'easyhub-ui-profile-'));
-const isMac = process.platform === 'darwin';
-const referenceWindowControls = isMac ? '.topbar-reference .native-window-controls' : '.topbar-reference .window-controls';
-const defaultWindowControls = isMac ? referenceWindowControls : '.topbar-windows .windows-window-controls';
-const defaultWindowButtons = `${defaultWindowControls} button`;
-const packagedExecutable = isMac ? (process.env.EASYHUB_PACKAGED_EXECUTABLE || '/tmp/easyhub-desktop-release/mac-arm64/EasyHub.app/Contents/MacOS/EasyHub') : join(process.cwd(), 'release/win-unpacked/EasyHub.exe');
+const packagedExecutable = join(process.cwd(), 'release/win-unpacked/EasyHub.exe');
 const app = await electron.launch({
   executablePath: packaged ? packagedExecutable : electronPath,
   args: [...(packaged ? [] : ['.']), `--user-data-dir=${profile}`],
   cwd: process.cwd(),
-  env: { ...process.env, EASYHUB_PROXY_APP_ONLY_TEST: '1', EASYHUB_TEST_MODE: '1', EASYHUB_TEST_USER_DATA: profile },
+  env: { ...process.env, EASYHUB_PROXY_APP_ONLY_TEST: '1' },
 });
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
@@ -37,33 +33,6 @@ try {
   }, selectedFolder);
 
   const page = await app.firstWindow();
-  page.setDefaultTimeout(15000);
-  page.setDefaultNavigationTimeout(20000);
-  async function assertWindowState(method, expected) {
-    let actual;
-    for (let attempt = 0; attempt < 50; attempt += 1) {
-      actual = await app.evaluate(({ BrowserWindow }, action) => BrowserWindow.getAllWindows()[0]?.[action](), method);
-      if (actual === expected) return;
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-    assert.equal(actual, expected, method);
-  }
-  async function assertNativeWindowControls() {
-    if (!isMac) return;
-    const placeholder = page.locator(referenceWindowControls);
-    await placeholder.waitFor();
-    assert.equal(await placeholder.evaluate((element) => element.tagName), 'SPAN');
-    assert.equal(await placeholder.getAttribute('aria-hidden'), 'true');
-    assert.equal(await placeholder.locator('button').count(), 0, 'macOS system controls must not be simulated with DOM buttons');
-    assert.equal(await page.locator('.topbar-reference .window-dot').count(), 0);
-    const nativeWindow = await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows()[0];
-      return { position: window.getWindowButtonPosition(), fullScreenable: window.isFullScreenable() };
-    });
-    const density = await page.locator('.app-shell').getAttribute('data-layout');
-    assert.deepEqual(nativeWindow.position, density === 'compact' ? { x: 16, y: 21 } : { x: 25, y: 29 });
-    assert.equal(nativeWindow.fullScreenable, true, 'The native green button must support full screen');
-  }
   const openProjectsList = async (name) => {
     const button = page.locator('.sidebar-nav').getByRole('button', { name, exact: true });
     await button.click();
@@ -79,317 +48,12 @@ try {
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined');
   assert.equal(await page.evaluate(() => typeof window.easyHub?.openLicense), 'function');
   assert.equal(await page.evaluate(() => typeof window.easyHub?.authStatus), 'function');
-  assert.equal(await page.evaluate(() => typeof window.easyHub?.setWindowControlStyle), 'function');
   assert.equal('clientId' in (await page.evaluate(() => window.easyHub?.authStatus())), true);
-  assert.equal(await page.locator('.app-shell h1').first().evaluate((element) => getComputedStyle(element).userSelect), 'none');
-  const packagedResources = isMac ? join(packagedExecutable, '../../Resources') : join(process.cwd(), 'release/win-unpacked/resources');
-  const iconPath = packaged ? join(packagedResources, isMac ? 'easyhub.png' : 'easyhub.ico') : join(process.cwd(), 'resources', isMac ? 'easyhub.png' : 'easyhub.ico');
+  await page.getByRole('button', { name: '先看看演示', exact: true }).click();
+  const iconPath = packaged ? join(process.cwd(), 'release/win-unpacked/resources/easyhub.ico') : join(process.cwd(), 'resources/easyhub.ico');
   assert.equal(await app.evaluate(({ nativeImage }, path) => nativeImage.createFromPath(path).isEmpty(), iconPath), false);
-  const licensePath = packaged ? join(packagedResources, 'LICENSE') : join(process.cwd(), '../../LICENSE');
-  assert.equal(existsSync(licensePath), true);
-  assert.match(readFileSync(licensePath, 'utf8'), /Apache License\s+Version 2\.0, January 2004/u);
-  const noticePath = packaged ? join(packagedResources, 'NOTICE') : join(process.cwd(), '../../NOTICE');
-  assert.match(readFileSync(noticePath, 'utf8'), /Copyright 2026 FuFu-Flash and EasyHub contributors\./u);
-  const upstreamLicensePath = packaged ? join(packagedResources, 'licenses/steamtools-GPL-3.0') : join(process.cwd(), 'resources/licenses/steamtools-GPL-3.0');
-  assert.match(readFileSync(upstreamLicensePath, 'utf8'), /GNU GENERAL PUBLIC LICENSE\s+Version 3, 29 June 2007/u);
-  await page.evaluate(() => {
-    window.localStorage.removeItem('easyhub:window-control-style');
-    window.localStorage.removeItem('easyhub:language');
-  });
-  await page.reload();
-  await page.locator(defaultWindowControls).waitFor();
-  await assertNativeWindowControls();
-  await page.getByRole('button', { name: '选择语言' }).click();
-  await page.getByRole('button', { name: 'English' }).click();
-  await page.locator('.sidebar-nav').getByRole('button', { name: 'Home' }).waitFor();
-  await page.reload();
-  await page.locator('.sidebar-nav').getByRole('button', { name: 'Home' }).waitFor();
-  assert.equal(await page.evaluate(() => window.localStorage.getItem('easyhub:language')), 'en');
-  await page.screenshot({ path: 'out/home-english-smoke.png' });
-  const assertEnglish = async (label) => {
-    const remaining = await page.evaluate(() => {
-      const walker = document.createTreeWalker(document.querySelector('.app-shell'), NodeFilter.SHOW_TEXT);
-      const found = new Set();
-      while (walker.nextNode()) {
-        // Authored README content is preserved; only interface copy is localized.
-        if (walker.currentNode.parentElement?.closest('textarea, [data-content-original]')) continue;
-        const value = walker.currentNode.textContent?.trim();
-        if (value && /[\u3400-\u9fff]/u.test(value)) found.add(value);
-      }
-      return [...found];
-    });
-    assert.deepEqual(remaining, [], `Untranslated text on ${label}`);
-  };
-  await assertEnglish('Home');
-  await page.getByRole('button', { name: 'Account menu' }).click();
-  await page.getByRole('menuitem', { name: 'Starred projects' }).click();
-  await assertEnglish('Starred projects');
-  await page.getByRole('button', { name: 'Back', exact: true }).click();
-  await page.getByRole('button', { name: 'Account menu' }).click();
-  await page.getByRole('menuitem', { name: 'Profile' }).click();
-  await assertEnglish('Profile');
-  await page.getByRole('button', { name: 'Back', exact: true }).click();
-  await openProjectsList('My Projects');
-  await assertEnglish('Projects');
-  await page.getByRole('button', { name: 'New Project' }).first().click();
-  await assertEnglish('New Project');
-  await openProjectsList('My Projects');
-  await page.locator('.project-card .plain-heading').first().click();
-  await assertEnglish('Project Details');
-  await page.locator('.detail-actions').getByRole('button', { name: 'Star project' }).click();
-  await page.locator('.detail-actions').getByRole('button', { name: 'Starred' }).waitFor();
-  await page.getByRole('button', { name: 'Edit Introduction' }).click();
-  await assertEnglish('Introduction Editor');
-  await page.getByRole('button', { name: 'Preview', exact: true }).click();
-  await assertEnglish('Introduction Preview');
-  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
-  await page.locator('.danger-zone-row').first().getByRole('button', { name: 'Change visibility' }).click();
-  await assertEnglish('Danger Confirmation');
-  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
-  await page.locator('.detail-primary .panel').nth(1).getByRole('button', { name: 'Publish Source' }).click();
-  await page.getByText('Save everyday source changes to GitHub.', { exact: false }).waitFor();
-  await assertEnglish('Publish Source');
-  await page.getByRole('button', { name: 'Back to Project' }).click();
-  await page.locator('.detail-actions').getByRole('button', { name: 'Publish New Release' }).click();
-  await assertEnglish('Release Editor');
-  await page.getByRole('textbox', { name: 'Release Description' }).fill('A new installer is ready.');
-  await page.getByRole('button', { name: 'Preview Release' }).click();
-  await assertEnglish('Release Preview');
-  await page.getByRole('button', { name: 'Confirm Release' }).click();
-  await page.getByRole('heading', { name: 'Published Release' }).waitFor();
-  await assertEnglish('Published Release');
-  await openProjectsList('My Projects');
-  await page.locator('.project-card .plain-heading').first().click();
-  await page.locator('.detail-side .side-panel').first().getByRole('button', { name: 'View Issues' }).click();
-  assert.equal(await page.locator('.issue-project-header').first().getAttribute('aria-expanded'), 'true');
-  await openProjectsList('My Projects');
-  await page.locator('.project-card .plain-heading').first().click();
-  await page.locator('.detail-primary .panel').nth(2).locator('.text-link').click();
-  await assertEnglish('Version History');
-  await page.locator('.history-row').first().click();
-  await assertEnglish('Version Details');
-  await page.locator('.sidebar-nav').getByRole('button', { name: 'Issues' }).click();
-  await assertEnglish('Issues');
-  await page.screenshot({ path: 'out/issues-grouped-smoke.png' });
-  // Returning via the sidebar retains the project group opened above.
-  assert.equal(await page.locator('.issue-project-header').first().getAttribute('aria-expanded'), 'true');
-  await page.locator('.issue-project-header').first().click();
-  assert.equal(await page.locator('.issue-project-header').first().getAttribute('aria-expanded'), 'false');
-  assert.equal(await page.locator('.issue-row').count(), 0);
-  await page.locator('.issue-project-header').first().click();
-  await assertEnglish('Expanded Issues');
-  await page.locator('.issue-row').first().click();
-  await assertEnglish('Issue Details');
-  await page.locator('.sidebar-nav').getByRole('button', { name: 'Home' }).click();
-  await page.locator('.home-publish-detail').click();
-  await assertEnglish('Publish');
-  await page.locator('.sidebar-nav').getByRole('button', { name: 'Home' }).click();
-  await page.locator('.home-shortcuts button').first().click();
-  await assertEnglish('Download');
-  await page.locator('.sidebar-nav').getByRole('button', { name: 'Home' }).click();
-  await page.locator('.home-shortcuts button').nth(1).click();
-  await assertEnglish('Add Folder');
-  await page.locator('.sidebar-nav').getByRole('button', { name: 'Settings' }).click();
-  await assertEnglish('Settings');
-  const settingsOrder = await page.locator('.settings-stack > *').evaluateAll((panels) => panels.map((panel) => panel.querySelector('h2')?.textContent?.trim()));
-  assert.deepEqual(settingsOrder.slice(0, 4), ['Account & Connection', 'Window Controls', 'Interface layout', 'AI API Access']);
-  assert.equal(settingsOrder.at(-2), 'GitHub system proxy');
-  assert.equal(settingsOrder.at(-1), 'About EasyHub');
-  assert.equal(settingsOrder.includes('Data & Sync'), false);
-  await page.getByText('Reuse an existing system proxy. Turning this off or exiting restores settings changed by EasyHub. EasyHub yields when another proxy takes over.').waitFor();
-  await page.getByRole('switch', { name: 'GitHub system proxy' }).waitFor();
-  await page.getByText('Apache 2.0', { exact: true }).waitFor();
-  await page.getByText('This application is licensed under Apache License 2.0.', { exact: true }).waitFor();
-  await app.evaluate(({ shell }) => {
-    shell.openExternal = async (url) => { globalThis.easyHubSmokeLicenseUrl = url; };
-  });
-  await page.getByRole('button', { name: 'View License', exact: true }).click();
-  assert.equal(await app.evaluate(() => globalThis.easyHubSmokeLicenseUrl), 'https://www.apache.org/licenses/LICENSE-2.0');
-  await page.screenshot({ path: 'out/settings-english-smoke.png' });
-  console.log('Demo routes, dialogs, translations, and settings passed.');
-  await page.getByRole('button', { name: 'Choose language' }).click();
-  await page.getByRole('button', { name: '中文' }).click();
-  await page.getByRole('button', { name: '选择语言' }).waitFor();
-  await page.locator('.topbar-brand').click();
-  await page.locator('button[aria-label="设置"]').click();
-  await page.getByText('本应用采用 Apache License 2.0 许可协议。', { exact: true }).waitFor();
-  const windowStyleOptions = page.getByRole('group', { name: '窗口控件样式' });
-  const windowsStyleOption = windowStyleOptions.getByRole('button', { name: /Windows 风格/ });
-  const roundStyleOption = windowStyleOptions.getByRole('button', { name: /圆点风格/ });
-  assert.equal(await windowsStyleOption.getAttribute('aria-pressed'), String(!isMac));
-  assert.equal(await roundStyleOption.getAttribute('aria-pressed'), String(isMac));
-  await windowsStyleOption.click();
-  await page.locator('.topbar-windows .windows-window-controls').waitFor();
-  await page.reload();
-  await page.locator('.topbar-windows .windows-window-controls').waitFor();
-  assert.equal(await page.evaluate(() => window.localStorage.getItem('easyhub:window-control-style')), 'windows');
-  await page.locator('button[aria-label="设置"]').click();
-  await roundStyleOption.click();
-  await page.locator(referenceWindowControls).waitFor();
-  await page.reload();
-  await page.locator(referenceWindowControls).waitFor();
-  assert.equal(await page.evaluate(() => window.localStorage.getItem('easyhub:window-control-style')), 'reference');
-  await page.locator('button[aria-label="设置"]').click();
-  await (isMac ? roundStyleOption : windowsStyleOption).click();
-  await page.locator(defaultWindowControls).waitFor();
-  await assertNativeWindowControls();
-  await page.locator('.topbar-brand').click();
-  await page.getByRole('heading', { name: /(早上好|下午好|晚上好)/ }).waitFor();
-  assert.equal(await page.locator('.v2-feature-art > img').evaluate((image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0), true);
-  if (isMac) {
-    // DOM clicks exercise the retained Windows controls and their IPC. Native traffic
-    // lights are verified through window properties here and real system clicks separately.
-    await page.locator('button[aria-label="设置"]').click();
-    await windowsStyleOption.click();
-    await page.locator('.topbar-windows .windows-window-controls').waitFor();
-    await page.locator('.topbar-brand').click();
-  }
-  await page.getByRole('button', { name: '关闭窗口' }).waitFor();
-  await page.getByRole('button', { name: '最大化或还原窗口' }).click();
-  await assertWindowState('isMaximized', true);
-  await page.getByRole('button', { name: '最大化或还原窗口' }).click();
-  await assertWindowState('isMaximized', false);
-  await page.getByRole('button', { name: '最小化窗口' }).click();
-  await assertWindowState('isMinimized', true);
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.restore());
-  await assertWindowState('isMinimized', false);
-  if (isMac) {
-    await page.locator('button[aria-label="设置"]').click();
-    await roundStyleOption.click();
-    await assertNativeWindowControls();
-    await page.locator('.topbar-brand').click();
-    await page.getByRole('heading', { name: /(早上好|下午好|晚上好)/ }).waitFor();
-  }
-  await page.setViewportSize({ width: 1060, height: 700 });
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
-  assert.equal(await page.locator('.main-column').evaluate((element) => getComputedStyle(element).scrollbarWidth), 'none');
-  await page.getByRole('button', { name: '向下滚动' }).click();
-  await page.waitForFunction(() => (document.querySelector('.main-column')?.scrollTop ?? 0) > 0);
-  await page.locator('.main-column').evaluate((element) => element.scrollTo(0, element.scrollHeight));
-  await page.getByRole('button', { name: '向下滚动' }).waitFor({ state: 'hidden' });
-  await page.locator('.main-column').evaluate((element) => element.scrollTo(0, 0));
-  await page.getByRole('button', { name: '向下滚动' }).waitFor();
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.screenshot({ path: 'out/home-smoke.png' });
-  console.log('Window controls and minimum-size homepage passed.');
-  await page.locator('#home-update-message').fill('整理首页布局');
-  await page.locator('.home-publish').getByRole('button', { name: '发布更新' }).click();
-  await page.getByText('目前没有尚未发布的修改').waitFor();
-  await page.getByRole('button', { name: '新建项目' }).first().click();
-  await page.getByPlaceholder('例如：我的工具').fill('点击验收项目');
-  await page.getByPlaceholder('用一句话介绍你的项目').fill('测试完整交互');
-  await page.getByRole('button', { name: '选择文件夹' }).click();
-  await page.getByRole('button', { name: '创建项目' }).click();
-  await page.locator('.detail-hero').getByRole('heading', { name: '点击验收项目' }).waitFor();
-  await page.getByRole('button', { name: '模拟文件修改' }).click();
-  await page.getByText('有 3 个文件还没发布').first().waitFor();
-  await page.getByRole('button', { name: '编辑介绍' }).click();
-  await page.getByRole('textbox', { name: '项目介绍内容' }).fill('# 点击验收项目\n\n这是新的项目介绍。\n\n- 易于使用');
-  await page.getByRole('dialog').getByRole('button', { name: '添加图片' }).click();
-  await page.getByRole('textbox', { name: '图片说明' }).fill('界面截图');
-  await page.getByRole('textbox', { name: '图片地址' }).fill(imageUrl);
-  await page.getByRole('button', { name: '插入', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: '添加链接' }).click();
-  await page.getByRole('textbox', { name: '显示文字' }).fill('使用说明');
-  await page.getByRole('textbox', { name: '链接地址' }).fill('https://example.com/guide');
-  await page.getByRole('button', { name: '插入', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: '预览' }).click();
-  await page.getByRole('dialog').getByText('这是新的项目介绍。').waitFor();
-  await page.getByRole('dialog').locator('.intro-markdown a').getByText('使用说明').waitFor();
-  await page.waitForFunction(() => { const image = document.querySelector('.intro-editor-preview img'); return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0; });
-  await page.screenshot({ path: 'out/intro-editor-smoke.png' });
-  await page.getByRole('dialog').getByRole('button', { name: '保存介绍' }).click();
-  await page.getByText('有 4 个文件还没发布').first().waitFor();
-  await page.locator('.detail-actions').getByRole('button', { name: '发布新版本' }).click();
-  assert.equal(await page.getByRole('textbox', { name: '版本号' }).inputValue(), 'v0.01');
-  const releaseInputTops = await page.locator('.release-fields input').evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().top));
-  assert.ok(Math.abs(releaseInputTops[0] - releaseInputTops[1]) < 2, '版本号和版本名称输入框应该水平对齐');
-  await page.getByRole('button', { name: 'Alpha 测试版' }).click();
-  assert.equal(await page.getByRole('textbox', { name: '版本号' }).inputValue(), 'alpha0.1');
-  await page.getByRole('button', { name: 'Beta 测试版' }).click();
-  assert.equal(await page.getByRole('textbox', { name: '版本号' }).inputValue(), 'beta0.1');
-  await page.getByRole('button', { name: '正式版' }).click();
-  assert.equal(await page.getByRole('textbox', { name: '版本号' }).inputValue(), 'v0.01');
-  await page.getByRole('textbox', { name: '版本介绍' }).fill('新增一键安装。');
-  await page.getByRole('button', { name: '添加链接' }).click();
-  await page.getByPlaceholder('例如：使用说明').fill('使用说明');
-  await page.getByRole('textbox', { name: '链接地址' }).fill('https://example.com/guide');
-  await page.getByRole('button', { name: '插入' }).click();
-  await page.locator('input[aria-label="选择发布文件"]').setInputFiles([
-    { name: 'EasyHub-Setup.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('demo-installer') },
-    { name: 'EasyHub-portable.zip', mimeType: 'application/zip', buffer: Buffer.from('demo-archive') },
-  ]);
-  await page.getByRole('button', { name: '添加图片' }).click();
-  await page.locator('input[aria-label="选择介绍图片"]').setInputFiles({
-    name: 'screen.png', mimeType: 'image/png',
-    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==', 'base64'),
-  });
-  await page.getByRole('button', { name: '预览发布效果' }).click();
-  await page.getByRole('heading', { name: '点击验收项目 v0.01' }).waitFor();
-  await page.locator('.release-markdown a').getByText('使用说明').waitFor();
-  assert.equal(await page.locator('.release-download-row').count(), 3);
-  await page.waitForFunction(() => { const image = document.querySelector('.release-markdown img'); return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0; }, null, { timeout: 5000 });
-  await page.screenshot({ path: 'out/release-preview-smoke.png' });
-  await page.getByRole('button', { name: '确认发布新版本' }).click();
-  await page.getByRole('heading', { name: '已发布的新版本' }).waitFor();
-  await page.getByRole('button', { name: '发布下一个版本' }).click();
-  assert.equal(await page.getByRole('textbox', { name: '版本号' }).inputValue(), 'v0.02');
-  await page.getByRole('button', { name: '返回项目' }).click();
-  await page.getByRole('heading', { name: '已发布的新版本' }).waitFor();
-  await page.locator('.back-link').click();
-  await page.getByText('有 4 个文件还没发布').first().waitFor();
-  await page.getByRole('button', { name: '发布更新' }).click();
-  await page.getByPlaceholder('例如：修复窗口缩放问题').fill('修复窗口缩放问题');
-  await page.getByRole('button', { name: '发布更新' }).last().click();
-  await page.getByRole('heading', { name: '历史版本' }).waitFor();
-  await page.getByText('修复窗口缩放问题').first().waitFor();
-  await page.getByRole('button', { name: '问题', exact: false }).first().click();
-  await page.getByRole('heading', { name: '问题' }).waitFor();
-  await page.getByRole('button', { name: '提出问题' }).click();
-  await page.getByPlaceholder('一句话概括问题').fill('按钮位置有问题');
-  await page.getByRole('button', { name: '创建问题' }).click();
-  await page.getByText('按钮位置有问题').waitFor();
-  await page.getByText('按钮位置有问题').click();
-  await page.getByPlaceholder('说说你的想法或处理进度…').fill('已经收到，会尽快检查。');
-  await page.getByRole('button', { name: '发送回复' }).click();
-  await page.getByText('已经收到，会尽快检查。').waitFor();
-  await page.getByRole('button', { name: '标记为已解决' }).click();
-  await page.getByText('已解决').first().waitFor();
-  await openProjectsList('我的项目');
-  await page.locator('.project-card').filter({ hasText: '点击验收项目' }).locator('.plain-heading').click();
-  await page.locator('.danger-zone').scrollIntoViewIfNeeded();
-  await page.screenshot({ path: 'out/danger-zone-smoke.png' });
-  const confirmDanger = async (name) => {
-    const dialog = page.getByRole('dialog');
-    assert.equal(await dialog.getByRole('button', { name }).isDisabled(), true);
-    await dialog.getByRole('textbox', { name: '确认项目名称' }).fill('点击验收项目');
-    await dialog.getByRole('button', { name }).click();
-  };
-  await page.locator('.danger-zone-row').nth(0).getByRole('button', { name: '改变可见性' }).click();
-  await confirmDanger('改变可见性');
-  await page.locator('.detail-hero .visibility-label').getByText('所有人').waitFor();
-  await page.locator('.danger-zone-row').nth(1).getByRole('button', { name: '禁用分支保护规则' }).click();
-  await confirmDanger('禁用分支保护规则');
-  await page.locator('.danger-zone-row').nth(1).getByRole('button', { name: '启用分支保护规则' }).waitFor();
-  await page.locator('.danger-zone-row').nth(2).getByRole('button', { name: '转交项目' }).click();
-  await page.getByRole('dialog').getByRole('textbox', { name: '新所有者' }).fill('new-owner');
-  await confirmDanger('转交项目');
-  await page.locator('.danger-zone-row').nth(2).getByText('new-owner').waitFor();
-  await page.locator('.danger-zone-row').nth(3).getByRole('button', { name: '存档此项目' }).click();
-  await confirmDanger('存档此项目');
-  await page.locator('.detail-hero .archived-chip').waitFor();
-  assert.equal(await page.getByRole('button', { name: '编辑介绍' }).isDisabled(), true);
-  assert.equal(await page.locator('.detail-actions').getByRole('button', { name: '模拟文件修改' }).isDisabled(), true);
-  await page.locator('.danger-zone-row').nth(3).getByRole('button', { name: '取消存档' }).click();
-  await confirmDanger('取消存档');
-  await page.locator('.detail-hero .archived-chip').waitFor({ state: 'hidden' });
-  await page.locator('.danger-zone-row').nth(4).getByRole('button', { name: '删除此项目' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: '取消' }).click();
-  await page.locator('.detail-hero').getByRole('heading', { name: '点击验收项目' }).waitFor();
-  await page.locator('.danger-zone-row').nth(4).getByRole('button', { name: '删除此项目' }).click();
-  await confirmDanger('删除此项目');
-  await page.getByRole('heading', { name: '我的项目' }).waitFor();
-  assert.equal(await page.locator('.project-card').filter({ hasText: '点击验收项目' }).count(), 0);
+  await runDemoChecks(page);
+  await page.evaluate(() => localStorage.setItem('easyhub:language', 'en'));
   await app.evaluate(({ ipcMain }) => {
     const user = { login: 'demo-user', name: 'Demo User', avatar_url: '', html_url: 'https://github.com/demo-user' };
     const repo = { id: 101, name: 'CloudDemo', full_name: 'demo-user/CloudDemo', description: 'Live API test project', private: true, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'demo-user' }, open_issues_count: 1 };
@@ -439,10 +103,9 @@ try {
     });
   });
   await page.locator('.sidebar-nav').getByRole('button', { name: '设置' }).click();
-  await page.getByRole('button', { name: '使用 GitHub 登录' }).click();
+  await page.locator('.settings-stack').getByRole('button', { name: '登录 GitHub', exact: true }).click();
   await page.getByText('ABCD-EFGH').waitFor();
   await page.locator('.live-connected').waitFor({ timeout: 8000 });
-  console.log('Browser login and live workspace fixture passed.');
   await page.locator('.sidebar-refresh').waitFor();
   assert.equal(await page.locator('.sidebar-refresh').evaluate((button) => button.nextElementSibling?.classList.contains('live-connected')), true);
   await app.evaluate(({ ipcMain }) => {
@@ -456,7 +119,7 @@ try {
   await page.locator('.live-connected').waitFor();
   await page.locator('.v2-feature-card').waitFor();
   await page.locator('.home-dashboard').waitFor();
-  await page.locator('.home-publish').getByText('CloudDemo 有 1 个文件发生变化').waitFor();
+  await page.locator('.v2-feature-card').getByText('1 个文件有修改，查看后再发布。').waitFor();
   await page.getByRole('button', { name: '账户菜单' }).click();
   await page.getByRole('menuitem', { name: '我收藏的项目' }).click();
   await page.getByRole('heading', { name: '还没有收藏的项目' }).waitFor();
@@ -469,15 +132,8 @@ try {
     return path ? window.easyHub?.localInspect(path) : null;
   });
   assert.equal(inspectedFolder?.state, 'new');
-  await page.locator(defaultWindowControls).waitFor();
-  if (isMac) await assertNativeWindowControls();
-  else await page.locator(defaultWindowButtons).first().waitFor();
-  assert.equal(await page.locator(defaultWindowButtons).count(), isMac ? 0 : 3);
-  await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
-  await page.locator(defaultWindowControls).waitFor();
-  if (isMac) await assertNativeWindowControls();
-  else await page.locator(defaultWindowButtons).first().waitFor();
-  assert.equal(await page.locator(defaultWindowButtons).count(), isMac ? 0 : 3);
+  await page.locator('.topbar-windows .windows-control-button').first().waitFor();
+  assert.equal(await page.locator('.topbar-windows .windows-control-button').count(), 3);
   await openProjectsList('我的项目');
   await page.getByRole('button', { name: /这台电脑/ }).click();
   await page.getByRole('heading', { name: '查找已有项目' }).waitFor();
@@ -485,13 +141,14 @@ try {
   await page.getByText('已添加 0 个项目；1 个此前已添加。').waitFor();
   await page.screenshot({ path: 'out/local-discovery-smoke.png' });
   await page.locator('.topbar-search input').fill('https://github.com/demo-user/CloudDemo');
-  await page.locator('.discover-search input').press('Enter');
+  await page.locator('.topbar-search input').press('Enter');
   await page.locator('.detail-hero').getByRole('heading', { name: 'CloudDemo' }).waitFor();
   await openProjectsList('我的项目');
-  await page.getByRole('button', { name: '所有公开项目' }).click();
-  await page.locator('.toolbar input').fill('Public');
-  await page.getByText('another-user/PublicDemo').waitFor();
-  await page.getByText('another-user/PublicDemo').click();
+  await page.locator('.sidebar-nav').getByRole('button',{name:'发现',exact:true}).click();
+  await page.getByRole('combobox',{name:'搜索项目/用户',exact:true}).fill('Public');
+  await page.getByRole('combobox',{name:'搜索项目/用户',exact:true}).press('Enter');
+  await page.locator('.trending-card').filter({ hasText: 'PublicDemo' }).waitFor();
+  await page.locator('.trending-card').filter({ hasText: 'PublicDemo' }).click();
   await page.getByRole('heading', { name: 'PublicDemo' }).waitFor();
   await page.locator('.public-browser-hero').getByRole('button', { name: '收藏项目' }).click();
   await page.locator('.public-browser-hero').getByRole('button', { name: '已收藏' }).waitFor();
@@ -503,7 +160,7 @@ try {
   await page.getByRole('heading', { name: 'PublicDemo' }).waitFor();
   await openProjectsList('我的项目');
   await page.getByRole('button', { name: /我的云端项目/ }).click();
-  await page.locator('.toolbar input').fill('');
+  await page.getByRole('combobox',{name:'搜索项目/用户',exact:true}).fill('');
   await page.locator('.sidebar-nav').getByRole('button', { name: '问题' }).click();
   await page.locator('.live-issue-group').first().getByText('CloudDemo').waitFor();
   assert.equal(await page.locator('.live-issue-group').first().locator('.live-pending-count').textContent(), '1 个待处理的问题');
@@ -520,7 +177,7 @@ try {
   await page.getByRole('button', { name: '标记为已解决' }).click();
   await page.getByText('已解决').first().waitFor();
   await page.locator('.sidebar-nav').getByRole('button', { name: '问题' }).click();
-  await page.getByRole('button', { name: /已解决/ }).first().click();
+  await page.getByRole('tab', { name: /已解决/ }).first().click();
   const resolvedGroup = page.locator('.live-issue-group').filter({ hasText: 'CloudDemo' });
   assert.equal(await resolvedGroup.locator('.issue-project-header').getAttribute('aria-expanded'), 'false');
   await resolvedGroup.locator('.issue-project-header').click();
@@ -529,7 +186,7 @@ try {
   await page.getByRole('heading', { name: 'Window bug' }).waitFor({ timeout: 1500 });
   await openProjectsList('我的项目');
   await page.locator('.cloud-row').filter({ hasText: 'CloudDemo' }).getByRole('button', { name: 'CloudDemo' }).click();
-  await page.getByRole('heading', { name: '历史版本' }).waitFor();
+  await page.getByRole('heading', { name: '修改记录' }).waitFor();
   await page.getByRole('button', { name: '查看全部' }).last().click();
   await page.getByText('Fix launch').first().click();
   await page.getByText('src/main.ts').waitFor();
@@ -577,7 +234,7 @@ try {
   await page.getByRole('button', { name: '选择文件夹' }).click();
   await page.getByRole('textbox', { name: '项目名称' }).fill('LocalDemo');
   await page.getByRole('button', { name: '创建项目' }).click();
-  await page.getByText('LocalDemo 创建成功，文件已发布到 GitHub。').waitFor();
+  await page.getByText('项目已创建，请查看并选择要发布的文件。').waitFor();
   await page.getByRole('button', { name: '发布源码' }).click();
   await page.getByRole('textbox', { name: '这次改了什么？' }).fill('修复窗口缩放问题');
   await page.getByRole('button', { name: '发布选中的文件' }).click();
@@ -590,7 +247,7 @@ try {
     ipcMain.removeHandler('easyhub:local-sync');
     ipcMain.handle('easyhub:local-sync', (_event, _id, _revision, decisions) => { globalThis.syncSmokeDecisions = decisions; return { updated: 1 }; });
   });
-  await page.locator('.local-project-card').filter({ hasText: 'LocalDemo' }).getByRole('button', { name: '获取最新' }).click();
+  await page.locator('.local-workspace .local-project-card').getByRole('button', { name: '获取最新' }).click();
   await page.getByRole('heading', { name: '有内容需要确认' }).waitFor();
   await page.getByRole('button', { name: '查看不同' }).click();
   await page.getByText('GitHub version').waitFor();
@@ -601,7 +258,7 @@ try {
   await openProjectsList('我的项目');
   await page.locator('.cloud-row').filter({ hasText: 'CloudDemo' }).getByRole('button', { name: 'CloudDemo' }).click();
   await page.getByRole('button', { name: '本地项目与发布源码' }).click();
-  await page.getByRole('button', { name: '下载', exact: true }).click();
+  await page.locator('.local-cloud-download').getByRole('button', { name: '从 GitHub 下载项目', exact: true }).click();
   await page.getByRole('dialog', { name: '通知' }).getByText('项目已经下载完成。').waitFor();
   await page.getByRole('button', { name: '关闭通知' }).click();
   await page.getByRole('button', { name: '返回', exact: true }).click();
@@ -618,18 +275,9 @@ try {
   await page.getByRole('checkbox', { name: '我确认替换这个项目的本地介绍文件' }).check();
   await page.getByRole('dialog').getByRole('button', { name: '保存介绍' }).click();
   await page.getByText('介绍已保存到本地，发布源码后同步到 GitHub。').waitFor();
-  if (isMac) {
-    await assertNativeWindowControls();
-    await Promise.all([
-      page.waitForEvent('close'),
-      app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close()),
-    ]);
-  } else {
-    await Promise.all([
-      page.waitForEvent('close'),
-      page.getByRole('button', { name: '关闭窗口', exact: true }).click(),
-    ]);
-  }
+  const closed = page.waitForEvent('close');
+  await page.locator('.windows-window-controls button').last().click();
+  await closed;
   process.stdout.write(`${packaged ? 'Packaged' : 'Electron'} UI smoke test passed.\n`);
 } finally {
   await app.close().catch(() => {});

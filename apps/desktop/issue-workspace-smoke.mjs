@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
+import { _electron as electron } from 'playwright-core';
+import electronPath from 'electron';
 
 // Real LiveWorkspace renderer; every GitHub request is an in-memory fixture.
 // Unknown IPC and all network traffic are blocked, so this cannot post a real reply.
@@ -12,11 +13,20 @@ await mkdir(output, { recursive: true });
 const directory = await mkdtemp(join(output, 'isolated-'));
 const profile = join(directory, 'profile');
 await mkdir(profile);
-const { app, executable, renderer } = await launchUpstreamFixture(desktop, {
-  profile: profile, launcher: join(directory, 'launch.cjs'),
-  registerName: 'issueRegister', rejectedName: 'issueRejected', title: 'Issue regression fixture',
-  allowedFlags: process.argv.slice(2).filter(value => value.startsWith('--case='))
-});
+const launcher = join(directory, 'launch.cjs');
+await writeFile(launcher, `
+const { app, ipcMain } = require('electron');
+app.setPath('userData', ${JSON.stringify(profile)});
+process.env.ELECTRON_RENDERER_URL = 'data:text/html,<title>Issue regression fixture</title>';
+globalThis.issueRegister = ipcMain.handle.bind(ipcMain);
+globalThis.issueRejected = [];
+ipcMain.handle = (channel, handler) => globalThis.issueRegister(channel, channel.startsWith('easyhub:') ? () => {
+  globalThis.issueRejected.push(channel);
+  throw new Error('Unmocked issue regression IPC: ' + channel);
+} : handler);
+require(${JSON.stringify(join(desktop, 'out', 'main', 'index.js'))});
+`, 'utf8');
+const app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
 const mode = process.argv.find(value => value.startsWith('--case='))?.slice(7) ?? 'all';
 const failures = [];
 try {
@@ -65,7 +75,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(async ({ BrowserWindow }, file) => BrowserWindow.getAllWindows()[0].loadFile(file), renderer);
+  await app.evaluate(async ({ BrowserWindow }, file) => BrowserWindow.getAllWindows()[0].loadFile(file), join(desktop, 'out', 'renderer', 'index.html'));
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('easyhub:language', 'zh'); localStorage.setItem('easyhub:auto-translate', 'false'); });
   await page.reload();
   await page.locator('.live-connected').waitFor();
@@ -88,6 +98,22 @@ try {
     try { await test(); process.stdout.write('PASS: ' + name + '\n'); }
     catch (error) { failures.push(name + ': ' + error.message); process.stdout.write('FAIL: ' + name + ': ' + error.message + '\n'); }
   };
+  await run('tabs-and-native-navigation', async () => {
+    await globalIssues();
+    assert.equal(await page.locator('.issue-section-tabs').count(), 0);
+    const tabs = page.getByRole('tablist', { name: '问题状态' });
+    await tabs.getByRole('tab').first().focus();
+    await page.keyboard.press('End');
+    assert.equal(await tabs.getByRole('tab').last().getAttribute('aria-selected'), 'true');
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await tabs.getByRole('tab').first().getAttribute('tabindex'), '0');
+    await open('project-a', 1);
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].emit('app-command', {}, 'browser-backward'));
+    await page.locator('.issue-project-list').waitFor();
+    await page.waitForTimeout(120);
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].emit('app-command', {}, 'browser-forward'));
+    await page.locator('#live-reply').waitFor();
+  });
   await run('refresh', async () => {
     await globalIssues(); await expand('project-b'); await expand('project-a');
     await app.evaluate(() => { globalThis.issueFixture.revision = 2; });

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
+import { _electron as electron } from 'playwright-core';
+import electronPath from 'electron';
 import { installDownloadFixture } from './download-fixture.mjs';
 
 // Real renderer with isolated read fixtures: no account, disk download or remote mutation.
@@ -12,10 +13,20 @@ await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
 const profile = join(run, 'profile');
 await mkdir(profile);
-const { app, executable, renderer } = await launchUpstreamFixture(desktop, {
-  profile: profile, launcher: join(run, 'launch.cjs'),
-  registerName: 'workflowsRegister', rejectedName: 'workflowsForbidden', title: 'Isolated workflows fixture'
-});
+const launcher = join(run, 'launch.cjs');
+await writeFile(launcher, `
+const { app, ipcMain } = require('electron');
+app.setPath('userData', ${JSON.stringify(profile)});
+process.env.EASYHUB_PROXY_APP_ONLY_TEST = '1';
+process.env.ELECTRON_RENDERER_URL = 'data:text/html,<title>Isolated workflows fixture</title>';
+globalThis.workflowsRegister = ipcMain.handle.bind(ipcMain);
+globalThis.workflowsForbidden = [];
+ipcMain.handle = (channel, handler) => globalThis.workflowsRegister(channel, channel.startsWith('easyhub:') ? () => {
+  globalThis.workflowsForbidden.push(channel); throw new Error('Unmocked workflows IPC: ' + channel);
+} : handler);
+require(${JSON.stringify(join(desktop, 'out', 'main', 'index.js'))});
+`);
+const app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
   await app.evaluate(({ ipcMain, session }) => {
@@ -77,7 +88,7 @@ try {
   page.setDefaultTimeout(12000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), renderer);
+  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), join(desktop, 'out', 'renderer', 'index.html'));
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('easyhub:language', 'zh'); });
   await page.reload();
   await page.locator('.live-connected').waitFor();
@@ -115,23 +126,23 @@ try {
   await page.getByRole('button', { name: '项目搜索', exact: true }).click();
   await page.locator('.trending-card strong').filter({ hasText: /^project-1$/ }).waitFor();
   await page.locator('.trending-card').first().click();
-  await page.locator('.public-browser-tabs').getByRole('button', { name: '历史版本', exact: true }).click();
+  await page.locator('.public-browser-tabs').getByRole('button', { name: '修改记录', exact: true }).click();
   await page.locator('.public-list-row').filter({ hasText: 'Historical source snapshot' }).click();
-  await page.getByRole('button', { name: '下载这个版本', exact: true }).click();
+  await page.getByRole('button', { name: '下载当时的文件', exact: true }).click();
   assert.deepEqual(await app.evaluate(() => globalThis.workflowsDownloads), [['another-author', 'project-1', 'a'.repeat(40)]]);
   await page.getByRole('button', { name: '关闭通知', exact: true }).click();
   // Resolve A after B to prove a late request cannot change the selected download SHA.
   await app.evaluate(() => { globalThis.workflowsHoldDetails = true; });
-  await page.getByRole('button', { name: '返回历史版本', exact: true }).click();
+  await page.getByRole('button', { name: '返回修改记录', exact: true }).click();
   await page.locator('.public-list-row').filter({ hasText: 'Historical source snapshot' }).click();
-  await page.getByRole('button', { name: '返回历史版本', exact: true }).click();
+  await page.getByRole('button', { name: '返回修改记录', exact: true }).click();
   await page.locator('.public-list-row').filter({ hasText: 'Another historical snapshot' }).click();
   await app.evaluate(() => { globalThis.workflowsCommitResolvers['b'.repeat(40)](); });
   await page.waitForFunction(() => !document.querySelector('.public-browser-content .live-loading'));
   await app.evaluate(() => { globalThis.workflowsCommitResolvers['a'.repeat(40)](); });
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   assert.equal(await page.locator('.public-browser-content h2').innerText(), 'Another historical snapshot');
-  await page.getByRole('button', { name: '下载这个版本', exact: true }).click();
+  await page.getByRole('button', { name: '下载当时的文件', exact: true }).click();
   assert.deepEqual(await app.evaluate(() => globalThis.workflowsDownloads.at(-1)), ['another-author', 'project-1', 'b'.repeat(40)]);
   await page.getByRole('button', { name: '关闭通知', exact: true }).click();
   await app.evaluate(() => { globalThis.workflowsHoldDetails = false; });

@@ -1,3 +1,4 @@
+import { useTranslation } from '../localization';
 import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { Components } from 'react-markdown';
@@ -36,6 +37,7 @@ export function ReadmeMarkdown({ markdown, repository, onOpenLink }: {
   repository?: ReadmeRepository;
   onOpenLink: (url: string) => void;
 }) {
+  const t = useTranslation();
   const openLink = useRef(onOpenLink);
   useLayoutEffect(() => { openLink.current = onOpenLink; }, [onOpenLink]);
   const owner = repository?.owner;
@@ -52,9 +54,9 @@ export function ReadmeMarkdown({ markdown, repository, onOpenLink }: {
       },
       img: ({ src, alt, width, height }) => {
         const target = src ? resolveReadmeUrl(src, source, true) : null;
-        return target ? <img src={target} alt={alt ?? ''} width={width} height={height} loading="lazy" /> : <span className="readme-missing-image">{alt ?? '图片'}</span>;
+        return target ? <img src={target} alt={alt ?? ''} width={width} height={height} loading="lazy" /> : <span className="readme-missing-image">{alt ?? t("readmeMarkdown.image")}</span>;
       },
     };
   }, [owner, name, branch]);
-  return <div className="intro-markdown readme-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeSanitize]} components={components}>{markdown}</ReactMarkdown></div>;
+  return <div className="intro-markdown readme-markdown" data-content-original><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeSanitize]} components={components}>{markdown}</ReactMarkdown></div>;
 }

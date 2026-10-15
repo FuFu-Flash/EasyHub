@@ -1,12 +1,18 @@
+import { activityNoticeRevision } from './activityNoticeReadState';
+import { useTranslation } from '../localization';
+import { noticeGroup, unreadNotifications } from '../activityCounts';
 import { useEffect, useRef, useState } from 'react';
 import { Bell, ChevronRight, X } from 'lucide-react';
 import type { ActivityNotice } from './DownloadNotifications';
 import { useActivityNoticeReadState } from './useActivityNoticeReadState';
 
 export function DemoNotifications({ activity }: { activity: ActivityNotice[] }) {
+  const t = useTranslation();
   const [open, setOpen] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
-  const { seen, unread } = useActivityNoticeReadState(activity, open);
+  const { seen, unread: activityUnread } = useActivityNoticeReadState(activity, open);
+
+  const unread = unreadNotifications(activityUnread);
 
   useEffect(() => {
     if (!open) return;
@@ -18,10 +24,10 @@ export function DemoNotifications({ activity }: { activity: ActivityNotice[] }) 
   }, [open]);
 
   return <div className="download-notification-anchor" ref={wrapper}>
-    <button className="icon-button download-notification-trigger" aria-label="通知" aria-expanded={open} onClick={() => setOpen((value) => !value)}><Bell size={20} />{unread > 0 && <span className="download-notification-count">{unread}</span>}</button>
-    {open && <section className="download-notification-panel" role="dialog" aria-label="通知"><header><strong>通知</strong><button aria-label="关闭通知" onClick={() => setOpen(false)}><X size={17} /></button></header>
-      {activity.length ? <div className="activity-notification-list"><span className="notification-section-label">项目动态</span>{activity.map((item) => <button key={item.id} className="activity-notification-item" onClick={() => { setOpen(false); item.onOpen(); }}><span className="activity-notification-mark" style={{ visibility: seen[item.id] === item.title ? 'hidden' : 'visible' }} /><span><strong>{item.title}</strong><small>{item.detail}</small></span><ChevronRight size={16} /></button>)}</div> : <p className="download-notification-empty">目前没有通知。</p>}
-      <p className="notification-demo-label">演示数据仅在当前窗口生效</p>
+    <button className="icon-button download-notification-trigger" aria-label={t("demoNotifications.notifications")} aria-expanded={open} onClick={() => setOpen((value) => !value)}><Bell size={20} />{unread > 0 && <span className="download-notification-count" aria-label={t("demoNotifications.unreadNotifications", { p0: unread })}>{unread}</span>}</button>
+    {open && <section className="download-notification-panel" role="dialog" aria-label={t("demoNotifications.notifications")}><header><strong>{t("demoNotifications.notifications")}</strong><button aria-label={t("demoNotifications.closeNotifications")} onClick={() => setOpen(false)}><X size={17} /></button></header>
+      {activity.length ? <div className="activity-notification-list">{(['issues', 'pulls', 'projects'] as const).map((group) => <div key={group}>{activity.some((item) => noticeGroup(item.id) === group) && <span className="notification-section-label">{group === 'issues' ? t("demoNotifications.issues") : group === 'pulls' ? t("demoNotifications.pullRequests") : t("demoNotifications.projectActivity")}</span>}{activity.filter((item) => noticeGroup(item.id) === group).map((item) => <button key={item.id} className="activity-notification-item" onClick={() => { setOpen(false); item.onOpen(); }}><span className="activity-notification-mark" style={{ visibility: seen[item.id] === activityNoticeRevision(item) ? 'hidden' : 'visible' }} /><span><strong>{item.title}</strong><small>{item.detail}</small></span><ChevronRight size={16} /></button>)}</div>)}</div> : <p className="download-notification-empty">{t("demoNotifications.noNotificationsYet")}</p>}
+      
     </section>}
   </div>;
 }

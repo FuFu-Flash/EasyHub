@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
+import { _electron as electron } from 'playwright-core';
+import electronPath from 'electron';
 import { installDownloadFixture } from './download-fixture.mjs';
 
 // The actual renderer and preload with deny-by-default IPC and blocked network.
@@ -10,14 +11,25 @@ import { installDownloadFixture } from './download-fixture.mjs';
 const desktop = dirname(fileURLToPath(import.meta.url));
 const packaged = process.argv.includes('--packaged');
 const onlyPendingCase = process.argv.find(value => value.startsWith('--pending-case='))?.slice(15);
+const product = packaged ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'navigation-detail-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
-const { app, executable, renderer } = await launchUpstreamFixture(desktop, {
-  profile: join(run, 'profile'), launcher: join(run, 'launch.cjs'),
-  registerName: 'registerNavigationFixture', rejectedName: 'rejectedNavigationIPC', title: 'Navigation detail fixture',
-  allowedFlags: process.argv.slice(2).filter(value => value.startsWith('--pending-case='))
-});
+const launcher = join(run, 'launch.cjs');
+await writeFile(launcher, `
+const { app, ipcMain } = require('electron');
+app.setPath('userData', ${JSON.stringify(join(run, 'profile'))});
+process.env.EASYHUB_PROXY_APP_ONLY_TEST = '1';
+process.env.ELECTRON_RENDERER_URL = 'data:text/html,Navigation detail fixture';
+globalThis.registerNavigationFixture = ipcMain.handle.bind(ipcMain);
+globalThis.rejectedNavigationIPC = [];
+ipcMain.handle = (channel, handler) => globalThis.registerNavigationFixture(channel, channel.startsWith('easyhub:') ? () => {
+  globalThis.rejectedNavigationIPC.push(channel);
+  throw new Error('Unexpected navigation fixture IPC: ' + channel);
+} : handler);
+require(${JSON.stringify(join(product, 'out', 'main', 'index.js'))});
+`);
+const app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
 const completed = [];
 let lastExpectedScroll = null;
 try {
@@ -74,7 +86,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), renderer);
+  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), join(product, 'out', 'renderer', 'index.html'));
   await page.locator('.live-connected').waitFor();
   await page.setViewportSize({ width: 1060, height: 700 });
   const nav = name => page.locator('.sidebar-nav').getByRole('button', { name: name === '问题' ? /^问题/ : name, exact: name !== '问题' });
@@ -121,7 +133,7 @@ try {
   completed.push('public-issue-detail-settings-return');
   await page.getByRole('button', { name: '返回问题', exact: true }).evaluate(node => node.click());
   await page.getByRole('heading', { name: '设置', exact: true }).waitFor();
-  await page.locator('.back-link').evaluate(node => node.click());
+  await page.keyboard.press('Alt+ArrowLeft');
   await page.locator('.public-issue-detail .issue-title h1').waitFor();
   assert.equal(await page.locator('#public-issue-reply').inputValue(), 'Public reply retained across sidebar navigation');
   await assertScroll(publicPosition, 'Back must restore the original public issue visit after Settings.');
@@ -131,7 +143,7 @@ try {
   completed.push('public-issues-tab-retained');
 
   await nav('问题').click();
-  await page.locator('.issue-project-header').filter({ hasText: 'project-a' }).click();
+  if(await page.locator('.issue-project-header').filter({ hasText: 'project-a' }).getAttribute('aria-expanded')!=='true')await page.locator('.issue-project-header').filter({ hasText: 'project-a' }).click();
   await page.locator('.issue-row').filter({ hasText: 'project-a remembered issue' }).click();
   await page.locator('#live-reply').fill('Own A7 draft must stay with project A');
   await assertVerticalMarkdown('.issue-detail');
@@ -156,7 +168,7 @@ try {
   await page.locator('.detail-hero h1').filter({ hasText: 'project-b' }).waitFor();
   await page.locator('.back-link').evaluate(node => node.click());
   await page.locator('.home-dashboard').waitFor();
-  await page.locator('.back-link').evaluate(node => node.click());
+  await page.keyboard.press('Alt+ArrowLeft');
   await page.locator('.issue-title h1').filter({ hasText: 'project-a remembered issue' }).waitFor();
   assert.equal(await page.locator('#live-reply').inputValue(), 'Own A7 draft must stay with project A', 'Returning to the earlier issue visit keeps its own draft.');
   await assertScroll(ownPosition, 'Back restores the original issue visit and reading position.');

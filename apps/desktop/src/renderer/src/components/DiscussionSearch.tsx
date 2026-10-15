@@ -1,3 +1,6 @@
+import { useTranslation } from '../localization';
+import { useEasyHub } from '../bridge';
+import { ErrorMessage } from './ErrorMessage';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { GitHubIssue, GitHubRepo, GitHubSearchPage } from '@easyhub/github';
@@ -32,6 +35,8 @@ export function DiscussionSearch({ repositories, kind, state, language, filters,
   search: DiscussionSearchState; onSearchChange: (patch: Partial<DiscussionSearchState>) => void;
   onOpen: (item: GitHubIssue, repo: GitHubRepo) => void;
 }) {
+  const t = useTranslation(language === undefined ? undefined : language === 'en' ? 'en' : 'zh');
+  const easyHub = useEasyHub();
   const english = language === 'en';
   const { expanded, text, query, repoId } = search;
   const formId = useId();
@@ -55,9 +60,9 @@ export function DiscussionSearch({ repositories, kind, state, language, filters,
     setItems([]); setHasMore(false); setPage(1); setError(''); setBusy(false);
     if (!query || !selected) return;
     setBusy(true);
-    void window.easyHub!.github<GitHubSearchPage<GitHubIssue>>('searchDiscussions', selected.owner.login, selected.name, { query, kind, state, page: 1 }).then((result) => {
+    void easyHub!.github<GitHubSearchPage<GitHubIssue>>('searchDiscussions', selected.owner.login, selected.name, { query, kind, state, page: 1 }).then((result) => {
       if (request === generation.current) { setItems(result.items); setHasMore(result.hasNextPage); }
-    }).catch(() => { if (request === generation.current) setError(english ? 'Search failed. Please retry.' : '搜索失败，请重试。'); }).finally(() => { if (request === generation.current) setBusy(false); });
+    }).catch(() => { if (request === generation.current) setError(t("discussionSearch.searchFailedPleaseRetry")); }).finally(() => { if (request === generation.current) setBusy(false); });
     return () => { generation.current++; };
   }, [query, selected?.id, selected?.owner.login, selected?.name, kind, state, english]);
   async function more(retry = false): Promise<void> {
@@ -66,22 +71,22 @@ export function DiscussionSearch({ repositories, kind, state, language, filters,
     const next = retry && items.length === 0 ? 1 : page + 1;
     setBusy(true); setError('');
     try {
-      const result = await window.easyHub!.github<GitHubSearchPage<GitHubIssue>>('searchDiscussions', selected.owner.login, selected.name, { query, kind, state, page: next });
+      const result = await easyHub!.github<GitHubSearchPage<GitHubIssue>>('searchDiscussions', selected.owner.login, selected.name, { query, kind, state, page: next });
       if (request === generation.current) { setItems((old) => [...old, ...result.items.filter((item) => !old.some((known) => known.id === item.id))]); setHasMore(result.hasNextPage); setPage(next); }
-    } catch { if (request === generation.current) setError(english ? 'Search failed. Please retry.' : '搜索失败，请重试。'); }
+    } catch { if (request === generation.current) setError(t("discussionSearch.searchFailedPleaseRetry")); }
     finally { if (request === generation.current) setBusy(false); }
   }
   return <div className={`discussion-search${expanded ? ' is-expanded' : ''}`}>
     <div className="discussion-search-tools">
     {filters}
-    {!expanded && <button ref={searchButton} type="button" className="icon-button discussion-search-toggle" aria-label={english ? 'Search discussions' : '搜索讨论'} title={english ? 'Search by title or number' : '按标题或编号搜索'} aria-expanded={false} aria-controls={formId} onClick={() => onSearchChange({ expanded: true })}><Search size={18} /></button>}
-    {expanded && <form id={formId} className="discussion-search-form" role="search" aria-label={english ? 'Search discussions' : '搜索讨论'} onKeyDown={(event) => { if (event.key === 'Escape' && !event.nativeEvent.isComposing) { event.preventDefault(); collapse(); } }} onSubmit={(event) => { event.preventDefault(); onSearchChange({ query: text.trim() }); }}>
-      {repositories.length > 1 && <select aria-label={english ? 'Search project' : '搜索项目'} value={selected?.id ?? ''} onChange={(event) => onSearchChange({ repoId: Number(event.target.value) })}>{repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.full_name}</option>)}</select>}
-      <label className="discussion-search-field"><Search size={17} aria-hidden="true" /><input ref={searchInput} aria-label={english ? 'Search by title or number' : '按标题或编号搜索'} placeholder={english ? 'Search title or #number' : '搜索标题或 #编号'} maxLength={200} value={text} onChange={(event) => onSearchChange({ text: event.target.value, ...(!event.target.value.trim() ? { query: '' } : {}) })} /></label>
-      <button type="submit" className="button button-quiet" disabled={busy || !text.trim() || !selected}>{english ? 'Search' : '搜索'}</button>
-      <button type="button" className="icon-button discussion-search-close" aria-label={english ? 'Close search' : '收起搜索'} title={english ? 'Close search' : '收起搜索'} onClick={collapse}><X size={17} /></button>
+    {!expanded && <button ref={searchButton} type="button" className="icon-button discussion-search-toggle" aria-label={t("discussionSearch.searchDiscussions")} title={t("discussionSearch.searchByTitleOrNumber")} aria-expanded={false} aria-controls={formId} onClick={() => onSearchChange({ expanded: true })}><Search size={18} /></button>}
+    {expanded && <form id={formId} className="discussion-search-form" role="search" aria-label={t("discussionSearch.searchDiscussions")} onKeyDown={(event) => { if (event.key === 'Escape' && !event.nativeEvent.isComposing) { event.preventDefault(); collapse(); } }} onSubmit={(event) => { event.preventDefault(); onSearchChange({ query: text.trim() }); }}>
+      {repositories.length > 1 && <select aria-label={t("discussionSearch.searchProjects")} value={selected?.id ?? ''} onChange={(event) => onSearchChange({ repoId: Number(event.target.value) })}>{repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.full_name}</option>)}</select>}
+      <label className="discussion-search-field"><Search size={17} aria-hidden="true" /><input ref={searchInput} aria-label={t("discussionSearch.searchByTitleOrNumber")} placeholder={t("discussionSearch.searchTitleOrNumber")} maxLength={200} value={text} onChange={(event) => onSearchChange({ text: event.target.value, ...(!event.target.value.trim() ? { query: '' } : {}) })} /></label>
+      <button type="submit" className="button button-quiet" disabled={busy || !text.trim() || !selected}>{t("discussionSearch.search")}</button>
+      <button type="button" className="icon-button discussion-search-close" aria-label={t("discussionSearch.closeSearch")} title={t("discussionSearch.closeSearch")} onClick={collapse}><X size={17} /></button>
     </form>}
     </div>
-    {query && <div className="issue-list">{items.map((item) => <button className="public-list-row" key={item.id} onClick={() => selected && onOpen(item, selected)}><span><strong>{item.title}</strong><small>#{item.number} · {item.user?.login} · {item.state === 'open' ? english ? 'Open' : '待处理' : english ? 'Closed' : '已关闭'}</small></span></button>)}{busy && <p role="status">{english ? 'Searching…' : '正在搜索…'}</p>}{error && <p className="live-error" role="alert">{error}</p>}{!busy && !error && !items.length && <p className="muted">{english ? 'No matching results.' : '没有找到符合条件的结果。'}</p>}{(hasMore || error) && <button className="button button-quiet" disabled={busy} onClick={() => void more(Boolean(error))}>{error ? english ? 'Retry' : '重试' : english ? 'Load more' : '加载更多'}</button>}</div>}
+    {query && <div className="issue-list">{items.map((item) => <button className="public-list-row" key={item.id} onClick={() => selected && onOpen(item, selected)}><span><strong>{item.title}</strong><small>#{item.number} · {item.user?.login} · {item.state === 'open' ? t("discussionSearch.open") : t("discussionSearch.closed")}</small></span></button>)}{busy && <p role="status">{t("discussionSearch.searching")}</p>}{error && <p className="live-error" role="alert"><ErrorMessage error={error} /></p>}{!busy && !error && !items.length && <p className="muted">{t("discussionSearch.noMatchingResults")}</p>}{(hasMore || error) && <button className="button button-quiet" disabled={busy} onClick={() => void more(Boolean(error))}>{error ? t("discussionSearch.retry") : t("discussionSearch.loadMore")}</button>}</div>}
   </div>;
 }

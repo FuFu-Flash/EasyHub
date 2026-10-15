@@ -68,8 +68,6 @@ try {
   });
   await installDownloadFixture(app, ['easyhub:download-archive', 'easyhub:download-release-asset', 'easyhub:reveal-downloaded-archive', 'easyhub:open-downloaded-file']);
   const page = await app.firstWindow();
-  page.setDefaultTimeout(15000);
-  page.setDefaultNavigationTimeout(20000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.evaluate(() => {
     window.localStorage.removeItem('easyhub:search-history:test-user');
@@ -101,7 +99,7 @@ try {
   await page.mouse.move(readmeTextBox.x + Math.min(110, readmeTextBox.width - 6), readmeTextBox.y + readmeTextBox.height / 2, { steps: 10 });
   await page.mouse.up();
   assert.match(await page.evaluate(() => window.getSelection()?.toString() ?? ''), /project any/);
-  for (const forbidden of ['发布更新', '获取最新', '同步', '本地路径', '上传 Release', '删除项目', '编辑介绍']) {
+  for (const forbidden of ['发布源码', '获取最新', '同步', '本地路径', '上传 Release', '删除项目', '编辑介绍']) {
     assert.equal(await browser.getByText(forbidden, { exact: false }).count(), 0, `Read-only page exposed ${forbidden}`);
   }
   const introTranslation = browser.locator('.public-browser-content .translatable-content').first();

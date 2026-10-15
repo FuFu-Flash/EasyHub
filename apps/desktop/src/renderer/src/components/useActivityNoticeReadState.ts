@@ -19,7 +19,7 @@ export function useActivityNoticeReadState(activity: readonly ActivityNoticeIden
     setSeenByAccount((current) => new Map(current).set(storageKey, loaded));
   }
   const unread = unreadActivityNoticeCount(activity, seen);
-  const activityKey = JSON.stringify(activity.map(({ id, title }) => ({ id, title })));
+  const activityKey = JSON.stringify(activity.map(({ id, title, revision }) => ({ id, title, revision })));
   useEffect(() => {
     if (!open || !unread) return;
     const shown = JSON.parse(activityKey) as ActivityNoticeIdentity[];

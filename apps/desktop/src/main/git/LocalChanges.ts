@@ -7,6 +7,7 @@ import * as git from 'isomorphic-git';
 import type { ChangedFile, LocalDiffLine, LocalFileDiff, LocalPublishPreview, LocalPublishSelection } from '@easyhub/types';
 import type { GitAuthor, GitProjectStatus } from './GitEngine';
 import { GitEngineError } from './GitEngine';
+import { sensitiveFileReasons } from '../../shared/sensitiveFiles';
 
 const staleMessage = '文件在你查看后又发生了变化，请刷新修改列表后重新选择。';
 interface FileSnapshot { file: ChangedFile; fingerprint: string; mode?: number }
@@ -45,6 +46,38 @@ async function fingerprint(dir: string, file: ChangedFile): Promise<{ value: str
   for await (const chunk of createReadStream(join(dir, file.path))) hash.update(chunk as Buffer);
   const mode = process.platform === 'win32' ? 0o100644 : entry.mode & 0o111 ? 0o100755 : 0o100644;
   return { value: `${mode}:${hash.digest('hex')}`, mode };
+}
+
+export async function markSensitiveFiles(dir: string, files: ChangedFile[]): Promise<ChangedFile[]> {
+  const result: ChangedFile[] = [];
+  for (const file of files) {
+    if (file.kind === 'deleted') { result.push(file); continue; }
+    const details = await inspectPath(dir, file.path);
+    let content: string | undefined;
+    if (details && details.size <= 1024 * 1024) {
+      // Bound the read even if the file grows after stat; reject binary/invalid UTF-8.
+      const handle = await open(join(dir, file.path), 'r');
+      try {
+        const buffer = Buffer.allocUnsafe(1024 * 1024 + 1);
+        let bytesRead = 0;
+        while (bytesRead < buffer.length) {
+          const read = await handle.read(buffer, bytesRead, buffer.length - bytesRead, bytesRead);
+          if (!read.bytesRead) break;
+          bytesRead += read.bytesRead;
+        }
+        if (bytesRead <= 1024 * 1024) {
+          const bytes = buffer.subarray(0, bytesRead);
+          const encoding = bytes[0] === 0xff && bytes[1] === 0xfe ? 'utf-16le' : bytes[0] === 0xfe && bytes[1] === 0xff ? 'utf-16be' : 'utf-8';
+          if (encoding !== 'utf-8' || !bytes.includes(0)) {
+            try { const text = new TextDecoder(encoding, { fatal: true }).decode(bytes); if (!text.includes('\0')) content = text; } catch { /* Non-text file. */ }
+          }
+        }
+      } finally { await handle.close(); }
+    }
+    const reasons = sensitiveFileReasons(file.path, content);
+    result.push(reasons.length ? { ...file, sensitiveReasons: reasons } : file);
+  }
+  return result;
 }
 
 export async function snapshotChanges(dir: string, status: GitProjectStatus): Promise<ChangeSnapshot> {
@@ -125,6 +158,8 @@ export async function commitSelectedChanges(dir: string, author: GitAuthor, mess
     if (current.preview.snapshot !== selection.snapshot) throw new GitEngineError('invalid', staleMessage);
     if (!selection.paths.length || new Set(selection.paths).size !== selection.paths.length || selection.paths.some((path) => !current.files.some((entry) => entry.file.path === path)))
       throw new GitEngineError('invalid', '请重新选择本次要发布的文件。');
+    if (!selection.sensitiveConfirmed && current.preview.files.some((file) => selection.paths.includes(file.path) && file.sensitiveReasons?.length))
+      throw new GitEngineError('sensitive', '[SENSITIVE_FILES] 选中的文件可能包含密码或密钥，请查看文件选择并确认后再发布。');
     const originalIndex = await readFile(indexPath).catch((error: unknown) => { if (missing(error)) return null; throw error; });
     if (originalIndex) await writeFile(tempIndex, originalIndex, { flag: 'wx' });
     const promises = new Proxy(fs.promises, { get(target, key) {

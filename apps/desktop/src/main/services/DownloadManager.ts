@@ -61,7 +61,6 @@ export class DownloadManager {
   private active = new Map<string, { controller: AbortController; task: Promise<void>; intent?: 'pause' | 'cancel' }>();
   private persistence: Promise<void> = Promise.resolve();
   private stopped = false;
-  private shutdownTask?: Promise<void>;
   private ready: Promise<void>;
   constructor(private readonly ledger: string, private readonly deps: DownloadDependencies, private readonly concurrency = 2) {
     this.ready = this.restore();
@@ -81,7 +80,7 @@ export class DownloadManager {
 
   private publicItems(): DownloadItem[] {
     return this.items.map((entry) => ({ id: entry.id, request: entry.request, state: entry.state, loaded: entry.loaded, total: entry.total,
-      bytesPerSecond: entry.bytesPerSecond, phase: entry.phase, percent: entry.percent, path: entry.path, localLinkId: entry.localLinkId, error: entry.error, seen: entry.seen }));
+      bytesPerSecond: entry.bytesPerSecond, phase: entry.phase, restarting: entry.restarting, percent: entry.percent, path: entry.path, localLinkId: entry.localLinkId, error: entry.error, seen: entry.seen }));
   }
   async list(): Promise<DownloadItem[]> { await this.ready; return this.publicItems(); }
   private emit(): void { this.deps.changed(this.publicItems()); }
@@ -89,13 +88,9 @@ export class DownloadManager {
     const snapshot = JSON.stringify(this.items);
     this.persistence = this.persistence.catch(() => undefined).then(async () => {
       await mkdir(dirname(this.ledger), { recursive: true });
-      // Persistence is queued per manager. Different lifecycles must not rename
-      // each other's temporary file when their final writes overlap.
-      const temporary = `${this.ledger}.${randomUUID()}.tmp`;
-      try {
-        await writeFile(temporary, snapshot, { mode: 0o600 });
-        await rename(temporary, this.ledger);
-      } finally { await rm(temporary, { force: true }); }
+      const temporary = `${this.ledger}.tmp`;
+      await writeFile(temporary, snapshot, { mode: 0o600 });
+      await rename(temporary, this.ledger);
     });
     return this.persistence;
   }
@@ -165,18 +160,11 @@ export class DownloadManager {
     if (!item?.path) throw new Error('找不到已下载的文件。');
     await lstat(item.path); return item.path;
   }
-  shutdown(): Promise<void> {
-    if (this.shutdownTask) return this.shutdownTask;
-    this.stopped = true;
-    // Repeated quit notifications await the same flush. A stopped manager must
-    // never write its old snapshot over a replacement lifecycle's history.
-    this.shutdownTask = (async () => {
-      await this.ready;
-      for (const [id, active] of this.active) { active.intent = this.items.find((item) => item.id === id)?.source.kind === 'project' ? 'cancel' : 'pause'; active.controller.abort(); }
-      await Promise.allSettled([...this.active.values()].map((entry) => entry.task));
-      await this.persist();
-    })();
-    return this.shutdownTask;
+  async shutdown(): Promise<void> {
+    this.stopped = true; await this.ready;
+    for (const [id, active] of this.active) { active.intent = this.items.find((item) => item.id === id)?.source.kind === 'project' ? 'cancel' : 'pause'; active.controller.abort(); }
+    await Promise.allSettled([...this.active.values()].map((entry) => entry.task));
+    await this.persist();
   }
 
   private pump(): void {
@@ -248,7 +236,7 @@ export class DownloadManager {
     const total = offset > 0 && range ? Number(range[1]) : bodySize;
     if (total !== null && (!Number.isSafeInteger(total) || total < 0)) { await response.body.cancel(); throw new DownloadError('服务器返回的文件长度无效，请稍后重试。'); }
     if (item.source.kind === 'asset' && total !== null && total !== item.source.size) { await response.body.cancel(); throw new DownloadError('版本文件已改变，请移除此任务后重新下载。'); }
-    await this.update(item, { loaded: offset, total, validator: validator(response), phase: restarting ? '服务器不支持继续，正在重新下载…' : offset > 0 ? '正在继续下载…' : '正在下载…' });
+    await this.update(item, { loaded: offset, total, validator: validator(response), restarting, phase: restarting ? '服务器不支持继续，正在重新下载…' : offset > 0 ? '正在继续下载…' : '正在下载…' });
     let received = offset; let lastProgressAt = 0; let sampledAt = Date.now(); let sampledBytes = offset; let speed: number | null = null;
     const meter = new Transform({ transform(chunk: Buffer, _encoding, callback) {
       received += chunk.length;

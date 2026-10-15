@@ -25,6 +25,34 @@ async function blob(dir: string, oid: string, filepath: string) { return Buffer.
 async function cleanMetadata(dir: string) { expect((await readdir(join(dir, '.git'))).filter((name) => name.endsWith('.lock') || name.startsWith('easyhub-index-') || name === 'easyhub-publish-incomplete')).toEqual([]); }
 
 describe('safe file selection and preview', () => {
+  it('creates the remote link without publishing even ordinary files or credentials', async () => {
+    const { dir, head, engine } = await fixture();
+    await writeFile(join(dir, '.env'), 'PASSWORD=example');
+    await writeFile(join(dir, 'new.txt'), 'not published yet');
+    expect(await engine.createProject(dir, { owner: 'tester', name: 'test', defaultBranch: 'main' }, author, 'test-token')).toEqual({ head });
+    expect(await git.resolveRef({ fs, dir, ref: 'HEAD' })).toBe(head);
+    await expect(blob(dir, head, '.env')).rejects.toThrow();
+    expect((await engine.getPublishPreview(dir)).files.map((file) => file.path)).toEqual(['.env', 'new.txt']);
+  });
+  it('marks path and content risks, requires confirmation, and rejects omitted selection before contacting GitHub', async () => {
+    const { dir, engine, scan } = await fixture();
+    await writeFile(join(dir, '.env'), 'PASSWORD=example');
+    await writeFile(join(dir, 'config.txt'), '-----BEGIN PRIVATE KEY-----');
+    await writeFile(join(dir, 'utf16.txt'), Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('-----BEGIN PRIVATE KEY-----', 'utf16le')]));
+    await writeFile(join(dir, '.env.example'), 'PASSWORD=');
+    await writeFile(join(dir, 'binary.bin'), Buffer.from([0, ...Buffer.from('ghp_' + 'a'.repeat(36))]));
+    await writeFile(join(dir, 'large.txt'), 'a'.repeat(1024 * 1024) + '-----BEGIN PRIVATE KEY-----');
+    const before = await scan();
+    expect(before.preview.files.find((file) => file.path === '.env')?.sensitiveReasons).toContain('environment');
+    expect(before.preview.files.find((file) => file.path === 'config.txt')?.sensitiveReasons).toContain('private-key');
+    expect(before.preview.files.find((file) => file.path === 'utf16.txt')?.sensitiveReasons).toContain('private-key');
+    for (const path of ['.env.example', 'binary.bin', 'large.txt']) expect(before.preview.files.find((file) => file.path === path)?.sensitiveReasons).toBeUndefined();
+    await expect(engine.publishUpdate(dir, { owner: 'tester', name: 'test', defaultBranch: 'main' }, author, 'test-token', 'update')).rejects.toThrow('[SENSITIVE_FILES]');
+    await expect(commitSelectedChanges(dir, author, 'update', { snapshot: before.preview.snapshot, paths: ['.env'] }, scan)).rejects.toThrow('[SENSITIVE_FILES]');
+    const result = await commitSelectedChanges(dir, author, 'update', { snapshot: before.preview.snapshot, paths: ['.env'], sensitiveConfirmed: true }, scan);
+    expect(result.changed).toBe(1);
+    expect(await blob(dir, result.head, '.env')).toBe('PASSWORD=example');
+  });
   it('commits selected additions, modifications, deletion and rename, retaining all unselected working files', async () => {
     const { dir, head, engine, scan } = await fixture({ 'one.txt': 'before\n', 'other.txt': 'other\n', 'remove.txt': 'delete me', 'old.txt': 'rename me' });
     await writeFile(join(dir, 'one.txt'), 'after\n'); await writeFile(join(dir, 'other.txt'), 'keep my edits\n');
@@ -84,6 +112,19 @@ describe('safe file selection and preview', () => {
 });
 
 describe('selected publishing retries', () => {
+  it('allows pushing only a saved version without selecting newly added secrets', async () => {
+    const { dir, head, engine } = await fixture(); remote(engine, head); await writeFile(join(dir, 'one.txt'), 'selected');
+    const preview = await engine.getPublishPreview(dir);
+    vi.mocked(git.push).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ ok: true, error: null, refs: {} });
+    await expect(engine.publishUpdate(dir, repo, author, 'fixture-token', 'update', undefined, { snapshot: preview.snapshot, paths: ['one.txt'] })).rejects.toThrow('重试发布');
+    const saved = await git.resolveRef({ fs, dir, ref: 'HEAD' });
+    await writeFile(join(dir, '.env'), 'PASSWORD=not-selected');
+    await engine.publishUpdate(dir, repo, author, 'fixture-token', 'retry');
+    expect(await git.resolveRef({ fs, dir, ref: 'HEAD' })).toBe(saved);
+    await expect(blob(dir, saved, '.env')).rejects.toThrow();
+    expect(await readFile(join(dir, '.env'), 'utf8')).toBe('PASSWORD=not-selected');
+    expect(vi.mocked(git.push).mock.calls.at(-1)?.[0].ref).toBe(saved);
+  });
   function remote(engine: GitEngine, head: string | null) { return vi.spyOn(engine as unknown as { fetchRemote: () => Promise<string | null> }, 'fetchRemote').mockResolvedValue(head); }
   it('retries the saved exact version after push failure with zero remaining changes', async () => {
     const { dir, head, engine } = await fixture(); remote(engine, head); await writeFile(join(dir, 'one.txt'), 'selected');

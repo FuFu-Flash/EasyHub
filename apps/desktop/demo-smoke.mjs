@@ -1,19 +1,41 @@
 import assert from 'node:assert/strict';
-import { join } from 'node:path';
+import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
+import electronPath from 'electron';
+import { createServer, transformWithEsbuild } from 'vite';
+import react from '@vitejs/plugin-react';
+import { runDemoReview } from './demo-review.mjs';
+import { runDemoChecks, runDemoHistoryChecks } from './demo-checks.mjs';
 
-const app = await electron.launch({
-  executablePath: process.argv.find((argument) => argument.startsWith('--executable='))?.slice('--executable='.length) ?? join(process.cwd(), 'release/demo/win-unpacked/EasyHub Demo.exe'),
-  args: [],
-  cwd: process.cwd(),
-});
-try {
-  const page = await app.firstWindow();
-  await page.getByText('演示版 · 不连接 GitHub').waitFor();
-  assert.equal(await page.getByRole('button', { name: '使用 GitHub 登录' }).count(), 0);
-  await page.locator('.sidebar-nav').getByRole('button', { name: '设置' }).click();
-  await page.getByText('这是独立演示版，只展示模拟数据。安装正式版后可以连接 GitHub。').waitFor();
-  await page.getByText('版本 1.0.0').waitFor();
-  assert.equal(await page.getByRole('button', { name: '使用 GitHub 登录' }).count(), 0);
-  process.stdout.write('Standalone demo UI smoke test passed.\n');
-} finally { await app.close(); }
+export async function runDemoSmoke({ history = false } = {}) {
+ const desktop=dirname(fileURLToPath(import.meta.url)),packaged=process.argv.includes('--packaged'),built=packaged||process.argv.includes('--built'),demoOnly=process.argv.includes('--demo-only');
+ const output=join(desktop,'out',history?'demo-navigation-chain-smoke':'demo-smoke');await mkdir(output,{recursive:true});
+ const profile=await mkdtemp(join(tmpdir(),'easyhub-demo-bridge-'));const errors=[];let app,server;
+ const fixture=`import React from'react';import{createRoot}from'react-dom/client';import App from'/src/App.tsx';import{initialProjects,initialIssues}from'/src/data/mock.ts';window.demoUserContent=[...initialProjects.flatMap(p=>[p.description]),...initialIssues.flatMap(i=>[i.title,i.body,i.author])];import '/src/tokens.css';import '/src/styles.css';if(!localStorage.getItem('easyhub:language'))localStorage.setItem('easyhub:language','zh');if(location.search.includes('fresh'))localStorage.removeItem('easyhub:welcome-choice');else localStorage.setItem('easyhub:welcome-choice','demo');window.nativeDomainCalls=[];window.nativeAuthReads=0;window.nativeLoggedIn=false;const realUser={login:'real-fixture',name:'Real fixture',avatar_url:'',html_url:'https://github.com/real-fixture'};const realRepo={id:801,name:'RealOnly',full_name:'real-fixture/RealOnly',description:'Real workspace fixture',private:true,default_branch:'main',updated_at:new Date().toISOString(),owner:{login:'real-fixture'},open_issues_count:0};const guard=(name,fn)=>(...args)=>{if(!window.nativeLoggedIn){window.nativeDomainCalls.push(name);throw Error('Native call during demo: '+name)}return Promise.resolve(fn(...args))};const native={authStatus:async()=>{window.nativeAuthReads++;return{state:window.nativeLoggedIn?'signed-in':'signed-out',user:window.nativeLoggedIn?realUser:null,clientId:'fixture'}},authStart:async()=>({userCode:'ABCD-1234',verificationUri:'https://github.com/login/device',expiresAt:Date.now()+60000,interval:1}),authPoll:async()=>{window.nativeLoggedIn=true;return{state:'complete',user:realUser}},authCancel:async()=>{},authLogout:async()=>{window.nativeLoggedIn=false},openExternalLink:async()=>{},github:guard('github',action=>action==='repos'?[realRepo]:action==='activityCounts'?{801:{issues:0,closedIssues:0,pullRequests:0,closedPullRequests:0}}:action==='trending'?{items:[],page:1,hasNextPage:false}:[]),localList:guard('localList',()=>[]),downloadsList:guard('downloadsList',()=>[]),onDownloadsChanged:()=>()=>{},onLocalStatus:()=>()=>{},onLocalProgress:()=>()=>{},onAiReviewProgress:()=>()=>{},onBinaryAnalysisProgress:()=>()=>{},githubProxyStatus:guard('githubProxyStatus',()=>({enabled:false,state:'off',checks:[],system:{mode:'off'}})),aiSettings:guard('aiSettings',()=>({providerId:'openai',model:'fixture',hasApiKey:false})),binaryAnalysisStatus:guard('binaryAnalysisStatus',()=>({installed:false,state:'missing'})),onNavigate:()=>()=>{},minimizeWindow:async()=>{},toggleMaximizeWindow:async()=>{},closeWindow:async()=>{},openLicense:async()=>{},reportRendererError:async(report)=>{window.nativeDomainCalls.push('render-error:'+report.message)}};Object.defineProperty(window,'easyHub',{writable:false,configurable:false,value:Object.freeze(new Proxy(native,{get(t,k){if(k in t)return t[k];if(String(k).startsWith('on'))return()=>{if(!window.nativeLoggedIn)window.nativeDomainCalls.push(String(k));return()=>{}};return async()=>{window.nativeDomainCalls.push(String(k));throw Error('Native demo operation: '+String(k))}}}))});createRoot(document.getElementById('root')).render(React.createElement(React.StrictMode,null,React.createElement(App)));`;
+ try{
+  const bootstrap=join(profile,'bootstrap.cjs');
+  if(built){
+   const product=packaged?join(desktop,'release/win-unpacked/resources/app.asar'):desktop;
+   await writeFile(bootstrap,`const{app,ipcMain}=require('electron');app.setPath('userData',${JSON.stringify(join(profile,'data'))});process.env.EASYHUB_PROXY_APP_ONLY_TEST='1';process.env.ELECTRON_RENDERER_URL='data:text/html,Demo fixture';global.nativeDomainCalls=[];const register=ipcMain.handle.bind(ipcMain);ipcMain.handle=(channel,handler)=>register(channel,channel.startsWith('easyhub:')?()=>{if(channel==='easyhub:auth-status')return{state:'signed-out',user:null,clientId:null};if(['easyhub:window-minimize','easyhub:window-toggle-maximize','easyhub:window-close','easyhub:open-license'].includes(channel))return;global.nativeDomainCalls.push(channel);throw Error('Native demo operation: '+channel)}:handler);require(${JSON.stringify(join(product,'out/main/index.js'))});`);
+   const env={...process.env,NODE_OPTIONS:''};delete env.ELECTRON_RUN_AS_NODE;app=await electron.launch({executablePath:electronPath,args:[bootstrap],env,cwd:desktop});
+   await app.evaluate(({session})=>session.defaultSession.webRequest.onBeforeRequest({urls:['http://*/*','https://*/*']},(_d,c)=>c({cancel:true})));
+   const win=await app.firstWindow();await win.goto('file:///'+join(product,'out/renderer/index.html').replaceAll('\\','/'));await win.evaluate(()=>{localStorage.setItem('easyhub:welcome-choice','demo');localStorage.setItem('easyhub:language','zh')});await win.reload();
+  }else{
+   server=await createServer({configFile:false,root:join(desktop,'src/renderer'),define:{'import.meta.env.VITE_EASYHUB_DEMO_ONLY':JSON.stringify(demoOnly?'true':'false')},plugins:[react(),{name:'demo-bridge-fixture',resolveId(id){if(id==='virtual:demo.jsx')return'\0'+id},async load(id){if(id==='\0virtual:demo.jsx')return(await transformWithEsbuild(fixture,'fixture.jsx',{loader:'jsx',jsx:'automatic'})).code},configureServer(s){s.middlewares.use(async(req,res,next)=>{if(!req.url?.startsWith('/demo-test'))return next();res.setHeader('content-type','text/html;charset=utf-8');res.end(await s.transformIndexHtml(req.url,'<div id="root"></div><script type="module" src="/@id/virtual:demo.jsx"></script>'))})}}],server:{host:'127.0.0.1',port:0}});await server.listen();
+   await writeFile(bootstrap,`const{app,BrowserWindow,session}=require('electron');app.setPath('userData',${JSON.stringify(join(profile,'data'))});app.whenReady().then(()=>{session.defaultSession.webRequest.onBeforeRequest((d,c)=>c({cancel:!d.url.startsWith('http://127.0.0.1:')&&!d.url.startsWith('ws://127.0.0.1:')}));new BrowserWindow({width:1000,height:900,show:true,webPreferences:{contextIsolation:true,sandbox:true,nodeIntegration:false}}).loadURL('http://127.0.0.1:${server.httpServer.address().port}/demo-test');});`);
+   const env={...process.env,NODE_OPTIONS:''};delete env.ELECTRON_RUN_AS_NODE;app=await electron.launch({executablePath:electronPath,args:[bootstrap],env});
+  }
+  const page=await app.firstWindow();page.setDefaultTimeout(8000);page.on('pageerror',error=>errors.push(error.message));await page.emulateMedia({reducedMotion:'reduce'});
+  let checks;
+  try{checks=process.argv.includes('--review')?await runDemoReview(page,{app,output}):history?await runDemoHistoryChecks(page):await runDemoChecks(page,{demoOnly});}
+  catch(error){await page.screenshot({path:join(output,'failure.png')});console.error('Page errors:',errors);console.error('Rendered error:',await page.locator('.page-recovery,.live-error').allTextContents());throw error;}
+  const nativeCalls=built?await app.evaluate(()=>global.nativeDomainCalls):await page.evaluate(()=>window.nativeDomainCalls);assert.deepEqual(nativeCalls,[],'Demo workflows must not escape into native domain IPC');assert.deepEqual(errors,[]);
+  if(demoOnly)assert.equal(await page.evaluate(()=>window.nativeAuthReads),0,'Demo-only must not check native authentication');
+  if(!built)assert.equal(await page.evaluate(()=>Object.getOwnPropertyDescriptor(window,'easyHub').writable),false);
+  const mode=process.argv.includes('--review')?'experience':packaged?'packaged':built?'built':demoOnly?'demo-only':'source';await page.screenshot({path:join(output,mode+'-completed.png')});await writeFile(join(output,mode+'-result.json'),JSON.stringify({passed:true,mode,...checks,nativeDomainCalls:0,strictMode:true},null,2));console.log('Shared-workspace demo '+(history?'history':'workflow')+' smoke passed ('+mode+')');
+ }finally{await app?.close();await server?.close();assert.ok(profile.startsWith(join(tmpdir(),'easyhub-demo-bridge-')));await rm(profile,{recursive:true,force:true})}
+}
+if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))await runDemoSmoke();

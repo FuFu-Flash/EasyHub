@@ -1,3 +1,8 @@
+import { useTranslation } from '../localization';
+import { useEasyHub } from '../bridge';
+import { errorText } from '../errors';
+import { ErrorMessage } from './ErrorMessage';
+import { sumActivity } from '../activityCounts';
 import { SegmentedControl } from './SegmentedControl';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -13,6 +18,8 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
   onOpen: (repo: GitHubRepo, request: GitHubPullRequest) => void;
   logo: (repo: GitHubRepo) => ReactNode;
 }) {
+  const t = useTranslation();
+  const easyHub = useEasyHub();
   const [filter, setFilter] = useState<Filter>('open');
   const [expanded, setExpanded] = useState<number | null>(null);
   const [pages, setPages] = useState<Record<string, Page>>({});
@@ -22,7 +29,7 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
   const keyFor = (repo: GitHubRepo, state: Filter): string => `${repo.id}:${state}`;
   const countFor = (repo: GitHubRepo): number => (filter === 'open' ? counts[repo.id]?.pullRequests : counts[repo.id]?.closedPullRequests) ?? -1;
   const ordered = [...repos].sort((a, b) => countFor(b) - countFor(a) || a.name.localeCompare(b.name));
-  const total = repos.every((repo) => counts[repo.id]) ? repos.reduce((sum, repo) => sum + (counts[repo.id]?.pullRequests ?? 0), 0) : null;
+  const total = sumActivity(repos, counts, 'pullRequests');
   const emptyRepos = ordered.filter((repo) => countFor(repo) === 0);
   const visibleRepos = ordered.filter((repo) => showOthers || countFor(repo) !== 0);
 
@@ -31,13 +38,13 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
     setLoading(key);
     setErrors((current) => ({ ...current, [key]: '' }));
     try {
-      const result = await window.easyHub!.github<GitHubPullRequest[]>('pullRequestsPage', repo.owner.login, repo.name, state, page);
+      const result = await easyHub!.github<GitHubPullRequest[]>('pullRequestsPage', repo.owner.login, repo.name, state, page);
       setPages((current) => {
         const old = current[key]?.items ?? [];
         return { ...current, [key]: { items: page === 1 ? result : [...old, ...result.filter((item) => !old.some((known) => known.id === item.id))], nextPage: result.length === 100 ? page + 1 : null } };
       });
-    } catch {
-      setErrors((current) => ({ ...current, [key]: '暂时无法获取合并请求，请稍后重试。' }));
+    } catch (cause) {
+      setErrors((current) => ({ ...current, [key]: errorText(cause) }));
     } finally { setLoading(null); }
   }
 
@@ -54,8 +61,8 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
   }
 
   return <>
-    <div className="toolbar"><SegmentedControl><button className={filter === 'open' ? 'selected' : ''} onClick={() => chooseFilter('open')}>待审查 <span>{total ?? '…'}</span></button><button className={filter === 'closed' ? 'selected' : ''} onClick={() => chooseFilter('closed')}>已处理</button></SegmentedControl></div>
-    {visibleRepos.length === 0 && <div className="empty-state"><span className="empty-icon"><GitPullRequest size={28} /></span><h3>{filter === 'open' ? '没有待审查的合并请求' : '还没有已处理的合并请求'}</h3></div>}
+    <div className="toolbar"><SegmentedControl><button className={filter === 'open' ? 'selected' : ''} onClick={() => chooseFilter('open')}>{t("pullReviewGroups.awaitingReview")} <span>{total ?? '…'}</span></button><button className={filter === 'closed' ? 'selected' : ''} onClick={() => chooseFilter('closed')}>{t("pullReviewGroups.handled")}</button></SegmentedControl></div>
+    {visibleRepos.length === 0 && <div className="empty-state"><span className="empty-icon"><GitPullRequest size={28} /></span><h3>{filter === 'open' ? t("pullReviewGroups.noChangesAwaitingReview") : t("pullReviewGroups.noHandledPullRequestsYet")}</h3></div>}
     <div className="issue-project-list">{visibleRepos.map((repo) => {
       const key = keyFor(repo, filter);
       const page = pages[key];
@@ -63,19 +70,19 @@ export function PullReviewGroups({ repos, counts, onOpen, logo }: {
       const isExpanded = expanded === repo.id;
       return <section className="issue-project-group live-issue-group" key={repo.id}>
         <button className="issue-project-header" aria-expanded={isExpanded} onClick={() => toggle(repo)}>
-          {logo(repo)}<span className="issue-project-heading"><strong>{repo.name}</strong><small>{repo.description || '还没有项目介绍'}</small></span>
-          <span className={`issue-project-count ${filter === 'open' && count?.pullRequests ? 'live-pending-count' : ''}`}>{filter === 'open' ? count ? `${count.pullRequests} 个待审查的合并请求` : '正在获取数量…' : count ? `${count.closedPullRequests} 个已处理的合并请求` : '查看已处理的合并请求'}</span>
+          {logo(repo)}<span className="issue-project-heading"><strong>{repo.name}</strong><small>{repo.description || t("pullReviewGroups.noProjectDescriptionYet")}</small></span>
+          <span className={`issue-project-count ${filter === 'open' && count?.pullRequests ? 'live-pending-count' : ''}`}>{filter === 'open' ? count ? t("pullReviewGroups.pullRequestsAwaitingReview", { p0: count.pullRequests }) : t("pullReviewGroups.loadingCount") : count ? t("pullReviewGroups.handledPullRequests", { p0: count.closedPullRequests }) : t("pullReviewGroups.viewHandledPullRequests")}</span>
           <ChevronDown className={`issue-project-chevron ${isExpanded ? 'expanded' : ''}`} size={19} />
         </button>
         <div className="issue-project-items live-group-items" hidden={!isExpanded}>{isExpanded && <>
-          {errors[key] && <p className="live-error" role="alert">{errors[key]}</p>}
-          {page?.items.map((request) => <button className="issue-row" key={request.id} onClick={() => onOpen(repo, request)}><span className="issue-indicator"><GitPullRequest size={19} /></span><span className="issue-row-main"><strong>{request.title}</strong><small>{request.user?.login || 'GitHub 用户'} · {request.state === 'open' ? request.draft ? '草稿' : '待审查' : request.merged_at ? '已采纳' : '已关闭'}</small></span><span className="issue-comments"><MessageCircle size={16} />{request.comments ?? 0}</span></button>)}
-          {loading === key && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取合并请求…</p>}
-          {page && page.items.length === 0 && loading !== key && <p className="live-empty">{filter === 'open' ? '没有待审查的合并请求' : '还没有已处理的合并请求'}</p>}
-          {page?.nextPage && <button className="button button-quiet pull-more" disabled={loading === key} onClick={() => void load(repo, filter, page.nextPage!)}>加载更多合并请求</button>}
+          {errors[key] && <p className="live-error" role="alert"><ErrorMessage error={errors[key]} /></p>}
+          {page?.items.map((request) => <button className="issue-row" key={request.id} onClick={() => onOpen(repo, request)}><span className="issue-indicator"><GitPullRequest size={19} /></span><span className="issue-row-main"><strong>{request.title}</strong><small>{request.user?.login || t("pullReviewGroups.githubUser")} · {request.state === 'open' ? request.draft ? t("pullReviewGroups.draft") : t("pullReviewGroups.awaitingReview") : request.merged_at ? t("pullReviewGroups.merged") : t("pullReviewGroups.closed")}</small></span><span className="issue-comments"><MessageCircle size={16} />{request.comments ?? 0}</span></button>)}
+          {loading === key && <p className="live-loading"><RotateCw size={16} className="live-spin" />{t("pullReviewGroups.loadingPullRequests")}</p>}
+          {page && page.items.length === 0 && loading !== key && <p className="live-empty">{filter === 'open' ? t("pullReviewGroups.noChangesAwaitingReview") : t("pullReviewGroups.noHandledPullRequestsYet")}</p>}
+          {page?.nextPage && <button className="button button-quiet pull-more" disabled={loading === key} onClick={() => void load(repo, filter, page.nextPage!)}>{t("pullReviewGroups.loadMorePullRequests")}</button>}
         </>}</div>
       </section>;
     })}</div>
-    {emptyRepos.length > 0 && <button className="text-link other-projects-toggle" aria-expanded={showOthers} onClick={() => setShowOthers((value) => !value)}>{showOthers ? '收起其他项目' : '查看其他项目'} <span>{emptyRepos.length}</span><ChevronDown size={16} /></button>}
+    {emptyRepos.length > 0 && <button className="text-link other-projects-toggle" aria-expanded={showOthers} onClick={() => setShowOthers((value) => !value)}>{showOthers ? t("pullReviewGroups.hideOtherProjects") : t("pullReviewGroups.showOtherProjects")} <span>{emptyRepos.length}</span><ChevronDown size={16} /></button>}
   </>;
 }

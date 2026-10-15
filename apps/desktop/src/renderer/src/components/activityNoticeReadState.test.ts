@@ -7,6 +7,12 @@ const activity = [
 ];
 
 describe('activity notification reads', () => {
+  it('keeps notices read when their UI language changes, but counts changed activity again', () => {
+    const item = { id: 'issues-1', title: 'project 有 1 个待处理的问题', revision: 'issues:1' };
+    const seen = markActivityNoticesSeen({}, [item]);
+    expect(unreadActivityNoticeCount([{ ...item, title: 'project has 1 open issue' }], seen)).toBe(0);
+    expect(unreadActivityNoticeCount([{ ...item, revision: 'issues:2' }], seen)).toBe(1);
+  });
   it('counts grouped notification rows, preserves tasks after reading, and makes a changed title unread again', () => {
     expect(unreadActivityNoticeCount(activity, {})).toBe(2);
     const seen = markActivityNoticesSeen({}, activity);

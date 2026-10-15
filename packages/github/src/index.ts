@@ -5,7 +5,7 @@ export interface GitHubSearchUser { id: number; login: string; avatar_url: strin
 export interface GitHubSearchPage<T> { items: T[]; page: number; totalCount: number; hasNextPage: boolean; incompleteResults: boolean }
 export interface GitHubRepo { id: number; name: string; full_name: string; html_url?: string; description: string | null; private: boolean; fork?: boolean; parent?: { id: number; full_name: string; default_branch: string; html_url: string; owner: { login: string }; name: string }; allow_forking?: boolean; allow_merge_commit?: boolean; allow_squash_merge?: boolean; allow_rebase_merge?: boolean; archived?: boolean; permissions?: { admin: boolean; push: boolean; pull: boolean }; updated_at: string; pushed_at?: string | null; created_at?: string; stargazers_count?: number; language?: string | null; default_branch: string; owner: { login: string; avatar_url?: string }; open_issues_count: number }
 export interface GitHubBranchProtection { required_status_checks: unknown | null; required_pull_request_reviews: { required_approving_review_count?: number } | null; enforce_admins: { enabled: boolean } | null }
-export interface GitHubBranch { name: string; protected: boolean }
+export interface GitHubBranch { name: string; commit: { sha: string }; protected: boolean }
 export interface GitHubComparison { status: string; ahead_by: number; behind_by: number; total_commits: number; files?: GitHubPullFile[] }
 export interface GitHubForkComparison extends GitHubComparison { openRequest: GitHubPullRequest | null }
 export type TrendingPeriod = 'today' | 'week' | 'month';
@@ -30,7 +30,9 @@ export type GitHubReviewEvent = 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES';
 export { isEmptyAddedPullFile } from './pullFiles.js';
 export interface GitHubMergeResult { merged: boolean; sha: string; message: string }
 export interface GitHubComment { id: number; body: string; created_at: string; user: { login: string } | null }
-export interface GitHubCommit { sha: string; commit: { message: string; author: { name: string; date: string } | null }; author: { login: string } | null; stats?: { additions: number; deletions: number }; files?: { filename: string; status: string }[] }
+export interface GitHubCommit { sha: string; commit: { message: string; author: { name: string; date: string } | null }; author: { login: string; avatar_url?: string } | null; stats?: { additions: number; deletions: number }; files?: GitHubPullFile[] }
+export interface GitHubSourceHistoryQuery { branch: string; path?: string; page: number }
+export interface GitHubCommitChangesPage { commit: GitHubCommit; nextPage: number | null; limited: boolean }
 export interface GitHubReleaseAsset { id: number; name: string; label: string | null; size: number; content_type: string; download_count: number; state: string; browser_download_url?: string; digest?: string }
 export interface GitHubRelease { id: number; tag_name: string; name: string | null; body: string | null; draft: boolean; prerelease: boolean; published_at: string | null; assets: GitHubReleaseAsset[] }
 export interface GitHubReleasePage { items: GitHubRelease[]; nextPage: number | null }
@@ -55,6 +57,15 @@ export function friendlyGitHubError(error: unknown): string {
 
 function encodePart(value: string): string { return encodeURIComponent(value); }
 function repoPath(owner: string, repo: string): string { return `/repos/${encodePart(owner)}/${encodePart(repo)}`; }
+
+export function validHistoryBranch(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 255 && !/[\x00-\x20\x7f~^:?*\[\\]/.test(value)
+    && !value.includes('..') && !value.includes('@{') && !value.endsWith('.') && !value.split('/').some(part => !part || part.startsWith('.') || part.endsWith('.lock'));
+}
+export function validHistoryPath(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 4096 && !/[\\\x00-\x1f\x7f]/.test(value)
+    && !value.split('/').some(part => !part || part === '.' || part === '..');
+}
 
 export class GitHubClient {
   constructor(private readonly token: () => Promise<string>, private readonly transport: Transport = fetch) {}
@@ -385,6 +396,33 @@ export class GitHubClient {
     return this.request(`${repoPath(owner, repo)}/pulls?${query.toString()}`, { signal });
   }
   commits(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubCommit[]> { return this.request(`${repoPath(owner, repo)}/commits?per_page=100`, { signal }); }
+  async sourceHistory(owner: string, repo: string, query: GitHubSourceHistoryQuery, signal?: AbortSignal): Promise<GitHubPage<GitHubCommit>> {
+    if (!Number.isSafeInteger(query.page) || query.page < 1 || query.page > 10000 || !validHistoryBranch(query.branch)
+      || (query.path !== undefined && !validHistoryPath(query.path))) throw new Error('Invalid source history query');
+    const params = new URLSearchParams({ sha: query.branch, per_page: '100', page: String(query.page) });
+    if (query.path) params.set('path', query.path);
+    let items: GitHubCommit[];
+    try { items = await this.request(`${repoPath(owner, repo)}/commits?${params}`, { signal, cache: 'no-store' }); }
+    catch (error) { if (error instanceof GitHubError && error.status === 409 && !signal?.aborted) return { items: [], nextPage: null }; throw error; }
+    if (!Array.isArray(items) || items.length > 100 || items.some(item => !item || !/^[a-f0-9]{40}$/iu.test(item.sha) || typeof item.commit?.message !== 'string')) throw new GitHubError(502, 'Invalid source history response');
+    return { items, nextPage: items.length === 100 && query.page < 10000 ? query.page + 1 : null };
+  }
+  async branchesPage(owner: string, repo: string, page: number, signal?: AbortSignal): Promise<GitHubPage<GitHubBranch>> {
+    if (!Number.isSafeInteger(page) || page < 1 || page > 10000) throw new Error('Invalid branches page');
+    let items: GitHubBranch[];
+    try { items = await this.request(`${repoPath(owner, repo)}/branches?per_page=100&page=${page}`, { signal, cache: 'no-store' }); }
+    catch (error) { if (error instanceof GitHubError && error.status === 409 && !signal?.aborted) return { items: [], nextPage: null }; throw error; }
+    if (!Array.isArray(items) || items.length > 100 || items.some(item => !item || !validHistoryBranch(item.name) || !/^[a-f0-9]{40}$/iu.test(item.commit?.sha))) throw new GitHubError(502, 'Invalid branches response');
+    return { items, nextPage: items.length === 100 && page < 10000 ? page + 1 : null };
+  }
+  async commitChangesPage(owner: string, repo: string, sha: string, page: number, signal?: AbortSignal): Promise<GitHubCommitChangesPage> {
+    if (!/^[a-f0-9]{40}$/iu.test(sha) || !Number.isSafeInteger(page) || page < 1 || page > 30) throw new Error('Invalid commit changes query');
+    const commit = await this.request<GitHubCommit>(`${repoPath(owner, repo)}/commits/${encodePart(sha)}?per_page=100&page=${page}`, { signal, cache: 'no-store' });
+    if (!commit || commit.sha?.toLowerCase() !== sha.toLowerCase() || typeof commit.commit?.message !== 'string' || !Array.isArray(commit.files) || commit.files.length > 100
+      || commit.files.some(file => !file || !validHistoryPath(file.filename) || typeof file.status !== 'string' || !Number.isSafeInteger(file.additions) || file.additions < 0 || !Number.isSafeInteger(file.deletions) || file.deletions < 0 || (file.patch !== undefined && typeof file.patch !== 'string'))) throw new GitHubError(502, 'Invalid commit changes response');
+    const full = commit.files.length === 100;
+    return { commit, nextPage: full && page < 30 ? page + 1 : null, limited: full && page === 30 };
+  }
   async commitsPage(owner: string, repo: string, page = 1, signal?: AbortSignal): Promise<GitHubPage<GitHubCommit>> {
     if (!Number.isSafeInteger(page) || page < 1 || page > 10000) throw new Error('Invalid commits page');
     let items: GitHubCommit[];

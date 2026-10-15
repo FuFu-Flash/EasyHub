@@ -4,10 +4,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
-import { smokeExecutable, smokeEnvironment, smokeRenderer } from './smoke-runtime.mjs';
 
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
-const executable = smokeExecutable(desktopDirectory);
 const outputDirectory = resolve(desktopDirectory, 'out', 'v2-live-regression');
 await mkdir(outputDirectory, { recursive: true });
 const runDirectory = await mkdtemp(join(outputDirectory, 'isolated-'));
@@ -24,7 +22,7 @@ process.env.ELECTRON_RENDERER_URL = 'data:text/html,<title>Isolated regression f
 const fixtureHandle = ipcMain.handle.bind(ipcMain);
 globalThis.easyHubV2RegisterMock = fixtureHandle;
 globalThis.easyHubV2RejectedIpc = [];
-ipcMain.handle = (channel, listener) => fixtureHandle(channel, channel.startsWith('easyhub:') && !['easyhub:window-set-style', 'easyhub:menu-state'].includes(channel) ? () => {
+ipcMain.handle = (channel, listener) => fixtureHandle(channel, channel.startsWith('easyhub:') ? () => {
   globalThis.easyHubV2RejectedIpc.push(channel);
   throw new Error('IPC was not explicitly mocked by the regression fixture: ' + channel);
 } : listener);
@@ -46,7 +44,7 @@ require(${JSON.stringify(join(desktopDirectory, 'out', 'main', 'index.js'))});
 let app;
 let page;
 try {
-  app = await electron.launch({ executablePath: executable || electronPath, args: executable ? [] : [launcherPath], cwd: desktopDirectory, env: smokeEnvironment(profileDirectory) });
+  app = await electron.launch({ executablePath: electronPath, args: [launcherPath], cwd: desktopDirectory });
   assert.equal(await app.evaluate(({ app: runningApp }) => runningApp.getPath('userData')), profileDirectory);
   await app.evaluate(({ BrowserWindow, ipcMain, session }, fixtureDirectory) => {
     const window = BrowserWindow.getAllWindows()[0];
@@ -72,9 +70,6 @@ try {
       previews: { 'fixture-current': { state: 'current', changedFiles: 0, files: [] },
         'fixture-remote': { state: 'ready', changedFiles: 1, files: [], remoteRevision: 'b'.repeat(40) } },
     };
-    globalThis.easyHubV2RegisterMock ??= ipcMain.handle.bind(ipcMain);
-    globalThis.easyHubV2RejectedIpc ??= [];
-    globalThis.easyHubV2StartupGuards ??= { hostsReads: 0 };
     const mock = (channel, handler) => {
       ipcMain.removeHandler(channel);
       globalThis.easyHubV2RegisterMock(channel, (event, ...args) => {
@@ -138,7 +133,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await app.evaluate(async ({ BrowserWindow }, rendererPath) => {
     await BrowserWindow.getAllWindows()[0].loadFile(rendererPath);
-  }, smokeRenderer(desktopDirectory, executable));
+  }, join(desktopDirectory, 'out', 'renderer', 'index.html'));
   await page.locator('.live-connected').waitFor();
   const homeRows = page.locator('.home-project-row');
   await homeRows.last().waitFor();
@@ -209,14 +204,13 @@ try {
   assert.equal(await localCards.filter({ hasText: 'quiet-project' }).locator('.status').innerText(), homeStatuses[1]);
   await localCards.filter({ hasText: 'active-project' }).getByRole('button', { name: '查看详情', exact: true }).click();
   await page.locator('.detail-primary').getByRole('heading', { name: 'Fixture introduction', exact: true }).waitFor();
-  await page.getByText('部分反馈或历史版本暂时无法加载，请刷新重试。', { exact: true }).waitFor();
+  await page.getByText('部分反馈或修改记录暂时无法加载，请刷新重试。', { exact: true }).waitFor();
   assert.equal(await page.locator('.detail-primary').getByText('这个项目还没有介绍。', { exact: true }).count(), 0);
   const reviewSide = page.locator('.detail-side .side-panel').filter({ has: page.getByRole('heading', { name: '合并请求审查', exact: true }) });
   assert.equal(await reviewSide.locator('.count-bubble').innerText(), '1');
   await reviewSide.getByRole('button', { name: '合并请求审查', exact: false }).click();
   await page.locator('.pull-requests-panel').getByText('Fixture improvement', { exact: true }).waitFor();
-  assert.equal(await page.getByText('部分反馈或历史版本暂时无法加载，请刷新重试。', { exact: true }).count(), 0, 'A project loading error must clear when leaving the project page');
-  assert.equal(await page.getByRole('tab', { name: process.platform === 'darwin' ? '合并请求审查 1' : '代码提交审查 1', exact: true }).getAttribute('aria-selected'), 'true');
+  assert.equal(await page.getByText('部分反馈或修改记录暂时无法加载，请刷新重试。', { exact: true }).count(), 0, 'A project loading error must clear when leaving the project page');
   assert.equal(await page.getByRole('tab', { name: '合并请求审查 1', exact: true }).getAttribute('aria-selected'), 'true');
 
   await navigation.getByRole('button', { name: /^问题/ }).click();
@@ -231,7 +225,6 @@ try {
   assert.equal(await groups.count(), 2);
   assert.equal(await page.getByRole('button', { name: '收起其他项目 1', exact: true }).getAttribute('aria-expanded'), 'true');
   await page.getByRole('button', { name: '收起其他项目 1', exact: true }).click();
-  await page.getByRole('tab', { name: process.platform === 'darwin' ? '合并请求审查 1' : '代码提交审查 1', exact: true }).click();
   await page.getByRole('tab', { name: '合并请求审查 1', exact: true }).click();
   assert.equal(await groups.count(), 1, 'Repos with no reviews should be folded by default');
   assert.equal(await groups.locator('.issue-project-heading strong').innerText(), 'active-project');
@@ -245,7 +238,7 @@ try {
   await navigation.getByRole('button', { name: '首页', exact: true }).click();
   await page.getByRole('textbox', { name: '搜索项目/用户', exact: true }).pressSequentially('project', { delay: 20 });
   await page.locator('.discover-page').waitFor();
-  assert.equal(await page.getByText('部分反馈或历史版本暂时无法加载，请刷新重试。', { exact: true }).count(), 0);
+  assert.equal(await page.getByText('部分反馈或修改记录暂时无法加载，请刷新重试。', { exact: true }).count(), 0);
   assert.equal(await page.locator('.topbar-search input').count(), 0, 'Discover must not duplicate its search field in the topbar');
   assert.equal(await page.locator('.discover-search input').count(), 1);
   assert.equal(await page.getByRole('textbox', { name: '搜索公开项目', exact: true }).inputValue(), 'project', 'Typing must continue after the first character moves search into Discover');

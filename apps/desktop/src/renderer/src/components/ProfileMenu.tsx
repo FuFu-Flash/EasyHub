@@ -1,3 +1,4 @@
+import { useTranslation } from '../localization';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ChevronDown, Star, UserRound } from 'lucide-react';
@@ -8,6 +9,7 @@ export function ProfileMenu({ avatar, name, onProfile, onStarred }: {
   onProfile: () => void;
   onStarred: () => void;
 }) {
+  const t = useTranslation();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
@@ -25,13 +27,13 @@ export function ProfileMenu({ avatar, name, onProfile, onStarred }: {
   }, [open]);
 
   return <div className="profile-menu-anchor" ref={root}>
-    <button type="button" className="topbar-profile" aria-label="账户菜单" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((value) => !value)}>
+    <button type="button" className="topbar-profile" title={name} aria-label={t("profileMenu.accountMenu")} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((value) => !value)}>
       <span className="topbar-avatar">{avatar}</span><ChevronDown size={16} />
     </button>
-    {open && <div className="profile-menu" role="menu" aria-label="账户菜单">
-      <div className="profile-menu-identity"><span>当前账户</span><strong>{name}</strong></div>
-      <button type="button" role="menuitem" onClick={() => { setOpen(false); onProfile(); }}><UserRound size={17} /><span>个人资料</span></button>
-      <button type="button" role="menuitem" onClick={() => { setOpen(false); onStarred(); }}><Star size={17} /><span>我收藏的项目</span></button>
+    {open && <div className="profile-menu" role="menu" aria-label={t("profileMenu.accountMenu")}>
+      <div className="profile-menu-identity"><span>{t("profileMenu.currentAccount")}</span><strong>{name}</strong></div>
+      <button type="button" role="menuitem" onClick={() => { setOpen(false); onProfile(); }}><UserRound size={17} /><span>{t("profileMenu.profile")}</span></button>
+      <button type="button" role="menuitem" onClick={() => { setOpen(false); onStarred(); }}><Star size={17} /><span>{t("profileMenu.starredProjects")}</span></button>
     </div>}
   </div>;
 }

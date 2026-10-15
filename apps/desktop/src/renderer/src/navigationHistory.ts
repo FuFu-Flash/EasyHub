@@ -7,6 +7,7 @@ interface Page {
 export class NavigationHistory {
   private current: Page | null = null;
   private readonly previous: Page[] = [];
+  private readonly next: Page[] = [];
   private returning = false;
   private replacing = false;
 
@@ -16,6 +17,7 @@ export class NavigationHistory {
     if (this.current && this.current.key !== key) {
       if (this.returning || this.replacing) { this.returning = false; this.replacing = false; }
       else {
+        this.next.length = 0;
         this.previous.push(this.current);
         if (this.previous.length > this.limit) this.previous.shift();
       }
@@ -28,15 +30,30 @@ export class NavigationHistory {
 
   replaceNext(): void { this.replacing = true; }
 
+  get hasForward(): boolean { return this.next.length > 0; }
+
+  forward(): number {
+    const page = this.next.pop();
+    if (page) {
+      if (this.current) this.previous.push(this.current);
+      this.returning = true;
+      page.restore();
+    }
+    return this.previous.length;
+  }
+
   prune(isValid: (key: string) => boolean): number {
     const valid = this.previous.filter((page) => isValid(page.key));
     this.previous.splice(0, this.previous.length, ...valid);
+    const next = this.next.filter((page) => isValid(page.key));
+    this.next.splice(0, this.next.length, ...next);
     return this.previous.length;
   }
 
   back(fallback: () => void): number {
     const page = this.previous.pop();
     if (page) {
+      if (this.current) this.next.push(this.current);
       this.returning = true;
       page.restore();
     } else { this.replacing = true; fallback(); }

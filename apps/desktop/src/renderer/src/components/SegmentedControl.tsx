@@ -53,11 +53,21 @@ export function SegmentedControl({ children, className = '', ...props }: HTMLAtt
 
   useLayoutEffect(() => { measureSelection.current?.(); });
 
-  return <div {...props} role={props.role ?? 'group'} ref={container} className={`segmented segmented-animated ${className}`.trim()}>
+  return <div {...props} role={props.role ?? 'group'} ref={container} className={`segmented segmented-animated ${className}`.trim()} onKeyDown={(event) => {
+    props.onKeyDown?.(event);
+    if (props.role !== 'tablist' || event.defaultPrevented || event.nativeEvent.isComposing || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const tabs = [...event.currentTarget.querySelectorAll<HTMLButtonElement>(':scope > button:not(:disabled)')];
+    const index = tabs.indexOf(document.activeElement as HTMLButtonElement);
+    if (index < 0) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    tabs[next]?.focus(); tabs[next]?.click();
+  }}>
     <div className="segmented-indicator" aria-hidden="true" />
     {Children.map(children, (child) => {
       if (!isValidElement<ButtonHTMLAttributes<HTMLButtonElement>>(child) || child.type !== 'button') return child;
-      return cloneElement(child, { 'aria-pressed': child.props['aria-pressed'] ?? child.props.className?.split(/\s+/u).includes('selected') ?? false });
+      const selected = child.props.className?.split(/\s+/u).includes('selected') ?? false;
+      return cloneElement(child, props.role === 'tablist' ? { role: 'tab', 'aria-selected': selected, tabIndex: selected ? 0 : -1 } : { 'aria-pressed': child.props['aria-pressed'] ?? selected });
     })}
   </div>;
 }

@@ -6,7 +6,6 @@ import { request as httpsRequest } from 'node:https';
 import { pipeline } from 'node:stream/promises';
 import { dialog, net, session } from 'electron';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import { SocksProxyAgent } from 'socks-proxy-agent';
 import { GitHubClient, GitHubError, friendlyGitHubError } from '@easyhub/github';
 import type { GitHubCreatedRelease, GitHubReleaseAsset } from '@easyhub/github';
 import type { AddReleaseAssetsRequest, EditReleaseRequest, PickedReleaseFile, PublishReleaseRequest, ReleaseProgress, RemoveReleaseAssetRequest, ReleaseMutationFailure } from '@easyhub/types';
@@ -93,14 +92,12 @@ export function releaseAssetUrl(owner: string, repo: string, tag: string, name: 
   return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(name)}`;
 }
 
-async function proxyAgent(url: string): Promise<HttpsProxyAgent<string> | SocksProxyAgent | GitHubOriginAgent | undefined> {
+async function proxyAgent(url: string): Promise<HttpsProxyAgent<string> | GitHubOriginAgent | undefined> {
   const choices = await session.defaultSession.resolveProxy(url);
   if (isEasyHubProxyChoice(choices)) return githubOriginAgent();
   for (const choice of choices.split(';')) {
     const match = choice.trim().match(/^(PROXY|HTTPS)\s+([^\s]+)$/i);
     if (match?.[2]) return new HttpsProxyAgent(`${match[1]?.toUpperCase() === 'HTTPS' ? 'https' : 'http'}://${match[2]}`);
-    const socks = choice.trim().match(/^(SOCKS5|SOCKS4|SOCKS)\s+([^\s]+)$/i);
-    if (socks?.[2]) return new SocksProxyAgent(`socks${socks[1]?.toUpperCase() === 'SOCKS4' ? '4a' : '5h'}://${socks[2]}`);
   }
   return githubOriginAgent();
 }
@@ -229,12 +226,12 @@ export class ReleasePublishingService {
       if (attempt.confirmed.has(id)) continue;
       if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
       const phase = `正在上传 ${file.name}`;
-      progress({ phase, loaded, total, cancelable: true });
+      progress({ step: 'uploading-asset', fileName: file.name, phase, loaded, total, cancelable: true });
       const url = release.upload_url.replace(/\{.*$/, '') + `?name=${encodeURIComponent(file.name)}`;
       attempt.attempted.add(id);
       const uploaded = await this.sendAsset(url, file, token, controller.signal, (bytes) => {
         loaded += bytes;
-        progress({ phase, loaded: Math.min(loaded, total), total, cancelable: true });
+        progress({ step: 'uploading-asset', fileName: file.name, phase, loaded: Math.min(loaded, total), total, cancelable: true });
       });
       if (uploaded.state !== 'uploaded' || uploaded.size !== file.size || !uploaded.browser_download_url) throw new Error(`“${file.name}”上传后未通过检查。`);
       attempt.confirmed.set(id, uploaded);
@@ -340,7 +337,7 @@ export class ReleasePublishingService {
         await this.files(input.assetIds, attempt.confirmed);
       } else {
         if (this.attempts.size >= 20) throw new Error('还有未完成的版本上传，请先完成或取消它们。');
-        progress({ phase: '正在创建新版本', loaded: 0, total, cancelable: true });
+        progress({ step: 'creating-release', phase: '正在创建新版本', loaded: 0, total, cancelable: true });
         creating = true;
         attempt.draft = await this.client.createRelease(input.owner, input.repo, {
           tagName: input.tagName, target: repo.default_branch, name: input.title.trim(), body: input.body.trim(), prerelease: input.channel !== 'stable',
@@ -349,7 +346,7 @@ export class ReleasePublishingService {
       }
       await this.uploadFiles(attempt.draft, attempt, input.assetIds, chosen, controller, progress);
       if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
-      progress({ phase: '正在确认新版本', loaded: total, total, cancelable: false });
+      progress({ step: 'confirming-release', phase: '正在确认新版本', loaded: total, total, cancelable: false });
       const urls = new Map([...attempt.confirmed].map(([id, asset]) => [id, releaseAssetUrl(input.owner, input.repo, input.tagName, asset.name)]));
       const body = replaceInlineImages(input.body.trim(), urls);
       finalizing = true;

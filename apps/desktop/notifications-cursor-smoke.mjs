@@ -4,7 +4,6 @@ import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
-import { smokeExecutable, smokeEnvironment, smokeRenderer } from './smoke-runtime.mjs';
 import { installDownloadFixture } from './download-fixture.mjs';
 
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
@@ -13,7 +12,9 @@ await mkdir(outputDirectory, { recursive: true });
 const runDirectory = await mkdtemp(join(outputDirectory, 'isolated-'));
 const profileDirectory = join(runDirectory, 'profile');
 await mkdir(profileDirectory);
-const executable = smokeExecutable(desktopDirectory, ['--repro-running-only']);
+const executableArgument = process.argv.find(value => value.startsWith('--executable='));
+const executable = executableArgument?.slice('--executable='.length);
+if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
 const runningOnly = process.argv.includes('--repro-running-only');
 const launcher = join(runDirectory, 'launch.cjs');
 if (!executable) await writeFile(launcher, `
@@ -30,7 +31,7 @@ require(${JSON.stringify(join(desktopDirectory, 'out/main/index.js'))});
 `, 'utf8');
 const started = Date.now();
 const app = await electron.launch({ executablePath: executable || electronPath,
-  args: executable ? [] : [launcher], cwd: desktopDirectory, env: smokeEnvironment(profileDirectory) });
+  args: executable ? ['--user-data-dir=' + profileDirectory] : [launcher], cwd: desktopDirectory });
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profileDirectory, 'The smoke must use only its newly created isolated profile');
   await app.evaluate(({ ipcMain, session }) => {
@@ -88,8 +89,7 @@ try {
   page.setDefaultTimeout(12_000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  if (!executable) await app.evaluate(async ({ BrowserWindow }, renderer) => { await BrowserWindow.getAllWindows()[0].loadFile(renderer); }, smokeRenderer(desktopDirectory, executable));
-  await page.locator('.app-shell').waitFor();
+  if (!executable) await app.evaluate(async ({ BrowserWindow }, renderer) => { await BrowserWindow.getAllWindows()[0].loadFile(renderer); }, join(desktopDirectory, 'out/renderer/index.html'));
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('easyhub:language', 'zh'); localStorage.setItem('easyhub:auto-translate', 'false'); });
   await page.reload();
   await page.locator('.live-connected').waitFor();
@@ -197,8 +197,9 @@ try {
     await read();
     await panel.getByText('notifications-fixture 有 24 个待处理的问题', { exact: true }).waitFor();
     await app.evaluate(() => { globalThis.notificationFixture.counts[3301].issues = 25; });
-    // Keyboard refresh leaves the panel open and marks its updated notice read.
-    await refresh.press('Enter');
+    // Simulate a background refresh without moving keyboard focus out of the modal.
+    await page.waitForFunction(() => !document.querySelector('.sidebar-refresh')?.disabled);
+    await refresh.evaluate(button => button.click());
     await panel.getByText('notifications-fixture 有 25 个待处理的问题', { exact: true }).waitFor();
     assert.equal(await trigger.getAttribute('aria-expanded'), 'true');
     await expectUnread(0);
@@ -227,15 +228,18 @@ try {
     await cursor(page.locator('.topbar-search input'), 'editable input');
     const input = page.locator('.topbar-search input');
     await input.fill('Cursor input probe');
-    // Typing in the top bar intentionally moves the live workspace to Discover.
-    const discoverInput = page.locator('.discover-search input');
-    assert.equal(await discoverInput.inputValue(), 'Cursor input probe');
-    await cursor(discoverInput, 'editable Discover input');
-    await discoverInput.fill('');
+    assert.ok(await readme.first().isVisible(), 'Typing keeps the current page and focus');
+    assert.equal(await input.inputValue(), 'Cursor input probe');
+    await input.press('Enter');
+    await page.locator('.discover-results-toolbar').waitFor();
+    assert.equal(await page.locator('.discover-search input').count(), 0);
+    await cursor(input, 'shared Discover input');
+    await input.fill('');
     await cursor(trigger.locator('svg'), 'button SVG');
     await page.screenshot({ path: join(outputDirectory, 'cursor-readme.png') });
     // Reloading in demo mode keeps all operations within this isolated fixture.
     await app.evaluate(() => { globalThis.notificationFixture.live = false; });
+    await page.evaluate(() => localStorage.setItem('easyhub:welcome-choice', 'demo'));
     await page.reload();
     await page.locator('.live-connected').waitFor({ state: 'hidden' });
     await badge.waitFor();

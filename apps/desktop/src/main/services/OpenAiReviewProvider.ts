@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import type { AiCredentials, AiReviewProvider } from './AiReviewService';
+import { aiProviderForBaseUrl } from '../../shared/aiProviders';
 
 type Fetcher = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -7,7 +8,7 @@ type Fetcher = (url: string, init: RequestInit) => Promise<Response>;
 export class OpenAiReviewProvider implements AiReviewProvider {
   constructor(private readonly fetcher: Fetcher) {}
 
-  async complete(settings: AiCredentials, system: string, content: string, signal: AbortSignal, options?: { maxOutputTokens?: number }): Promise<string> {
+  async complete(settings: AiCredentials, system: string, content: string, signal: AbortSignal, options?: { maxOutputTokens?: number; purpose?: 'explanation' }): Promise<string> {
     const base = new URL(`${settings.baseUrl}/`);
     const client = new OpenAI({
       apiKey: settings.apiKey, baseURL: settings.baseUrl, organization: null, project: null, timeout: 90_000, maxRetries: 0, logLevel: 'off',
@@ -22,6 +23,9 @@ export class OpenAiReviewProvider implements AiReviewProvider {
         model: settings.model, messages: [{ role: 'system', content: system }, { role: 'user', content }],
         stream: false,
         ...(options?.maxOutputTokens ? { max_tokens: options.maxOutputTokens } : {}),
+        // DeepSeek defaults to thinking, which consumes a short explanation's
+        // entire output budget before producing any answer. Keep review requests unchanged.
+        ...(options?.purpose === 'explanation' && aiProviderForBaseUrl(settings.baseUrl)?.id === 'deepseek' ? { thinking: { type: 'disabled' } } : {}),
       }, { signal });
       const choice = result.choices[0];
       if (!choice || choice.finish_reason === 'length' || !choice.message.content) throw new Error('invalid AI response');

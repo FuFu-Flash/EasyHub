@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
+import { _electron as electron } from 'playwright-core';
+import electronPath from 'electron';
 
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
 const outputDirectory = join(desktopDirectory, 'out', 'project-detail-layout-smoke');
@@ -17,13 +18,30 @@ const bridgeChannels = [...new Set([...preload.matchAll(/ipcRenderer\.invoke\(([
   return channel[1];
 }))];
 assert.ok(bridgeChannels.length >= 40, 'The fixture must discover the full EasyHub IPC bridge.');
+const executableArgument = process.argv.find(value => value.startsWith('--executable='));
+const executable = executableArgument?.slice('--executable='.length)
+  ?? (process.argv.includes('--packaged') ? join(desktopDirectory, 'release', 'win-unpacked', 'EasyHub.exe') : null);
+if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
+const launcher = join(runDirectory, 'launch.cjs');
+if (!executable) await writeFile(launcher, `
+const { app, ipcMain } = require('electron');
+app.setPath('userData', ${JSON.stringify(profileDirectory)});
+process.env.ELECTRON_RENDERER_URL = 'data:text/html,<title>Isolated layout fixture</title>';
+globalThis.layoutRegisterMock = ipcMain.handle.bind(ipcMain);
+globalThis.layoutRejectedIpc = [];
+ipcMain.handle = (channel, handler) => globalThis.layoutRegisterMock(channel, channel.startsWith('easyhub:') ? () => {
+  globalThis.layoutRejectedIpc.push(channel);
+  throw new Error('Unmocked isolated layout fixture IPC: ' + channel);
+} : handler);
+require(${JSON.stringify(join(desktopDirectory, 'out', 'main', 'index.js'))});
+`, 'utf8');
+
 const started = Date.now();
-const { app, executable, renderer } = await launchUpstreamFixture(desktopDirectory, { profile: profileDirectory,
-  launcher: join(runDirectory, 'launch.cjs'), registerName: 'layoutRegisterMock', rejectedName: 'layoutRejectedIpc',
-  title: 'Isolated layout fixture' });
+const app = await electron.launch({ executablePath: executable || electronPath,
+  args: executable ? ['--user-data-dir=' + profileDirectory] : [launcher], cwd: desktopDirectory,
+  env: { ...process.env, EASYHUB_PROXY_APP_ONLY_TEST: '1' } });
 const measurements = [];
 let geometryAssertions = 0;
-let nonemptyCloudListAssertions = 0;
 const assertGeometry = (condition, message) => { geometryAssertions++; assert.ok(condition, message); };
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profileDirectory);
@@ -40,7 +58,7 @@ try {
       });
     };
     // Deny every exposed real handler first, including packaged executables; allow only the explicit local reads below.
-    for (const channel of bridgeChannels.filter(channel => !['easyhub:menu-state', 'easyhub:window-set-style'].includes(channel))) mock(channel, () => {
+    for (const channel of bridgeChannels) mock(channel, () => {
       fixture.forbidden.push(channel);
       throw new Error('External and write actions are blocked by this layout fixture: ' + channel);
     });
@@ -77,7 +95,6 @@ try {
     mock('easyhub:github-cancel', () => undefined);
     mock('easyhub:ai-settings', () => ({ providerId: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', hasApiKey: false }));
     mock('easyhub:github-proxy-status', () => ({ enabled: false, state: 'off', checkedAt: null, error: null, checks: [], legacyHosts: false }));
-    mock('easyhub:mac-proxy-status', () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }));
     mock('easyhub:binary-analysis-status', () => ({ installed: false, state: 'missing', engineVersion: '12.1.2' }));
     mock('easyhub:github', (action, ...args) => {
       fixture.reads.push(action);
@@ -105,7 +122,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(async ({ BrowserWindow }, file) => BrowserWindow.getAllWindows()[0].loadFile(file), renderer);
+  if (!executable) await app.evaluate(async ({ BrowserWindow }, renderer) => { await BrowserWindow.getAllWindows()[0].loadFile(renderer); }, join(desktopDirectory, 'out', 'renderer', 'index.html'));
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('easyhub:language', 'zh'); localStorage.setItem('easyhub:auto-translate', 'false'); });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.reload();
@@ -137,25 +154,11 @@ try {
       const copy = main.querySelector('div');
       const title = main.querySelector('h1');
       const description = main.querySelector('p');
-      const measuredLineHeight = (element) => {
-        if (!element) return 0;
-        const computed = parseFloat(getComputedStyle(element).lineHeight);
-        if (Number.isFinite(computed)) return computed;
-        // CSS 'normal' remains a keyword on Chromium/macOS. Measure the actual
-        // text line advances instead of guessing a font-size multiplier.
-        const range = document.createRange(); range.selectNodeContents(element);
-        const rectangles = [...range.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0);
-        const tops = [...new Set(rectangles.map(rect => rect.top))].sort((a, b) => a - b);
-        const advances = tops.slice(1).map((top, index) => top - tops[index]);
-        return advances.length ? Math.min(...advances) : rectangles[0]?.height ?? 0;
-      };
       const visibility = main.querySelector('.visibility-label');
       const buttons = [...actions.querySelectorAll('button')].map(button => ({ text: button.textContent.trim(),
         textOverflow: button.scrollWidth - button.clientWidth, ...rect(button) }));
       const column = document.querySelector('.main-column');
-      return { viewport: { width: innerWidth, height: innerHeight }, platform: window.easyHub?.platform,
-        descriptionLineHeight: measuredLineHeight(description),
-        density: document.querySelector('.app-shell').dataset.layout,
+      return { viewport: { width: innerWidth, height: innerHeight }, density: document.querySelector('.app-shell').dataset.layout,
         hero: rect(hero), logo: rect(logo), main: rect(main), copy: rect(copy), title: rect(title),
         description: description ? rect(description) : null, visibility: rect(visibility), actions: rect(actions), buttons,
         descriptionOverflow: description ? description.scrollWidth - description.clientWidth : 0,
@@ -191,7 +194,7 @@ try {
     }
     for (let i = 0; i < geometry.buttons.length; i++) for (let j = i + 1; j < geometry.buttons.length; j++)
       assertGeometry(separated(geometry.buttons[i], geometry.buttons[j]), label + ': action buttons must not overlap');
-    const publishRelease = geometry.buttons.find(button => button.text === '发布新版本' || button.text === 'Publish New Release');
+    const publishRelease = geometry.buttons.find(button => button.text === '发布发行版' || button.text === 'Publish New Release');
     const editRelease = geometry.buttons.find(button => button.text === '编辑发行版' || button.text === 'Edit Releases');
     if (publishRelease && editRelease) assertGeometry(Math.abs(publishRelease.y - editRelease.y) <= 1,
       label + ': related publish/edit release actions must stay together on the same row');
@@ -199,14 +202,7 @@ try {
     if (geometry.viewport.width >= 1440) {
       const rows = new Set(geometry.buttons.map(button => Math.round(button.y)));
       assertGeometry(rows.size <= 2, label + ': wide headers must use at most two action rows, received ' + rows.size);
-      // The upstream 260px Windows baseline uses different font metrics. On Mac,
-      // permit one actual description line when the title/visibility wrap naturally.
-      // Content/inset bounds and the two-row action limit below remain independent.
-      const fontMetricBudget = geometry.platform === 'darwin' ? geometry.descriptionLineHeight : 0;
-      assertGeometry(Number.isFinite(fontMetricBudget) && fontMetricBudget >= 0, label + ': native description line height must be measurable');
-      const normalHeadingBudget = 260 + fontMetricBudget;
-      if (geometry.title.height < 50) assertGeometry(geometry.hero.height <= normalHeadingBudget,
-        label + ': a normal title and long description should fit the baseline plus native text line budget (' + normalHeadingBudget + '): ' + geometry.hero.height);
+      if (geometry.title.height < 50) assertGeometry(geometry.hero.height <= 260, label + ': a normal title and long description should not inflate the header: ' + geometry.hero.height);
     }
     const contentHeight = Math.max(geometry.main.bottom, geometry.actions.bottom) - Math.min(geometry.main.y, geometry.actions.y);
     assertGeometry(geometry.hero.height <= contentHeight + geometry.verticalInsets + 3,
@@ -227,11 +223,6 @@ try {
     }));
     measurements.push({ label, cloudRows: rows });
     if (label.includes('1060') || label.includes('1440')) await page.screenshot({ path: join(outputDirectory, label + '.png') });
-    if (rows.length > 0) {
-      nonemptyCloudListAssertions++;
-      assert.equal(await page.locator('.cloud-list .live-empty').filter({ hasText: /^(还没有项目。|No projects yet\.)$/ }).count(), 0,
-        label + ': a nonempty cloud list must not display the no-projects empty message');
-    }
     for (const row of rows) {
       assertGeometry(row.rowOverflow <= 1 && row.headingOverflow <= 1, label + ': row content must not be internally clipped: ' + row.title);
       assertGeometry(row.heading.x >= row.copy.x - 1 && row.heading.right <= row.copy.right + 1, label + ': long cloud title stays in text column');
@@ -242,13 +233,12 @@ try {
   };
   const openAddress = async repo => {
     await page.locator('.topbar-search input').fill(`https://github.com/${repo.owner}/${repo.name}`);
-    await page.locator('.discover-search input').waitFor();
-    await page.locator('.discover-search input').press('Enter');
+    await page.locator('.topbar-search input').press('Enter');
     await page.getByTestId('public-project-browser').waitFor();
     await page.locator('.public-browser-hero').waitFor();
     await page.getByRole('button', { name: /^(读取中…|Loading…)$/ }).waitFor({ state: 'hidden' });
     await settle();
-    for (const forbidden of ['本地项目与发布源码', '发布新版本', '编辑发行版', 'Local Project & Publish Source', 'Publish New Release', 'Edit Releases'])
+    for (const forbidden of ['本地项目与发布源码', '发布发行版', '编辑发行版', 'Local Project & Publish Source', 'Publish New Release', 'Edit Releases'])
       assert.equal(await page.locator('.public-browser-hero').getByRole('button', { name: forbidden, exact: true }).count(), 0,
         'Public read-only header must not expose owned actions: ' + forbidden);
   };
@@ -258,10 +248,11 @@ try {
     const card = page.locator('.project-card').filter({ has: page.getByRole('button', { name: fixtures[3].name, exact: true }) });
     await card.getByRole('button', { name: /^(打开项目|Open Project)$/ }).click();
     await page.locator('.local-workspace .local-project-card').waitFor();
+    if (await page.locator('.local-readme').getAttribute('open') === null) await page.locator('.local-readme summary').click();
     await page.getByRole('heading', { name: 'Local fixture', exact: true }).waitFor();
     const local = await page.locator('.local-project-card').evaluate(card => {
       const rect = element => { const r = element.getBoundingClientRect(); return { x: r.x, right: r.right, y: r.y, bottom: r.bottom }; };
-      const title = card.querySelector('.panel-heading h2');
+      const title = document.querySelector('.local-workspace .page-header h1');
       const status = card.querySelector('.panel-heading .muted');
       const path = card.querySelector(':scope > p');
       const column = document.querySelector('.main-column');
@@ -311,7 +302,7 @@ try {
     for (const repo of fixtures.slice(0, 3)) {
       await openProject(repo);
       check(await measure(`${label}-owned-${repo.id}`), `${label}: owned ${repo.name}`);
-      if (language === 'en') assert.equal(await page.locator('.detail-actions').getByRole('button', { name: 'Local Project & Publish Source', exact: true }).count(), 1,
+      if (language === 'en') assert.equal(await page.locator('.detail-actions').getByRole('button', { name: 'Local Project & Publish source code', exact: true }).count(), 1,
         'English matrix must exercise the translated action labels');
       cases++;
     }
@@ -334,9 +325,8 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(await app.evaluate(() => globalThis.layoutFixture.forbidden), []);
   assert.deepEqual(await app.evaluate(() => globalThis.layoutRejectedIpc ?? []), []);
-  await writeFile(join(outputDirectory, 'isolation-and-count-report.json'), JSON.stringify({ blockedByDefaultChannels: bridgeChannels.filter(channel => !['easyhub:menu-state', 'easyhub:window-set-style'].includes(channel)).length,
-    allowedNativeUIChannels: ['easyhub:menu-state', 'easyhub:window-set-style'], credentialStore: 'memory',
-    matrixPageChecks: cases - 1, baselineChecks: 1, cloudListMatrices: cloudMatrices, nonemptyCloudListAssertions, geometryAssertions,
+  await writeFile(join(outputDirectory, 'isolation-and-count-report.json'), JSON.stringify({ blockedByDefaultChannels: bridgeChannels.length,
+    matrixPageChecks: cases - 1, baselineChecks: 1, cloudListMatrices: cloudMatrices, geometryAssertions,
     forbiddenCalls: [], unexpectedIpcCalls: [], externalNetworkBlocked: true, systemProxyIntegrationDisabled: true }, null, 2) + '\n');
   process.stdout.write(`PASS: ${geometryAssertions} geometry assertions in ${cases - 1} real-renderer matrix cases + 1 baseline check, plus ${cloudMatrices} cloud-list matrices; no external writes or AI calls. (${Date.now() - started} ms)\n`);
 } finally {

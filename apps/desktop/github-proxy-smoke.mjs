@@ -6,13 +6,12 @@ import { chromium } from 'playwright-core';
 import { createServer } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Every proxy operation is mocked; this check never changes system settings.
+// Every proxy operation is mocked; this check never changes Windows settings.
 const source = `
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HostsRepairPanel } from '/src/components/HostsRepairPanel.tsx';
 import '/src/styles.css';
-import '/src/v2.css';
 const query = new URLSearchParams(location.search);
 const systemMode = query.has('existing') ? 'existing' : query.has('external') ? 'external' : query.has('unavailable') ? 'unavailable' : 'managed';
 const ready = { enabled:true,state:'ready',checkedAt:'2026-10-01T03:20:00Z',error:null,system:{mode:systemMode,error:query.has('unavailable')?'unsafe system internals':null},checks:['login','api','download'].map(target=>({target,ok:true})),legacyHosts:query.has('legacy') };
@@ -23,7 +22,6 @@ if(query.has('checking')) current = {...ready,state:'checking',checks:[]};
 if(query.has('error')) current = {...ready,state:'error',error:'unsafe internals',checks:[{target:'login',ok:false}]};
 const metrics = window.fixture = { reads:0, enabled:[], refresh:0, cancel:0, cleanup:[], resolve:null };
 window.easyHub = {
- platform: query.has('mac') ? 'darwin' : 'win32',
  githubProxyStatus:async()=>{metrics.reads++;if(query.has('load-error')&&metrics.reads===1)throw Error('unsafe internals');if(query.has('checking')&&metrics.reads>1)current=ready;if(query.has('takeover')&&metrics.reads>1)current={...current,system:{mode:'external',error:null}};return structuredClone(current)},
  githubProxySetEnabled:async enabled=>{metrics.enabled.push(enabled);if(metrics.enabled.length===1&&(query.has('enable-rejection')||query.has('disable-rejection'))){current={...ready,state:'error',system:{mode:'unavailable',error:'unsafe recovery internals'}};throw Error('unsafe recovery internals')}current=enabled?ready:off();return structuredClone(current)},
  githubProxyRefresh:async()=>{metrics.refresh++;current={...ready,state:'checking',checks:[]};return new Promise(resolve=>{metrics.resolve=()=>{current=ready;resolve(structuredClone(ready))}})},
@@ -55,7 +53,7 @@ let browser;
 try {
   await server.listen();
   const base = 'http://127.0.0.1:' + server.httpServer.address().port + '/proxy-ui-test';
-  const installed = [process.env.EASYHUB_TEST_BROWSER, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge', 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].filter(Boolean).find(existsSync);
+  const installed = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
   browser = await chromium.launch({ executablePath: installed, headless: true });
   const page = await browser.newPage({ viewport: { width: 1060, height: 700 } });
   const errors = [];
@@ -163,12 +161,6 @@ try {
   assert.equal(await page.getByText('移除旧版修复', { exact: true }).count(), 0);
   await go('?en&external');
   await page.getByText('Another proxy has taken over', { exact: true }).waitFor();
-  await go('?mac&existing');
-  await page.getByText('使用现有系统代理', { exact: true }).waitFor();
-  assert.equal(await page.getByText('让 EasyHub 和使用 macOS 系统代理设置的浏览器访问 GitHub 相关网站。', { exact: true }).count(), 1);
-  await go('?mac&en&existing');
-  await page.getByText('Using the existing system proxy', { exact: true }).waitFor();
-  assert.equal(await page.getByText('Connect EasyHub and browsers that use macOS system proxy settings to GitHub websites.', { exact: true }).count(), 1);
   await go('?disabled&legacy');
   assert.equal(await page.getByRole('switch').isDisabled(), true);
   assert.equal(await page.evaluate(() => window.fixture.reads), 0);

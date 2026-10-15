@@ -1,18 +1,15 @@
 import assert from 'node:assert/strict';
-import { join } from 'node:path';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { smokeExecutable, smokeEnvironment } from './smoke-runtime.mjs';
+import { isAbsolute, join } from 'node:path';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
 
-const executable = smokeExecutable(process.cwd());
-const profile = await mkdtemp(join(tmpdir(), 'easyhub-binary-analysis-smoke-'));
-const app = await electron.launch({ executablePath: executable || electronPath, args: executable ? [] : ['.'], cwd: process.cwd(), env: smokeEnvironment(profile) });
+const executableArgument = process.argv.find((argument) => argument.startsWith('--executable='));
+const executable = executableArgument?.slice('--executable='.length);
+if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
+const profileArgument = `--user-data-dir=${join(process.cwd(), 'out/binary-analysis-smoke-profile')}`;
+const app = await electron.launch({ executablePath: executable || electronPath, args: executable ? [profileArgument] : ['.', profileArgument], cwd: process.cwd() });
 try {
-  assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
-  await app.evaluate(({ ipcMain, session }) => {
-    session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_details, callback) => callback({ cancel: true }));
+  await app.evaluate(({ ipcMain }) => {
     const repo = { id: 981, name: 'binary-project', full_name: 'test-owner/binary-project', description: 'Binary analysis fixture', private: false, archived: false, permissions: { admin: true, push: true, pull: true }, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'test-owner' }, open_issues_count: 0 };
     const request = { id: 982, number: 12, title: 'Update program file', body: 'A program file and a text change.', state: 'open', draft: false, merged: false, merged_at: null, created_at: new Date().toISOString(), html_url: 'https://github.com/test-owner/binary-project/pull/12', user: { login: 'contributor' }, comments: 0, changed_files: 2, head: { ref: 'program-update', label: 'contributor:program-update', sha: 'b'.repeat(40) }, base: { ref: 'main', sha: 'a'.repeat(40) } };
     const files = [{ filename: 'bin/helper.dll', status: 'added', additions: 0, deletions: 0, sha: 'c'.repeat(40) }, { filename: 'README.md', status: 'modified', additions: 1, deletions: 0, patch: '@@ -1 +1 @@\n+Updated program' }];
@@ -310,20 +307,31 @@ try {
   await waitCount('analyses', 6);
   await app.evaluate(() => globalThis.finishBinaryAnalysis());
   await waitCount('reviews', 4);
-  // Navigation away invalidates the pending AI report.
+  // History keeps this page mounted: background work must return to the same file.
   await openProject();
-  await waitCount('aiCancels', 2);
+  assert.equal(await downloads.count(), 0, 'The cached release page must be outside the visible DOM');
+  assert.equal(await count('aiCancels'), 1, 'Leaving a cached page must preserve its pending review');
   await app.evaluate(() => globalThis.finishBinaryReview());
   await page.getByRole('button', { name: '编辑发行版', exact: true }).click();
-  await assetReview('tool-two.exe').click();
-  assert.equal(await downloads.getByText('Canceled AI explanation must stay hidden.', { exact: true }).count(), 0);
-  await approveReview(downloads.locator('.binary-analysis-panel'));
+  await releasePanel.locator('.binary-selected-file').getByText('tool-two.exe', { exact: true }).waitFor();
+  await downloads.getByRole('region', { name: 'AI 审查结果', exact: true }).getByText('建议检查程序如何选择文件路径。', { exact: true }).waitFor();
+  // Changing the file during AI review must cancel and hide the old response.
+  await approveReview(releasePanel);
   await waitCount('analyses', 7);
   await app.evaluate(() => globalThis.finishBinaryAnalysis());
   await waitCount('reviews', 5);
+  await assetReview('tool.exe').click();
+  await waitCount('aiCancels', 2);
+  await app.evaluate(() => globalThis.finishBinaryReview());
+  await releasePanel.getByText('tool.exe', { exact: true }).waitFor();
+  assert.equal(await downloads.getByText('Canceled AI explanation must stay hidden.', { exact: true }).count(), 0);
+  await approveReview(downloads.locator('.binary-analysis-panel'));
+  await waitCount('analyses', 8);
+  await app.evaluate(() => globalThis.finishBinaryAnalysis());
+  await waitCount('reviews', 6);
   await app.evaluate(() => globalThis.finishBinaryReview());
   await downloads.getByRole('region', { name: 'AI 审查结果', exact: true }).getByText('建议检查程序如何选择文件路径。', { exact: true }).waitFor();
   assert.equal(await page.getByRole('dialog').count(), 0);
   assert.deepEqual(pageErrors, []);
-  process.stdout.write('PASS unified program review: nested settings, single consent, extraction/AI cancellation, stale source/navigation responses, local/release review, PR single entry, Chinese/English reports and 950px layout.\n');
+  process.stdout.write('PASS unified program review: nested settings, single consent, extraction/AI cancellation, stale source responses, cached background review restoration, local/release review, PR single entry, Chinese/English reports and 950px layout.\n');
 } finally { await app.close(); }

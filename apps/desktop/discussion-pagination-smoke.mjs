@@ -14,8 +14,8 @@ import {createRoot} from 'react-dom/client';
 import {PublicProjectBrowser} from '/src/components/PublicProjectBrowser.tsx';
 import {PullRequestsPanel} from '/src/components/PullRequestsPanel.tsx';
 import {LiveWorkspace} from '/src/LiveWorkspace.tsx';
-import {createDomLocalizer} from '/src/i18n.ts';
-import '/src/styles.css'; import '/src/v2.css';
+import {LanguageContext} from '/src/i18n.ts';
+import '/src/styles.css';
 const now='2026-10-08T00:00:00Z';
 const repo={id:1,name:'sample',full_name:'author/sample',private:false,default_branch:'main',owner:{login:'author'},permissions:{pull:true},updated_at:now};
 const otherRepo={...repo,id:2,name:'another-project',full_name:'author/another-project'};
@@ -24,7 +24,7 @@ const pull={...issue(3),title:'Change request',head:{sha:'a'.repeat(40),ref:'fix
 const comment=n=>({id:n,body:'Reply '+n,created_at:now,user:{login:'reader'}});
 const commit=n=>({sha:String(n).padStart(40,'0'),commit:{message:'Version '+n,author:{name:'reader',date:now}}});
 window.reads=[];window.failMore=false;window.holdMore=false;window.releaseMore=null;window.sent=[];
-window.easyHub={platform:${JSON.stringify(process.platform)},onAiReviewProgress:()=>()=>{},onReleaseProgress:()=>()=>{},onLocalStatus:()=>()=>{},onLocalProgress:()=>()=>{},onArchiveProgress:()=>()=>{},onDownloadsChanged:()=>()=>{},downloadsList:async()=>[],localList:async()=>[],openExternalLink:async()=>{},github:async(action,...args)=>{
+window.easyHub={onAiReviewProgress:()=>()=>{},onReleaseProgress:()=>()=>{},onLocalStatus:()=>()=>{},onLocalProgress:()=>()=>{},onArchiveProgress:()=>()=>{},onDownloadsChanged:()=>()=>{},downloadsList:async()=>[],localList:async()=>[],openExternalLink:async()=>{},github:async(action,...args)=>{
  window.reads.push({action,args});
  if(action==='readme')return '# Project';
  if(action==='repos')return args[0]===1?[repo,otherRepo]:[];
@@ -49,8 +49,9 @@ window.easyHub={platform:${JSON.stringify(process.platform)},onAiReviewProgress:
 }};
 const params=new URLSearchParams(location.search);window.fixtureUser=params.get('account')||'reader';window.fixtureRepo=repo;
 const root=createRoot(document.getElementById('root'));
-window.localizeFixture=()=>createDomLocalizer().apply(document.getElementById('root'),'en');
-window.renderFixture=()=>{const currentUser=window.fixtureUser;const selectedRepo=window.fixtureRepo;root.render(params.has('own')?React.createElement(LiveWorkspace,{user:{id:10,login:currentUser,name:currentUser,avatar_url:''},onLogout:()=>{}}):params.has('pull')?React.createElement(PullRequestsPanel,{repo:selectedRepo,currentUser,language:'zh'}):React.createElement(PublicProjectBrowser,{repo:selectedRepo,currentUser,language:'zh',onBack:()=>{},onOpenLink:()=>{},onDownload:()=>{},onForkReady:()=>{},downloadBusy:false}));};
+let fixtureLanguage='zh';
+window.localizeFixture=()=>{fixtureLanguage='en';window.renderFixture();};
+window.renderFixture=()=>{const currentUser=window.fixtureUser;const selectedRepo=window.fixtureRepo;root.render(React.createElement(LanguageContext.Provider,{value:fixtureLanguage},params.has('own')?React.createElement(LiveWorkspace,{user:{id:10,login:currentUser,name:currentUser,avatar_url:''},onLogout:()=>{}}):params.has('pull')?React.createElement(PullRequestsPanel,{repo:selectedRepo,currentUser,language:fixtureLanguage}):React.createElement(PublicProjectBrowser,{repo:selectedRepo,currentUser,language:fixtureLanguage,onBack:()=>{},onOpenLink:()=>{},onDownload:()=>{},onForkReady:()=>{},downloadBusy:false})));};
 window.changeFixtureRepo=()=>{window.fixtureRepo=otherRepo;window.renderFixture();};window.renderFixture();
 `;
 const server = await createServer({ configFile: false, root: join(root, 'src/renderer'), plugins: [react(), {
@@ -62,7 +63,7 @@ let browser;
 try {
   await server.listen(); const address = server.httpServer.address(); assert.ok(address && typeof address !== 'string');
   const url = `http://127.0.0.1:${address.port}/discussion-test`;
-  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true });
   const page = await browser.newPage(); page.setDefaultTimeout(10000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
@@ -111,11 +112,8 @@ try {
   await page.locator('.discussion-search input').press('Escape');
   assert.equal(await page.locator('.discussion-search input').count(), 0);
   await page.getByRole('button', { name: /Discussion 1/ }).waitFor();
-  // Closing search restores its trigger on the next native animation frame.
-  // Wait for that actual focus change instead of racing the synchronous DOM update.
-  await page.waitForFunction(() => document.activeElement === document.querySelector('.discussion-search-toggle'));
   assert.equal(await page.getByRole('button', { name: '搜索讨论', exact: true }).evaluate(element => document.activeElement === element), true, 'Closing search returns focus and restores the original list');
-  await page.locator('.public-browser-tabs').getByRole('button', { name: '历史版本', exact: true }).click();
+  await page.locator('.public-browser-tabs').getByRole('button', { name: '修改记录', exact: true }).click();
   assert.equal(await page.locator('.public-list-row').count(), 100);
   await page.locator('.discussion-pagination button').click(); await page.getByText('Version 101', { exact: true }).waitFor();
   assert.equal(await page.locator('.public-list-row').count(), 101);
@@ -126,13 +124,13 @@ try {
   assert.equal(await page.locator('#pull-reply').inputValue(), 'Persistent PR reply');
   await page.goto(url + '?pull=1&account=different-reader'); await page.getByRole('button', { name: /Change request/ }).click();
   assert.equal(await page.locator('#pull-reply').inputValue(), '', 'Another account must not inherit the reply draft');
-  await page.getByRole('button', { name: '返回合并请求审查', exact: true }).click();
+  await page.getByRole('button', { name: '返回', exact: true }).click();
   await page.getByRole('button', { name: '搜索讨论', exact: true }).click();
   await page.locator('.discussion-search input').fill('proposal'); await page.locator('.discussion-search').getByRole('button', { name: '搜索', exact: true }).click();
   await page.locator('.discussion-search .public-list-row').waitFor();
   assert.equal(await page.evaluate(() => window.reads.filter(read => read.action === 'searchDiscussions').at(-1).args[2].kind), 'pr');
   await page.locator('.discussion-search .public-list-row').click(); await page.locator('#pull-reply').waitFor();
-  await page.getByRole('button', { name: '返回合并请求审查', exact: true }).click();
+  await page.getByRole('button', { name: '返回', exact: true }).click();
   await page.locator('.discussion-search .public-list-row').waitFor();
   assert.equal(await page.locator('.discussion-search input').inputValue(), 'proposal');
   await page.getByRole('button', { name: '收起搜索', exact: true }).click();

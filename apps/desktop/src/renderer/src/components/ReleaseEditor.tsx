@@ -1,3 +1,8 @@
+import { progressLabel } from '../progressLabel';
+import { useTranslation } from '../localization';
+import { useWorkspaceStorage } from '../bridge';
+import { ErrorMessage } from './ErrorMessage';
+import { errorText } from '../errors';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import type { CreateReleaseInput, PickedReleaseFile, Project, ReleaseAsset, ReleaseChannel, ReleaseProgress, ReleaseMutationFailure } from '@easyhub/types';
@@ -39,9 +44,11 @@ export function ReleaseEditor({ project, draftAccount, draftRepository, language
   onOpenUpdate: () => void;
   onOpenLink: (url: string) => void;
 }) {
+  const t = useTranslation(language);
+  const workspaceStorage = useWorkspaceStorage();
   const firstTag = nextReleaseTag(project.releases, 'stable');
   const draftKey = draftAccount && draftRepository !== undefined ? createDraftKey(draftAccount, draftRepository, 'release') : null;
-  const [recovered] = useState(() => draftKey ? parseReleaseDraft(readDraft(draftKey)) : null);
+  const [recovered] = useState(() => draftKey ? parseReleaseDraft(readDraft(draftKey, workspaceStorage)) : null);
   const [channel, setChannel] = useState<ReleaseChannel>(recovered?.channel ?? 'stable');
   const [tagName, setTagName] = useState(recovered?.tagName ?? firstTag);
   const [title, setTitle] = useState(recovered?.title ?? `${project.name} ${firstTag}`);
@@ -57,7 +64,7 @@ export function ReleaseEditor({ project, draftAccount, draftRepository, language
 
   useEffect(() => {
     if (draftKey && (recovered || body || title !== `${project.name} ${firstTag}` || tagName !== firstTag || assets.length)) {
-      writeDraft(draftKey, JSON.stringify({ title, body, tagName, channel, attachments: assets.length > 0 || recovered?.attachments }));
+      writeDraft(draftKey, JSON.stringify({ title, body, tagName, channel, attachments: assets.length > 0 || recovered?.attachments }), workspaceStorage);
     }
   }, [draftKey, recovered, body, title, tagName, channel, assets.length, project.name, firstTag]);
 
@@ -88,7 +95,7 @@ export function ReleaseEditor({ project, draftAccount, draftRepository, language
     event.currentTarget.value = '';
     if (!files.length) return;
     if (inline && files.some((file) => !file.type.startsWith('image/'))) {
-      setError('请选择图片文件');
+      setError(t("releaseEditor.chooseAnImageFile"));
       return;
     }
     const added = files.map((file) => ({
@@ -112,7 +119,7 @@ export function ReleaseEditor({ project, draftAccount, draftRepository, language
 
   function acceptFiles(items: ReleaseAsset[]): boolean {
     try { validateReleaseAssets([...assets, ...items]); }
-    catch (caught) { setError(caught instanceof Error ? caught.message : '无法添加文件'); return false; }
+    catch (caught) { setError(errorText(caught, t("releaseEditor.couldNotAddFiles"))); return false; }
     setAssets((current) => [...current, ...items]);
     return true;
   }
@@ -131,7 +138,7 @@ export function ReleaseEditor({ project, draftAccount, draftRepository, language
         setMediaDialog(null);
       }
       setError(null);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '无法选择文件。'); }
+    } catch (cause) { setError(errorText(cause, t("releaseEditor.cannotSelectFiles"))); }
   }
 
   function removeAsset(id: string): void {
@@ -143,9 +150,9 @@ export function ReleaseEditor({ project, draftAccount, draftRepository, language
 
   function insertMedia(): void {
     const url = validWebUrl(mediaUrl);
-    if (!url) { setError('请输入以 https:// 或 http:// 开头的有效链接'); return; }
+    if (!url) { setError(t("releaseEditor.enterAValidHttpOrHttpsUrl")); return; }
     const safeUrl = url.replaceAll(')', '%29');
-    const label = markdownLabel(mediaLabel || (mediaDialog === 'image' ? '图片' : '查看链接'));
+    const label = markdownLabel(mediaLabel || (mediaDialog === 'image' ? t("releaseEditor.image") : t("releaseEditor.viewLink")));
     const fragment = mediaDialog === 'image' ? `![${label}](${safeUrl})` : `[${label}](${safeUrl})`;
     setBody((current) => `${current.trimEnd()}\n\n${fragment}\n`.trimStart());
     setMediaDialog(null);
@@ -160,64 +167,64 @@ export function ReleaseEditor({ project, draftAccount, draftRepository, language
       setError(null);
       setStage('preview');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '请检查版本信息');
+      setError(errorText(caught, t("releaseEditor.checkTheReleaseDetails")));
     }
   }
 
   return <div className="release-page">
-    <button className="back-link" onClick={onBack}><ArrowLeft size={17} />返回项目</button>
+    <button className="back-link" onClick={onBack}><ArrowLeft size={17} />{t("releaseEditor.backToProject")}</button>
     <div className="release-page-heading">
       <div className="eyebrow">{project.name}</div>
-      <h1>发布新版本</h1>
-      <p>为下载者准备版本号、介绍和安装文件。</p>
+      <h1>{t("releaseEditor.publishNewRelease")}</h1>
+      <p>{t("releaseEditor.prepareAVersionNumberDescriptionAndInstallerForDownloaders")}</p>
     </div>
-    <div className="release-distinction"><Info size={20} /><div><strong>两种发布，各有用途</strong><p><b>发布源码</b>保存日常代码修改；<b>发布新版本</b>提供带版本号和下载文件的正式页面。</p></div></div>
-    {recovered && <p role="status" className="release-field-hint">{language === 'en' ? 'Text draft restored.' : '已恢复文字草稿。'}{recovered.attachments && (language === 'en' ? ' Please add your files and local images again.' : '请重新添加上次选择的附件和本地图片。')}</p>}
-    {project.health === 'changes' && <div className="release-pending-changes"><Info size={18} /><span>这个项目还有未发布的源码修改。新版本将基于已保存的内容，不包含这些修改。</span><button className="text-link" onClick={onOpenUpdate}>先发布源码 <ArrowRight size={15} /></button></div>}
+    <div className="release-distinction"><Info size={20} /><div><strong>{t("releaseEditor.twoWaysToPublish")}</strong><p><b>{t("releaseEditor.publishSourceCode")}</b>{t("releaseEditor.savesEverydayCodeChanges")}<b>{t("releaseEditor.publishNewRelease")}</b>{t("releaseEditor.createsAReleasePageWithAVersionNumberAnd")}</p></div></div>
+    {recovered && <p role="status" className="release-field-hint">{t("releaseEditor.textDraftRestored")}{recovered.attachments && (t("releaseEditor.pleaseAddYourPreviousAttachmentsAndLocalImagesAgain"))}</p>}
+    {project.health === 'changes' && <div className="release-pending-changes"><Info size={18} /><span>{t("releaseEditor.thisProjectHasUnpublishedSourceChangesThisReleaseWill")}</span><button className="text-link" onClick={onOpenUpdate}>{t("releaseEditor.publishSourceCodeFirst")} <ArrowRight size={15} /></button></div>}
     {stage === 'edit' ? <div className="release-editor-stack">
       <section className="panel release-editor-card">
-        <div className="release-section-heading"><span>1</span><div><h2>版本信息</h2><p>EasyHub 根据这个项目已有的版本自动续号，你也可以修改。</p></div></div>
-        <div className="release-channel-options" role="group" aria-label="版本类型">
-          <button disabled={continuingDraft || busy} className={channel === 'stable' ? 'selected' : ''} aria-pressed={channel === 'stable'} onClick={() => chooseChannel('stable')}>正式版</button>
-          <button disabled={continuingDraft || busy} className={channel === 'alpha' ? 'selected' : ''} aria-pressed={channel === 'alpha'} onClick={() => chooseChannel('alpha')}>Alpha 测试版</button>
-          <button disabled={continuingDraft || busy} className={channel === 'beta' ? 'selected' : ''} aria-pressed={channel === 'beta'} onClick={() => chooseChannel('beta')}>Beta 测试版</button>
+        <div className="release-section-heading"><span>1</span><div><h2>{t("releaseEditor.releaseDetails")}</h2><p>{t("releaseEditor.easyhubSuggestsTheNextVersionForThisProjectYou")}</p></div></div>
+        <div className="release-channel-options" role="group" aria-label={t("releaseEditor.releaseType")}>
+          <button disabled={continuingDraft || busy} className={channel === 'stable' ? 'selected' : ''} aria-pressed={channel === 'stable'} onClick={() => chooseChannel('stable')}>{t("releaseEditor.stable")}</button>
+          <button disabled={continuingDraft || busy} className={channel === 'alpha' ? 'selected' : ''} aria-pressed={channel === 'alpha'} onClick={() => chooseChannel('alpha')}>{t("releaseEditor.alphaPreview")}</button>
+          <button disabled={continuingDraft || busy} className={channel === 'beta' ? 'selected' : ''} aria-pressed={channel === 'beta'} onClick={() => chooseChannel('beta')}>{t("releaseEditor.betaPreview")}</button>
         </div>
-        <div className="release-fields"><label className="field"><span>版本号 <b>*</b></span><input aria-label="版本号" disabled={continuingDraft || busy} value={tagName} onChange={(event) => changeTag(event.target.value)} maxLength={80} placeholder="v0.01" /><small>这个项目的上一个正式版：{project.releases.find((release) => release.channel === 'stable')?.tagName ?? '还没有'}</small></label><label className="field"><span>版本名称 <b>*</b></span><input aria-label="版本名称" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} placeholder="我的工具 v0.01" /></label></div>
-        {continuingDraft && <p className="release-field-hint">已上传文件和版本号保留在当前草稿中，重试会继续发布这个版本。</p>}
+        <div className="release-fields"><label className="field"><span>{t("releaseEditor.versionNumber")} <b>*</b></span><input aria-label={t("releaseEditor.versionNumber")} disabled={continuingDraft || busy} value={tagName} onChange={(event) => changeTag(event.target.value)} maxLength={80} placeholder="v0.01" /><small>{t("releaseEditor.previousStableRelease")}{project.releases.find((release) => release.channel === 'stable')?.tagName ?? t("releaseEditor.noneYet")}</small></label><label className="field"><span>{t("releaseEditor.releaseTitle")} <b>*</b></span><input aria-label={t("releaseEditor.releaseTitle")} value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} placeholder={t("releaseEditor.myToolV001")} /></label></div>
+        {continuingDraft && <p className="release-field-hint">{t("releaseEditor.uploadedFilesAndTheVersionNumberStayInThe")}</p>}
       </section>
       <section className="panel release-editor-card">
-        <div className="release-section-heading"><span>2</span><div><h2>版本介绍</h2><p>告诉下载者新增了什么，以及如何使用。</p></div></div>
-        <div className="release-body-toolbar"><button onClick={() => { setMediaDialog('image'); setError(null); }}><ImagePlus size={17} />添加图片</button><button onClick={() => { setMediaDialog('link'); setError(null); }}><Link2 size={17} />添加链接</button></div>
-        <textarea className="release-body-input" aria-label="版本介绍" value={body} onChange={(event) => setBody(event.target.value)} placeholder="例如：修复了窗口缩放问题，新增深色模式。下载安装包后直接打开即可使用。" rows={8} />
-        <p className="release-field-hint">支持简单排版。使用上方按钮插入图片或链接，下一步可以预览效果。</p>
+        <div className="release-section-heading"><span>2</span><div><h2>{t("releaseEditor.releaseDescription")}</h2><p>{t("releaseEditor.tellDownloadersWhatIsNewAndHowToUse")}</p></div></div>
+        <div className="release-body-toolbar"><button onClick={() => { setMediaDialog('image'); setError(null); }}><ImagePlus size={17} />{t("releaseEditor.addImage")}</button><button onClick={() => { setMediaDialog('link'); setError(null); }}><Link2 size={17} />{t("releaseEditor.addLink")}</button></div>
+        <textarea className="release-body-input" aria-label={t("releaseEditor.releaseDescription")} value={body} onChange={(event) => setBody(event.target.value)} placeholder={t("releaseEditor.forExampleFixedWindowResizingAndAddedDarkMode")} rows={8} />
+        <p className="release-field-hint">{t("releaseEditor.simpleFormattingIsSupportedAddImagesOrLinksAbove")}</p>
       </section>
       <section className="panel release-editor-card">
-        <div className="release-section-heading"><span>3</span><div><h2>下载文件</h2><p>可选择一个或多个安装包、压缩包或其他文件。</p></div></div>
-        <input ref={assetInput} type="file" multiple className="release-hidden-input" aria-label="选择发布文件" onChange={(event) => addFiles(event, false)} />
-        <input ref={imageInput} type="file" multiple accept="image/*" className="release-hidden-input" aria-label="选择介绍图片" onChange={(event) => addFiles(event, true)} />
-        <button className="release-add-files" onClick={() => void chooseFiles(false)}><FilePlus2 size={22} /><strong>添加文件</strong><span>点击选择文件，可一次添加多个</span></button>
-        {assets.length > 0 && <div className="release-selected-files">{assets.map((asset) => <div key={asset.id} className="release-selected-file"><FilePlus2 size={17} /><span title={asset.name}>{asset.name}</span><small>{formatFileSize(asset.size)}</small><button className="icon-button" disabled={busy || failure?.completedAssetIds.includes(asset.id)} aria-label={`移除 ${asset.name}`} onClick={() => removeAsset(asset.id)}><Trash2 size={16} /></button></div>)}</div>}
-        <p className="release-field-hint">按 GitHub 当前规则：最多 {MAX_RELEASE_ASSETS} 个文件，每个文件小于 {MAX_RELEASE_ASSET_SIZE / 1024 ** 3} GiB。同一版本内文件名不能重复，文件类型不受限制。</p>
+        <div className="release-section-heading"><span>3</span><div><h2>{t("releaseEditor.downloadFiles")}</h2><p>{t("releaseEditor.chooseOneOrMoreInstallersArchivesOrOtherFiles")}</p></div></div>
+        <input ref={assetInput} type="file" multiple className="release-hidden-input" aria-label={t("releaseEditor.chooseReleaseFiles")} onChange={(event) => addFiles(event, false)} />
+        <input ref={imageInput} type="file" multiple accept="image/*" className="release-hidden-input" aria-label={t("releaseEditor.chooseDescriptionImages")} onChange={(event) => addFiles(event, true)} />
+        <button className="release-add-files" onClick={() => void chooseFiles(false)}><FilePlus2 size={22} /><strong>{t("releaseEditor.addFiles")}</strong><span>{t("releaseEditor.clickToChooseOneOrMoreFiles")}</span></button>
+        {assets.length > 0 && <div className="release-selected-files">{assets.map((asset) => <div key={asset.id} className="release-selected-file"><FilePlus2 size={17} /><span title={asset.name}>{asset.name}</span><small>{formatFileSize(asset.size)}</small><button className="icon-button" disabled={busy || failure?.completedAssetIds.includes(asset.id)} aria-label={t("releaseEditor.remove", { p0: asset.name })} onClick={() => removeAsset(asset.id)}><Trash2 size={16} /></button></div>)}</div>}
+        <p className="release-field-hint">{t("releaseEditor.currentGithubLimitsUpTo")} {MAX_RELEASE_ASSETS}  {t("releaseEditor.filesEachSmallerThan")} {MAX_RELEASE_ASSET_SIZE / 1024 ** 3}  {t("releaseEditor.gibFileNamesMustBeUniqueWithinARelease")}</p>
       </section>
-      {error && <div className="release-error" role="alert">{error}</div>}
-      <div className="release-editor-actions"><button className="button button-quiet" onClick={onBack}>取消</button><button className="button button-primary" onClick={showPreview}>预览发布效果 <ArrowRight size={17} /></button></div>
+      {error && <div className="release-error" role="alert"><ErrorMessage error={error} /></div>}
+      <div className="release-editor-actions"><button className="button button-quiet" onClick={onBack}>{t("releaseEditor.cancel")}</button><button className="button button-primary" onClick={showPreview}>{t("releaseEditor.previewRelease")} <ArrowRight size={17} /></button></div>
     </div> : <div className="release-preview-stage">
-      <div className="release-preview-intro"><strong>这是发布后下载者看到的样子</strong><span>请检查版本号、介绍、图片、链接和文件列表。</span></div>
+      <div className="release-preview-intro"><strong>{t("releaseEditor.thisIsWhatDownloadersWillSee")}</strong><span>{t("releaseEditor.checkTheVersionNumberDescriptionImagesLinksAndFile")}</span></div>
       <ReleasePreview release={draft} imageSources={imageSources} language={language} onOpenLink={onOpenLink} />
-      {assets.length === 0 && <div className="release-preview-warning"><Info size={17} />未添加安装包。GitHub 仍会自动提供项目源码压缩包。</div>}
-      {project.health === 'changes' && <div className="release-preview-warning"><Info size={17} />尚未发布的本地修改不会出现在这个新版本中。</div>}
-      {progress && <div className="release-upload-progress" role="status"><strong>{progress.phase}</strong>{progress.total > 0 && <progress value={progress.loaded} max={progress.total} />}</div>}
-      {failure && <div className="release-error" role="alert" data-testid="release-recovery"><p>{failure.error}</p>{assets.length > 0 && <p>{language === 'en' ? `${failure.completedAssetIds.length} files confirmed, ${failure.remainingAssetIds.length} unfinished.` : `已确认完成 ${failure.completedAssetIds.length} 个文件，${failure.remainingAssetIds.length} 个文件尚未完成。`}</p>}{failure.residualDraft && <><p>{failure.residualDraft.id ? (language === 'en' ? 'Unpublished draft: ' : 'GitHub 上的未发布草稿：') : (language === 'en' ? 'Publication to check: ' : '待核对的发布信息：')}{failure.residualDraft.title} · {failure.residualDraft.tagName}</p><button type="button" className="text-link" onClick={() => onOpenLink(failure.residualDraft!.url)}>{language === 'en' ? 'View draft on GitHub' : '查看 GitHub 草稿'}</button></>}</div>}
-      <div className="release-editor-actions"><button className="button button-quiet" disabled={busy && !progress?.cancelable} onClick={busy && progress?.cancelable ? onBack : () => setStage('edit')}>{busy ? '取消发布' : <><ArrowLeft size={16} />返回编辑</>}</button><button className="button button-primary" disabled={busy || failure?.retryable === false} onClick={() => onPublish(draft)}>{busy ? '正在发布…' : failure?.retryable ? (language === 'en' ? 'Retry unfinished upload' : '重试未完成的上传') : '确认发布新版本'} <ArrowRight size={17} /></button></div>
-      {!onChooseFiles && <p className="release-demo-note">当前是演示模式：点击确认只会更新本窗口中的演示数据，不会上传文件到 GitHub。</p>}
+      {assets.length === 0 && <div className="release-preview-warning"><Info size={17} />{t("releaseEditor.noInstallerAddedGithubWillStillProvideSourceArchives")}</div>}
+      {project.health === 'changes' && <div className="release-preview-warning"><Info size={17} />{t("releaseEditor.unpublishedLocalChangesWillNotAppearInThisRelease")}</div>}
+      {progress && <div className="release-upload-progress" role="status"><strong>{progressLabel(progress, t)}</strong>{progress.total > 0 && <progress value={progress.loaded} max={progress.total} />}</div>}
+      {failure && <div className="release-error" role="alert" data-testid="release-recovery"><p><ErrorMessage error={failure.error} /></p>{assets.length > 0 && <p>{t("releaseEditor.confirmedCompletedStillUnfinished", { p0: failure.completedAssetIds.length, p1: failure.remainingAssetIds.length })}</p>}{failure.residualDraft && <><p>{failure.residualDraft.id ? (t("releaseEditor.unpublishedDraftOnGithub")) : (t("releaseEditor.publicationDetailsToVerify"))}{failure.residualDraft.title} · {failure.residualDraft.tagName}</p><button type="button" className="text-link" onClick={() => onOpenLink(failure.residualDraft!.url)}>{t("releaseEditor.viewDraftOnGithub")}</button></>}</div>}
+      <div className="release-editor-actions"><button className="button button-quiet" disabled={busy && !progress?.cancelable} onClick={busy && progress?.cancelable ? onBack : () => setStage('edit')}>{busy ? t("releaseEditor.cancelPublication") : <><ArrowLeft size={16} />{t("releaseEditor.backToEditing")}</>}</button><button className="button button-primary" disabled={busy || failure?.retryable === false} onClick={() => onPublish(draft)}>{busy ? t("releaseEditor.publishing") : failure?.retryable ? (t("releaseEditor.retryUnfinishedUploads")) : t("releaseEditor.confirmRelease")} <ArrowRight size={17} /></button></div>
+      {!onChooseFiles && <p className="release-demo-note">{t("releaseEditor.demoModeConfirmingOnlyUpdatesDataInThisWindow")}</p>}
     </div>}
     {mediaDialog && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMediaDialog(null); }}><div className="modal release-media-modal" role="dialog" aria-modal="true" aria-labelledby="release-media-title">
-      <h2 id="release-media-title">{mediaDialog === 'image' ? '添加图片' : '添加链接'}</h2>
-      <p>{mediaDialog === 'image' ? '粘贴图片地址，或者选择电脑中的图片。' : '输入链接地址和显示文字。'}</p>
-      <label className="field"><span>{mediaDialog === 'image' ? '图片说明' : '显示文字'}</span><input value={mediaLabel} onChange={(event) => setMediaLabel(event.target.value)} placeholder={mediaDialog === 'image' ? '例如：应用界面' : '例如：使用说明'} /></label>
-      <label className="field"><span>{mediaDialog === 'image' ? '图片地址' : '链接地址'}</span><input value={mediaUrl} onChange={(event) => setMediaUrl(event.target.value)} placeholder="https://example.com" /></label>
-      {error && <div className="release-error" role="alert">{error}</div>}
-      <div className="modal-actions"><button className="button button-quiet" onClick={() => setMediaDialog(null)}>取消</button>{mediaDialog === 'image' && <button className="button button-quiet" onClick={() => void chooseFiles(true)}><ImagePlus size={16} />选择本地图片</button>}<button className="button button-primary" onClick={insertMedia}><Plus size={16} />插入</button></div>
+      <h2 id="release-media-title">{mediaDialog === 'image' ? t("releaseEditor.addImage") : t("releaseEditor.addLink")}</h2>
+      <p>{mediaDialog === 'image' ? t("releaseEditor.pasteAnImageUrlOrChooseAnImageFrom") : t("releaseEditor.enterTheLinkUrlAndDisplayText")}</p>
+      <label className="field"><span>{mediaDialog === 'image' ? t("releaseEditor.imageDescription") : t("releaseEditor.displayText")}</span><input value={mediaLabel} onChange={(event) => setMediaLabel(event.target.value)} placeholder={mediaDialog === 'image' ? t("releaseEditor.forExampleAppScreen") : t("releaseEditor.forExampleUserGuide")} /></label>
+      <label className="field"><span>{mediaDialog === 'image' ? t("releaseEditor.imageUrl") : t("releaseEditor.linkUrl")}</span><input value={mediaUrl} onChange={(event) => setMediaUrl(event.target.value)} placeholder="https://example.com" /></label>
+      {error && <div className="release-error" role="alert"><ErrorMessage error={error} /></div>}
+      <div className="modal-actions"><button className="button button-quiet" onClick={() => setMediaDialog(null)}>{t("releaseEditor.cancel")}</button>{mediaDialog === 'image' && <button className="button button-quiet" onClick={() => void chooseFiles(true)}><ImagePlus size={16} />{t("releaseEditor.chooseLocalImage")}</button>}<button className="button button-primary" onClick={insertMedia}><Plus size={16} />{t("releaseEditor.insert")}</button></div>
     </div></div>}
   </div>;
 }

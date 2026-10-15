@@ -8,6 +8,24 @@ const success = (content = '{"summary":"OK","findings":[]}') => new Response(JSO
 }), { status: 200, headers: { 'content-type': 'application/json' } });
 
 describe('OpenAI-compatible review provider', () => {
+  it('keeps DeepSeek review requests in their existing mode', async () => {
+    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => success());
+    const provider = new OpenAiReviewProvider(fetcher);
+    await provider.complete({ ...credentials, baseUrl: 'https://api.deepseek.com' }, 'Review instructions', 'Changes', new AbortController().signal);
+    const body = JSON.parse(String(fetcher.mock.calls[0]![1].body));
+    expect(body).not.toHaveProperty('thinking');
+    expect(body).not.toHaveProperty('max_tokens');
+  });
+
+  it.each(['https://api.openai.com/v1', 'https://openrouter.ai/api/v1', 'https://api.siliconflow.cn/v1', credentials.baseUrl])('does not send DeepSeek-specific options to %s', async (baseUrl) => {
+    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => success('{"explanation":"Adds the values."}'));
+    const provider = new OpenAiReviewProvider(fetcher);
+    await provider.complete({ ...credentials, baseUrl }, 'Explain in English.', 'Changes', new AbortController().signal, { maxOutputTokens: 3000, purpose: 'explanation' });
+    const body = JSON.parse(String(fetcher.mock.calls[0]![1].body));
+    expect(body).toMatchObject({ model: credentials.model, max_tokens: 3000 });
+    expect(body).not.toHaveProperty('thinking');
+  });
+
   it('caps optional code-explanation output without changing the selected model or endpoint', async () => {
     const fetcher = vi.fn(async (_url: string, _init: RequestInit) => success('{"explanation":"Adds the values."}'));
     const provider = new OpenAiReviewProvider(fetcher);

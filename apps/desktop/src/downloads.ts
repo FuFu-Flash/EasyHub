@@ -14,6 +14,7 @@ export interface DownloadItem {
   total: number | null;
   bytesPerSecond: number | null;
   phase: string;
+  restarting?: boolean;
   path?: string;
   localLinkId?: string;
   error?: string;

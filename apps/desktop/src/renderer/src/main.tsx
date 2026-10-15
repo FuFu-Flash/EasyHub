@@ -1,11 +1,11 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 import './styles.css';
-import './v2.css';
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <AppErrorBoundary scope="shell" shell><App /></AppErrorBoundary>
   </React.StrictMode>,
 );

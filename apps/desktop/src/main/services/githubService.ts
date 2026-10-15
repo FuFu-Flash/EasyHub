@@ -1,45 +1,29 @@
 import { AsyncEntry } from '@napi-rs/keyring';
-import { GitHubClient, GitHubError, friendlyGitHubError } from '@easyhub/github';
+import { GitHubClient, GitHubError, friendlyGitHubError, validHistoryBranch, validHistoryPath } from '@easyhub/github';
 import type { GitHubActivityRepository, GitHubCheckPage, GitHubCheckSourcePage, GitHubPullChecks, GitHubPullFile, GitHubPullRequest, GitHubRepo, GitHubUser } from '@easyhub/github';
 import { app, dialog, net, shell } from 'electron';
 import { checkAppUpdate } from './appUpdate';
 import { constants, createWriteStream } from 'node:fs';
 import { existsSync } from 'node:fs';
-import { copyFile, link, mkdir, rm, rename, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { copyFile, link, rm, rename } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
-import { GITHUB_CLIENT_ID } from './githubAuthConfig';
 import type { BinaryAnalysisSource } from '@easyhub/types';
 import type { BinaryRemoteFile } from '../analysis/BinaryAnalysisService';
+import { join } from 'node:path';
+import { AuthProfileCache } from './AuthProfileCache';
+import { checkStartupAuth } from './startupAuth';
+import type { AuthStatus } from '../../shared/auth';
 
 interface Credential { clientId: string; accessToken: string; refreshToken?: string; expiresAt?: number; scopes?: string[] }
 interface DeviceCode { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval?: number }
 interface TokenReply { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; interval?: number; scope?: string }
 
-interface CredentialVault {
-  getPassword(): Promise<string | null | undefined>;
-  setPassword(value: string): Promise<unknown>;
-  deleteCredential(): Promise<unknown>;
-}
-const isolatedTestMode = process.env.EASYHUB_TEST_MODE === '1';
-let memoryPassword: string | undefined;
-let vault: CredentialVault | undefined = isolatedTestMode ? {
-  async getPassword() { return memoryPassword; },
-  async setPassword(value) { memoryPassword = value; },
-  async deleteCredential() { memoryPassword = undefined; },
-} : undefined;
+let vault: AsyncEntry | undefined;
 let loginController: AbortController | null = null;
-let nativeMigration: Promise<Credential | null> | undefined;
+let credentialMutations = Promise.resolve();
 let credentialGeneration = 0;
-let credentialWrites: Promise<void> = Promise.resolve();
-
-function writeCredentialSerially<T>(operation: () => Promise<T>): Promise<T> {
-  const next = credentialWrites.then(operation);
-  credentialWrites = next.then(() => undefined, () => undefined);
-  return next;
-}
 let credential: Credential | null | undefined;
 interface DeletionTarget { owner: string; repo: string; id: number }
 let pending: { code: string; clientId: string; expiresAt: number; interval: number; expectedLogin?: string; deleteAuthorization?: boolean; deletionTarget?: DeletionTarget } | null = null;
@@ -69,13 +53,12 @@ class DangerOperationError extends Error {}
 class CredentialStorageError extends Error {}
 const staleRequestMessage = '这个合并请求已经有新修改，请刷新后重新查看。';
 
-function credentialVault(): CredentialVault {
+function credentialVault(): AsyncEntry {
   return vault ??= new AsyncEntry('EasyHub GitHub OAuth', 'default');
 }
 
 /** A disposable, nonsecret entry proves write/read/delete access without touching the account. */
 async function checkCredentialStorage(): Promise<void> {
-  if (isolatedTestMode) return;
   let probe: AsyncEntry | undefined;
   let failed = false;
   const value = `EasyHub storage check ${randomUUID()}`;
@@ -123,98 +106,32 @@ async function loginResponse<T>(url: string, form: Record<string, string>, signa
   }
 }
 
-function nativeMigrationMarker(): string | null {
-  if (isolatedTestMode || process.platform !== 'darwin' || typeof app?.getPath !== 'function') return null;
-  return join(app.getPath('userData'), 'native-github-migration-v1');
-}
-
-function readElectronCredential(raw: string): Credential | null {
-  const stored: unknown = JSON.parse(raw);
-  if (typeof stored === 'object' && stored !== null && 'clientId' in stored && 'accessToken' in stored
-    && validClientId(stored.clientId) && typeof stored.accessToken === 'string') return stored as Credential;
-  return null;
-}
-
-function readNativeCredential(raw: string): Credential | null {
-  const value: unknown = JSON.parse(raw);
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  const token = (candidate: unknown): candidate is string => typeof candidate === 'string'
-    && candidate.length > 0 && candidate.length <= 8192 && !/[\x00-\x20\x7f]/u.test(candidate);
-  if (!token(record.accessToken)) return null;
-  if (record.refreshToken !== undefined && record.refreshToken !== null && !token(record.refreshToken)) return null;
-  const refreshToken = token(record.refreshToken) ? record.refreshToken : undefined;
-  let expiresAt: number | undefined;
-  if (record.expiresAt !== undefined && record.expiresAt !== null) {
-    if (typeof record.expiresAt !== 'number' || !Number.isFinite(record.expiresAt)) return null;
-    // Swift's default Date Codable representation is seconds since 2001-01-01.
-    expiresAt = (record.expiresAt + 978307200) * 1000;
-    if (!Number.isFinite(expiresAt) || expiresAt <= 0 || (expiresAt <= Date.now() + 60000 && !refreshToken)) return null;
-  }
-  return { clientId: GITHUB_CLIENT_ID, accessToken: record.accessToken, refreshToken, expiresAt };
-}
-
-async function migrateNativeCredential(): Promise<Credential | null> {
-  if (isolatedTestMode || process.platform !== 'darwin') return null;
-  nativeMigration ??= (async () => {
-    const generation = credentialGeneration;
-    try {
-      const marker = nativeMigrationMarker();
-      if (!marker || existsSync(marker)) return null;
-      await mkdir(app.getPath('userData'), { recursive: true });
-      // Claim the one-time attempt before requesting Keychain access. The marker
-      // contains no credential data, and concurrent callers share this promise.
-      await writeFile(marker, 'attempted\n', { flag: 'wx', mode: 0o600 });
-      const previous = new AsyncEntry('app.easyhub.mac', 'github.credential');
-      const raw = await previous.getPassword();
-      if (!raw) return null;
-      const migrated = readNativeCredential(raw);
-      if (!migrated) return null;
-      // Never overwrite an Electron credential created during the Keychain read,
-      // and never change or delete the original native Keychain record.
-      return await writeCredentialSerially(async () => {
-        const existing = await credentialVault().getPassword();
-        if (generation !== credentialGeneration) return credential ?? null;
-        if (existing) return readElectronCredential(existing);
-        await credentialVault().setPassword(JSON.stringify(migrated));
-        return migrated;
-      });
-    } catch { return null; }
-  })();
-  return nativeMigration;
-}
-
-async function preventNativeMigrationAfterLogout(): Promise<void> {
-  const marker = nativeMigrationMarker();
-  if (!marker) return;
-  try {
-    await mkdir(app.getPath('userData'), { recursive: true });
-    await writeFile(marker, 'signed-out\n', { mode: 0o600 });
-  } catch { throw new Error('无法保存退出登录状态，请重试。'); }
-}
-
 async function loadCredential(): Promise<Credential | null> {
   if (credential !== undefined) return credential;
-  let raw: string | null | undefined;
+  let raw: string | undefined;
   try { raw = await credentialVault().getPassword(); }
   catch { throw new CredentialStorageError('无法读取登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试。'); }
-  if (!raw) return credential = await migrateNativeCredential();
+  if (!raw) return credential = null;
   try {
-    return credential = readElectronCredential(raw);
+    const stored: unknown = JSON.parse(raw);
+    if (typeof stored === 'object' && stored !== null && 'clientId' in stored && 'accessToken' in stored && validClientId(stored.clientId) && typeof stored.accessToken === 'string') {
+      return credential = stored as Credential;
+    }
   } catch { /* Ignore invalid old credential records. */ }
   return credential = null;
 }
 
 function mutateCredential<T>(operation: () => Promise<T>): Promise<T> {
-  // Native migration and new OAuth writes share one mutation queue.
-  return writeCredentialSerially(operation);
+  const result = credentialMutations.then(operation);
+  credentialMutations = result.then(() => undefined, () => undefined);
+  return result;
 }
 
 async function saveCredential(next: Credential, isCurrent: () => boolean = () => true, onSaved?: () => void): Promise<void> {
   await mutateCredential(async () => {
     if (!isCurrent()) throw new Error('登录已取消。');
-    let entry: CredentialVault;
-    let previous: string | null | undefined;
+    let entry: AsyncEntry;
+    let previous: string | undefined;
     try { entry = credentialVault(); previous = await entry.getPassword(); }
     catch { throw new CredentialStorageError('无法读取登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试。'); }
     if (!isCurrent()) throw new Error('登录已取消。');
@@ -251,9 +168,9 @@ async function accessToken(): Promise<string> {
   const current = await loadCredential();
   if (!current) throw new Error('请先使用 GitHub 登录。');
   if (current.expiresAt && Date.now() > current.expiresAt - 60_000) {
-    if (!current.refreshToken) throw new Error('GitHub 登录已过期，请重新登录。');
+    if (!current.refreshToken) throw new GitHubError(401, 'GitHub 登录已过期，请重新登录。');
     const refreshed = await exchange({ client_id: current.clientId, grant_type: 'refresh_token', refresh_token: current.refreshToken });
-    if (!refreshed.access_token) throw new Error('GitHub 登录已过期，请重新登录。');
+    if (!refreshed.access_token) throw new GitHubError(401, 'GitHub 登录已过期，请重新登录。');
     const generation = credentialGeneration;
     await saveCredential({ clientId: current.clientId, accessToken: refreshed.access_token, refreshToken: refreshed.refresh_token ?? current.refreshToken, expiresAt: refreshed.expires_in ? Date.now() + refreshed.expires_in * 1000 : undefined, scopes: refreshed.scope ? refreshed.scope.split(',').map((value) => value.trim()) : current.scopes }, () => generation === credentialGeneration && credential === current);
     return refreshed.access_token;
@@ -336,13 +253,21 @@ export async function gitHubIdentity(): Promise<{ token: string; user: GitHubUse
 }
 
 export function repositoryDetails(owner: string, name: string) { return client.repo(owner, name); }
+export function loadCommitExplanation(owner: string, repo: string, sha: string, page: number, signal: AbortSignal) {
+  return client.commitChangesPage(owner, repo, sha, page, signal);
+}
 export function createEmptyRepository(name: string, description: string, isPrivate: boolean) { return client.createRepo(name, description, isPrivate, false); }
 
-export async function authStatus(): Promise<{ user: GitHubUser | null; clientId: string | null }> {
+export async function authStatus(): Promise<AuthStatus> {
   const current = await loadCredential();
-  if (!current) return { user: null, clientId: null };
-  try { return { user: await client.user(), clientId: current.clientId }; }
-  catch { return { user: null, clientId: current.clientId }; }
+  if (!current) return { state: 'signed-out', user: null, clientId: null };
+  const generation = credentialGeneration;
+  let cache: AuthProfileCache | undefined;
+  try { cache = new AuthProfileCache(join(app.getPath('userData'), 'github-profile.json')); } catch { /* Cache is optional. */ }
+  const result = await checkStartupAuth(current.clientId, (signal) => client.user(signal), await cache?.read(current.accessToken) ?? null);
+  if (generation !== credentialGeneration) return { state: 'signed-out', user: null, clientId: null };
+  if (result.state === 'signed-in' && result.user) await cache?.save(credential?.accessToken ?? current.accessToken, result.user).catch(() => undefined);
+  return result;
 }
 
 export async function startDeviceLogin(clientId: unknown, includeDeleteScope = false, deletionTarget?: DeletionTarget): Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }> {
@@ -416,6 +341,7 @@ export async function pollDeviceLogin(): Promise<{ state: 'waiting' | 'complete'
     }
     const generation = credentialGeneration;
     await saveCredential({ clientId: flow.clientId, accessToken: result.access_token, refreshToken: result.refresh_token, expiresAt: result.expires_in ? Date.now() + result.expires_in * 1000 : undefined, scopes }, () => pending === flow && credentialGeneration === generation, () => { pending = null; });
+    try { await new AuthProfileCache(join(app.getPath('userData'), 'github-profile.json')).save(result.access_token, authorizedUser); } catch { /* Optional profile cache. */ }
     return { state: 'complete', user: authorizedUser };
   } finally { polling = false; }
 }
@@ -425,18 +351,18 @@ export function cancelGithubReads(): void { for (const controller of readControl
 export async function logout(): Promise<void> {
   cancelDeviceLogin();
   credentialGeneration++;
-  await preventNativeMigrationAfterLogout();
   await mutateCredential(async () => {
     try { await credentialVault().deleteCredential(); }
     catch { throw new CredentialStorageError('无法清除登录信息。请确认系统安全存储（凭据管理器或密钥环）可用并已解锁，然后重试退出。'); }
     credential = null;
+    try { await new AuthProfileCache(join(app.getPath('userData'), 'github-profile.json')).clear(); } catch { /* An old cache cannot match a new credential. */ }
   });
 }
 
 export async function githubAction(action: unknown, args: unknown[]): Promise<unknown> {
   if (typeof action !== 'string' || !Array.isArray(args) || args.length > 4) invalid();
   const [owner, repo, third, fourth] = args;
-  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'starredRepos', 'isStarred', 'activityCounts', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'searchPublicReposPage', 'searchUsersPage', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'searchDiscussions', 'commentsPage', 'comments', 'pullRequests', 'pullRequestsPage', 'pullRequest', 'pullFiles', 'pullReviewContext', 'pullChecks', 'commitsPage', 'commits', 'commit', 'releases', 'releasesPage', 'releaseByTag'].includes(action) ? new AbortController() : null;
+  const controller = ['user', 'profile', 'contributions', 'trending', 'publicRepo', 'repos', 'starredRepos', 'isStarred', 'activityCounts', 'myFork', 'forkComparison', 'searchPublicRepos', 'searchUsers', 'searchPublicReposPage', 'searchUsersPage', 'topStarredRepos', 'readme', 'issues', 'issuesPage', 'searchDiscussions', 'commentsPage', 'comments', 'pullRequests', 'pullRequestsPage', 'pullRequest', 'pullFiles', 'pullReviewContext', 'pullChecks', 'commitsPage', 'sourceHistory', 'branchesPage', 'commitChangesPage', 'commits', 'commit', 'releases', 'releasesPage', 'releaseByTag'].includes(action) ? new AbortController() : null;
   if (controller) readControllers.add(controller);
   try {
     const assertAdmin = async (ownerName: string, repoName: string): Promise<GitHubRepo> => {
@@ -655,6 +581,14 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
         return await client.createPullRequest(owner, repo, { title: input.title.trim(), body: input.body, head: input.head, base: input.base });
       }
       case 'commits': if (validRepoPart(owner) && validRepoPart(repo)) return await client.commits(owner, repo, controller?.signal); break;
+      case 'sourceHistory': {
+        if (args.length !== 3 || !validRepoPart(owner) || !validRepoPart(repo) || typeof third !== 'object' || third === null || Array.isArray(third)) invalid();
+        const query = third as Record<string, unknown>;
+        if (!validHistoryBranch(query.branch) || (query.path !== undefined && !validHistoryPath(query.path)) || !Number.isSafeInteger(query.page) || Number(query.page) < 1 || Number(query.page) > 10000) invalid();
+        return await client.sourceHistory(owner, repo, { branch: query.branch, path: query.path as string | undefined, page: Number(query.page) }, controller?.signal);
+      }
+      case 'branchesPage': if (args.length === 3 && validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) >= 1 && Number(third) <= 10000) return await client.branchesPage(owner, repo, Number(third), controller?.signal); invalid();
+      case 'commitChangesPage': if (args.length === 4 && validRepoPart(owner) && validRepoPart(repo) && validSha(third) && Number.isSafeInteger(fourth) && Number(fourth) >= 1 && Number(fourth) <= 30) return await client.commitChangesPage(owner, repo, third, Number(fourth), controller?.signal); invalid();
       case 'commitsPage': if (args.length === 3 && validRepoPart(owner) && validRepoPart(repo) && Number.isSafeInteger(third) && Number(third) >= 1 && Number(third) <= 10000) return await client.commitsPage(owner, repo, Number(third), controller?.signal); break;
       case 'commit': if (validRepoPart(owner) && validRepoPart(repo) && typeof third === 'string' && /^[a-f0-9]{40}$/.test(third)) return await client.commit(owner, repo, third, controller?.signal); break;
       case 'releases': if (validRepoPart(owner) && validRepoPart(repo)) return await client.releases(owner, repo, controller?.signal); break;

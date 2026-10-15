@@ -2,18 +2,31 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
+import { _electron as electron } from 'playwright-core';
+import electronPath from 'electron';
 
 // Real authenticated renderer; every IPC is explicitly mocked, network is blocked,
 // and no account credentials, production profile or repository files are touched.
 const desktop = dirname(fileURLToPath(import.meta.url));
+const product = process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'refresh-feedback-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
 const profile = join(run, 'profile');
-const { app, renderer } = await launchUpstreamFixture(desktop, { profile,
-  launcher: join(run, 'launch.cjs'), registerName: 'refreshRegister', rejectedName: 'refreshForbidden',
-  title: 'Isolated refresh fixture', allowedFlags: process.argv.slice(2).filter(arg => arg.startsWith('--focus=')) });
+const launcher = join(run, 'launch.cjs');
+await writeFile(launcher, `
+const { app, ipcMain } = require('electron');
+app.setPath('userData', ${JSON.stringify(profile)});
+process.env.EASYHUB_PROXY_APP_ONLY_TEST = '1';
+process.env.ELECTRON_RENDERER_URL = 'data:text/html,Isolated refresh fixture';
+globalThis.refreshRegister = ipcMain.handle.bind(ipcMain);
+globalThis.refreshForbidden = [];
+ipcMain.handle = (channel, handler) => globalThis.refreshRegister(channel, channel.startsWith('easyhub:') ? () => {
+  globalThis.refreshForbidden.push(channel); throw new Error('Unmocked refresh IPC: ' + channel);
+} : handler);
+require(${JSON.stringify(join(product, 'out', 'main', 'index.js'))});
+`);
+const app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
 const checks = [];
 const check = (group, name, actual, expected = true) => {
   try { assert.deepEqual(actual, expected); checks.push({ group, name, passed: true }); }
@@ -42,11 +55,10 @@ try {
     mock('easyhub:local-list', () => []);
     mock('easyhub:local-discovery-roots', () => []);
     mock('easyhub:downloads-list', () => []);
-    mock('easyhub:ai-settings', () => ({ providerId: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', hasApiKey: false }));
-    mock('easyhub:github-proxy-status', () => ({ enabled: false, state: 'off', checkedAt: null, error: null, checks: [], legacyHosts: false }));
-    mock('easyhub:mac-proxy-status', () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }));
-    mock('easyhub:binary-analysis-status', () => ({ installed: false, state: 'missing', engineVersion: '12.1.2' }));
     mock('easyhub:github-cancel', () => undefined);
+    mock('easyhub:ai-settings', () => ({ providerId: 'openai', baseUrl: '', model: 'fixture', hasApiKey: false }));
+    mock('easyhub:binary-analysis-status', () => ({ installed: false, state: 'missing' }));
+    mock('easyhub:github-proxy-status', () => ({ enabled: false, state: 'off', checks: [], system: { mode: 'off' } }));
     mock('easyhub:open-external-link', url => { globalThis.refreshLinks.push(url); });
     mock('easyhub:github', (action, ...args) => {
       globalThis.refreshCalls.push({ action, args });
@@ -73,7 +85,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), renderer);
+  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), join(product, 'out', 'renderer', 'index.html'));
   await page.locator('.live-connected').waitFor();
   await page.setViewportSize({ width: 1060, height: 700 });
   const refresh = page.locator('.sidebar-refresh');
@@ -381,16 +393,19 @@ try {
   const moreReplies = page.getByRole('button', { name: '加载更多回复', exact: true });
   await moreReplies.click();
   await page.getByText('Older page reply', { exact: true }).waitFor();
+  await page.locator('.sidebar-nav').getByRole('button', {name:'设置',exact:true}).click();
+  await page.locator('.sidebar-nav').getByRole('button', {name:/^问题/}).click();
+  await page.getByText('Older page reply', { exact: true }).waitFor();
+  check('pagination', 'Returning to a conversation retains its opened reply pages', await page.getByText('Older page reply', {exact:true}).isVisible());
   const reply = page.getByRole('textbox', { name: '写一条回复', exact: true });
   await reply.fill('Draft survives a delayed refresh');
-  await hold(['repos', 'readme', 'issuesPage', 'commits', 'comments']);
+  // The issue page owns its reads; unrelated README/history reads no longer run.
+  await hold(['repos', 'issuesPage', 'comments']);
   await refresh.click();
   await pending('repos');
   await settle('repos');
-  await pending('readme');
-  await settle('readme');
+  await pending('issuesPage');
   await settle('issuesPage');
-  await settle('commits');
   await pending('comments');
   await spinning('Issue comments refresh');
   const stateButton = page.locator('.reply-card button').first();
@@ -418,18 +433,21 @@ try {
   await page.locator('.home-project-actions').first().getByRole('button', { name: '打开项目', exact: true }).click();
   await page.locator('.readme-markdown h2').first().waitFor();
   await ready();
-  await page.getByRole('heading', { name: '历史版本', exact: true }).locator('..').getByRole('button', { name: '查看全部', exact: true }).click();
+  await page.getByRole('heading', { name: '修改记录', exact: true }).locator('..').getByRole('button', { name: '查看全部', exact: true }).click();
   await page.getByText('Loaded version 100', { exact: true }).waitFor();
   const moreVersions = page.getByRole('button', { name: '加载更多', exact: true });
   await moreVersions.click();
   await page.getByText('Older page version', { exact: true }).waitFor();
-  await hold(['repos', 'readme', 'issuesPage', 'commits']);
+  await page.locator('.sidebar-nav').getByRole('button', {name:'设置',exact:true}).click();
+  await page.locator('.sidebar-nav').getByRole('button', {name:'我的项目',exact:true}).click();
+  await page.getByText('Older page version', { exact: true }).waitFor();
+  check('pagination', 'Returning to history retains its opened commit pages', await page.getByText('Older page version', {exact:true}).isVisible());
+  // History refresh only reads commits, after shared repository metadata.
+  await hold(['repos', 'commits']);
   await refresh.click();
   await pending('repos');
   await settle('repos');
-  await pending('readme');
-  await settle('readme');
-  await settle('issuesPage');
+  await pending('commits');
   await settle('commits');
   await reset('History success');
   check('pagination', 'Refreshing page 1 resets an exhausted history continuation', await moreVersions.count(), 1);

@@ -2,6 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { NavigationHistory } from './navigationHistory';
 
 describe('browsing history', () => {
+  it('restores forward pages and discards them after a new visit', () => {
+    const history = new NavigationHistory(); let page = '';
+    for (const key of ['home', 'project', 'issue']) history.record(key, () => { page = key; });
+    history.back(() => {}); expect(page).toBe('project');
+    history.record(page, () => { page = 'project'; });
+    expect(history.hasForward).toBe(true);
+    history.forward(); expect(page).toBe('issue');
+    history.record(page, () => { page = 'issue'; });
+    history.back(() => {}); history.record('project', () => {});
+    history.record('settings', () => {});
+    expect(history.hasForward).toBe(false);
+    history.back(() => {}); history.record('project', () => {});
+    history.prune((key) => key !== 'settings');
+    expect(history.hasForward).toBe(false);
+  });
   it('finishes a back transition even when its target has the same page key', () => {
     const history = new NavigationHistory();
     history.record('list', () => {});

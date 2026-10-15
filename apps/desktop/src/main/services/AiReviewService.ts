@@ -3,6 +3,8 @@ import { isEmptyAddedPullFile, type GitHubPullFile, type GitHubPullRequest } fro
 import { AI_PROVIDERS, aiProvider, aiProviderForBaseUrl } from '../../shared/aiProviders';
 import { isProgramFileName } from '../../shared/programFiles';
 import { parsePullPatch } from '../../shared/pullPatch';
+import type { AiCommitExplanationResult } from '@easyhub/types';
+import { commitExplanationEvidence, commitExplanationInput, commitExplanationPrompt, type CommitExplanationLoader } from './commitExplanation';
 
 export interface AiCredentials { baseUrl: string; model: string; apiKey: string }
 export interface AiCredentialStore {
@@ -11,7 +13,7 @@ export interface AiCredentialStore {
 }
 export interface AiReviewContext { pullRequest: GitHubPullRequest; files: GitHubPullFile[]; filesTruncated: boolean }
 export interface AiReviewProvider {
-  complete(settings: AiCredentials, system: string, content: string, signal: AbortSignal, options?: { maxOutputTokens?: number }): Promise<string>;
+  complete(settings: AiCredentials, system: string, content: string, signal: AbortSignal, options?: { maxOutputTokens?: number; purpose?: 'explanation' }): Promise<string>;
 }
 export interface PullBinaryReviewer {
   status(): Promise<{ installed: boolean }>;
@@ -122,7 +124,41 @@ export class AiReviewService {
   private writing = false;
   private connectionTest: AbortController | null = null;
   constructor(private readonly vault: AiCredentialStore, private readonly provider: AiReviewProvider, private readonly loadContext: ContextLoader,
-    private readonly binaryReviewer?: PullBinaryReviewer, private readonly loadLocalExplanation?: LocalExplanationLoader) {}
+    private readonly binaryReviewer?: PullBinaryReviewer, private readonly loadLocalExplanation?: LocalExplanationLoader,
+    private readonly loadCommitExplanation?: CommitExplanationLoader) {}
+
+  async explainCommit(value: unknown): Promise<AiCommitExplanationResult> {
+    const input = commitExplanationInput(value);
+    const en = input.language === 'en';
+    const destination = normalizeAiBaseUrl(input.providerBaseUrl);
+    if (this.jobs.size || this.writing || this.connectionTest) throw new Error(en ? 'Another AI operation is in progress. Please wait or cancel it first.' : '已有一个 AI 操作正在进行，请等待完成或先取消。');
+    const controller = new AbortController();
+    this.jobs.set(input.requestId, controller);
+    const signal = controller.signal;
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, REQUEST_TIMEOUT);
+    try {
+      let settings: AiCredentials;
+      try { settings = await this.authorized(); } catch { throw new CodeExplanationError(en ? 'Connect your AI service in Settings first.' : '请先在设置中连接你的 AI 服务。'); }
+      signal.throwIfAborted();
+      if (settings.baseUrl !== destination) throw new CodeExplanationError(en ? 'The AI provider has changed. Confirm the destination again.' : 'AI 服务地址已改变，请重新确认发送目标。');
+      if (!this.loadCommitExplanation) throw new Error('No commit loader');
+      const evidence = await commitExplanationEvidence(input, this.loadCommitExplanation, signal);
+      if (!evidence.includedFiles) throw new CodeExplanationError(en ? 'This commit has no file changes to explain.' : '这次提交没有可解释的文件改动。');
+      signal.throwIfAborted();
+      const raw = await this.provider.complete(settings, commitExplanationPrompt(input.language), evidence.content, signal, { maxOutputTokens: 3000, purpose: 'explanation' });
+      signal.throwIfAborted();
+      let data: unknown;
+      if (raw.length > 24000 || raw.includes(settings.apiKey)) throw new Error('Invalid output');
+      try { data = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/iu, '').replace(/\s*```$/u, '')); } catch { throw new Error('Invalid output'); }
+      if (!isRecord(data) || !text(data.explanation, 16000) || data.explanation.includes('\0') || data.explanation.includes(settings.apiKey)) throw new Error('Invalid output');
+      return { explanation: data.explanation.trim(), model: settings.model, includedFiles: evidence.includedFiles, partial: evidence.partial };
+    } catch (cause) {
+      if (signal.aborted) throw new Error(en ? timedOut ? 'The explanation took too long. Please try again later.' : 'Explanation cancelled.' : timedOut ? '改动说明等待时间较长，请稍后重试。' : '改动说明已取消。');
+      if (cause instanceof CodeExplanationError) throw cause;
+      throw new Error(en ? 'Could not explain this commit. Check your AI authorization and connection, then retry.' : '暂时无法解释这次改动，请检查 AI 授权和网络后重试。');
+    } finally { clearTimeout(timer); this.jobs.delete(input.requestId); }
+  }
 
   async explainCode(value: unknown): Promise<AiCodeExplanationResult> {
     const input = explanationInput(value);
@@ -162,7 +198,7 @@ export class AiReviewService {
       }
       if (!verifiedCode.replace(/\r\n?/gu, '\n').includes(input.text)) throw new CodeExplanationError(en ? 'The selected code does not match this file. Select it again after refreshing.' : '选中的代码与这个文件不一致，请刷新后重新选择。');
       signal.throwIfAborted();
-      const raw = await this.provider.complete(settings, explanationPrompt(input.language), JSON.stringify({ file: source.path, selectedCode: input.text }), signal, { maxOutputTokens: 3000 });
+      const raw = await this.provider.complete(settings, explanationPrompt(input.language), JSON.stringify({ file: source.path, selectedCode: input.text }), signal, { maxOutputTokens: 3000, purpose: 'explanation' });
       signal.throwIfAborted();
       if (raw.length > 24000 || raw.includes(settings.apiKey)) throw new CodeExplanationError(en ? 'AI returned an unusable explanation. Please retry.' : 'AI 返回的代码说明无法使用，请重试。');
       let data: unknown;
@@ -292,9 +328,9 @@ export class AiReviewService {
       const evidence = loadEvidence(input.analysisId);
       controller.signal.throwIfAborted();
       if (evidence.id !== input.analysisId) throw new Error('分析内容与所选文件不一致，请重新分析。');
-      progress({ requestId: input.requestId, phase: en ? 'Reviewing the program file…' : '正在审查程序文件…', completed: 0, total: 1 });
+      progress({ requestId: input.requestId, step: 'reviewing-program', phase: en ? 'Reviewing the program file…' : '正在审查程序文件…', completed: 0, total: 1 });
       const result = await this.interpretBinary(settings, evidence, input.language, controller.signal);
-      progress({ requestId: input.requestId, phase: en ? 'Review complete' : '审查完成', completed: 1, total: 1 });
+      progress({ requestId: input.requestId, step: 'review-complete', phase: en ? 'Review complete' : '审查完成', completed: 1, total: 1 });
       return result;
     } catch (cause) {
       if (controller.signal.aborted) throw new Error(en ? 'AI review cancelled.' : 'AI 审查已取消。');
@@ -316,7 +352,7 @@ export class AiReviewService {
       const settings = await this.authorized();
       if (settings.baseUrl !== input.providerBaseUrl) throw new Error('AI 服务地址已改变，请重新确认发送目标。');
       signal.throwIfAborted();
-      progress({ requestId: input.requestId, phase: input.language === 'en' ? 'Reading changes…' : '正在读取修改…', completed: 0, total: 1 });
+      progress({ requestId: input.requestId, step: 'reading-changes', phase: input.language === 'en' ? 'Reading changes…' : '正在读取修改…', completed: 0, total: 1 });
       const context = await this.loadContext(input.owner, input.repo, input.number, input.headSha, signal);
       signal.throwIfAborted();
       if (context.pullRequest.head?.sha !== input.headSha) throw new Error('这个合并请求有新修改，请刷新后重新审查。');
@@ -359,7 +395,7 @@ export class AiReviewService {
       const total = batches.length + selectedPrograms.length;
       for (const files of batches) {
         signal.throwIfAborted();
-        progress({ requestId: input.requestId, phase: en ? 'Reviewing changes…' : '正在审查修改…', completed, total });
+        progress({ requestId: input.requestId, step: 'reviewing-changes', phase: en ? 'Reviewing changes…' : '正在审查修改…', completed, total });
         const content = JSON.stringify({ title: context.pullRequest.title.slice(0, 500), description: (context.pullRequest.body ?? '').slice(0, 4000), files: files.map(({ filename, status, patch }) => ({ filename, status, patch })) });
         const raw = await this.provider.complete(settings, reviewPrompt(input.language ?? 'zh'), content, signal);
         signal.throwIfAborted();
@@ -381,13 +417,13 @@ export class AiReviewService {
           }
           try {
             signal.throwIfAborted();
-            progress({ requestId: input.requestId, phase: en ? `Analyzing ${file.filename}…` : `正在分析 ${file.filename}…`, completed, total });
+            progress({ requestId: input.requestId, step: 'analyzing-file', fileName: file.filename, phase: en ? `Analyzing ${file.filename}…` : `正在分析 ${file.filename}…`, completed, total });
             const analysis = await this.binaryReviewer.analyze(input, file, signal, (phase) => {
-              if (!signal.aborted) progress({ requestId: input.requestId, phase, completed, total });
+              if (!signal.aborted) progress({ requestId: input.requestId, step: 'analyzing-file', fileName: file.filename, phase, completed, total });
             });
             signal.throwIfAborted();
             binaryAnalyses.push({ file: file.filename, analysis });
-            progress({ requestId: input.requestId, phase: en ? `Reviewing ${file.filename}…` : `正在审查 ${file.filename}…`, completed, total });
+            progress({ requestId: input.requestId, step: 'reviewing-file', fileName: file.filename, phase: en ? `Reviewing ${file.filename}…` : `正在审查 ${file.filename}…`, completed, total });
             const result = await this.interpretBinary(settings, analysis, input.language ?? 'zh', signal);
             summaries.push(`${file.filename}: ${result.summary}`);
             findings.push(...result.findings.map((finding) => ({ ...finding, file: file.filename, analysisId: analysis.id })));
@@ -409,7 +445,7 @@ export class AiReviewService {
         summaries.push(summary);
       }
       signal.throwIfAborted();
-      progress({ requestId: input.requestId, phase: en ? 'Review complete' : '审查完成', completed: total, total });
+      progress({ requestId: input.requestId, step: 'review-complete', phase: en ? 'Review complete' : '审查完成', completed: total, total });
       return { headSha: input.headSha, summary: summaries.join('\n\n'), findings, limitations,
         reviewedFiles: batches.reduce((count, files) => count + files.length, 0) + reviewedPrograms, totalFiles: context.pullRequest.changed_files ?? context.files.length,
         ...(binaryAnalyses.length ? { binaryAnalyses } : {}) };

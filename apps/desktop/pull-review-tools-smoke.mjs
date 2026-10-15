@@ -15,7 +15,8 @@ await mkdir(output, { recursive: true });
 const fixture = `
 import React from 'react';import {createRoot} from 'react-dom/client';
 import {PullRequestsPanel} from '/src/components/PullRequestsPanel.tsx';
-import '/src/styles.css';import '/src/v2.css';
+import {useNavigationShortcuts} from '/src/useNavigationShortcuts.ts';import{navigateNested}from'/src/nestedNavigation.ts';
+import '/src/styles.css';
 const now='2026-10-08T00:00:00Z';
 const repo={id:1,name:'sample',full_name:'owner/sample',private:true,default_branch:'main',owner:{login:'owner'},permissions:{push:true,admin:true},updated_at:now};
 const pull=number=>({id:number,number,title:'Change '+number,body:'Please review the changed lines.',state:'open',draft:false,created_at:now,user:{login:'contributor'},head:{sha:(number===7?'a':'b').repeat(40),ref:'feature'},base:{sha:'c'.repeat(40),ref:'main',repo:{id:1}}});
@@ -30,7 +31,7 @@ const files=[
 const run=(id,name,conclusion='success',status='completed',head='a'.repeat(40))=>({id,name,head_sha:head,status,conclusion,html_url:'https://github.com/owner/sample/actions/runs/'+id,details_url:null,started_at:now,completed_at:now,app:{id:1,name:'Builder'}});
 const legacy=(id,state)=>({id,context:'legacy-build',state,description:'Status report',target_url:'https://ci.example.com/build/1',created_at:now,updated_at:now});
 window.mode='paged';window.links=[];window.reads=[];window.held=null;window.resolved=false;window.writes=[];
-window.easyHub={platform:${JSON.stringify(process.platform)},onAiReviewProgress:()=>()=>{},openExternalLink:async(url)=>{window.links.push(url)},github:async(action,...args)=>{
+window.easyHub={onAiReviewProgress:()=>()=>{},openExternalLink:async(url)=>{window.links.push(url)},github:async(action,...args)=>{
 window.reads.push({action,args});
 if(action==='pullRequests'||action==='pullRequestsPage')return [pull(7),pull(8)];
 if(action==='pullRequest')return pull(args[2]);
@@ -50,7 +51,8 @@ if(action==='pullChecks'){
 }
 window.writes.push(action);throw Error('Blocked unexpected action '+action);
 }};
-createRoot(document.getElementById('root')).render(React.createElement(PullRequestsPanel,{repo,currentUser:'owner',language:new URLSearchParams(location.search).get('lang')||'zh'}));
+function Workspace(){useNavigationShortcuts(()=>navigateNested('back'),()=>navigateNested('forward'));return React.createElement(PullRequestsPanel,{repo,currentUser:'owner',language:new URLSearchParams(location.search).get('lang')||'zh'});}
+createRoot(document.getElementById('root')).render(React.createElement(Workspace));
 `;
 const server = await createServer({ configFile: false, root: join(root, 'src/renderer'), plugins: [react(), {
   name: 'pull-review-tools-fixture',
@@ -61,12 +63,18 @@ let browser;
 try {
   await server.listen(); const address = server.httpServer.address(); assert.ok(address && typeof address !== 'string');
   const url = `http://127.0.0.1:${address.port}/pull-tools-test`;
-  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true });
   const page = await browser.newPage({ viewport: { width: 1060, height: 760 } }); page.setDefaultTimeout(10000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.route('**/*', route => new URL(route.request().url()).origin === new URL(url).origin ? route.continue() : route.abort());
   await page.goto(url); await page.getByRole('button', { name: /Change 7/ }).click();
+  await page.locator('.pull-checks').waitFor();
+  await page.keyboard.press('Alt+ArrowLeft');
+  await page.getByRole('button', { name: /Change 7/ }).waitFor();
+  await page.keyboard.press('Alt+ArrowRight');
+  await page.locator('.pull-checks').waitFor();
+  assert.deepEqual(await page.locator('.issue-detail').evaluate(element => [...element.children].filter(child => child.matches('.pull-checks,.pull-files,.conversation,.reply-card,.pull-review-actions')).map(child => child.className)), ['pull-checks', 'pull-files', 'conversation', 'reply-card', 'pull-review-actions']);
   await page.getByText('检查结果尚未完整载入', { exact: true }).waitFor();
   assert.equal(await page.getByText('已报告的检查均已通过', { exact: true }).count(), 0);
   await page.getByRole('button', { name: '加载更多检查', exact: true }).click();
@@ -117,7 +125,7 @@ try {
   assert.equal(await page.getByText('已报告的检查均已通过', { exact: true }).count(), 0);
   await page.evaluate(() => { window.mode = 'hold'; }); await page.getByRole('button', { name: '刷新检查', exact: true }).click();
   await page.waitForFunction(() => Boolean(window.held));
-  await page.getByRole('button', { name: '返回合并请求审查', exact: true }).click(); await page.getByRole('button', { name: /Change 8/ }).click();
+  await page.getByRole('button', { name: '返回', exact: true }).click(); await page.getByRole('button', { name: /Change 8/ }).click();
   await page.getByText('new-request-check', { exact: true }).waitFor(); await page.evaluate(() => window.held());
   await page.waitForFunction(() => window.resolved); await page.waitForTimeout(80);
   assert.equal(await page.getByText('late-old-check', { exact: true }).count(), 0);

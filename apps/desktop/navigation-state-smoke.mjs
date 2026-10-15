@@ -2,17 +2,26 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
+import { _electron as electron } from 'playwright-core';
+import electronPath from 'electron';
 import { installDownloadFixture } from './download-fixture.mjs';
 
 const desktop = dirname(fileURLToPath(import.meta.url));
+const product = process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'navigation-state-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
-const { app, executable, renderer } = await launchUpstreamFixture(desktop, {
-  profile: join(run, 'profile'), launcher: join(run, 'launch.cjs'),
-  registerName: 'registerFixture', rejectedName: 'upstreamRejectedIPC', title: 'Navigation fixture'
-});
+const launcher = join(run, 'launch.cjs');
+await writeFile(launcher, `
+const { app, ipcMain } = require('electron');
+app.setPath('userData', ${JSON.stringify(join(run, 'profile'))});
+process.env.EASYHUB_PROXY_APP_ONLY_TEST = '1';
+process.env.ELECTRON_RENDERER_URL = 'data:text/html,Navigation fixture';
+globalThis.registerFixture = ipcMain.handle.bind(ipcMain);
+ipcMain.handle = (channel, handler) => globalThis.registerFixture(channel, channel.startsWith('easyhub:') ? () => { throw new Error('Unexpected IPC: '+channel); } : handler);
+require(${JSON.stringify(join(product, 'out', 'main', 'index.js'))});
+`);
+const app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
 try {
   await app.evaluate(({ ipcMain, session }) => {
     session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_details, callback) => callback({ cancel: true }));
@@ -40,7 +49,7 @@ try {
   page.setDefaultTimeout(12000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), renderer);
+  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), join(product, 'out', 'renderer', 'index.html'));
   await page.locator('.live-connected').waitFor();
   await page.setViewportSize({ width: 1060, height: 700 });
   const nav = name => page.locator('.sidebar-nav').getByRole('button', { name, exact: true });
@@ -57,26 +66,28 @@ try {
   assert.ok(Math.abs(await page.locator('.main-column').evaluate(node => node.scrollTop) - position) < 5, 'Project scroll position lost.');
   await page.getByRole('button', { name: '所有项目', exact: true }).click();
   await page.getByRole('heading', { name: '设置', exact: true }).waitFor();
-  await page.locator('.back-link').click();
+  await page.keyboard.press('Alt+ArrowLeft');
   await page.locator('.detail-hero h1').filter({ hasText: 'own-project' }).waitFor();
   await page.locator('.back-link').click();
   await page.getByRole('heading', { name: '我的项目', exact: true }).waitFor();
-  await page.getByRole('textbox', { name: '筛选项目' }).fill('not-found-unique');
+  await page.getByRole('combobox', { name: '搜索项目/用户', exact: true }).fill('not-found-unique');
   await page.locator('.search-empty-state').getByRole('button', { name: '清除搜索', exact: true }).click();
-  assert.equal(await page.getByRole('textbox', { name: '筛选项目' }).inputValue(), '');
+  assert.equal(await page.getByRole('combobox', { name: '搜索项目/用户', exact: true }).inputValue(), '');
   await nav('发现').click();
   await page.locator('.trending-card').nth(25).scrollIntoViewIfNeeded();
   const discoverPosition = await page.locator('.main-column').evaluate(node => node.scrollTop);
   await nav('设置').click();
   await nav('发现').click();
   assert.ok(Math.abs(await page.locator('.main-column').evaluate(node => node.scrollTop) - discoverPosition) < 5, 'Discovery scroll position lost.');
-  await page.getByRole('textbox', { name: '搜索公开项目' }).fill('not-found-unique');
+  await page.getByRole('combobox', { name: '搜索项目/用户', exact: true }).fill('not-found-unique');
+  await page.getByRole('combobox').press('Enter');
   await page.locator('.search-empty-state').getByRole('button', { name: '清除搜索', exact: true }).click();
-  assert.equal(await page.getByRole('textbox', { name: '搜索公开项目' }).inputValue(), '');
+  assert.equal(await page.getByRole('combobox', { name: '搜索项目/用户', exact: true }).inputValue(), '');
   await page.getByRole('button', { name: '用户搜索', exact: true }).click();
-  await page.getByRole('textbox', { name: '搜索用户' }).fill('not-found-user');
+  await page.getByRole('combobox', { name: '搜索项目/用户', exact: true }).fill('not-found-user');
+  await page.getByRole('combobox').press('Enter');
   await page.locator('.search-empty-state').getByRole('button', { name: '清除搜索', exact: true }).click();
-  assert.equal(await page.getByRole('textbox', { name: '搜索用户' }).inputValue(), '');
+  assert.equal(await page.getByRole('combobox', { name: '搜索项目/用户', exact: true }).inputValue(), '');
   assert.deepEqual(errors, []);
   await page.screenshot({ path: join(output, 'restored-navigation.png') });
   process.stdout.write('Sidebar page/position retention and empty-search recovery passed.\n');

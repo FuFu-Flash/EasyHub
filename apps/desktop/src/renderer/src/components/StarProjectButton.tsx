@@ -1,8 +1,14 @@
+import { useTranslation } from '../localization';
+import { useEasyHub } from '../bridge';
+import { ErrorMessage } from './ErrorMessage';
+import { errorText } from '../errors';
 import { useEffect, useState } from 'react';
 import type { GitHubRepo } from '@easyhub/github';
 import { Star } from 'lucide-react';
 
 export function StarProjectButton({ repo, onChanged }: { repo: GitHubRepo; onChanged?: (starred: boolean) => void }) {
+  const t = useTranslation();
+  const easyHub = useEasyHub();
   const [starred, setStarred] = useState(false);
   const [checking, setChecking] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -12,9 +18,9 @@ export function StarProjectButton({ repo, onChanged }: { repo: GitHubRepo; onCha
     let active = true;
     setChecking(true);
     setError('');
-    void window.easyHub!.github<boolean>('isStarred', repo.owner.login, repo.name)
+    void easyHub!.github<boolean>('isStarred', repo.owner.login, repo.name)
       .then((value) => { if (active) setStarred(value); })
-      .catch(() => { if (active) setError('暂时无法读取收藏状态，请稍后重试。'); })
+      .catch(() => { if (active) setError(t("starProjectButton.couldNotCheckStarredStatusTryAgainLater")); })
       .finally(() => { if (active) setChecking(false); });
     return () => { active = false; };
   }, [repo.owner.login, repo.name]);
@@ -24,18 +30,18 @@ export function StarProjectButton({ repo, onChanged }: { repo: GitHubRepo; onCha
     setSaving(true);
     setError('');
     try {
-      await window.easyHub!.github('setStarred', repo.owner.login, repo.name, next);
+      await easyHub!.github('setStarred', repo.owner.login, repo.name, next);
       setStarred(next);
       onChanged?.(next);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '收藏操作失败，请稍后重试。');
+      setError(errorText(cause, t("starProjectButton.couldNotUpdateTheProjectTryAgainLater")));
     } finally { setSaving(false); }
   }
 
   return <span className="star-project-control">
     <button type="button" className={`button button-quiet star-project-button ${starred ? 'is-starred' : ''}`} aria-pressed={starred} disabled={checking || saving} onClick={() => void toggle()}>
-      <Star size={17} fill={starred ? 'currentColor' : 'none'} />{checking ? '读取中…' : saving ? '保存中…' : starred ? '已收藏' : '收藏项目'}
+      <Star size={17} fill={starred ? 'currentColor' : 'none'} />{checking ? t("starProjectButton.loading") : saving ? t("starProjectButton.saving") : starred ? t("starProjectButton.starred") : t("starProjectButton.starProject")}
     </button>
-    {error && <small className="star-project-error" role="alert">{error}</small>}
+    {error && <small className="star-project-error" role="alert"><ErrorMessage error={error} /></small>}
   </span>;
 }

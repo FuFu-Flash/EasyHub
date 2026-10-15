@@ -1,3 +1,8 @@
+import { useTranslation } from '../localization';
+import { useEasyHub } from '../bridge';
+import { useNestedNavigation } from '../nestedNavigation';
+import { ErrorMessage } from './ErrorMessage';
+import { errorText } from '../errors';
 import { SegmentedControl } from './SegmentedControl';
 import { createDraftKey } from '../draftStore';
 import { useLocalDraft } from '../useLocalDraft';
@@ -17,36 +22,37 @@ import { ForkSetup } from './ForkSetup';
 import { readmeReleaseLink } from './readmeReleaseLink';
 import { TranslatableContent } from './TranslatableContent';
 import { StarProjectButton } from './StarProjectButton';
+import { SourceHistory, SourceHistoryButton } from './SourceHistory';
 import type { DownloadRequest } from './useDownloadCenter';
 import type { Language } from '../i18n';
 
-type Tab = 'intro' | 'issues' | 'pulls' | 'history' | 'downloads';
+type Tab = 'intro' | 'issues' | 'pulls' | 'history' | 'source-history' | 'downloads';
 
-function errorText(error: unknown): string { return error instanceof Error ? error.message : '操作失败，请稍后重试。'; }
 
 function PublicIssueConversation({ repo, issue, comments, protectedNames, reply, onReplyChange, onReply, replySaving, onOpenLink, pagination }: {
   repo: GitHubRepo; issue: GitHubIssue; comments: GitHubComment[]; protectedNames: string[];
   reply: string; onReplyChange: (value: string) => void; onReply: (event: FormEvent) => void; replySaving: boolean;
   onOpenLink: (url: string) => void; pagination: React.ReactNode;
 }) {
+  const t = useTranslation();
   const markdown = (value: string) => <ReadmeMarkdown markdown={value} repository={{ owner: repo.owner.login, name: repo.name, branch: repo.default_branch }} onOpenLink={onOpenLink} />;
   return <div className="issue-detail public-issue-detail">
-    <div className="issue-title"><span className={`issue-state ${issue.state === 'closed' ? 'closed' : ''}`}>{issue.state === 'open' ? '待处理' : '已解决'}</span>
+    <div className="issue-title"><span className={`issue-state ${issue.state === 'closed' ? 'closed' : ''}`}>{issue.state === 'open' ? t("publicProjectBrowser.open") : t("publicProjectBrowser.resolved")}</span>
       <TranslatableContent text={issue.title} format="text" protectedNames={protectedNames} render={(value) => <h1>{value}</h1>} />
-      <p>{repo.name} · {issue.user?.login || 'GitHub 用户'} 提出于 {new Date(issue.created_at).toLocaleString()}</p>
+      <p>{repo.name} · {issue.user?.login || t("publicProjectBrowser.githubUser")}  {t("publicProjectBrowser.openedOn")} {new Date(issue.created_at).toLocaleString()}</p>
     </div>
     <div className="conversation">
       <div className="message"><div className="avatar author-avatar">{(issue.user?.login || 'G').slice(0, 1).toUpperCase()}</div><div className="message-box">
-        <div><strong>{issue.user?.login || 'GitHub 用户'}</strong><small>{new Date(issue.created_at).toLocaleString()}</small></div>
-        {issue.body ? <TranslatableContent text={issue.body} format="markdown" paragraphMode protectedNames={protectedNames} render={markdown} /> : markdown('没有详细描述。')}
+        <div><strong>{issue.user?.login || t("publicProjectBrowser.githubUser")}</strong><small>{new Date(issue.created_at).toLocaleString()}</small></div>
+        {issue.body ? <TranslatableContent text={issue.body} format="markdown" paragraphMode protectedNames={protectedNames} render={markdown} /> : markdown(t("publicProjectBrowser.noDetailsProvided"))}
       </div></div>
       {comments.map((item) => <div className="message" key={item.id}><div className="avatar">{(item.user?.login || 'G').slice(0, 1).toUpperCase()}</div><div className="message-box">
-        <div><strong>{item.user?.login || 'GitHub 用户'}</strong><small>{new Date(item.created_at).toLocaleString()}</small></div>
+        <div><strong>{item.user?.login || t("publicProjectBrowser.githubUser")}</strong><small>{new Date(item.created_at).toLocaleString()}</small></div>
         <TranslatableContent text={item.body} format="markdown" paragraphMode protectedNames={protectedNames} render={markdown} />
       </div></div>)}
     </div>
     {pagination}
-    <form className="reply-card" onSubmit={onReply}><label htmlFor="public-issue-reply">写一条回复</label><textarea id="public-issue-reply" rows={4} value={reply} onChange={(event) => onReplyChange(event.target.value)} placeholder="说说你的想法或建议…" /><div><span /><button className="button button-primary" disabled={replySaving || !reply.trim()} type="submit">发送回复 <ArrowRight size={16} /></button></div></form>
+    <form className="reply-card" onSubmit={onReply}><label htmlFor="public-issue-reply">{t("publicProjectBrowser.writeAReply")}</label><textarea id="public-issue-reply" rows={4} value={reply} onChange={(event) => onReplyChange(event.target.value)} placeholder={t("publicProjectBrowser.shareYourThoughtsOrSuggestions")} /><div><span /><button className="button button-primary" disabled={replySaving || !reply.trim()} type="submit">{t("publicProjectBrowser.sendReply")} <ArrowRight size={16} /></button></div></form>
   </div>;
 }
 
@@ -66,6 +72,8 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
   outerBackBoundary?: string | null;
   onPageChange?: (key: string) => void;
 }) {
+  const t = useTranslation(language);
+  const easyHub = useEasyHub();
   const [tab, setTab] = useState<Tab>(startInDownloads ? 'downloads' : 'intro');
   const [focusTag, setFocusTag] = useState<string | undefined>(initialFocusTag);
   const [readme, setReadme] = useState('');
@@ -133,6 +141,8 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
     history.back(fallback);
   }
 
+  useNestedNavigation(browserRef, () => goBack(onBack), history.hasForward ? () => { rememberPage(); history.forward(); } : null, pullBackBlocked);
+
   function renderPage(children: ReactNode): ReactNode {
     const cacheKey = tab === 'downloads' ? JSON.stringify([tab, focusTag ?? null]) : tab;
     return <div ref={browserRef} style={{ display: 'contents' }}><NavigationPages active={cacheKey}>{children}</NavigationPages></div>;
@@ -151,7 +161,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
 
   async function refreshActivityCounts(): Promise<void> {
     try {
-      const result = await window.easyHub!.github<Record<number, GitHubActivityCount>>('activityCounts', [{ id: repo.id, owner, name: repo.name }]);
+      const result = await easyHub!.github<Record<number, GitHubActivityCount>>('activityCounts', [{ id: repo.id, owner, name: repo.name }]);
       setActivityCounts(result[repo.id] ?? null);
       setActivityUnavailable(!result[repo.id]);
     } catch { setActivityUnavailable(true); }
@@ -161,7 +171,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
     let active = true;
     setActivityCounts(null);
     setActivityUnavailable(false);
-    void window.easyHub!.github<Record<number, GitHubActivityCount>>('activityCounts', [{ id: repo.id, owner, name: repo.name }])
+    void easyHub!.github<Record<number, GitHubActivityCount>>('activityCounts', [{ id: repo.id, owner, name: repo.name }])
       .then((result) => { if (active) { setActivityCounts(result[repo.id] ?? null); setActivityUnavailable(!result[repo.id]); } })
       .catch(() => { if (active) setActivityUnavailable(true); });
     return () => { active = false; };
@@ -171,8 +181,8 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
     let active = true;
     const request = ++detailRequest.current;
     setTab(startInDownloads ? 'downloads' : 'intro'); setFocusTag(initialFocusTag); setSelectedIssue(null); setSelectedCommit(null); setReadme(''); setCommits([]); setError(''); setHistoryError(''); setShowProposalForm(false); setProposalNotice(''); setBusy(true);
-    const github = window.easyHub?.github;
-    if (!github) { setError('应用连接不可用，请重新启动 EasyHub。'); setBusy(false); return; }
+    const github = easyHub?.github;
+    if (!github) { setError(t("publicProjectBrowser.theAppConnectionIsUnavailablePleaseRestartEasyhub")); setBusy(false); return; }
     void Promise.allSettled([
       github<string>('readme', owner, repo.name),
       github<GitHubCommit[]>('commits', owner, repo.name),
@@ -191,7 +201,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
     let active = true;
     issueListRequest.current += 1;
     setIssues([]); setNextIssuePage(null); setIssueError(''); setLoadingIssues(true);
-    void window.easyHub!.github<GitHubIssuePage>('issuesPage', owner, repo.name, issueFilter, 1).then((result) => {
+    void easyHub!.github<GitHubIssuePage>('issuesPage', owner, repo.name, issueFilter, 1).then((result) => {
       if (!active) return;
       setIssues(result.items); setNextIssuePage(result.nextPage);
     }).catch((cause) => { if (active) setIssueError(errorText(cause)); }).finally(() => { if (active) setLoadingIssues(false); });
@@ -203,7 +213,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
     const request = issueListRequest.current;
     setLoadingIssues(true); setIssueError('');
     try {
-      const result = await window.easyHub!.github<GitHubIssuePage>('issuesPage', owner, repo.name, issueFilter, nextIssuePage ?? 1);
+      const result = await easyHub!.github<GitHubIssuePage>('issuesPage', owner, repo.name, issueFilter, nextIssuePage ?? 1);
       if (request !== issueListRequest.current) return;
       setIssues((current) => [...current, ...result.items.filter((item) => !current.some((known) => known.id === item.id))]);
       setNextIssuePage(result.nextPage);
@@ -216,7 +226,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
     const request = ++detailRequest.current;
     setSelectedIssue(issue); setComments([]); setError(''); setBusy(true);
     try {
-      const result = await window.easyHub!.github<GitHubComment[]>('comments', owner, repo.name, issue.number);
+      const result = await easyHub!.github<GitHubComment[]>('comments', owner, repo.name, issue.number);
       if (request === detailRequest.current) setComments(result);
     } catch (cause) { if (request === detailRequest.current) setError(errorText(cause)); }
     finally { if (request === detailRequest.current) setBusy(false); }
@@ -224,12 +234,12 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
 
   async function sendReply(event: FormEvent): Promise<void> {
     event.preventDefault();
-    if (!selectedIssue || !reply.trim() || !window.easyHub) return;
+    if (!selectedIssue || !reply.trim() || !easyHub) return;
     const request = detailRequest.current;
     const sentDraft = reply;
     setReplySaving(true); setError('');
     try {
-      const comment = await window.easyHub.github<GitHubComment>('createComment', owner, repo.name, selectedIssue.number, reply.trim());
+      const comment = await easyHub.github<GitHubComment>('createComment', owner, repo.name, selectedIssue.number, reply.trim());
       clearReply(sentDraft);
       if (request !== detailRequest.current) return;
       setComments((items) => [...items, comment]);
@@ -240,14 +250,14 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
 
   async function submitProposal(event: FormEvent): Promise<void> {
     event.preventDefault();
-    if (proposalType !== 'issue' || !issueTitle.trim() || !window.easyHub) return;
+    if (proposalType !== 'issue' || !issueTitle.trim() || !easyHub) return;
     setIssueSaving(true); setProposalError(''); setProposalNotice('');
     try {
-      const created = await window.easyHub.github<GitHubIssue>('createIssue', owner, repo.name, issueTitle.trim(), issueBody.trim());
+      const created = await easyHub.github<GitHubIssue>('createIssue', owner, repo.name, issueTitle.trim(), issueBody.trim());
       if (issueFilter === 'open') setIssues((items) => [created, ...items]);
       else setIssueFilter('open');
       void refreshActivityCounts();
-      setTab('issues'); setProposalNotice('问题已提出。');
+      setTab('issues'); setProposalNotice(t("publicProjectBrowser.issueCreated"));
       setIssueTitle(''); setIssueBody(''); setShowProposalForm(false);
     } catch (cause) { setProposalError(errorText(cause)); }
     finally { setIssueSaving(false); }
@@ -258,7 +268,7 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
     const request = ++detailRequest.current;
     setSelectedCommit(item); setError(''); setBusy(true);
     try {
-      const result = await window.easyHub!.github<GitHubCommit>('commit', owner, repo.name, item.sha);
+      const result = await easyHub!.github<GitHubCommit>('commit', owner, repo.name, item.sha);
       if (request === detailRequest.current) setSelectedCommit(result);
     } catch (cause) { if (request === detailRequest.current) setError(errorText(cause)); }
     finally { if (request === detailRequest.current) setBusy(false); }
@@ -271,49 +281,50 @@ export function PublicProjectBrowser({ repo, language, currentUser, onBack, onOp
     } else onOpenLink(url);
   }
 
+  if (tab === 'source-history') return renderPage(<div className="public-browser" data-testid="public-project-browser"><SourceHistory key={repo.id} repo={repo} language={language} scrollArea={parentScrollArea ?? scrollArea} onBack={() => goBack(() => changeTab('intro'))} /></div>);
   if (tab === 'downloads') return renderPage(<div className="public-browser" data-testid="public-project-browser"><ReleaseDownloads repo={repo} language={language} focusTag={focusTag} offerAdd onDownload={onDownload} downloadBusy={downloadBusy} onOpenLink={openReadmeLink} onBack={() => goBack(startInDownloads ? onBack : () => changeTab('intro'))} /></div>);
   if (tab === 'issues' && selectedIssue) return renderPage(<div className="public-issue-page" data-testid="public-project-browser">
-    <button className="back-link" onClick={() => goBack(() => { leaveDetail(); setSelectedIssue(null); })}><ArrowLeft size={16} />返回问题</button>
-    {error && <div className="live-error" role="alert">{error}<button className="text-link" disabled={busy} onClick={() => void showIssue(selectedIssue)}>重试</button></div>}
-    {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取问题内容…</p>}
-    <PublicIssueConversation repo={repo} issue={selectedIssue} comments={comments} protectedNames={issueAuthorNames} reply={reply} onReplyChange={setReply} onReply={(event) => void sendReply(event)} replySaving={replySaving} onOpenLink={openReadmeLink} pagination={!busy && <PagedContinuation<GitHubComment> key={`${replyKey}:${detailRequest.current}`} action="commentsPage" args={[owner, repo.name, selectedIssue.number]} firstCount={comments.length} language={language} label={language === 'en' ? 'Load more replies' : '加载更多回复'} onItems={(items) => setComments((old) => [...old, ...items.filter((item) => !old.some((known) => known.id === item.id))].sort((a, b) => a.id - b.id))} />} />
+    <button className="back-link" onClick={() => goBack(() => { leaveDetail(); setSelectedIssue(null); })}><ArrowLeft size={16} />{t("publicProjectBrowser.backToIssues")}</button>
+    {error && <div className="live-error" role="alert"><ErrorMessage error={error} language={language} /><button className="text-link" disabled={busy} onClick={() => void showIssue(selectedIssue)}>{t("publicProjectBrowser.retry")}</button></div>}
+    {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />{t("publicProjectBrowser.loadingIssue")}</p>}
+    <PublicIssueConversation repo={repo} issue={selectedIssue} comments={comments} protectedNames={issueAuthorNames} reply={reply} onReplyChange={setReply} onReply={(event) => void sendReply(event)} replySaving={replySaving} onOpenLink={openReadmeLink} pagination={!busy && <PagedContinuation<GitHubComment> key={`${replyKey}:${detailRequest.current}`} action="commentsPage" args={[owner, repo.name, selectedIssue.number]} firstCount={comments.length} language={language} label={t("publicProjectBrowser.loadMoreReplies")} onItems={(items) => setComments((old) => [...old, ...items.filter((item) => !old.some((known) => known.id === item.id))].sort((a, b) => a.id - b.id))} />} />
   </div>);
 
   return renderPage(<div className="public-browser" data-testid="public-project-browser">
-    <button className="back-link" onClick={() => goBack(onBack)}><ArrowLeft size={17} />{history.hasBack || outerBackBoundary === effectivePageKey ? '返回' : '返回搜索结果'}</button>
-    <section className="detail-hero public-browser-hero"><div className="detail-main"><span className="project-logo logo-sky public-owner-avatar" aria-hidden="true">{repo.owner.avatar_url ? <img src={repo.owner.avatar_url} alt="" /> : repo.owner.login.slice(0, 1).toUpperCase()}</span><div><div className="detail-name-row"><h1>{repo.full_name}</h1><span className="visibility-label"><Globe2 size={13} />{repo.private ? '仅获授权的项目' : '公开项目'}</span></div>{repo.description ? <TranslatableContent text={repo.description} format="text" render={(value) => <p>{value}</p>} /> : <p>还没有项目介绍</p>}</div></div><div className="detail-actions"><StarProjectButton repo={repo} /><button className="button button-quiet" onClick={() => { setProposalError(''); setShowProposalForm(true); }}><Plus size={17} />提出问题/建议</button><button className="button button-primary" onClick={() => { setFocusTag(undefined); changeTab('downloads'); }}><ArrowDownToLine size={17} />下载发行版或源码</button></div></section>
-    {error && <div className="live-error" role="alert">{error}</div>}
+    <button className="back-link" onClick={() => goBack(onBack)}><ArrowLeft size={17} />{history.hasBack || outerBackBoundary === effectivePageKey ? t("publicProjectBrowser.back") : t("publicProjectBrowser.backToSearchResults")}</button>
+    <section className="detail-hero public-browser-hero has-source-history"><SourceHistoryButton language={language} onClick={() => changeTab('source-history')} /><div className="detail-main"><span className="project-logo logo-sky public-owner-avatar" aria-hidden="true">{repo.owner.avatar_url ? <img src={repo.owner.avatar_url} alt="" /> : repo.owner.login.slice(0, 1).toUpperCase()}</span><div><div className="detail-name-row"><h1>{repo.full_name}</h1><span className="visibility-label"><Globe2 size={13} />{repo.private ? t("publicProjectBrowser.authorizedProject") : t("publicProjectBrowser.publicProjects")}</span></div>{repo.description ? <TranslatableContent text={repo.description} format="text" render={(value) => <p>{value}</p>} /> : <p>{t("publicProjectBrowser.noProjectDescriptionYet")}</p>}</div></div><div className="detail-actions"><StarProjectButton repo={repo} /><button className="button button-quiet" onClick={() => { setProposalError(''); setShowProposalForm(true); }}><Plus size={17} />{t("publicProjectBrowser.reportAnIssueSuggestAChange")}</button><button className="button button-primary" onClick={() => { setFocusTag(undefined); changeTab('downloads'); }}><ArrowDownToLine size={17} />{t("publicProjectBrowser.downloadReleasesOrSource")}</button></div></section>
+    {error && <div className="live-error" role="alert"><ErrorMessage error={error} language={language} /></div>}
     {proposalNotice && <div className="public-proposal-notice" role="status">{proposalNotice}</div>}
-    <nav className="public-browser-tabs" aria-label="项目内容"><button className={tab === 'intro' ? 'selected' : ''} onClick={() => changeTab('intro')}>项目介绍</button><button className={tab === 'issues' ? 'selected' : ''} onClick={() => changeTab('issues')}>问题 <span>{activityCounts?.issues ?? `${issues.length}${nextIssuePage ? '+' : ''}`}</span></button><button className={tab === 'pulls' ? 'selected' : ''} onClick={() => changeTab('pulls')}>合并请求审查 <span>{activityCounts?.pullRequests ?? (activityUnavailable ? '—' : '…')}</span></button><button className={tab === 'history' ? 'selected' : ''} onClick={() => changeTab('history')}>历史版本</button></nav>
+    <nav className="public-browser-tabs" aria-label={t("publicProjectBrowser.projectContent")}><button className={tab === 'intro' ? 'selected' : ''} onClick={() => changeTab('intro')}>{t("publicProjectBrowser.projectIntroduction")}</button><button className={tab === 'issues' ? 'selected' : ''} onClick={() => changeTab('issues')}>{t("publicProjectBrowser.issues")} <span>{activityCounts?.issues ?? `${issues.length}${nextIssuePage ? '+' : ''}`}</span></button><button className={tab === 'pulls' ? 'selected' : ''} onClick={() => changeTab('pulls')}>{t("publicProjectBrowser.pullRequestReviews")} <span>{activityCounts?.pullRequests ?? (activityUnavailable ? '—' : '…')}</span></button><button className={tab === 'history' ? 'selected' : ''} onClick={() => changeTab('history')}>{t("publicProjectBrowser.changeHistory")}</button></nav>
     {tab === 'pulls' && <PullRequestsPanel repo={repo} currentUser={currentUser} language={language} showCreateButton={false} scrollArea={parentScrollArea ?? scrollArea} onBackChange={onPullBackChange} downloadBusy={downloadBusy} onActivityChanged={() => void refreshActivityCounts()} onOpenAiSettings={onOpenAiSettings} onDownloadFile={async (number, path, headSha) => { onDownload({ kind: 'pull-file', repo, number, path, headSha, fileName: path.split('/').pop() || path }); }} />}
     {tab !== 'pulls' && <section className="panel public-browser-content">
-      {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取项目内容…</p>}
-      {tab === 'intro' && <><div className="panel-heading"><h2>项目介绍</h2></div>{readme ? <TranslatableContent text={readme} format="markdown" paragraphMode render={(value) => <ReadmeMarkdown markdown={value} repository={{ owner, name: repo.name, branch: repo.default_branch }} onOpenLink={openReadmeLink} />} /> : !busy && <p className="muted">这个项目还没有介绍。</p>}</>}
+      {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />{t("publicProjectBrowser.loadingProjectContent")}</p>}
+      {tab === 'intro' && <><div className="panel-heading"><h2>{t("publicProjectBrowser.projectIntroduction")}</h2></div>{readme ? <TranslatableContent text={readme} format="markdown" paragraphMode render={(value) => <ReadmeMarkdown markdown={value} repository={{ owner, name: repo.name, branch: repo.default_branch }} onOpenLink={openReadmeLink} />} /> : !busy && <p className="muted">{t("publicProjectBrowser.thisProjectHasNoIntroductionYet")}</p>}</>}
       {tab === 'issues' && <>
-        <div className="panel-heading"><h2>问题</h2></div>
-        <DiscussionSearch filters={<SegmentedControl className="public-issue-filter"><button className={issueFilter === 'open' ? 'selected' : ''} disabled={loadingIssues} onClick={() => setIssueFilter('open')}>待处理</button><button className={issueFilter === 'closed' ? 'selected' : ''} disabled={loadingIssues} onClick={() => setIssueFilter('closed')}>已解决</button></SegmentedControl>} repositories={[repo]} kind="issue" state={issueFilter} language={language} search={issueSearch} onSearchChange={changeIssueSearch} onOpen={(item) => void showIssue(item)} />
+        <div className="panel-heading"><h2>{t("publicProjectBrowser.issues")}</h2></div>
+        <DiscussionSearch filters={<SegmentedControl className="public-issue-filter"><button className={issueFilter === 'open' ? 'selected' : ''} disabled={loadingIssues} onClick={() => setIssueFilter('open')}>{t("publicProjectBrowser.open")}</button><button className={issueFilter === 'closed' ? 'selected' : ''} disabled={loadingIssues} onClick={() => setIssueFilter('closed')}>{t("publicProjectBrowser.resolved")}</button></SegmentedControl>} repositories={[repo]} kind="issue" state={issueFilter} language={language} search={issueSearch} onSearchChange={changeIssueSearch} onOpen={(item) => void showIssue(item)} />
         <div hidden={issueSearchActive}>
-        {issueError && <p className="live-error" role="alert">{issueError}</p>}
-        {issues.map((item) => <button className="public-list-row" key={item.id} onClick={() => void showIssue(item)}><MessageCircle size={19} /><span><TranslatableContent text={item.title} format="text" protectedNames={item.user?.login ? [item.user.login] : []} render={(value) => <strong>{value}</strong>} /><small>{item.state === 'open' ? '待处理' : '已解决'} · {item.user?.login || 'GitHub 用户'}</small></span><ArrowRight size={17} /></button>)}
-        {loadingIssues && issues.length === 0 && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取问题…</p>}
-        {issues.length === 0 && !loadingIssues && !issueError && <p className="muted">这个项目还没有问题。</p>}
-        {(nextIssuePage || issueError) && <button className="button button-quiet pull-more" disabled={loadingIssues} onClick={() => void loadMoreIssues()}>{loadingIssues ? '正在加载…' : issueError ? '重试' : '加载更多问题'}</button>}
+        {issueError && <p className="live-error" role="alert"><ErrorMessage error={issueError} language={language} /></p>}
+        {issues.map((item) => <button className="public-list-row" key={item.id} onClick={() => void showIssue(item)}><MessageCircle size={19} /><span><TranslatableContent text={item.title} format="text" protectedNames={item.user?.login ? [item.user.login] : []} render={(value) => <strong>{value}</strong>} /><small>{item.state === 'open' ? t("publicProjectBrowser.open") : t("publicProjectBrowser.resolved")} · {item.user?.login || t("publicProjectBrowser.githubUser")}</small></span><ArrowRight size={17} /></button>)}
+        {loadingIssues && issues.length === 0 && <p className="live-loading"><RotateCw size={16} className="live-spin" />{t("publicProjectBrowser.loadingIssues")}</p>}
+        {issues.length === 0 && !loadingIssues && !issueError && <p className="muted">{t("publicProjectBrowser.thisProjectHasNoIssues")}</p>}
+        {(nextIssuePage || issueError) && <button className="button button-quiet pull-more" disabled={loadingIssues} onClick={() => void loadMoreIssues()}>{loadingIssues ? t("publicProjectBrowser.loading") : issueError ? t("publicProjectBrowser.retry") : t("publicProjectBrowser.loadMoreIssues")}</button>}
         </div>
       </>}
-      {tab === 'history' && <>{selectedCommit ? <><button className="back-link" onClick={() => goBack(() => { leaveDetail(); setSelectedCommit(null); })}><ArrowLeft size={16} />返回历史版本</button><h2>{selectedCommit.commit.message.split('\n')[0]}</h2><p className="muted">{selectedCommit.commit.author?.name || '未知作者'} · {selectedCommit.commit.author?.date ? new Date(selectedCommit.commit.author.date).toLocaleString() : ''}</p><p className="muted">修改文件：{selectedCommit.files?.length ?? '—'} · 新增 {selectedCommit.stats?.additions ?? '—'} 行 · 删除 {selectedCommit.stats?.deletions ?? '—'} 行</p>{selectedCommit.files?.map((file) => <div className="live-file" key={file.filename}>{file.filename}</div>)}<button className="button button-primary version-download" disabled={downloadBusy} onClick={() => onDownload({ kind: 'archive', repo, ref: selectedCommit.sha, fileName: `${repo.name}-${selectedCommit.sha.slice(0, 8)}.zip`, offerAdd: true })}><ArrowDownToLine size={18} />下载这个版本</button></> : <><div className="panel-heading"><h2>历史版本</h2></div>{historyError && <p className="live-error" role="alert">{historyError}</p>}{commits.map((item) => <button className="public-list-row" key={item.sha} onClick={() => void showVersion(item)}><Clock3 size={19} /><span><strong>{item.commit.message.split('\n')[0]}</strong><small>{item.commit.author?.date ? new Date(item.commit.author.date).toLocaleString() : ''}</small></span><ArrowRight size={17} /></button>)}{commits.length === 0 && !busy && !historyError && <p className="muted">还没有历史版本。</p>}{!busy && !historyError && <PagedContinuation<GitHubCommit> key={repo.id} action="commitsPage" args={[owner, repo.name]} firstCount={commits.length} language={language} onItems={(items) => setCommits((old) => [...old, ...items.filter((item) => !old.some((known) => known.sha === item.sha))])} />}</>}</>}
+      {tab === 'history' && <>{selectedCommit ? <><button className="back-link" onClick={() => goBack(() => { leaveDetail(); setSelectedCommit(null); })}><ArrowLeft size={16} />{t("publicProjectBrowser.backToChangeHistory")}</button><h2>{selectedCommit.commit.message.split('\n')[0]}</h2><p className="muted">{selectedCommit.commit.author?.name || t("publicProjectBrowser.unknownAuthor")} · {selectedCommit.commit.author?.date ? new Date(selectedCommit.commit.author.date).toLocaleString() : ''}</p><p className="muted">{t("publicProjectBrowser.filesChanged")}{selectedCommit.files?.length ?? '—'}  {t("publicProjectBrowser.added")} {selectedCommit.stats?.additions ?? '—'}  {t("publicProjectBrowser.linesRemoved")} {selectedCommit.stats?.deletions ?? '—'}  {t("publicProjectBrowser.lines")}</p>{selectedCommit.files?.map((file) => <div className="live-file" key={file.filename}>{file.filename}</div>)}<button className="button button-primary version-download" disabled={downloadBusy} onClick={() => onDownload({ kind: 'archive', repo, ref: selectedCommit.sha, fileName: `${repo.name}-${selectedCommit.sha.slice(0, 8)}.zip`, offerAdd: true })}><ArrowDownToLine size={18} />{t("publicProjectBrowser.downloadFilesAtThisPoint")}</button></> : <><div className="panel-heading"><h2>{t("publicProjectBrowser.changeHistory")}</h2></div>{historyError && <p className="live-error" role="alert"><ErrorMessage error={historyError} language={language} /></p>}{commits.map((item) => <button className="public-list-row" key={item.sha} onClick={() => void showVersion(item)}><Clock3 size={19} /><span><strong>{item.commit.message.split('\n')[0]}</strong><small>{item.commit.author?.date ? new Date(item.commit.author.date).toLocaleString() : ''}</small></span><ArrowRight size={17} /></button>)}{commits.length === 0 && !busy && !historyError && <p className="muted">{t("publicProjectBrowser.noChangeHistoryYet")}</p>}{!busy && !historyError && <PagedContinuation<GitHubCommit> key={repo.id} action="commitsPage" args={[owner, repo.name]} firstCount={commits.length} language={language} onItems={(items) => setCommits((old) => [...old, ...items.filter((item) => !old.some((known) => known.sha === item.sha))])} />}</>}</>}
     </section>}
     {showProposalForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !issueSaving) setShowProposalForm(false); }}>
       <form className="modal issue-modal proposal-modal" role="dialog" aria-modal="true" aria-labelledby="public-new-proposal-title" onSubmit={(event) => void submitProposal(event)}>
-        <button type="button" className="icon-button modal-close" aria-label="关闭" disabled={issueSaving} onClick={() => setShowProposalForm(false)}><X size={19} /></button>
-        <h2 id="public-new-proposal-title">提出问题/建议</h2>
-        <p>{language === 'en' ? `Send a report or a prepared code change to ${repo.full_name}.` : `向 ${repo.full_name} 的作者反馈问题，或提交已经准备好的代码改进。`}</p>
-        <div className="proposal-options" role="radiogroup" aria-label="反馈类型">
-          <label className={proposalType === 'issue' ? 'selected' : ''}><input type="radio" name="proposal-type" value="issue" checked={proposalType === 'issue'} disabled={issueSaving} onChange={() => setProposalType('issue')} /><span><strong>报告问题</strong><small>描述遇到的问题或提出想法</small></span></label>
-          <label className={proposalType === 'pull' ? 'selected' : ''}><input type="radio" name="proposal-type" value="pull" checked={proposalType === 'pull'} disabled={issueSaving} onChange={() => setProposalType('pull')} /><span><strong>提交合并请求</strong><small>把已保存到 GitHub 的修改交给作者查看</small></span></label>
+        <button type="button" className="icon-button modal-close" aria-label={t("publicProjectBrowser.close")} disabled={issueSaving} onClick={() => setShowProposalForm(false)}><X size={19} /></button>
+        <h2 id="public-new-proposal-title">{t("publicProjectBrowser.reportAnIssueSuggestAChange")}</h2>
+        <p>{t("publicProjectBrowser.reportAnIssueToTheAuthorOfOrPropose", { p0: repo.full_name })}</p>
+        <div className="proposal-options" role="radiogroup" aria-label={t("publicProjectBrowser.feedbackType")}>
+          <label className={proposalType === 'issue' ? 'selected' : ''}><input type="radio" name="proposal-type" value="issue" checked={proposalType === 'issue'} disabled={issueSaving} onChange={() => setProposalType('issue')} /><span><strong>{t("publicProjectBrowser.reportAnIssue")}</strong><small>{t("publicProjectBrowser.describeAProblemOrShareAnIdea")}</small></span></label>
+          <label className={proposalType === 'pull' ? 'selected' : ''}><input type="radio" name="proposal-type" value="pull" checked={proposalType === 'pull'} disabled={issueSaving} onChange={() => setProposalType('pull')} /><span><strong>{t("publicProjectBrowser.createPullRequest")}</strong><small>{t("publicProjectBrowser.shareChangesAlreadySavedToGithubWithTheProject")}</small></span></label>
         </div>
-        {proposalType === 'issue' ? <><label className="field"><span>问题标题</span><input value={issueTitle} onChange={(event) => setIssueTitle(event.target.value)} required maxLength={256} placeholder="一句话概括问题" /></label><label className="field"><span>详细描述</span><textarea rows={5} value={issueBody} onChange={(event) => setIssueBody(event.target.value)} maxLength={65536} placeholder="发生了什么？你希望怎样改进？" /></label></> : <ForkSetup source={repo} currentUser={currentUser} onReady={onForkReady} />}
-        {proposalError && <p className="live-error" role="alert">{proposalError}</p>}
-        <div className="modal-actions"><button type="button" className="button button-quiet" disabled={issueSaving} onClick={() => setShowProposalForm(false)}>取消</button>{proposalType === 'issue' && <button type="submit" className="button button-primary" disabled={issueSaving || !issueTitle.trim()}>创建问题</button>}</div>
+        {proposalType === 'issue' ? <><label className="field"><span>{t("publicProjectBrowser.issueTitle")}</span><input value={issueTitle} onChange={(event) => setIssueTitle(event.target.value)} required maxLength={256} placeholder={t("publicProjectBrowser.summarizeTheIssueInOneSentence")} /></label><label className="field"><span>{t("publicProjectBrowser.details")}</span><textarea rows={5} value={issueBody} onChange={(event) => setIssueBody(event.target.value)} maxLength={65536} placeholder={t("publicProjectBrowser.whatHappenedWhatWouldYouLikeToImprove")} /></label></> : <ForkSetup source={repo} currentUser={currentUser} onReady={onForkReady} />}
+        {proposalError && <p className="live-error" role="alert"><ErrorMessage error={proposalError} language={language} /></p>}
+        <div className="modal-actions"><button type="button" className="button button-quiet" disabled={issueSaving} onClick={() => setShowProposalForm(false)}>{t("publicProjectBrowser.cancel")}</button>{proposalType === 'issue' && <button type="submit" className="button button-primary" disabled={issueSaving || !issueTitle.trim()}>{t("publicProjectBrowser.createIssue")}</button>}</div>
       </form>
     </div>}
   </div>);

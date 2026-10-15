@@ -1,10 +1,22 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { basename, dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
 
-const app = await electron.launch({ executablePath: electronPath, args: ['.'], cwd: process.cwd() });
+const desktop = dirname(fileURLToPath(import.meta.url));
+const product = process.argv.includes('--packaged') ? join(desktop,'release/win-unpacked/resources/app.asar') : desktop;
+const profile = await mkdtemp(join(tmpdir(),'easyhub-discovery-navigation-'));
+const bootstrap = join(profile,'bootstrap.cjs');
+await writeFile(bootstrap, `const{app}=require('electron');app.setPath('userData',${JSON.stringify(join(profile,'data'))});process.env.EASYHUB_PROXY_APP_ONLY_TEST='1';process.env.ELECTRON_RENDERER_URL='data:text/html,Discovery fixture';require(${JSON.stringify(join(product,'out/main/index.js'))});`);
+const env = { ...process.env, NODE_OPTIONS: '' }; delete env.ELECTRON_RUN_AS_NODE;
+const app = await electron.launch({ executablePath: electronPath, args: [bootstrap], cwd: desktop, env });
 try {
-  await app.evaluate(({ ipcMain }) => {
+  await app.evaluate(({ ipcMain, session }) => {
+    session.defaultSession.webRequest.onBeforeRequest({urls:['http://*/*','https://*/*']},(_details,callback)=>callback({cancel:true}));
+    for (const channel of ['easyhub:local-list','easyhub:downloads-list']) { ipcMain.removeHandler(channel); ipcMain.handle(channel,()=>[]); }
     const projects = Array.from({ length: 65 }, (_, index) => ({
       id: index + 1, name: `sample-${index + 1}`, full_name: `writer/sample-${index + 1}`,
       description: `Public sample ${index + 1}`, private: false, archived: false,
@@ -17,6 +29,7 @@ try {
     ipcMain.removeHandler('easyhub:github');
     ipcMain.handle('easyhub:github', (_event, action, ...args) => {
       if (action === 'repos') return [];
+      if (action === 'activityCounts') return Object.fromEntries((args[0] ?? []).map(repo=>[repo.id,{issues:0,closedIssues:0,pullRequests:0,closedPullRequests:0}]));
       if (action === 'trending') {
         const page = args[1] ?? 1;
         return { items: projects.slice((page - 1) * 30, page * 30), page, hasNextPage: page * 30 < projects.length };
@@ -28,8 +41,7 @@ try {
     });
   });
   const page = await app.firstWindow();
-  page.setDefaultTimeout(15000);
-  page.setDefaultNavigationTimeout(20000);
+  await page.goto('file:///'+join(product,'out/renderer/index.html').replaceAll('\\','/'));
   await page.locator('.live-connected').waitFor();
   await page.locator('.sidebar-nav button').filter({ hasText: '发现' }).click();
   await page.locator('.trending-card').nth(25).scrollIntoViewIfNeeded();
@@ -59,4 +71,9 @@ try {
   await page.getByRole('button', { name: '上一页' }).click();
   await page.getByText('#31', { exact: true }).waitFor();
   process.stdout.write('Discovery return position passed.\n');
-} finally { await app.close(); }
+} finally {
+  await app.close();
+  const target=resolve(profile);
+  if(dirname(target)!==resolve(tmpdir())||!basename(target).startsWith('easyhub-discovery-navigation-'))throw Error('Unexpected discovery fixture cleanup path');
+  await rm(target,{recursive:true,force:true});
+}

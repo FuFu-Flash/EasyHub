@@ -1,23 +1,22 @@
 import * as git from 'isomorphic-git';
 import nodeHttp from 'isomorphic-git/http/node';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import { SocksProxyAgent } from 'socks-proxy-agent';
 import { GitHubOriginAgent } from '../services/githubProxyOrigin';
 import type { OriginRule } from '../services/githubProxyOrigin';
 import fs from 'node:fs';
 import { chmod, lstat, mkdir, readFile, realpath, stat, writeFile, rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
-import type { ChangedFile, LocalPublishSelection, LocalPublishPreview, LocalFileDiff, SyncDecision, SyncFileReview, SyncPreview } from '@easyhub/types';
-import { commitSelectedChanges, fileDifference, pendingPublication, snapshotChanges } from './LocalChanges';
+import type { OperationStep, ChangedFile, LocalPublishSelection, LocalPublishPreview, LocalFileDiff, SyncDecision, SyncFileReview, SyncPreview } from '@easyhub/types';
+import { commitSelectedChanges, fileDifference, pendingPublication, snapshotChanges, markSensitiveFiles } from './LocalChanges';
 
-export interface GitProgress { phase: string; loaded?: number; total?: number; cancelable?: boolean }
+export interface GitProgress { step?: OperationStep; phase: string; loaded?: number; total?: number; cancelable?: boolean }
 export interface GitProjectInfo { root: string; isGit: boolean; owner?: string; repo?: string; branch?: string }
 export interface GitProjectStatus { files: ChangedFile[]; head: string | null; hasPreparedChanges: boolean; pendingPublish?: boolean; pendingMessage?: string }
 export interface GitRepository { owner: string; name: string; defaultBranch: string }
 export interface GitAuthor { name: string; email: string }
 
 export class GitEngineError extends Error {
-  constructor(public readonly code: 'remoteChanged' | 'unsupported' | 'empty' | 'invalid', message: string) { super(message); }
+  constructor(public readonly code: 'remoteChanged' | 'unsupported' | 'empty' | 'invalid' | 'sensitive', message: string) { super(message); }
 }
 
 const omittedDirs = new Set(['.git', 'node_modules', '.venv', '__pycache__', '.next', '.turbo', 'dist', 'build']);
@@ -98,7 +97,7 @@ export class GitEngine {
   private readonly http: git.HttpClient;
 
   constructor(proxy?: string, githubRules?: Record<string, OriginRule>) {
-    const agent = proxy ? (/^socks[45]h?:/i.test(proxy) ? new SocksProxyAgent(proxy) : new HttpsProxyAgent(proxy)) : githubRules ? new GitHubOriginAgent({ rules: githubRules }) : undefined;
+    const agent = proxy ? new HttpsProxyAgent(proxy) : githubRules ? new GitHubOriginAgent({ rules: githubRules }) : undefined;
     this.http = agent ? { request: (options) => nodeHttp.request({ ...options, agent }) } : nodeHttp;
   }
 
@@ -115,7 +114,7 @@ export class GitEngine {
   }
 
   async getStatus(dir: string, onProgress?: (value: GitProgress) => void): Promise<GitProjectStatus> {
-    onProgress?.({ phase: '正在检查文件' });
+    onProgress?.({ step: 'checking-files', phase: '正在检查文件' });
     const tracked = new Set(await git.listFiles({ fs, dir }));
     // Status and previews must stay read-only so terminating a scan cannot
     // interrupt an index rewrite, or interfere with another tool's staging.
@@ -153,7 +152,7 @@ export class GitEngine {
         ahead = remote !== headOid && await git.isDescendent({ fs, dir, oid: headOid, ancestor: remote });
       } catch { /* A newly created project may not yet have a remote snapshot. */ }
     }
-    return { files: changed, head: headOid, hasPreparedChanges, pendingPublish: Boolean(pending) || ahead, pendingMessage: pending?.message };
+    return { files: await markSensitiveFiles(dir, changed), head: headOid, hasPreparedChanges, pendingPublish: Boolean(pending) || ahead, pendingMessage: pending?.message };
   }
 
   async getPublishPreview(dir: string, onProgress?: (value: GitProgress) => void): Promise<LocalPublishPreview> {
@@ -193,7 +192,7 @@ export class GitEngine {
   async createProject(dir: string, repo: GitRepository, author: GitAuthor, token: string, onProgress?: (value: GitProgress) => void): Promise<{ head: string }> {
     const info = await this.openProject(dir);
     if (!info.isGit) {
-      onProgress?.({ phase: '正在准备项目' });
+      onProgress?.({ step: 'preparing-project', phase: '正在准备项目' });
       await git.init({ fs, dir: info.root, defaultBranch: repo.defaultBranch });
     } else if (info.branch && info.branch !== repo.defaultBranch) {
       throw new GitEngineError('unsupported', '这个文件夹使用了不同的工作版本，暂时无法直接连接。');
@@ -201,23 +200,31 @@ export class GitEngine {
     const origin = await git.getConfig({ fs, dir: info.root, path: 'remote.origin.url' }) as string | undefined;
     if (origin) throw new GitEngineError('unsupported', '这个文件夹已连接其他云端项目，请先检查项目设置。');
     await git.addRemote({ fs, dir: info.root, remote: 'origin', url: repositoryUrl(repo) });
-    const result = await this.publishInternal(info.root, repo, author, token, '创建项目', true, onProgress);
-    return { head: result.head };
+    // Creating the repository never publishes working files. The UI opens the
+    // same reviewed selection flow used for subsequent updates.
+    return { head: await currentHead(info.root) ?? '' };
   }
 
   async downloadProject(parent: string, repo: GitRepository, token: string, onProgress?: (value: GitProgress) => void): Promise<{ path: string }> {
     const destination = join(parent, repo.name);
     try { await mkdir(destination); }
     catch { throw new GitEngineError('invalid', '保存位置已有同名文件夹，请选择其他位置。'); }
-    onProgress?.({ phase: '正在下载项目' });
+    onProgress?.({ step: 'downloading-project', phase: '正在下载项目' });
     await git.clone({ fs, http: this.http, dir: destination, url: repositoryUrl(repo), ref: repo.defaultBranch, singleBranch: true,
-      onAuth: () => auth(token), onProgress: (event) => onProgress?.({ phase: '正在下载项目', loaded: event.loaded, total: event.total }) });
+      onAuth: () => auth(token), onProgress: (event) => onProgress?.({ step: 'downloading-project', phase: '正在下载项目', loaded: event.loaded, total: event.total }) });
     return { path: destination };
   }
 
   async publishUpdate(dir: string, repo: GitRepository, author: GitAuthor, token: string, message: string, onProgress?: (value: GitProgress) => void, selection?: LocalPublishSelection): Promise<{ head: string; changed: number }> {
     if (!message.trim() || message.length > 200) throw new GitEngineError('invalid', '请用一句话说明这次修改。');
     if (selection) return this.publishSelected(dir, repo, author, token, message.trim(), selection, onProgress);
+    const status = await this.getStatus(dir);
+    if (status.pendingPublish && status.head) {
+      const preview = await this.getPublishPreview(dir);
+      return this.publishSelected(dir, repo, author, token, message.trim(), { snapshot: preview.snapshot, paths: [] }, onProgress);
+    }
+    if (status.files.some((file) => file.sensitiveReasons?.length))
+      throw new GitEngineError('sensitive', '[SENSITIVE_FILES] 项目中有可能包含密码或密钥的文件，请先查看并选择本次发布的文件。');
     return this.publishInternal(dir, repo, author, token, message.trim(), false, onProgress);
   }
 
@@ -236,9 +243,9 @@ export class GitEngine {
     if (current.preview.snapshot !== selection.snapshot && !retryPending) throw new GitEngineError('invalid', '文件在你查看后又发生了变化，请刷新修改列表后重新选择。');
     let remoteHead = await this.fetchRemote(dir, repo, token, onProgress);
     const push = async (head: string): Promise<void> => {
-      onProgress?.({ phase: '正在发布到 GitHub', cancelable: false });
+      onProgress?.({ step: 'publishing-source', phase: '正在发布到 GitHub', cancelable: false });
       const result = await git.push({ fs, http: this.http, dir, url: repositoryUrl(repo), remote: 'origin', ref: head, remoteRef: `refs/heads/${repo.defaultBranch}`, force: false,
-        onAuth: () => auth(token), onProgress: (event) => onProgress?.({ phase: '正在发布到 GitHub', loaded: event.loaded, total: event.total, cancelable: false }) });
+        onAuth: () => auth(token), onProgress: (event) => onProgress?.({ step: 'publishing-source', phase: '正在发布到 GitHub', loaded: event.loaded, total: event.total, cancelable: false }) });
       if (!result.ok || result.error || Object.values(result.refs).some((value) => !value.ok)) throw new GitEngineError('remoteChanged', 'GitHub 没有接受这次发布，请检查项目权限和最新内容后重试。');
       await rm(join(dir, '.git', 'easyhub-publish-pending.json'), { force: true });
     };
@@ -260,7 +267,7 @@ export class GitEngine {
       if (!remoteHead) await push(current.head);
       return { head: current.head, changed: 0 };
     }
-    onProgress?.({ phase: '正在保存选中的修改', cancelable: false });
+    onProgress?.({ step: 'saving-selection', phase: '正在保存选中的修改', cancelable: false });
     const result = await commitSelectedChanges(dir, author, message, selection, rescan);
     try { await push(result.head); }
     catch { throw new GitEngineError('remoteChanged', '选中的修改已安全保存到本地，但还没有上传成功。请点击“重试发布”，未选文件仍保留在电脑上。'); }
@@ -268,12 +275,12 @@ export class GitEngine {
   }
 
   private async fetchRemote(dir: string, repo: GitRepository, token: string, onProgress?: (value: GitProgress) => void): Promise<string | null> {
-    onProgress?.({ phase: '正在检查 GitHub 上的新内容' });
+    onProgress?.({ step: 'checking-remote', phase: '正在检查 GitHub 上的新内容' });
     const refs = await git.listServerRefs({ http: this.http, url: repositoryUrl(repo), prefix: `refs/heads/${repo.defaultBranch}`, onAuth: () => auth(token) });
     const remoteHead = refs.find((entry) => entry.ref === `refs/heads/${repo.defaultBranch}`)?.oid;
     if (!remoteHead) return null;
     const fetched = await git.fetch({ fs, http: this.http, dir, url: repositoryUrl(repo), ref: repo.defaultBranch, singleBranch: true,
-      onAuth: () => auth(token), onProgress: (event) => onProgress?.({ phase: '正在检查 GitHub 上的新内容', loaded: event.loaded, total: event.total }) });
+      onAuth: () => auth(token), onProgress: (event) => onProgress?.({ step: 'checking-remote', phase: '正在检查 GitHub 上的新内容', loaded: event.loaded, total: event.total }) });
     return fetched.fetchHead ?? remoteHead;
   }
 
@@ -329,7 +336,7 @@ export class GitEngine {
     const payloads = await Promise.all(remoteFiles.filter((file) => !file.removed).map(async (file) => ({ path: file.path,
       bytes: Buffer.from((await git.readBlob({ fs, dir, oid: remoteHead, filepath: file.path })).blob) })));
     const payloadByPath = new Map(payloads.map((item) => [item.path, item.bytes]));
-    onProgress?.({ phase: '正在获取最新内容', cancelable: false });
+    onProgress?.({ step: 'getting-latest', phase: '正在获取最新内容', cancelable: false });
     const marker = await incompleteSyncPath(dir);
     try { await writeFile(marker, JSON.stringify({ before, remoteHead }), { flag: 'wx' }); }
     catch { throw new GitEngineError('unsupported', '暂时无法安全更新这个项目，请检查项目文件夹后重试。'); }
@@ -376,12 +383,12 @@ export class GitEngine {
       status = await this.getStatus(dir, onProgress);
     }
     if (status.files.length > 0) {
-      onProgress?.({ phase: '正在整理修改', loaded: 0, total: status.files.length, cancelable: false });
+      onProgress?.({ step: 'collecting-changes', phase: '正在整理修改', loaded: 0, total: status.files.length, cancelable: false });
       for (const [index, file] of status.files.entries()) {
         if (file.kind === 'renamed' && file.previousPath) await git.remove({ fs, dir, filepath: file.previousPath });
         if (file.kind === 'deleted') await git.remove({ fs, dir, filepath: file.path });
         else await git.add({ fs, dir, filepath: file.path });
-        onProgress?.({ phase: '正在整理修改', loaded: index + 1, total: status.files.length });
+        onProgress?.({ step: 'collecting-changes', phase: '正在整理修改', loaded: index + 1, total: status.files.length });
       }
       await git.commit({ fs, dir, message, author });
     } else if (!before && initial) {
@@ -390,9 +397,9 @@ export class GitEngine {
     const head = await currentHead(dir);
     if (!head) throw new GitEngineError('empty', '项目里没有可以发布的内容。');
     if (remoteHead !== head) {
-      onProgress?.({ phase: '正在发布到 GitHub' });
+      onProgress?.({ step: 'publishing-source', phase: '正在发布到 GitHub' });
       await git.push({ fs, http: this.http, dir, url: repositoryUrl(repo), remote: 'origin', ref: repo.defaultBranch, force: false,
-        onAuth: () => auth(token), onProgress: (event) => onProgress?.({ phase: '正在发布到 GitHub', loaded: event.loaded, total: event.total }) });
+        onAuth: () => auth(token), onProgress: (event) => onProgress?.({ step: 'publishing-source', phase: '正在发布到 GitHub', loaded: event.loaded, total: event.total }) });
     }
     return { head, changed: status.files.length };
   }

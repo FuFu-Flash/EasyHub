@@ -1,0 +1,90 @@
+/* Desktop design tokens. See docs/desktop-styles.md for the contract. */
+:root {
+  --eh-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  --eh-font-mono: Consolas, 'Cascadia Code', monospace;
+
+  /* One shared palette: 30 colors, including decorative colors. */
+  --eh-color-primary: #2369de;
+  --eh-color-primary-hover: #1756bf;
+  --eh-color-primary-soft: #eaf3ff;
+  --eh-color-ink: #19304b;
+  --eh-color-ink-soft: #314965;
+  --eh-color-muted: #657990;
+  --eh-color-faint: #8b9bb0;
+  --eh-color-surface: #ffffff;
+  --eh-color-surface-subtle: #f8faff;
+  --eh-color-surface-bg: #f5f7fb;
+  --eh-color-surface-sunken: #edf2f8;
+  --eh-color-line: #e3eaf3;
+  --eh-color-line-strong: #d8e4f3;
+  --eh-color-line-primary: #90b8ff;
+  --eh-color-danger: #c53347;
+  --eh-color-danger-soft: #fff0f1;
+  --eh-color-danger-line: #f3c6c9;
+  --eh-color-success: #208a4d;
+  --eh-color-success-soft: #eaf8ef;
+  --eh-color-success-line: #b8eaca;
+  --eh-color-warning: #966318;
+  --eh-color-warning-soft: #fff5e7;
+  --eh-color-warning-line: #f2deb9;
+  --eh-color-accent: #7655e8;
+  --eh-color-accent-soft: #f0e8ff;
+  --eh-color-hero: #193b66;
+  --eh-color-hero-glow: #3b82d9;
+  --eh-color-leaf: #72c546;
+  --eh-color-amber: #dc8a13;
+  --eh-color-scrim: #142c50;
+
+  /* Type, shape and spacing scales. */
+  --eh-text-12: 12px;
+  --eh-text-13: 13px;
+  --eh-text-14: 14px;
+  --eh-text-16: 16px;
+  --eh-text-20: 20px;
+  --eh-text-24: 24px;
+  --eh-text-32: 32px;
+  --eh-weight-400: 400;
+  --eh-weight-500: 500;
+  --eh-weight-600: 600;
+  --eh-weight-700: 700;
+  --eh-radius-4: 4px;
+  --eh-radius-8: 8px;
+  --eh-radius-12: 12px;
+  --eh-radius-999: 999px;
+  --eh-space-2: 2px;
+  --eh-space-4: 4px;
+  --eh-space-6: 6px;
+  --eh-space-8: 8px;
+  --eh-space-10: 10px;
+  --eh-space-12: 12px;
+  --eh-space-14: 14px;
+  --eh-space-16: 16px;
+  --eh-space-20: 20px;
+  --eh-space-24: 24px;
+  --eh-space-28: 28px;
+  --eh-space-32: 32px;
+  --eh-space-40: 40px;
+  --eh-space-48: 48px;
+  --eh-space-64: 64px;
+  --eh-leading-tight: 1.3;
+  --eh-leading-normal: 1.6;
+
+  /* Elevation, focus, motion and stacking. */
+  --eh-shadow-card: 0 10px 30px color-mix(in srgb, var(--eh-color-ink) 4.31%, transparent);
+  --eh-shadow-raised: 0 16px 30px color-mix(in srgb, var(--eh-color-ink) 8.63%, transparent);
+  --eh-shadow-menu: 0 14px 34px color-mix(in srgb, var(--eh-color-scrim) 12.94%, transparent);
+  --eh-shadow-popover: 0 20px 44px color-mix(in srgb, var(--eh-color-scrim) 16.08%, transparent);
+  --eh-shadow-dialog: 0 25px 80px color-mix(in srgb, var(--eh-color-ink) 25.1%, transparent);
+  --eh-shadow-primary: 0 6px 13px color-mix(in srgb, var(--eh-color-primary) 16.08%, transparent);
+  --eh-shadow-small: 0 2px 8px color-mix(in srgb, var(--eh-color-ink) 12.94%, transparent);
+  --eh-shadow-topbar: 0 1px 8px color-mix(in srgb, var(--eh-color-muted) 4.71%, transparent);
+  --eh-focus-ring: var(--eh-color-line-primary);
+  --eh-focus-ring-width: 3px;
+  --eh-focus-ring-offset: 2px;
+  --eh-duration-fast: .16s;
+  --eh-duration-base: .2s;
+  --eh-ease-standard: cubic-bezier(.2, .7, .2, 1);
+  --eh-z-topbar: 30;
+  --eh-z-popover: 35;
+  --eh-z-dropdown: 75;
+}

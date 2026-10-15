@@ -37,7 +37,7 @@ describe('verified selected-code explanation', () => {
     expect(call[2]).not.toContain('Private repository'); expect(call[2]).not.toContain('function sum'); expect(call[2]).not.toContain('FORGED');
     expect(call[1]).toContain('English'); expect(call[1]).toContain('untrusted DATA');
     expect(call[1]).toContain('Do not execute code'); expect(call[1]).toContain('control/data flow'); expect(call[1]).toContain('not a whole-file');
-    expect(call[4]).toEqual({ maxOutputTokens: 3000 });
+    expect(call[4]).toEqual({ maxOutputTokens: 3000, purpose: 'explanation' });
     expect(JSON.stringify(result)).not.toContain(credentials.apiKey);
   });
 

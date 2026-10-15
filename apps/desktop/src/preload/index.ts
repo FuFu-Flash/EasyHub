@@ -1,26 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { isMenuCommand, type MenuCommand, type MenuState } from '../shared/applicationMenu';
 import type { DownloadCommand, DownloadItem, DownloadRequest } from '../downloads';
 import type { LocalPublishSelection } from '@easyhub/types';
 
 contextBridge.exposeInMainWorld('easyHub', {
-  platform: process.platform,
-  setMenuState: (state: MenuState): Promise<void> => ipcRenderer.invoke('easyhub:menu-state', state),
-  onMenuCommand: (callback: (command: MenuCommand) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, command: unknown): void => {
-      if (isMenuCommand(command)) callback(command);
-    };
-    ipcRenderer.on('easyhub:menu-command', handler);
-    return (): void => { ipcRenderer.removeListener('easyhub:menu-command', handler); };
-  },
-  macProxy: {
-    status: () => ipcRenderer.invoke('easyhub:mac-proxy-status'),
-    setEnabled: (enabled: boolean) => ipcRenderer.invoke('easyhub:mac-proxy-set-enabled', enabled),
-    probe: () => ipcRenderer.invoke('easyhub:mac-proxy-probe'),
-    openSettings: () => ipcRenderer.invoke('easyhub:mac-proxy-open-settings'),
-    onChanged: (callback: (value: unknown) => void) => { const handler = (_event: Electron.IpcRendererEvent, value: unknown): void => callback(value); ipcRenderer.on('easyhub:mac-proxy-changed', handler); return (): void => { ipcRenderer.removeListener('easyhub:mac-proxy-changed', handler); }; },
-  },
-  copyPairingCode: (code: string): Promise<boolean> => ipcRenderer.invoke('easyhub:copy-pairing-code', code),
+  reportRendererError: (report: { scope: string; message: string; stack: string; componentStack: string }) => ipcRenderer.invoke('easyhub:renderer-error', report),
+  onNavigate: (callback: (direction: 'back' | 'forward') => void) => { const handler = (_event: Electron.IpcRendererEvent, direction: unknown): void => { if (direction === 'back' || direction === 'forward') callback(direction); }; ipcRenderer.on('easyhub:navigate', handler); return (): void => { ipcRenderer.removeListener('easyhub:navigate', handler); }; },
   downloadsList: () => ipcRenderer.invoke('easyhub:downloads-list'),
   downloadsEnqueue: (request: DownloadRequest) => ipcRenderer.invoke('easyhub:downloads-enqueue', request),
   downloadsCommand: (id: string, command: DownloadCommand) => ipcRenderer.invoke('easyhub:downloads-command', id, command),
@@ -29,6 +13,8 @@ contextBridge.exposeInMainWorld('easyHub', {
   onDownloadsChanged: (callback: (items: DownloadItem[]) => void) => { const handler = (_event: Electron.IpcRendererEvent, items: DownloadItem[]): void => callback(items); ipcRenderer.on('easyhub:downloads-changed', handler); return (): void => { ipcRenderer.removeListener('easyhub:downloads-changed', handler); }; },
   chooseFolder: (): Promise<string | null> => ipcRenderer.invoke('easyhub:choose-folder'),
   localList: () => ipcRenderer.invoke('easyhub:local-list'),
+  localRelocate: (id: string, path: string) => ipcRenderer.invoke('easyhub:local-relocate', id, path),
+  localRemove: (id: string) => ipcRenderer.invoke('easyhub:local-remove', id),
   localDiscoveryRoots: () => ipcRenderer.invoke('easyhub:local-discovery-roots'),
   localDiscoveryAddRoot: (path: string) => ipcRenderer.invoke('easyhub:local-discovery-add-root', path),
   localDiscoveryRemoveRoot: (path: string) => ipcRenderer.invoke('easyhub:local-discovery-remove-root', path),
@@ -54,7 +40,6 @@ contextBridge.exposeInMainWorld('easyHub', {
   onLocalProgress: (callback: (value: unknown) => void) => { const handler = (_event: Electron.IpcRendererEvent, value: unknown): void => callback(value); ipcRenderer.on('easyhub:local-progress', handler); return (): void => { ipcRenderer.removeListener('easyhub:local-progress', handler); }; },
   onLocalStatus: (callback: (value: unknown) => void) => { const handler = (_event: Electron.IpcRendererEvent, value: unknown): void => callback(value); ipcRenderer.on('easyhub:local-status', handler); return (): void => { ipcRenderer.removeListener('easyhub:local-status', handler); }; },
   minimizeWindow: (): Promise<void> => ipcRenderer.invoke('easyhub:window-minimize'),
-  setWindowControlStyle: (style: 'windows' | 'reference', density?: 'comfortable' | 'compact'): Promise<void> => ipcRenderer.invoke('easyhub:window-set-style', style, density),
   toggleMaximizeWindow: (): Promise<void> => ipcRenderer.invoke('easyhub:window-toggle-maximize'),
   closeWindow: (): Promise<void> => ipcRenderer.invoke('easyhub:window-close'),
   openLicense: (): Promise<void> => ipcRenderer.invoke('easyhub:open-license'),
@@ -73,6 +58,7 @@ contextBridge.exposeInMainWorld('easyHub', {
   aiTestConnection: () => ipcRenderer.invoke('easyhub:ai-test-connection'),
   aiReviewPull: (input: unknown) => ipcRenderer.invoke('easyhub:ai-review-pull', input),
   aiExplainCode: (input: unknown) => ipcRenderer.invoke('easyhub:ai-explain-code', input),
+  aiExplainCommit: (input: unknown) => ipcRenderer.invoke('easyhub:ai-explain-commit', input),
   aiCancelReview: (id: string) => ipcRenderer.invoke('easyhub:ai-cancel-review', id),
   binaryAnalysisStatus: () => ipcRenderer.invoke('easyhub:binary-analysis-status'),
   binaryAnalysisInstall: (id: string) => ipcRenderer.invoke('easyhub:binary-analysis-install', id),

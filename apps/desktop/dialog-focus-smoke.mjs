@@ -20,13 +20,12 @@ import { useDialogFocus } from '/src/components/useDialogFocus.ts';
 import { useDownloadCenter } from '/src/components/useDownloadCenter.ts';
 import { DownloadNotifications } from '/src/components/DownloadNotifications.tsx';
 import '/src/styles.css';
-import '/src/v2.css';
 localStorage.setItem('easyhub:language', 'zh');
 const repo = { id: 1, name: 'fixture', full_name: 'fixture/fixture', private: false, owner: { login: 'fixture' }, default_branch: 'main', updated_at: '', open_issues_count: 0 };
 let rows = [{ id: 'fixture-download', request: { kind: 'archive', repo, ref: 'main', fileName: 'example.zip' }, state: 'complete', percent: 100, loaded: 1024, total: 1024, path: 'C:/fixture/example.zip', seen: true, phase: '项目已经下载完成。' }];
 const listeners = new Set();
 window.githubCallLog = [];
-window.easyHub = { platform: ${JSON.stringify(process.platform)},
+window.easyHub = {
   authStatus: async () => ({ user: null }),
   github: async (...args) => { window.githubCallLog.push(args); throw Error('Demo must not call GitHub'); },
   chooseFolder: async () => 'C:/fixture',
@@ -80,12 +79,11 @@ let browser;
 try {
   await server.listen();
   const address = server.httpServer.address(); assert.ok(address && typeof address !== 'string');
-  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true });
   const page = await browser.newPage({ viewport: { width: 1060, height: 740 } });
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   const url = `http://127.0.0.1:${address.port}/dialog-focus-test`;
-  await page.route('**/*', route => new URL(route.request().url()).origin === `http://127.0.0.1:${address.port}` ? route.continue() : route.abort());
   await page.goto(url);
   const focusedInside = dialog => dialog.evaluate(element => element.contains(document.activeElement));
   const focused = locator => locator.evaluate(element => document.activeElement === element);
@@ -165,10 +163,10 @@ try {
   await page.getByRole('heading', { name: demoName, exact: true }).waitFor();
   await page.locator('.detail-hero').getByText('演示已保存 · 未上传到 GitHub', { exact: true }).waitFor();
   await page.getByRole('button', { name: '模拟文件修改', exact: true }).click();
-  await page.getByRole('button', { name: '发布更新', exact: true }).click();
+  await page.getByRole('button', { name: '发布源码', exact: true }).click();
   await page.getByPlaceholder('例如：修复窗口缩放问题', { exact: true }).fill(demoMessage);
-  await page.getByRole('button', { name: '发布更新', exact: true }).click();
-  await page.getByRole('heading', { name: '历史版本', exact: true }).waitFor();
+  await page.getByRole('button', { name: '发布源码', exact: true }).click();
+  await page.getByRole('heading', { name: '修改记录', exact: true }).waitFor();
   await page.getByText(demoMessage, { exact: true }).waitFor();
   await page.locator('.toast').getByText('演示更新已保存 · 未上传到 GitHub', { exact: true }).waitFor();
   assert.deepEqual(await page.evaluate(() => window.githubCallLog), [], 'Demo creation and publishing perform no GitHub requests');

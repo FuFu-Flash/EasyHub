@@ -2,19 +2,28 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
+import { _electron as electron } from 'playwright-core';
+import electronPath from 'electron';
 import { installDownloadFixture } from './download-fixture.mjs';
 
 // Real built renderer with isolated IPC. Covers only stale favorites and a
 // delayed publication failure crossing repository navigation. Network is denied.
 const desktop = dirname(fileURLToPath(import.meta.url));
+const product = process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'release-navigation-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
-const { app, executable, renderer } = await launchUpstreamFixture(desktop, {
-  profile: join(run, 'profile'), launcher: join(run, 'launch.cjs'),
-  registerName: 'registerFixture', rejectedName: 'upstreamRejectedIPC', title: 'Release navigation fixture'
-});
+const launcher = join(run, 'launch.cjs');
+await writeFile(launcher, `
+const { app, ipcMain } = require('electron');
+app.setPath('userData', ${JSON.stringify(join(run, 'profile'))});
+process.env.EASYHUB_PROXY_APP_ONLY_TEST = '1';
+process.env.ELECTRON_RENDERER_URL = 'data:text/html,Release navigation fixture';
+globalThis.registerFixture = ipcMain.handle.bind(ipcMain);
+ipcMain.handle = (channel, handler) => globalThis.registerFixture(channel, channel.startsWith('easyhub:') ? () => { throw new Error('Unexpected IPC: ' + channel); } : handler);
+require(${JSON.stringify(join(product, 'out', 'main', 'index.js'))});
+`);
+const app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
 try {
   await app.evaluate(({ ipcMain, session }) => {
     session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_details, callback) => callback({ cancel: true }));
@@ -57,7 +66,7 @@ try {
   page.setDefaultTimeout(12000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => { localStorage.setItem('easyhub:language', 'zh'); localStorage.setItem('easyhub:auto-translate', 'false'); });
-  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), renderer);
+  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), join(product, 'out', 'renderer', 'index.html'));
   await page.locator('.live-connected').waitFor();
   await page.setViewportSize({ width: 1060, height: 720 });
   const openStarred = async () => {
@@ -67,7 +76,8 @@ try {
   };
   const openRepository = async name => {
     await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目', exact: true }).click();
-    if (await page.locator('.detail-hero').isVisible()) await page.getByRole('button', { name: '所有项目', exact: true }).click();
+    // A second click on the active sidebar entry opens its root; Back follows chronological history.
+    if (await page.locator('.detail-hero').isVisible()) await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目', exact: true }).click();
     await page.locator('.cloud-row').filter({ has: page.getByRole('button', { name, exact: true }) }).getByRole('button', { name: '查看', exact: true }).click();
     await page.locator('.detail-hero').getByRole('heading', { name, exact: true }).waitFor();
   };
@@ -84,24 +94,24 @@ try {
   assert.deepEqual(await app.evaluate(() => globalThis.releaseNavigationFixture.starChanges), [['tester', 'repository-a', true]]);
 
   await openRepository('repository-a');
-  await page.getByRole('button', { name: '发布新版本', exact: true }).click();
-  await page.getByRole('textbox', { name: '版本名称', exact: true }).fill('Repository A release');
-  await page.getByRole('textbox', { name: '版本介绍', exact: true }).fill('A release awaiting publication.');
+  await page.getByRole('button', { name: '发布发行版', exact: true }).click();
+  await page.getByRole('textbox', { name: '发行版名称', exact: true }).fill('Repository A release');
+  await page.getByRole('textbox', { name: '发行版介绍', exact: true }).fill('A release awaiting publication.');
   await page.getByRole('button', { name: '预览发布效果', exact: true }).click();
-  await page.getByRole('button', { name: '确认发布新版本', exact: true }).click();
+  await page.getByRole('button', { name: '确认发布发行版', exact: true }).click();
   await page.getByRole('button', { name: '正在发布…', exact: true }).waitFor();
   assert.equal(await app.evaluate(() => globalThis.releaseNavigationFixture.publishCalls.length), 1);
   await page.locator('.sidebar-nav').getByRole('button', { name: '首页', exact: true }).click();
   await page.locator('.home-project-row').filter({ has: page.getByRole('button', { name: /repository-b/ }) }).getByRole('button', { name: '打开项目', exact: true }).click();
   await page.locator('.detail-hero').getByRole('heading', { name: 'repository-b', exact: true }).waitFor();
-  await page.getByRole('button', { name: '发布新版本', exact: true }).click();
-  await page.getByRole('textbox', { name: '版本名称', exact: true }).fill('Repository B independent release');
-  await page.getByRole('textbox', { name: '版本介绍', exact: true }).fill('B description must remain independent.');
+  await page.getByRole('button', { name: '发布发行版', exact: true }).click();
+  await page.getByRole('textbox', { name: '发行版名称', exact: true }).fill('Repository B independent release');
+  await page.getByRole('textbox', { name: '发行版介绍', exact: true }).fill('B description must remain independent.');
   await page.getByRole('button', { name: '预览发布效果', exact: true }).click();
   await app.evaluate(() => globalThis.releaseNavigationFixture.failA());
-  const publishB = page.getByRole('button', { name: '确认发布新版本', exact: true });
+  const publishB = page.getByRole('button', { name: '确认发布发行版', exact: true });
   await publishB.waitFor();
-  await page.waitForFunction(() => ![...document.querySelectorAll('button')].find(button => button.textContent?.includes('确认发布新版本'))?.disabled);
+  await page.waitForFunction(() => ![...document.querySelectorAll('button')].find(button => button.textContent?.includes('确认发布发行版'))?.disabled);
   assert.equal(await publishB.isEnabled(), true, 'A failure cannot disable B publication');
   assert.equal(await page.locator('[data-testid="release-recovery"]').count(), 0, 'A recovery/draft card is never shown on B');
   assert.equal(await page.getByText('A_REPOSITORY_ONLY_PUBLICATION_FAILURE', { exact: true }).count(), 0, 'A failure text is not attached to B');
@@ -116,4 +126,4 @@ try {
   await page.screenshot({ path: join(output, 'repository-b-published.png') });
   await writeFile(join(output, 'result.json'), JSON.stringify({ passed: true, builtRenderer: true, networkDenied: true, coverage: ['empty favorites refresh after starring', 'deferred release failure isolated across repository navigation'] }, null, 2));
   process.stdout.write('Built live UI passed: favorites refresh and publication failure isolation across repositories.\n');
-} finally { await app.close(); }
+} catch(error) { const page=await app.firstWindow(); await page.screenshot({path:join(output,'failure.png')}); await writeFile(join(output,'failure.txt'),await page.locator('body').innerText()); throw error; } finally { await app.close(); }

@@ -1,3 +1,10 @@
+import { useNoticeState } from '../useNoticeState';
+import { progressLabel } from '../progressLabel';
+import { useTranslation } from '../localization';
+import { useEasyHub } from '../bridge';
+import { ErrorMessage } from './ErrorMessage';
+import { errorText } from '../errors';
+import { formatDateTime } from '../format';
 import { SegmentedControl } from './SegmentedControl';
 import { createDraftKey } from '../draftStore';
 import { useLocalDraft } from '../useLocalDraft';
@@ -17,9 +24,9 @@ import { isProgramFileName } from '../../../shared/programFiles';
 import { PROGRAM_REVIEW_COMPONENT_STATUS_CHANGED_EVENT, requestProgramReviewSettings, useProgramReviewNotice } from '../programReviewNotice';
 import { TranslatableContent } from './TranslatableContent';
 import type { Language } from '../i18n';
-import './aiReview.css';
+import { usePageHistory } from '../usePageHistory';
+import { useNestedNavigation } from '../nestedNavigation';
 
-function errorText(error: unknown): string { return error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/, '') : '暂时无法完成操作，请稍后重试。'; }
 interface PullReviewSnapshot { repository: GitHubRepo; pullRequest: GitHubPullRequest; files: GitHubPullFile[]; filesTruncated: boolean }
 
 export function PullRequestsPanel({ repo, currentUser, language, showCreateButton = true, refreshKey = 0, initialRequest, onActivityChanged, onDownloadFile, onOpenAiSettings, onBackChange, scrollArea: parentScrollArea, downloadBusy = false }: {
@@ -36,6 +43,8 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   scrollArea?: RefObject<HTMLDivElement | null>;
   downloadBusy?: boolean;
 }) {
+  const t = useTranslation(language);
+  const easyHub = useEasyHub();
   const [discussionSearch, changeDiscussionSearch] = useDiscussionSearchState(currentUser, `project:${repo.id}:${repo.full_name}:pr`);
   const searchActive = Boolean(discussionSearch.query);
   const [listState, setListState] = useState<'open' | 'closed' | 'all'>('all');
@@ -63,7 +72,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   const [decision, setDecision] = useState<'accept' | 'reject' | null>(null);
   const [decisionReason, setDecisionReason] = useState('');
   const [decisionBusy, setDecisionBusy] = useState(false);
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useNoticeState(language);
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
   const [aiSettings, setAiSettings] = useState<AiSettingsStatus | null>(null);
   const [aiConfirm, setAiConfirm] = useState(false);
@@ -82,7 +91,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   const reviewVersion = useRef(0);
   const mounted = useRef(false);
   const owner = repo.owner.login;
-  const t = (zh: string, en: string): string => language === 'en' ? en : zh;
+  
   const canManage = snapshotReady && snapshotRepo !== null && !snapshotRepo.archived && (snapshotRepo.permissions?.admin === true || snapshotRepo.permissions?.push === true || snapshotRepo.owner.login.toLowerCase() === currentUser.toLowerCase());
   const hasRevision = Boolean(selected?.head.sha);
   const hasDecisionRevision = hasRevision && Boolean(selected?.base.ref && selected.base.sha);
@@ -97,7 +106,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     const refreshStatus = async (): Promise<void> => {
       const request = ++programStatusRequest.current;
       try {
-        const status = await window.easyHub!.binaryAnalysisStatus();
+        const status = await easyHub!.binaryAnalysisStatus();
         if (active && request === programStatusRequest.current) setProgramStatus({ key: programSnapshotKey, status });
       } catch {
         if (active && request === programStatusRequest.current) setProgramStatus(null);
@@ -115,7 +124,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   }, [programSnapshotKey]);
   const markdown = (value: string) => <ReadmeMarkdown markdown={value}
     repository={{ owner, name: repo.name, branch: repo.default_branch }}
-    onOpenLink={(url) => { void window.easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} />;
+    onOpenLink={(url) => { void easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} />;
   const panelRef = useRef<HTMLElement>(null);
   const scrollArea = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -124,26 +133,32 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
   const rememberPage = usePageScroll(`${repo.id}:${selected?.number ?? 'list'}:${listState}:${discussionSearch.query}`, parentScrollArea ?? scrollArea, () => panelRef.current?.isConnected === true);
   const backChange = useRef(onBackChange);
   backChange.current = onBackChange;
+  const requestHistory = usePageHistory(`${repo.id}:${selected?.number ?? 'list'}`, () => {
+    setListState(listState); changeDiscussionSearch(discussionSearch);
+    if (selected) void open(selected); else backToList();
+  });
+  const backInRequests = (): void => { if (!decisionBusy) { rememberPage(); requestHistory.back(backToList); } };
+  useNestedNavigation(panelRef, selected ? backInRequests : null, requestHistory.hasForward ? () => { rememberPage(); requestHistory.forward(); } : null, decisionBusy);
   function backToList(): void {
     if (decisionBusy) return;
     rememberPage();
     viewVersion.current += 1; resetReview(); setSelected(null); setError(''); setBusy(false); setNotice('');
   }
   useLayoutEffect(() => {
-    onBackChange?.(selected ? backToList : null, selected ? String(selected.number) : 'list', decisionBusy);
+    onBackChange?.(selected ? backInRequests : null, selected ? String(selected.number) : 'list', decisionBusy);
   });
   useEffect(() => () => backChange.current?.(null, 'list', false), []);
 
   useEffect(() => {
     mounted.current = true;
-    const unsubscribe = window.easyHub?.onAiReviewProgress((value) => {
+    const unsubscribe = easyHub?.onAiReviewProgress((value) => {
       if (value.requestId === aiRequestId.current && value.requestId !== canceledAiRequestId.current) setAiProgress(value);
     });
     return () => {
       mounted.current = false;
       viewVersion.current += 1;
       unsubscribe?.();
-      if (aiRequestId.current) void window.easyHub?.aiCancelReview(aiRequestId.current).catch(() => undefined);
+      if (aiRequestId.current) void easyHub?.aiCancelReview(aiRequestId.current).catch(() => undefined);
       aiRequestId.current = null;
     };
   }, []);
@@ -153,7 +168,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     const requestId = aiRequestId.current;
     if (requestId) {
       canceledAiRequestId.current = requestId; setAiCanceling(true);
-      void window.easyHub?.aiCancelReview(requestId).catch(() => undefined);
+      void easyHub?.aiCancelReview(requestId).catch(() => undefined);
     } else { setAiProgress(null); setAiCanceling(false); canceledAiRequestId.current = null; }
     setAiReview(null); setAiError(''); setAiConfirm(false); setAiPreparing(false);
   }
@@ -170,7 +185,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     resetReview(); setDecision(null); setNotice('');
     setSnapshotReady(false); setSnapshotRepo(null); setFilesTruncated(false);
     setItems([]); setSelected(null); setComments([]); setFiles([]); setPage(1); setHasMore(false); setError(''); setSourceOwner(currentUser); setBase(repo.default_branch); setBusy(true);
-    void window.easyHub!.github<GitHubPullRequest[]>(listState === 'all' ? 'pullRequests' : 'pullRequestsPage', owner, repo.name, ...(listState === 'all' ? [1] : [listState, 1])).then((result) => {
+    void easyHub!.github<GitHubPullRequest[]>(listState === 'all' ? 'pullRequests' : 'pullRequestsPage', owner, repo.name, ...(listState === 'all' ? [1] : [listState, 1])).then((result) => {
       if (!active) return;
       setItems(result); setHasMore(result.length === 100);
       if (initialRequest) void open(initialRequest);
@@ -184,7 +199,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     setBusy(true); setError('');
     try {
       const next = page + 1;
-      const result = await window.easyHub!.github<GitHubPullRequest[]>(listState === 'all' ? 'pullRequests' : 'pullRequestsPage', owner, repo.name, ...(listState === 'all' ? [next] : [listState, next]));
+      const result = await easyHub!.github<GitHubPullRequest[]>(listState === 'all' ? 'pullRequests' : 'pullRequestsPage', owner, repo.name, ...(listState === 'all' ? [next] : [listState, next]));
       if (!mounted.current || generation !== viewVersion.current) return;
       setItems((current) => [...current, ...result.filter((item) => !current.some((known) => known.id === item.id))]);
       setPage(next); setHasMore(result.length === 100);
@@ -199,15 +214,15 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     setSnapshotReady(false); setSnapshotRepo(null); setFilesTruncated(false);
     setSelected(item); setComments([]); setFiles([]); setBusy(true); setError('');
     try {
-      const detail = await window.easyHub!.github<GitHubPullRequest>('pullRequest', owner, repo.name, item.number);
+      const detail = await easyHub!.github<GitHubPullRequest>('pullRequest', owner, repo.name, item.number);
       if (version !== viewVersion.current || !mounted.current) return;
-      if (!detail.head.sha) throw new Error(t('暂时无法确认修改版本，请重新获取。', 'The change version could not be verified. Please refresh.'));
+      if (!detail.head.sha) throw new Error(t("pullRequestsPanel.theChangeVersionCouldNotBeVerifiedPleaseRefresh"));
       const [context, discussion] = await Promise.all([
-        window.easyHub!.github<PullReviewSnapshot>('pullReviewContext', owner, repo.name, item.number, detail.head.sha),
-        window.easyHub!.github<GitHubComment[]>('comments', owner, repo.name, item.number),
+        easyHub!.github<PullReviewSnapshot>('pullReviewContext', owner, repo.name, item.number, detail.head.sha),
+        easyHub!.github<GitHubComment[]>('comments', owner, repo.name, item.number),
       ]);
       if (version !== viewVersion.current || !mounted.current) return;
-      if (context.pullRequest.head.sha !== detail.head.sha || context.pullRequest.base.ref !== detail.base.ref || context.pullRequest.base.sha !== detail.base.sha) throw new Error(t('这次改进已更新，请重新获取后再决定。', 'These changes have been updated. Refresh before deciding.'));
+      if (context.pullRequest.head.sha !== detail.head.sha || context.pullRequest.base.ref !== detail.base.ref || context.pullRequest.base.sha !== detail.base.sha) throw new Error(t("pullRequestsPanel.theseChangesHaveBeenUpdatedRefreshBeforeDeciding"));
       setSelected(context.pullRequest); setComments(discussion); setFiles(context.files);
       setSnapshotRepo(context.repository); setFilesTruncated(context.filesTruncated); setSnapshotReady(true);
       setItems((current) => current.map((known) => known.id === context.pullRequest.id ? context.pullRequest : known));
@@ -222,10 +237,10 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     setDecisionBusy(true); setError(''); setNotice('');
     try {
       if (action === 'accept') {
-        const result = await window.easyHub!.github<{ merged: boolean; sha: string; message: string }>('acceptPullRequest', owner, repo.name, selected.number, { expectedHeadSha: selected.head.sha, expectedBaseRef: selected.base.ref, expectedBaseSha: selected.base.sha });
-        if (!result.merged) throw new Error(t('这次改进暂时不能合入，请刷新后查看最新状态。', 'These changes cannot be merged yet. Refresh to see the latest status.'));
+        const result = await easyHub!.github<{ merged: boolean; sha: string; message: string }>('acceptPullRequest', owner, repo.name, selected.number, { expectedHeadSha: selected.head.sha, expectedBaseRef: selected.base.ref, expectedBaseSha: selected.base.sha });
+        if (!result.merged) throw new Error(t("pullRequestsPanel.theseChangesCannotBeMergedYetRefreshToSee"));
       } else {
-        await window.easyHub!.github<GitHubPullRequest>('rejectPullRequest', owner, repo.name, selected.number, { expectedHeadSha: selected.head.sha, expectedBaseRef: selected.base.ref, expectedBaseSha: selected.base.sha, ...(decisionReason.trim() ? { reason: decisionReason.trim() } : {}) });
+        await easyHub!.github<GitHubPullRequest>('rejectPullRequest', owner, repo.name, selected.number, { expectedHeadSha: selected.head.sha, expectedBaseRef: selected.base.ref, expectedBaseSha: selected.base.sha, ...(decisionReason.trim() ? { reason: decisionReason.trim() } : {}) });
       }
       if (version !== viewVersion.current || !mounted.current) return;
       setDecision(null); setDecisionReason('');
@@ -233,16 +248,16 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
       const updated = { ...selected, state: 'closed' as const, merged: action === 'accept', merged_at: action === 'accept' ? new Date().toISOString() : selected.merged_at };
       setSelected(updated); setItems((current) => current.map((known) => known.id === updated.id ? updated : known));
       onActivityChanged?.();
-      setNotice(action === 'accept' ? t('改进已批准并合入项目。', 'The changes were approved and merged into the project.') : t('合并请求已拒绝并关闭。', 'The pull request was rejected and closed.'));
+      setNotice(action === 'accept' ? t("pullRequestsPanel.theChangesWereApprovedAndMergedIntoTheProject") : t("pullRequestsPanel.thePullRequestWasRejectedAndClosed"));
       try {
         const [context, discussion] = await Promise.all([
-          window.easyHub!.github<PullReviewSnapshot>('pullReviewContext', owner, repo.name, selected.number, selected.head.sha),
-          window.easyHub!.github<GitHubComment[]>('comments', owner, repo.name, selected.number),
+          easyHub!.github<PullReviewSnapshot>('pullReviewContext', owner, repo.name, selected.number, selected.head.sha),
+          easyHub!.github<GitHubComment[]>('comments', owner, repo.name, selected.number),
         ]);
         if (version !== viewVersion.current || !mounted.current) return;
         setSelected(context.pullRequest); setComments(discussion); setFiles(context.files); setSnapshotRepo(context.repository); setFilesTruncated(context.filesTruncated); setSnapshotReady(true);
         setItems((current) => current.map((known) => known.id === context.pullRequest.id ? context.pullRequest : known));
-      } catch { if (version === viewVersion.current && mounted.current) setError(t('操作已完成，但最新内容暂时未能载入。请重新获取。', 'The action succeeded, but the latest content could not be loaded. Please refresh.')); }
+      } catch { if (version === viewVersion.current && mounted.current) setError(t("pullRequestsPanel.theActionSucceededButTheLatestContentCouldNot")); }
     } catch (cause) { if (version === viewVersion.current && mounted.current) { setDecision(null); setSnapshotReady(false); setError(errorText(cause)); } }
     finally { if (mounted.current) setDecisionBusy(false); }
   }
@@ -261,10 +276,10 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     if (!filesTruncated && !hasProgramFiles && files.length > 0 && files.every((file) => !file.patch)) {
       const empty = files.filter(isEmptyAddedPullFile);
       const summary = empty.length === 1 && files.length === 1
-        ? t(`${empty[0]!.filename} 是新建的空文件，没有代码内容可供审查。`, `${empty[0]!.filename} is a newly added empty file. There is no code to review.`)
-        : t('这些文件没有可供 AI 审查的文字修改。', 'These files have no text changes available for AI review.');
+        ? t("pullRequestsPanel.isANewlyAddedEmptyFileThereIsNo", { p0: empty[0]!.filename })
+        : t("pullRequestsPanel.theseFilesHaveNoTextChangesAvailableForAi");
       setAiError('');
-      setAiReview({ headSha: selected.head.sha, summary, findings: [], limitations: [t('没有检查文件内容。', 'File contents were not reviewed.')], reviewedFiles: 0, totalFiles: selected.changed_files ?? files.length });
+      setAiReview({ headSha: selected.head.sha, summary, findings: [], limitations: [t("pullRequestsPanel.fileContentsWereNotReviewed")], reviewedFiles: 0, totalFiles: selected.changed_files ?? files.length });
       return;
     }
     const version = viewVersion.current;
@@ -273,13 +288,13 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     try {
       const statusRequest = ++programStatusRequest.current;
       const [settings, status] = await Promise.all([
-        window.easyHub!.aiSettings(),
-        programSnapshotKey ? window.easyHub!.binaryAnalysisStatus().catch(() => null) : Promise.resolve(null),
+        easyHub!.aiSettings(),
+        programSnapshotKey ? easyHub!.binaryAnalysisStatus().catch(() => null) : Promise.resolve(null),
       ]);
       if (!mounted.current || version !== viewVersion.current || reviewGeneration !== reviewVersion.current) return;
       if (statusRequest === programStatusRequest.current) setProgramStatus(status && programSnapshotKey ? { key: programSnapshotKey, status } : null);
       setAiSettings(settings);
-      if (!settings.hasApiKey || !settings.model) setAiError(t('请先在设置中连接你的 AI 服务。', 'Connect your AI service in Settings first.'));
+      if (!settings.hasApiKey || !settings.model) setAiError(t("pullRequestsPanel.connectYourAiServiceInSettingsFirst"));
       else setAiConfirm(true);
     } catch (cause) { if (mounted.current && version === viewVersion.current && reviewGeneration === reviewVersion.current) setAiError(errorText(cause)); }
     finally { if (mounted.current && version === viewVersion.current && reviewGeneration === reviewVersion.current) setAiPreparing(false); }
@@ -293,17 +308,17 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     aiRequestId.current = requestId;
     canceledAiRequestId.current = null; setAiCanceling(false);
     setAiConfirm(false); setAiError(''); setAiReview(null);
-    setAiProgress({ requestId, phase: t('正在准备审查…', 'Preparing review…'), completed: 0, total: 0 });
+    setAiProgress({ requestId, phase: t("pullRequestsPanel.preparingReview"), completed: 0, total: 0 });
     try {
-      const result = await window.easyHub!.aiReviewPull({ owner, repo: repo.name, number: selected.number, headSha: selected.head.sha, requestId, consentToSend: true, providerBaseUrl: aiSettings.baseUrl, language });
+      const result = await easyHub!.aiReviewPull({ owner, repo: repo.name, number: selected.number, headSha: selected.head.sha, requestId, consentToSend: true, providerBaseUrl: aiSettings.baseUrl, language });
       if (!mounted.current || version !== viewVersion.current || reviewGeneration !== reviewVersion.current || aiRequestId.current !== requestId || canceledAiRequestId.current === requestId) return;
-      if (result.headSha !== selected.head.sha) throw new Error(t('修改内容已更新，请刷新后重新审查。', 'The changes have been updated. Refresh and review them again.'));
+      if (result.headSha !== selected.head.sha) throw new Error(t("pullRequestsPanel.theChangesHaveBeenUpdatedRefreshAndReviewThem"));
       setAiReview(result);
     } catch (cause) {
       if (mounted.current && version === viewVersion.current && reviewGeneration === reviewVersion.current && aiRequestId.current === requestId && canceledAiRequestId.current !== requestId) setAiError(errorText(cause));
     } finally {
       if (mounted.current && aiRequestId.current === requestId) {
-        if (version === viewVersion.current && reviewGeneration === reviewVersion.current && canceledAiRequestId.current === requestId) setNotice(t('已取消审查。', 'Review canceled.'));
+        if (version === viewVersion.current && reviewGeneration === reviewVersion.current && canceledAiRequestId.current === requestId) setNotice(t("pullRequestsPanel.reviewCanceled"));
         aiRequestId.current = null; canceledAiRequestId.current = null; setAiProgress(null); setAiCanceling(false);
       }
     }
@@ -313,7 +328,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     const requestId = aiRequestId.current;
     if (!requestId || aiCanceling) return;
     canceledAiRequestId.current = requestId; setAiCanceling(true);
-    void window.easyHub!.aiCancelReview(requestId).catch((cause) => {
+    void easyHub!.aiCancelReview(requestId).catch((cause) => {
       if (mounted.current && aiRequestId.current === requestId) {
         canceledAiRequestId.current = null; setAiCanceling(false); setAiError(errorText(cause));
       }
@@ -327,7 +342,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     const sent = reply;
     setReplySaving(true); setError('');
     try {
-      const comment = await window.easyHub!.github<GitHubComment>('createComment', owner, repo.name, selected.number, sent.trim());
+      const comment = await easyHub!.github<GitHubComment>('createComment', owner, repo.name, selected.number, sent.trim());
       clearReply(sent);
       if (mounted.current && version === viewVersion.current) setComments((old) => [...old, comment]);
     } catch (cause) { if (mounted.current && version === viewVersion.current) setError(errorText(cause)); }
@@ -339,7 +354,7 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
     if (!title.trim() || !sourceOwner.trim() || !sourceBranch.trim() || !base.trim() || saving) return;
     setSaving(true); setError('');
     try {
-      const created = await window.easyHub!.github<GitHubPullRequest>('createPullRequest', owner, repo.name, {
+      const created = await easyHub!.github<GitHubPullRequest>('createPullRequest', owner, repo.name, {
         title: title.trim(), body: body.trim(), head: `${sourceOwner.trim()}:${sourceBranch.trim()}`, base: base.trim(),
       });
       setItems((current) => [created, ...current.filter((item) => item.id !== created.id)]);
@@ -352,79 +367,79 @@ export function PullRequestsPanel({ repo, currentUser, language, showCreateButto
 
   return <section ref={panelRef} className="panel public-browser-content pull-requests-panel">
     {selected ? <>
-      <button className="back-link" disabled={decisionBusy} onClick={backToList}><ArrowLeft size={16} />返回合并请求审查</button>
+      {!onBackChange && <button className="back-link" disabled={decisionBusy} onClick={backInRequests}><ArrowLeft size={16} />{t("pullRequestsPanel.back")}</button>}
       <div className="issue-detail public-issue-detail">
-        <div className="issue-title"><span className={`issue-state ${selected.state === 'closed' ? 'closed' : ''}`}>{selected.merged ? '已采纳' : selected.state === 'open' ? selected.draft ? '草稿' : '待审阅' : '已关闭'}</span>{repo.private ? <h1>{selected.title}</h1> : <TranslatableContent text={selected.title} format="text" render={(value) => <h1>{value}</h1>} />}<p>{selected.user?.login || 'GitHub 用户'} · {selected.head?.label || selected.head?.ref} → {selected.base?.ref}</p></div>
-        {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取内容…</p>}
-        {error && <p className="live-error" role="alert">{error}</p>}
+        <div className="issue-title"><span className={`issue-state ${selected.state === 'closed' ? 'closed' : ''}`}>{selected.merged ? t("pullRequestsPanel.merged") : selected.state === 'open' ? selected.draft ? t("pullRequestsPanel.draft") : t("pullRequestsPanel.open") : t("pullRequestsPanel.closed")}</span>{repo.private ? <h1>{selected.title}</h1> : <TranslatableContent text={selected.title} format="text" render={(value) => <h1>{value}</h1>} />}<p>{selected.user?.login || t("pullRequestsPanel.githubUser")} · {selected.head?.label || selected.head?.ref} → {selected.base?.ref}</p></div>
+        {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />{t("pullRequestsPanel.loadingContent")}</p>}
+        {error && <p className="live-error" role="alert"><ErrorMessage error={error} language={language} /></p>}
         {notice && <p className="ai-success" role="status"><Check size={17} />{notice}</p>}
-        {snapshotReady && selected.head.sha && <PullChecksPanel key={`${repo.id}:${selected.number}:${selected.head.sha}`} owner={owner} repo={repo.name} number={selected.number} headSha={selected.head.sha} language={language} onOpenLink={(url) => { void window.easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} />}
-        {canManage && selected.state === 'open' && !selected.merged && <div className="pull-review-actions">
-          <div><strong>{t('审阅这次改进', 'Review these changes')}</strong><p>{selected.draft ? t('作者还在准备这次改进，完成后才能批准合入。', 'The author is still preparing these changes. They can be approved once ready.') : t('批准会将修改合入项目，拒绝会关闭这次请求。', 'Approval merges the changes into your project. Rejection closes this request.')}</p></div>
-          <div className="pull-review-buttons"><button className="button button-quiet pull-reject-button" disabled={busy || decisionBusy || !hasDecisionRevision} onClick={() => { setDecisionReason(''); setDecision('reject'); }}>{t('拒绝', 'Reject')}</button><button className="button button-primary" disabled={busy || decisionBusy || !hasDecisionRevision || selected.draft} onClick={() => setDecision('accept')}><Check size={16} />{t('批准并合入', 'Approve and merge')}</button></div>
-        </div>}
-        {error && <button className="text-link" disabled={busy || decisionBusy} onClick={() => void open(selected)}><RotateCw size={15} />{t('重新获取', 'Refresh')}</button>}
-        <div className="conversation"><div className="message"><div className="avatar author-avatar">{(selected.user?.login || 'G').slice(0, 1).toUpperCase()}</div><div className="message-box"><div><strong>{selected.user?.login || 'GitHub 用户'}</strong><small>{new Date(selected.created_at).toLocaleString()}</small></div>{selected.body ? repo.private ? markdown(selected.body) : <TranslatableContent text={selected.body} format="markdown" paragraphMode render={markdown} /> : <p className="muted">没有详细描述。</p>}</div></div>{comments.map((comment) => <div className="message" key={comment.id}><div className="avatar">{(comment.user?.login || 'G').slice(0, 1).toUpperCase()}</div><div className="message-box"><div><strong>{comment.user?.login || 'GitHub 用户'}</strong><small>{new Date(comment.created_at).toLocaleString()}</small></div>{repo.private ? markdown(comment.body) : <TranslatableContent text={comment.body} format="markdown" paragraphMode render={markdown} />}</div></div>)}</div>
-        {!busy && <PagedContinuation<GitHubComment> key={`${replyKey}:${viewVersion.current}`} action="commentsPage" args={[owner, repo.name, selected.number]} firstCount={comments.length} language={language} label={t('加载更多回复', 'Load more replies')} onItems={(items) => setComments((old) => [...old, ...items.filter((item) => !old.some((known) => known.id === item.id))].sort((a, b) => a.id - b.id))} />}
-        <form className="reply-card" onSubmit={(event) => void sendReply(event)}><label htmlFor="pull-reply">{t('写一条回复', 'Write a reply')}</label><textarea id="pull-reply" rows={4} maxLength={65536} value={reply} onChange={(event) => setReply(event.target.value)} placeholder={t('说说你的想法或建议…', 'Share your thoughts or suggestions…')} /><div><span /><button className="button button-primary" disabled={replySaving || busy || !reply.trim()} type="submit">{t('发送回复', 'Send reply')}<ArrowRight size={16} /></button></div></form>
+        {snapshotReady && selected.head.sha && <PullChecksPanel key={`${repo.id}:${selected.number}:${selected.head.sha}`} owner={owner} repo={repo.name} number={selected.number} headSha={selected.head.sha} language={language} onOpenLink={(url) => { void easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} />}
+        {error && <button className="text-link" disabled={busy || decisionBusy} onClick={() => void open(selected)}><RotateCw size={15} />{t("pullRequestsPanel.refresh")}</button>}
         <div className="pull-files">
-          <div className="pull-files-heading"><h3>修改的文件 {selected.changed_files ?? files.length}</h3><button className="button button-quiet" disabled={busy || !snapshotReady || !hasRevision || aiPreparing || aiProgress !== null} onClick={() => void prepareAiReview()}>{aiPreparing ? <RotateCw size={16} className="live-spin" /> : <Sparkles size={16} />}{t('AI 审查', 'AI review')}</button></div>
+          <div className="pull-files-heading"><h3>{t("pullRequestsPanel.changedFiles")} {selected.changed_files ?? files.length}</h3><button className="button button-quiet" disabled={busy || !snapshotReady || !hasRevision || aiPreparing || aiProgress !== null} onClick={() => void prepareAiReview()}>{aiPreparing ? <RotateCw size={16} className="live-spin" /> : <Sparkles size={16} />}{t("pullRequestsPanel.aiReview")}</button></div>
           {noticesEnabled && programComponentsMissing && <aside className="program-review-component-notice" role="note">
-            <div><strong>{currentProgramStatus?.state === 'error' ? t('程序文件审查组件需要重新安装', 'Program review components need to be reinstalled') : t('尚未安装程序文件审查组件', 'Program review components are not installed')}</strong><p>{t('这次请求包含程序文件。安装组件后，AI 审查会自动提取并审查它们。', 'This request includes program files. Install the components to include their extracted content in AI review.')}</p></div>
-            <div className="program-review-notice-actions">{onOpenAiSettings && <button className="button button-quiet small-button" onClick={() => { requestProgramReviewSettings(); onOpenAiSettings(); }}>{t('前往安装', 'Install components')}<ArrowRight size={15} /></button>}<button className="text-link" onClick={() => setNoticesEnabled(false)}>{t('永久忽略此提示', 'Never show this reminder')}</button></div>
+            <div><strong>{currentProgramStatus?.state === 'error' ? t("pullRequestsPanel.programReviewComponentsNeedToBeReinstalled") : t("pullRequestsPanel.programReviewComponentsAreNotInstalled")}</strong><p>{t("pullRequestsPanel.thisRequestIncludesProgramFilesInstallTheComponentsTo")}</p></div>
+            <div className="program-review-notice-actions">{onOpenAiSettings && <button className="button button-quiet small-button" onClick={() => { requestProgramReviewSettings(); onOpenAiSettings(); }}>{t("pullRequestsPanel.installComponents")}<ArrowRight size={15} /></button>}<button className="text-link" onClick={() => setNoticesEnabled(false)}>{t("pullRequestsPanel.neverShowThisReminder")}</button></div>
           </aside>}
-          {filesTruncated && <p className="ai-settings-note">{t('本次修改的文件较多，GitHub 只返回了部分文件。请在 GitHub 上确认完整修改后再决定是否合入。', 'GitHub returned only part of this large change. Check the full changes on GitHub before deciding whether to merge.')}</p>}
-          {files.map((file) => selected.head.sha && <PullFileChanges key={`${selected.head.sha}:${file.filename}`} file={file} owner={owner} repo={repo.name} number={selected.number} headSha={selected.head.sha} language={language} onOpenLink={(url) => { void window.easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} downloadControl={<button className="button button-quiet small-button" disabled={file.status === 'removed' || !onDownloadFile || !snapshotReady || !hasRevision || downloadingFile !== null || downloadBusy} onClick={() => void download(file)} aria-label={`${t('下载文件', 'Download file')} ${file.filename}`}>{downloadingFile === file.filename ? <RotateCw size={15} className="live-spin" /> : <Download size={15} />}{file.status === 'removed' ? t('已删除', 'Deleted') : t('下载', 'Download')}</button>} />)}
-          {!busy && files.length === 0 && <p className="muted">{t('没有可显示的文件修改。', 'There are no file changes to display.')}</p>}
+          {filesTruncated && <p className="ai-settings-note">{t("pullRequestsPanel.githubReturnedOnlyPartOfThisLargeChangeCheck")}</p>}
+          {files.map((file) => selected.head.sha && <PullFileChanges key={`${selected.head.sha}:${file.filename}`} file={file} owner={owner} repo={repo.name} number={selected.number} headSha={selected.head.sha} language={language} onOpenLink={(url) => { void easyHub?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause))); }} downloadControl={<button className="button button-quiet small-button" disabled={file.status === 'removed' || !onDownloadFile || !snapshotReady || !hasRevision || downloadingFile !== null || downloadBusy} onClick={() => void download(file)} aria-label={t("pullRequestsPanel.downloadFileLabel", { p0: t("releaseEditor.downloadFiles"), p1: file.filename })}>{downloadingFile === file.filename ? <RotateCw size={15} className="live-spin" /> : <Download size={15} />}{file.status === 'removed' ? t("pullRequestsPanel.deleted") : t("pullRequestsPanel.download")}</button>} />)}
+          {!busy && files.length === 0 && <p className="muted">{t("pullRequestsPanel.thereAreNoFileChangesToDisplay")}</p>}
         </div>
-        {(aiProgress || aiReview || aiError) && <section className="ai-review-result" aria-label={t('AI 审查结果', 'AI review results')}>
-          <div className="pull-files-heading"><h3><ShieldCheck size={18} />{t('AI 审查', 'AI review')}</h3>{aiProgress && <button className="button button-quiet small-button" disabled={aiCanceling} onClick={cancelAiReview}>{aiCanceling ? t('正在取消…', 'Canceling…') : t('取消审查', 'Cancel review')}</button>}</div>
-          {aiProgress && <div className="ai-review-progress" role="status" aria-live="polite"><p><RotateCw size={16} className="live-spin" />{aiCanceling ? t('正在取消审查…', 'Canceling review…') : aiProgress.phase || t('正在审查修改…', 'Reviewing changes…')}{!aiCanceling && aiProgress.total > 0 && <span>{aiProgress.completed} / {aiProgress.total}</span>}</p><progress value={!aiCanceling && aiProgress.total > 0 ? aiProgress.completed : undefined} max={!aiCanceling && aiProgress.total > 0 ? aiProgress.total : undefined} aria-label={t('审查进度', 'Review progress')} /></div>}
-          {aiError && <><p className="live-error" role="alert">{aiError}</p>{(!aiSettings?.hasApiKey || !aiSettings.model) && onOpenAiSettings && <button className="text-link" onClick={onOpenAiSettings}>{t('打开 AI 设置', 'Open AI settings')}<ArrowRight size={15} /></button>}</>}
+        {(aiProgress || aiReview || aiError) && <section className="ai-review-result" aria-label={t("pullRequestsPanel.aiReviewResults")}>
+          <div className="pull-files-heading"><h3><ShieldCheck size={18} />{t("pullRequestsPanel.aiReview")}</h3>{aiProgress && <button className="button button-quiet small-button" disabled={aiCanceling} onClick={cancelAiReview}>{aiCanceling ? t("pullRequestsPanel.canceling") : t("pullRequestsPanel.cancelReview")}</button>}</div>
+          {aiProgress && <div className="ai-review-progress" role="status" aria-live="polite"><p><RotateCw size={16} className="live-spin" />{aiCanceling ? t("pullRequestsPanel.cancelingReview") : progressLabel(aiProgress, t)}{!aiCanceling && aiProgress.total > 0 && <span>{aiProgress.completed} / {aiProgress.total}</span>}</p><progress value={!aiCanceling && aiProgress.total > 0 ? aiProgress.completed : undefined} max={!aiCanceling && aiProgress.total > 0 ? aiProgress.total : undefined} aria-label={t("pullRequestsPanel.reviewProgress")} /></div>}
+          {aiError && <><p className="live-error" role="alert"><ErrorMessage error={aiError} language={language} /></p>{(!aiSettings?.hasApiKey || !aiSettings.model) && onOpenAiSettings && <button className="text-link" onClick={onOpenAiSettings}>{t("pullRequestsPanel.openAiSettings")}<ArrowRight size={15} /></button>}</>}
           {aiReview && <div className="ai-review-report" data-content-original>
             <p className="ai-review-summary">{aiReview.summary}</p>
-            <p className="ai-review-scope">{t(`已审查 ${aiReview.reviewedFiles} / ${aiReview.totalFiles} 个文件。结果仅供参考，请结合实际修改确认。`, `Reviewed ${aiReview.reviewedFiles} of ${aiReview.totalFiles} files. Use these suggestions together with your own review.`)}</p>
+            <p className="ai-review-scope">{t("pullRequestsPanel.reviewedOfFilesUseTheseSuggestionsTogetherWithYour", { p0: aiReview.reviewedFiles, p1: aiReview.totalFiles })}</p>
             <div className="ai-findings">{aiReview.findings.map((finding, index) => <article className="ai-finding" key={`${finding.file}:${finding.line ?? 0}:${index}`}>
-              <div className="ai-finding-heading"><span className={`ai-severity ai-severity-${finding.severity}`}>{finding.severity === 'high' ? t('高风险', 'High risk') : finding.severity === 'medium' ? t('需要留意', 'Needs attention') : t('建议', 'Suggestion')}</span><code>{finding.file}{finding.address ? ` @ ${finding.address}` : finding.line !== undefined ? `:${finding.line}` : ''}</code>{finding.analysisId && <span className="ai-review-scope">{t('当前程序内容', 'Current program content')}</span>}</div>
-              <p>{finding.description}</p><p className="ai-finding-suggestion"><strong>{t('建议：', 'Suggestion: ')}</strong>{finding.suggestion}</p>
+              <div className="ai-finding-heading"><span className={`ai-severity ai-severity-${finding.severity}`}>{finding.severity === 'high' ? t("pullRequestsPanel.highRisk") : finding.severity === 'medium' ? t("pullRequestsPanel.needsAttention") : t("pullRequestsPanel.suggestion")}</span><code>{finding.file}{finding.address ? ` @ ${finding.address}` : finding.line !== undefined ? `:${finding.line}` : ''}</code>{finding.analysisId && <span className="ai-review-scope">{t("pullRequestsPanel.currentProgramContent")}</span>}</div>
+              <p>{finding.description}</p><p className="ai-finding-suggestion"><strong>{t("pullRequestsPanel.suggestion2")}</strong>{finding.suggestion}</p>
             </article>)}</div>
-            {aiReview.findings.length === 0 && <p className="ai-no-findings">{t('本次审查没有提出具体问题。', 'This review did not report specific issues.')}</p>}
-            {aiReview.limitations.length > 0 && <div className="ai-limitations"><strong>{t('本次审查范围', 'Review coverage')}</strong><ul>{aiReview.limitations.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
+            {aiReview.findings.length === 0 && <p className="ai-no-findings">{t("pullRequestsPanel.thisReviewDidNotReportSpecificIssues")}</p>}
+            {aiReview.limitations.length > 0 && <div className="ai-limitations"><strong>{t("pullRequestsPanel.reviewCoverage")}</strong><ul>{aiReview.limitations.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
             {aiReview.binaryAnalyses?.map(({ file, analysis }) => <BinaryAnalysisEvidence key={analysis.id} analysis={analysis} fileLabel={file} language={language} />)}
-            {hasProgramFiles && onOpenAiSettings && <button className="text-link" onClick={onOpenAiSettings}>{t('管理程序文件审查组件', 'Manage program review components')}<ArrowRight size={15} /></button>}
+            {hasProgramFiles && onOpenAiSettings && <button className="text-link" onClick={onOpenAiSettings}>{t("pullRequestsPanel.manageProgramReviewComponents")}<ArrowRight size={15} /></button>}
           </div>}
         </section>}
+        <div className="conversation"><div className="message"><div className="avatar author-avatar">{(selected.user?.login || 'G').slice(0, 1).toUpperCase()}</div><div className="message-box"><div><strong>{selected.user?.login || t("pullRequestsPanel.githubUser")}</strong><small>{formatDateTime(selected.created_at, language)}</small></div>{selected.body ? repo.private ? markdown(selected.body) : <TranslatableContent text={selected.body} format="markdown" paragraphMode render={markdown} /> : <p className="muted">{t("pullRequestsPanel.noDetailsProvided")}</p>}</div></div>{comments.map((comment) => <div className="message" key={comment.id}><div className="avatar">{(comment.user?.login || 'G').slice(0, 1).toUpperCase()}</div><div className="message-box"><div><strong>{comment.user?.login || t("pullRequestsPanel.githubUser")}</strong><small>{formatDateTime(comment.created_at, language)}</small></div>{repo.private ? markdown(comment.body) : <TranslatableContent text={comment.body} format="markdown" paragraphMode render={markdown} />}</div></div>)}</div>
+        {!busy && <PagedContinuation<GitHubComment> key={`${replyKey}:${viewVersion.current}`} action="commentsPage" args={[owner, repo.name, selected.number]} firstCount={comments.length} language={language} label={t("pullRequestsPanel.loadMoreReplies")} onItems={(items) => setComments((old) => [...old, ...items.filter((item) => !old.some((known) => known.id === item.id))].sort((a, b) => a.id - b.id))} />}
+        <form className="reply-card" onSubmit={(event) => void sendReply(event)}><label htmlFor="pull-reply">{t("pullRequestsPanel.writeAReply")}</label><textarea id="pull-reply" rows={4} maxLength={65536} value={reply} onChange={(event) => setReply(event.target.value)} placeholder={t("pullRequestsPanel.shareYourThoughtsOrSuggestions")} /><div><span /><button className="button button-primary" disabled={replySaving || busy || !reply.trim()} type="submit">{t("pullRequestsPanel.sendReply")}<ArrowRight size={16} /></button></div></form>
+        {canManage && selected.state === 'open' && !selected.merged && <div className="pull-review-actions">
+          <div><strong>{t("pullRequestsPanel.reviewTheseChanges")}</strong><p>{selected.draft ? t("pullRequestsPanel.theAuthorIsStillPreparingTheseChangesTheyCan") : t("pullRequestsPanel.approvalMergesTheChangesIntoYourProjectRejectionCloses")}</p></div>
+          <div className="pull-review-buttons"><button className="button button-quiet pull-reject-button" disabled={busy || decisionBusy || !hasDecisionRevision} onClick={() => { setDecisionReason(''); setDecision('reject'); }}>{t("pullRequestsPanel.reject")}</button><button className="button button-primary" disabled={busy || decisionBusy || !hasDecisionRevision || selected.draft} onClick={() => setDecision('accept')}><Check size={16} />{t("pullRequestsPanel.approveAndMerge")}</button></div>
+        </div>}
       </div>
     </> : <>
-      <div className="panel-heading"><div><h2>合并请求审查</h2><p className="muted">查看大家提议合入项目的修改。</p></div>{showCreateButton && <button className="button button-primary" onClick={() => { setError(''); setShowForm(true); }}><Plus size={16} />提出合并请求</button>}</div>
-      {error && <p className="live-error" role="alert">{error}</p>}
-      <DiscussionSearch filters={<SegmentedControl className="public-issue-filter">{(['all', 'open', 'closed'] as const).map((state) => <button key={state} className={listState === state ? 'selected' : ''} onClick={() => setListState(state)}>{state === 'all' ? t('全部', 'All') : state === 'open' ? t('待审阅', 'Open') : t('已关闭', 'Closed')}</button>)}</SegmentedControl>} repositories={[repo]} kind="pr" state={listState} language={language} search={discussionSearch} onSearchChange={changeDiscussionSearch} onOpen={(item) => { const version = viewVersion.current; void window.easyHub!.github<GitHubPullRequest>('pullRequest', owner, repo.name, item.number).then((request) => { if (mounted.current && version === viewVersion.current) void open(request); }).catch((cause: unknown) => setError(errorText(cause))); }} />
+      <div className="panel-heading"><div><h2>{t("pullRequestsPanel.pullRequestReviews")}</h2><p className="muted">{t("pullRequestsPanel.seeChangesProposedForThisProject")}</p></div>{showCreateButton && <button className="button button-primary" onClick={() => { setError(''); setShowForm(true); }}><Plus size={16} />{t("pullRequestsPanel.createPullRequest")}</button>}</div>
+      {error && <p className="live-error" role="alert"><ErrorMessage error={error} language={language} /></p>}
+      <DiscussionSearch filters={<SegmentedControl className="public-issue-filter">{(['all', 'open', 'closed'] as const).map((state) => <button key={state} className={listState === state ? 'selected' : ''} onClick={() => setListState(state)}>{state === 'all' ? t("pullRequestsPanel.all") : state === 'open' ? t("pullRequestsPanel.open") : t("pullRequestsPanel.closed")}</button>)}</SegmentedControl>} repositories={[repo]} kind="pr" state={listState} language={language} search={discussionSearch} onSearchChange={changeDiscussionSearch} onOpen={(item) => { const version = viewVersion.current; void easyHub!.github<GitHubPullRequest>('pullRequest', owner, repo.name, item.number).then((request) => { if (mounted.current && version === viewVersion.current) void open(request); }).catch((cause: unknown) => setError(errorText(cause))); }} />
       <div hidden={searchActive}>
-      {items.map((item) => <button className="public-list-row" key={item.id} onClick={() => void open(item)}><GitPullRequest size={19} /><span>{repo.private ? <strong>{item.title}</strong> : <TranslatableContent text={item.title} format="text" render={(value) => <strong>{value}</strong>} />}<small>{item.merged_at ? '已采纳' : item.state === 'open' ? item.draft ? '草稿' : '待审阅' : '已关闭'} · {item.user?.login || 'GitHub 用户'}</small></span><ArrowRight size={17} /></button>)}
-      {!busy && !error && items.length === 0 && <p className="muted">这个项目还没有合并请求。</p>}
-      {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />正在获取合并请求…</p>}
-      {hasMore && <button className="button button-quiet pull-more" disabled={busy} onClick={() => void loadMore()}>加载更多</button>}
+      {items.map((item) => <button className="public-list-row" key={item.id} onClick={() => void open(item)}><GitPullRequest size={19} /><span>{repo.private ? <strong>{item.title}</strong> : <TranslatableContent text={item.title} format="text" render={(value) => <strong>{value}</strong>} />}<small>{item.merged_at ? t("pullRequestsPanel.merged") : item.state === 'open' ? item.draft ? t("pullRequestsPanel.draft") : t("pullRequestsPanel.open") : t("pullRequestsPanel.closed")} · {item.user?.login || t("pullRequestsPanel.githubUser")}</small></span><ArrowRight size={17} /></button>)}
+      {!busy && !error && items.length === 0 && <p className="muted">{t("pullRequestsPanel.thisProjectHasNoPullRequestsYet")}</p>}
+      {busy && <p className="live-loading"><RotateCw size={16} className="live-spin" />{t("pullRequestsPanel.loadingPullRequests")}</p>}
+      {hasMore && <button className="button button-quiet pull-more" disabled={busy} onClick={() => void loadMore()}>{t("pullRequestsPanel.loadMore")}</button>}
       </div>
     </>}
-    {showForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setShowForm(false); }}><form className="modal issue-modal" role="dialog" aria-modal="true" aria-labelledby="new-pull-title" onSubmit={(event) => void create(event)}><button type="button" className="icon-button modal-close" aria-label="关闭" disabled={saving} onClick={() => setShowForm(false)}><X size={19} /></button><h2 id="new-pull-title">提出合并请求</h2><p>先把修改保存到 GitHub，再选择包含这些修改的来源。</p><label className="field"><span>标题</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={256} required placeholder="一句话说明改进内容" /></label><label className="field"><span>详细描述</span><textarea rows={4} value={body} onChange={(event) => setBody(event.target.value)} maxLength={65536} placeholder="介绍修改的原因和效果" /></label><div className="pull-source-fields"><label className="field"><span>来源账户</span><input value={sourceOwner} onChange={(event) => setSourceOwner(event.target.value)} required placeholder="GitHub 用户名" /></label><label className="field"><span>来源版本</span><input value={sourceBranch} onChange={(event) => setSourceBranch(event.target.value)} required placeholder="例如 fix-search" /></label></div><label className="field"><span>合入到</span><input value={base} onChange={(event) => setBase(event.target.value)} required placeholder={repo.default_branch} /></label><p className="muted">来源必须是 GitHub 上已有的修改版本。对于他人的项目，先在自己的同名项目副本中准备修改。</p>{error && <p className="live-error" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="button button-quiet" disabled={saving} onClick={() => setShowForm(false)}>取消</button><button type="submit" className="button button-primary" disabled={saving || !title.trim() || !sourceBranch.trim()}>提交合并请求</button></div></form></div>}
+    {showForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setShowForm(false); }}><form className="modal issue-modal" role="dialog" aria-modal="true" aria-labelledby="new-pull-title" onSubmit={(event) => void create(event)}><button type="button" className="icon-button modal-close" aria-label={t("pullRequestsPanel.close")} disabled={saving} onClick={() => setShowForm(false)}><X size={19} /></button><h2 id="new-pull-title">{t("pullRequestsPanel.createPullRequest")}</h2><p>{t("pullRequestsPanel.saveYourChangesToGithubFirstThenChooseThe")}</p><label className="field"><span>{t("pullRequestsPanel.title")}</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={256} required placeholder={t("pullRequestsPanel.summarizeTheProposedChange")} /></label><label className="field"><span>{t("pullRequestsPanel.details")}</span><textarea rows={4} value={body} onChange={(event) => setBody(event.target.value)} maxLength={65536} placeholder={t("pullRequestsPanel.describeWhyAndHowItHelps")} /></label><div className="pull-source-fields"><label className="field"><span>{t("pullRequestsPanel.sourceAccount")}</span><input value={sourceOwner} onChange={(event) => setSourceOwner(event.target.value)} required placeholder={t("pullRequestsPanel.githubUsername")} /></label><label className="field"><span>{t("pullRequestsPanel.sourceVersion")}</span><input value={sourceBranch} onChange={(event) => setSourceBranch(event.target.value)} required placeholder={t("pullRequestsPanel.forExampleFixSearch")} /></label></div><label className="field"><span>{t("pullRequestsPanel.mergeInto")}</span><input value={base} onChange={(event) => setBase(event.target.value)} required placeholder={repo.default_branch} /></label><p className="muted">{t("pullRequestsPanel.theSourceMustAlreadyExistOnGithubForSomeone")}</p>{error && <p className="live-error" role="alert"><ErrorMessage error={error} language={language} /></p>}<div className="modal-actions"><button type="button" className="button button-quiet" disabled={saving} onClick={() => setShowForm(false)}>{t("pullRequestsPanel.cancel")}</button><button type="submit" className="button button-primary" disabled={saving || !title.trim() || !sourceBranch.trim()}>{t("pullRequestsPanel.createPullRequest2")}</button></div></form></div>}
     {decision && selected && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !decisionBusy) setDecision(null); }}><form className="modal pull-decision-modal" role="dialog" aria-modal="true" aria-labelledby="pull-decision-title" onSubmit={(event) => { event.preventDefault(); void applyDecision(); }}>
-      <button type="button" className="icon-button modal-close" aria-label={t('关闭', 'Close')} disabled={decisionBusy} onClick={() => setDecision(null)}><X size={19} /></button>
-      <h2 id="pull-decision-title">{decision === 'accept' ? t('批准并合入这次改进？', 'Approve and merge these changes?') : t('拒绝并关闭这次请求？', 'Reject and close this request?')}</h2>
+      <button type="button" className="icon-button modal-close" aria-label={t("pullRequestsPanel.close")} disabled={decisionBusy} onClick={() => setDecision(null)}><X size={19} /></button>
+      <h2 id="pull-decision-title">{decision === 'accept' ? t("pullRequestsPanel.approveAndMergeTheseChanges") : t("pullRequestsPanel.rejectAndCloseThisRequest")}</h2>
       <p className="pull-confirm-title" data-content-original>{selected.title}</p>
-      <dl className="ai-consent-service"><div><dt>{t('目标版本', 'Target version')}</dt><dd data-content-original>{repo.full_name} / {selected.base.ref}</dd></div></dl>
-      <p>{decision === 'accept' ? t('确认后，这次修改会保存到你的 GitHub 项目中。请先检查修改文件和审查结果。', 'These changes will be saved to your project on GitHub. Check the changed files and review results before confirming.') : t('确认后，这次合并请求会关闭。填写的原因会作为回复发给对方。', 'This pull request will be closed. Any reason you enter will be posted as a reply.')}</p>
-      {decision === 'reject' && <label className="field"><span>{t('拒绝原因（选填）', 'Reason for rejection (optional)')}</span><textarea rows={4} maxLength={65536} value={decisionReason} onChange={(event) => setDecisionReason(event.target.value)} disabled={decisionBusy} placeholder={t('说明这次没有采用的原因…', 'Explain why you are not accepting these changes…')} /></label>}
-      <div className="modal-actions"><button type="button" className="button button-quiet" disabled={decisionBusy} onClick={() => setDecision(null)}>{t('取消', 'Cancel')}</button><button type="submit" className={`button ${decision === 'accept' ? 'button-primary' : 'danger-confirm'}`} disabled={decisionBusy}>{decisionBusy && <RotateCw size={16} className="live-spin" />}{decision === 'accept' ? t('确认批准并合入', 'Confirm approval and merge') : t('确认拒绝并关闭', 'Confirm rejection and close')}</button></div>
+      <dl className="ai-consent-service"><div><dt>{t("pullRequestsPanel.targetVersion")}</dt><dd data-content-original>{repo.full_name} / {selected.base.ref}</dd></div></dl>
+      <p>{decision === 'accept' ? t("pullRequestsPanel.theseChangesWillBeSavedToYourProjectOn") : t("pullRequestsPanel.thisPullRequestWillBeClosedAnyReasonYou")}</p>
+      {decision === 'reject' && <label className="field"><span>{t("pullRequestsPanel.reasonForRejectionOptional")}</span><textarea rows={4} maxLength={65536} value={decisionReason} onChange={(event) => setDecisionReason(event.target.value)} disabled={decisionBusy} placeholder={t("pullRequestsPanel.explainWhyYouAreNotAcceptingTheseChanges")} /></label>}
+      <div className="modal-actions"><button type="button" className="button button-quiet" disabled={decisionBusy} onClick={() => setDecision(null)}>{t("pullRequestsPanel.cancel")}</button><button type="submit" className={`button ${decision === 'accept' ? 'button-primary' : 'danger-confirm'}`} disabled={decisionBusy}>{decisionBusy && <RotateCw size={16} className="live-spin" />}{decision === 'accept' ? t("pullRequestsPanel.confirmApprovalAndMerge") : t("pullRequestsPanel.confirmRejectionAndClose")}</button></div>
     </form></div>}
     {aiConfirm && aiSettings && selected && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAiConfirm(false); }}><div className="modal ai-consent-modal" role="dialog" aria-modal="true" aria-labelledby="ai-consent-title">
-      <button type="button" className="icon-button modal-close" aria-label={t('关闭', 'Close')} onClick={() => setAiConfirm(false)}><X size={19} /></button>
-      <div className="modal-symbol"><Sparkles size={25} /></div><h2 id="ai-consent-title">{t('使用 AI 审查这次改进？', 'Use AI to review these changes?')}</h2>
-      <p>{t('将向你配置的 AI 服务发送这次改进的标题、描述、文件名和修改内容。', 'The title, description, file names, and changes will be sent to your configured AI service.')}</p>
-      {hasProgramFiles && <p>{programComponentsMissing ? t('程序文件暂不能审查；本次将审查可读取的源码修改，结果会注明未审查的文件。', 'Program files cannot be reviewed yet. Available source changes will be reviewed, and the report will identify skipped files.') : t('程序文件将先在本机提取内容，再一起交给 AI 审查；会发送文件信息、提取的函数代码、导入项和文本片段。只读取文件，不运行程序。', 'Program content is extracted locally and included in this AI review. File information, extracted function code, imports, and text excerpts are sent. Files are read without running the program.')}</p>}
-      <dl className="ai-consent-service"><div><dt>{t('服务地址', 'Service address')}</dt><dd data-content-original>{aiSettings.baseUrl}</dd></div><div><dt>{t('模型名称', 'Model name')}</dt><dd data-content-original>{aiSettings.model}</dd></div><div><dt>{t('项目', 'Project')}</dt><dd data-content-original>{repo.full_name}</dd></div></dl>
-      {repo.private && <p className="ai-private-notice">{t('这是私有项目。请确认你愿意将本次修改内容发送给此服务。', 'This project is private. Confirm that you want to send these changes to this service.')}</p>}
-      <p>{t('服务商可能收取费用。审查结果仅在 EasyHub 中展示，是否合入由你决定。', 'Your provider may charge for this request. The review is shown in EasyHub, and you decide whether to merge.')}</p>
-      <div className="modal-actions"><button className="button button-quiet" onClick={() => setAiConfirm(false)}>{t('取消', 'Cancel')}</button><button className="button button-primary" onClick={() => void startAiReview()}><Sparkles size={16} />{t('同意并开始审查', 'Agree and start review')}</button></div>
+      <button type="button" className="icon-button modal-close" aria-label={t("pullRequestsPanel.close")} onClick={() => setAiConfirm(false)}><X size={19} /></button>
+      <div className="modal-symbol"><Sparkles size={25} /></div><h2 id="ai-consent-title">{t("pullRequestsPanel.useAiToReviewTheseChanges")}</h2>
+      <p>{t("pullRequestsPanel.theTitleDescriptionFileNamesAndChangesWillBe")}</p>
+      {hasProgramFiles && <p>{programComponentsMissing ? t("pullRequestsPanel.programFilesCannotBeReviewedYetAvailableSourceChanges") : t("pullRequestsPanel.programContentIsExtractedLocallyAndIncludedInThis")}</p>}
+      <dl className="ai-consent-service"><div><dt>{t("pullRequestsPanel.serviceAddress")}</dt><dd data-content-original>{aiSettings.baseUrl}</dd></div><div><dt>{t("pullRequestsPanel.modelName")}</dt><dd data-content-original>{aiSettings.model}</dd></div><div><dt>{t("pullRequestsPanel.project")}</dt><dd data-content-original>{repo.full_name}</dd></div></dl>
+      {repo.private && <p className="ai-private-notice">{t("pullRequestsPanel.thisProjectIsPrivateConfirmThatYouWantTo")}</p>}
+      <p>{t("pullRequestsPanel.yourProviderMayChargeForThisRequestTheReview")}</p>
+      <div className="modal-actions"><button className="button button-quiet" onClick={() => setAiConfirm(false)}>{t("pullRequestsPanel.cancel")}</button><button className="button button-primary" onClick={() => void startAiReview()}><Sparkles size={16} />{t("pullRequestsPanel.agreeAndStartReview")}</button></div>
     </div></div>}
   </section>;
 }

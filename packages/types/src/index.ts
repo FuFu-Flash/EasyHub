@@ -6,6 +6,7 @@ export interface ChangedFile {
   path: string;
   kind: ChangedFileKind;
   previousPath?: string;
+  sensitiveReasons?: string[];
 }
 
 export interface HistoryVersion {
@@ -50,7 +51,8 @@ export interface PublishReleaseRequest { owner: string; repo: string; tagName: s
 export interface EditReleaseRequest { owner: string; repo: string; releaseId: number; title: string; body: string; prerelease: boolean }
 export interface AddReleaseAssetsRequest { owner: string; repo: string; releaseId: number; assetIds: string[] }
 export interface RemoveReleaseAssetRequest { owner: string; repo: string; releaseId: number; assetId: number }
-export interface ReleaseProgress { phase: string; loaded: number; total: number; cancelable: boolean }
+export type OperationStep = "checking-files" | "preparing-project" | "downloading-project" | "publishing-source" | "saving-selection" | "checking-remote" | "getting-latest" | "collecting-changes" | "creating-project" | "finding-projects" | "matching-projects" | "uploading-asset" | "creating-release" | "confirming-release" | "reviewing-program" | "review-complete" | "reading-changes" | "reviewing-changes" | "analyzing-file" | "reviewing-file";
+export interface ReleaseProgress { step?: OperationStep; fileName?: string; count?: number; phase: string; loaded: number; total: number; cancelable: boolean }
 export interface ReleaseMutationFailure<TRelease> {
   status: 'failed';
   error: string;
@@ -123,7 +125,7 @@ export interface LocalProjectStatus {
 }
 
 export interface LocalPublishPreview extends LocalProjectStatus { snapshot: string }
-export interface LocalPublishSelection { snapshot: string; paths: string[] }
+export interface LocalPublishSelection { snapshot: string; paths: string[]; sensitiveConfirmed?: boolean }
 export interface LocalDiffLine { kind: 'context' | 'added' | 'deleted'; text: string; before?: number; after?: number }
 export interface LocalFileDiff {
   path: string;
@@ -163,6 +165,9 @@ export interface FolderInspection {
 }
 
 export interface LocalOperationProgress {
+  step?: OperationStep;
+  fileName?: string;
+  count?: number;
   phase: string;
   loaded?: number;
   total?: number;
@@ -217,7 +222,7 @@ export interface AiReviewResult {
   totalFiles: number;
   binaryAnalyses?: { file: string; analysis: BinaryAnalysisResult }[];
 }
-export interface AiReviewProgress { requestId: string; phase: string; completed: number; total: number }
+export interface AiReviewProgress { step?: OperationStep; fileName?: string; requestId: string; phase: string; completed: number; total: number }
 export type AiCodeExplanationSource =
   | { kind: 'pull'; owner: string; repo: string; number: number; headSha: string; path: string }
   | { kind: 'local'; projectId: string; snapshot: string; path: string };
@@ -230,6 +235,19 @@ export interface AiCodeExplanationRequest {
   consentToSend: true;
 }
 export interface AiCodeExplanationResult { explanation: string; model: string }
+export interface AiCommitExplanationRequest {
+  requestId: string;
+  owner: string;
+  repo: string;
+  sha: string;
+  language: 'zh' | 'en';
+  providerBaseUrl: string;
+  consentToSend: true;
+}
+export interface AiCommitExplanationResult extends AiCodeExplanationResult {
+  includedFiles: number;
+  partial: boolean;
+}
 
 export type BinaryAnalysisSource =
   | { kind: 'local'; fileId: string; name: string; size: number }

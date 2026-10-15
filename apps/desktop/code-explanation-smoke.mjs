@@ -20,8 +20,7 @@ import {createRoot} from 'react-dom/client';
 import {CodeExplanation,selectedCodeText} from '/src/components/CodeExplanation.tsx';
 import {PullFileChanges} from '/src/components/PullFileChanges.tsx';
 import '/src/styles.css';
-import '/src/v2.css';
-import '/src/components/local-change-selector.css';
+
 window.calls={settings:0,explain:[],cancel:[]};window.pending=[];window.hold=false;window.fail=false;window.connected=true;
 window.fixtureSettings={providerId:'deepseek',baseUrl:'https://api.deepseek.com',model:'fixture-model',hasApiKey:true};
 window.fixtureMarkdown=${JSON.stringify(maliciousExplanation)};
@@ -30,7 +29,7 @@ window.pullSource={kind:'pull',owner:'fixture-owner',repo:'fixture-project',numb
 window.fixturePullFile={filename:'src/value.ts',status:'modified',additions:1,deletions:1,changes:2,patch:'@@ -1,2 +1,2 @@\\n const value = compute();\\n-return value;\\n+return value + 1;'};
 window.fixtureResult=request=>({explanation:window.fixtureMarkdown,model:'fixture-model'});
 window.fixtureSelectionHelper=selectedCodeText;
-window.easyHub={platform:${JSON.stringify(process.platform)},
+window.easyHub={
 aiSettings:async()=>{window.calls.settings++;return {...window.fixtureSettings,hasApiKey:window.connected}},
 aiExplainCode:async request=>{window.calls.explain.push(request);if(window.fail){window.fail=false;throw Error("Error invoking remote method 'easyhub:ai-explain-code': Error: 服务暂时不可用，请重试。")}if(window.hold)return new Promise((resolve,reject)=>window.pending.push({request,resolve,reject}));return window.fixtureResult(request)},
 aiCancelReview:async requestId=>{window.calls.cancel.push(requestId)},
@@ -106,11 +105,10 @@ async function mouseSelect(page, firstSelector, from, lastSelector, to) {
 let browser;
 try {
   await server.listen(); const address = server.httpServer.address(); assert.ok(address && typeof address !== 'string');
-  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+  const executablePath = process.env.EASYHUB_TEST_BROWSER ?? ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true });
   const page = await browser.newPage({ viewport: { width: 800, height: 620 } });
   const errors = []; page.on('pageerror', (error) => errors.push(error.message));
-  await page.route('**/*', route => new URL(route.request().url()).origin === `http://127.0.0.1:${address.port}` ? route.continue() : route.abort());
   await page.goto(`http://127.0.0.1:${address.port}/code-explanation-test`);
   await page.locator('.pull-file-toggle').click();
   const trigger = () => page.getByRole('button', { name: /让 AI 详细说明|Explain.*AI|AI.*explain/i });

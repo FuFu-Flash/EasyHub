@@ -28,8 +28,6 @@ async function githubProxy(): Promise<string | undefined> {
   for (const choice of choices.split(';')) {
     const match = choice.trim().match(/^(PROXY|HTTPS)\s+([^\s]+)$/i);
     if (match?.[1] && match[2]) return `${match[1].toUpperCase() === 'HTTPS' ? 'https' : 'http'}://${match[2]}`;
-    const socks = choice.trim().match(/^(SOCKS5|SOCKS4|SOCKS)\s+([^\s]+)$/i);
-    if (socks?.[2]) return `socks${socks[1]?.toUpperCase() === 'SOCKS4' ? '4a' : '5h'}://${socks[2]}`;
   }
   return undefined;
 }
@@ -63,6 +61,29 @@ export class LocalProjectService {
   }
 
   async list(): Promise<LocalProjectRecord[]> { return this.store.list(); }
+
+  async relocate(id: unknown, path: unknown): Promise<LocalProjectRecord> {
+    if (this.active) throw new Error('正在处理项目，请完成后再更换位置。');
+    const record = await this.record(id);
+    const info = await this.inspectRaw(path);
+    if (!info.isGit || info.owner?.toLowerCase() !== record.owner.toLowerCase() || info.repo?.toLowerCase() !== record.name.toLowerCase()) throw new Error('请选择原项目对应的文件夹，不能关联到其他项目。');
+    if (this.active) throw new Error('正在处理项目，请完成后再更换位置。');
+    const updated = await this.store.relocate(record.id, info.root);
+    this.watchRecord(updated);
+    this.previewEpochs.set(record.id, (this.previewEpochs.get(record.id) ?? 0) + 1);
+    return updated;
+  }
+
+  async remove(id: unknown): Promise<void> {
+    if (this.active) throw new Error('正在处理项目，请完成后再移除关联。');
+    const record = await this.record(id);
+    await this.store.remove(record.id);
+    this.watchers.get(record.id)?.close(); this.watchers.delete(record.id);
+    const timer = this.timers.get(record.id);
+    if (timer) clearTimeout(timer);
+    this.timers.delete(record.id);
+    this.previewEpochs.set(record.id, (this.previewEpochs.get(record.id) ?? 0) + 1);
+  }
 
   async listDiscoveryRoots(): Promise<string[]> { return this.discoveryRoots?.list() ?? []; }
 
@@ -101,7 +122,7 @@ export class LocalProjectService {
       try { canonical = await realpath(root); }
       catch { result.skipped += 1; continue; }
       if (canonical !== root) { result.skipped += 1; continue; }
-      const found = await findGitProjects(root, signal, (count) => this.send('easyhub:local-progress', { phase: `正在查找本地项目 · 已检查 ${result.scanned + count} 个文件夹` }));
+      const found = await findGitProjects(root, signal, (count) => this.send('easyhub:local-progress', { step: 'finding-projects', count: result.scanned + count, phase: `正在查找本地项目 · 已检查 ${result.scanned + count} 个文件夹` }));
       result.scanned += found.visited;
       result.limited ||= found.limited;
       for (const folder of found.folders) {
@@ -110,7 +131,7 @@ export class LocalProjectService {
         if (visited.has(key)) continue;
         visited.add(key);
         if (known.has(key)) { result.alreadyAdded += 1; continue; }
-        this.send('easyhub:local-progress', { phase: `正在核对项目 · 已找到 ${result.added + result.skipped + result.alreadyAdded + 1} 个` });
+        this.send('easyhub:local-progress', { step: 'matching-projects', count: result.added + result.skipped + result.alreadyAdded + 1, phase: `正在核对项目 · 已找到 ${result.added + result.skipped + result.alreadyAdded + 1} 个` });
         try {
           const job = runGitTask<GitProjectInfo>({ action: 'inspect', path: folder });
           this.discoveryJob = job;
@@ -160,7 +181,7 @@ export class LocalProjectService {
     const info = await this.inspectRaw(canonical);
     if (info.owner || info.repo) throw new Error('这个文件夹已连接 GitHub，请使用“添加现有文件夹”。');
     const identity = await gitHubIdentity();
-    this.send('easyhub:local-progress', { phase: '正在创建 GitHub 项目' });
+    this.send('easyhub:local-progress', { step: 'creating-project', phase: '正在创建 GitHub 项目' });
     const remote = await createEmptyRepository(name, description, isPrivate);
     try {
       await this.interactive<{ head: string }>({ action: 'create', path: info.root, repo: repository(remote), author: author(identity.user), token: identity.token });
@@ -193,7 +214,13 @@ export class LocalProjectService {
 
   async status(id: unknown): Promise<LocalProjectStatus> {
     const record = await this.record(id);
-    const result = await this.interactive<GitProjectStatus>({ action: 'status', path: record.localPath });
+    let result: GitProjectStatus;
+    try { result = await this.interactive<GitProjectStatus>({ action: 'status', path: record.localPath }); }
+    catch (cause) {
+      try { if (!(await lstat(record.localPath)).isDirectory()) throw Object.assign(new Error('找不到这个文件夹。'), { code: 'NOT_FOUND' }); }
+      catch (error) { if (['ENOENT', 'ENOTDIR', 'NOT_FOUND'].includes((error as NodeJS.ErrnoException).code ?? '')) throw Object.assign(new Error('找不到这个文件夹。'), { code: 'NOT_FOUND' }); }
+      throw cause;
+    }
     return { files: result.files, needsReview: result.hasPreparedChanges, pendingPublish: result.pendingPublish, pendingMessage: result.pendingMessage };
   }
 
@@ -223,7 +250,8 @@ export class LocalProjectService {
       const input = rawSelection as Partial<LocalPublishSelection>;
       if (typeof input.snapshot !== 'string' || !/^[a-f0-9]{64}$/.test(input.snapshot) || !Array.isArray(input.paths) || input.paths.length > 10000
         || input.paths.some((path) => !safeChangePath(path)) || new Set(input.paths).size !== input.paths.length) throw new Error('文件选择无效，请刷新修改列表后重试。');
-      selection = { snapshot: input.snapshot, paths: input.paths };
+      if (input.sensitiveConfirmed !== undefined && typeof input.sensitiveConfirmed !== 'boolean') throw new Error('文件确认无效。');
+      selection = { snapshot: input.snapshot, paths: input.paths, ...(input.sensitiveConfirmed ? { sensitiveConfirmed: true } : {}) };
     }
     const remote = await repositoryDetails(record.owner, record.name);
     if (remote.id !== record.repositoryId) throw new Error('GitHub 项目已发生变化，请重新添加这个文件夹。');

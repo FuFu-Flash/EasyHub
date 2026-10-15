@@ -1,3 +1,7 @@
+import { useTranslation } from '../localization';
+import { useEasyHub } from '../bridge';
+import { ErrorMessage } from './ErrorMessage';
+import { errorText } from '../errors';
 import { useEffect, useState } from 'react';
 import { ArrowRight, Clock3, Folder, Star } from 'lucide-react';
 import type { GitHubRepo, GitHubSearchPage, GitHubSearchUser } from '@easyhub/github';
@@ -8,6 +12,8 @@ const topCache = new Map<string, { at: number; repos: GitHubRepo[] }>();
 type DisplayMode = 'compact' | 'detailed';
 
 export function UserSearchResults({ query, onClearSearch, page, onPageChange, displayMode, onOpenProfile, onOpenRepository, onSearched }: { query: string; onClearSearch?: () => void; page: number; onPageChange: (page: number) => void; displayMode: DisplayMode; onOpenProfile: (user: GitHubSearchUser) => void; onOpenRepository: (repo: GitHubRepo) => void; onSearched: (query: string) => void }) {
+  const t = useTranslation();
+  const easyHub = useEasyHub();
   const [users, setUsers] = useState<GitHubSearchUser[]>([]);
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [hasNextPage, setHasNextPage] = useState(false);
@@ -20,17 +26,17 @@ export function UserSearchResults({ query, onClearSearch, page, onPageChange, di
     let active = true;
     setUsers([]); setTopRepos({}); setBusy(true); setError(''); setTotalCount(null); setHasNextPage(false);
     const timer = window.setTimeout(() => {
-      void (window.easyHub ? window.easyHub.github<GitHubSearchPage<GitHubSearchUser>>('searchUsersPage', query.trim(), page) : Promise.reject(new Error('应用连接不可用，请重新启动 EasyHub。'))).then((results) => {
+      void (easyHub ? easyHub.github<GitHubSearchPage<GitHubSearchUser>>('searchUsersPage', query.trim(), page) : Promise.reject(new Error(t("userSearchResults.theAppConnectionIsUnavailablePleaseRestartEasyhub")))).then((results) => {
         if (active) { setUsers(results.items); setTotalCount(results.totalCount); setHasNextPage(results.hasNextPage); onSearched(query); }
-      }).catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : '用户搜索暂时不可用。'); }).finally(() => { if (active) setBusy(false); });
+      }).catch((cause: unknown) => { if (active) setError(errorText(cause, t("userSearchResults.userSearchIsTemporarilyUnavailable"))); }).finally(() => { if (active) setBusy(false); });
     }, 450);
     return () => { active = false; window.clearTimeout(timer); };
   }, [query, page, onSearched]);
 
   useEffect(() => {
-    if (displayMode !== 'detailed' || users.length === 0 || !window.easyHub) return;
+    if (displayMode !== 'detailed' || users.length === 0 || !easyHub) return;
     let active = true;
-    const service = window.easyHub;
+    const service = easyHub;
     void (async () => {
       const uncached: GitHubSearchUser[] = [];
       for (const user of users) {
@@ -50,9 +56,9 @@ export function UserSearchResults({ query, onClearSearch, page, onPageChange, di
     return () => { active = false; };
   }, [displayMode, users]);
 
-  return <>{busy ? <p className="live-empty"><Clock3 size={16} /> 正在搜索用户…</p> : error ? <p className="live-error" role="alert">{error}</p> : !users.length ? <SearchEmptyState onClear={onClearSearch ?? (() => undefined)} /> : <div className={`user-search-list ${displayMode}`}>{users.map((user) => <article className={`user-search-card ${displayMode === 'compact' ? 'compact' : ''}`} key={user.id}>
-    <button className="user-search-identity" onClick={() => onOpenProfile(user)} aria-label={`查看 ${user.login} 的主页`}><span className="user-search-avatar">{user.avatar_url ? <img src={user.avatar_url} alt={`${user.login} 的头像`} /> : user.login.slice(0, 1).toUpperCase()}</span><span><strong>{user.login}</strong><small>GitHub 用户</small></span></button>
-    <button className="button button-quiet user-search-profile" onClick={() => onOpenProfile(user)}>查看主页 <ArrowRight size={15} /></button>
-    {displayMode === 'detailed' && <div className="user-search-projects"><strong>Star 最高的 3 个公开项目</strong>{topRepos[user.login] === undefined ? <span className="user-search-project-loading"><Clock3 size={14} />正在加载项目…</span> : topRepos[user.login]?.length ? topRepos[user.login]?.map((repo) => <button key={repo.id} className="user-search-project" onClick={() => onOpenRepository(repo)}><Folder size={15} /><span>{repo.name}</span><Star size={14} /><small>{(repo.stargazers_count ?? 0).toLocaleString()}</small><ArrowRight size={14} /></button>) : <span className="user-search-project-loading">没有可展示的公开项目，或暂时无法加载。</span>}</div>}
+  return <>{busy ? <p className="live-empty"><Clock3 size={16} />  {t("userSearchResults.searchingUsers")}</p> : error ? <p className="live-error" role="alert"><ErrorMessage error={error} /></p> : !users.length ? <SearchEmptyState onClear={onClearSearch ?? (() => undefined)} /> : <div className={`user-search-list ${displayMode}`}>{users.map((user) => <article className={`user-search-card ${displayMode === 'compact' ? 'compact' : ''}`} key={user.id}>
+    <button className="user-search-identity" onClick={() => onOpenProfile(user)} aria-label={t("userSearchResults.viewSProfile", { p0: user.login })}><span className="user-search-avatar">{user.avatar_url ? <img src={user.avatar_url} alt={t("userSearchResults.sAvatar", { p0: user.login })} /> : user.login.slice(0, 1).toUpperCase()}</span><span><strong>{user.login}</strong><small>{t("userSearchResults.githubUser")}</small></span></button>
+    <button className="button button-quiet user-search-profile" onClick={() => onOpenProfile(user)}>{t("userSearchResults.viewProfile")} <ArrowRight size={15} /></button>
+    {displayMode === 'detailed' && <div className="user-search-projects"><strong>{t("userSearchResults.top3PublicProjectsByStars")}</strong>{topRepos[user.login] === undefined ? <span className="user-search-project-loading"><Clock3 size={14} />{t("userSearchResults.loadingProjects")}</span> : topRepos[user.login]?.length ? topRepos[user.login]?.map((repo) => <button key={repo.id} className="user-search-project" onClick={() => onOpenRepository(repo)}><Folder size={15} /><span>{repo.name}</span><Star size={14} /><small>{(repo.stargazers_count ?? 0).toLocaleString()}</small><ArrowRight size={14} /></button>) : <span className="user-search-project-loading">{t("userSearchResults.noPublicProjectsToShowOrProjectsAreTemporarily")}</span>}</div>}
   </article>)}</div>}<SearchPagination page={page} totalCount={totalCount} hasNextPage={hasNextPage} busy={busy} onPageChange={onPageChange} /></>;
 }

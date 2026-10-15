@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchUpstreamFixture } from './upstream-smoke-runtime.mjs';
+import { _electron as electron } from 'playwright-core';
+import electronPath from 'electron';
 
 // The real renderer runs against an isolated IPC fixture. All network traffic
 // and unregistered EasyHub operations are blocked; saves only mutate fixture data.
@@ -12,10 +13,20 @@ await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
 const profile = join(run, 'profile');
 await mkdir(profile);
-const { app, executable, renderer } = await launchUpstreamFixture(desktop, {
-  profile: profile, launcher: join(run, 'launch.cjs'),
-  registerName: 'draftRegister', rejectedName: 'draftForbidden', title: 'Isolated update and draft fixture'
-});
+const launcher = join(run, 'launch.cjs');
+await writeFile(launcher, `
+const { app, ipcMain } = require('electron');
+app.setPath('userData', ${JSON.stringify(profile)});
+process.env.EASYHUB_PROXY_APP_ONLY_TEST = '1';
+process.env.ELECTRON_RENDERER_URL = 'data:text/html,<title>Isolated update and draft fixture</title>';
+globalThis.draftRegister = ipcMain.handle.bind(ipcMain);
+globalThis.draftForbidden = [];
+ipcMain.handle = (channel, handler) => globalThis.draftRegister(channel, channel.startsWith('easyhub:') ? () => {
+  globalThis.draftForbidden.push(channel); throw new Error('Unmocked draft IPC: ' + channel);
+} : handler);
+require(${JSON.stringify(join(desktop, 'out', 'main', 'index.js'))});
+`);
+const app = await electron.launch({ executablePath: electronPath, args: [launcher], cwd: desktop });
 const started = Date.now();
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
@@ -92,7 +103,7 @@ try {
   await page.setViewportSize({ width: 1060, height: 700 });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), renderer);
+  await app.evaluate(async ({ BrowserWindow }, renderer) => BrowserWindow.getAllWindows()[0].loadFile(renderer), join(desktop, 'out', 'renderer', 'index.html'));
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('easyhub:language', 'zh'); localStorage.setItem('easyhub:auto-translate', 'false'); });
   const reload = async () => { await page.reload(); await page.locator('.live-connected').waitFor(); };
   const frame = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -109,7 +120,7 @@ try {
   };
   const openNewRelease = async name => {
     await openProject(name);
-    await page.getByRole('button', { name: '发布新版本', exact: true }).click();
+    await page.getByRole('button', { name: '发布发行版', exact: true }).click();
     await page.locator('.release-page').waitFor();
   };
   const openReleaseEdit = async name => {
@@ -124,11 +135,11 @@ try {
   await page.locator('.sidebar-nav').getByRole('button', { name: '设置', exact: true }).click();
   const update = page.locator('.app-update-panel');
   await update.getByRole('button', { name: '检查更新', exact: true }).click();
-  await update.getByText('已是最新版本。', { exact: true }).waitFor();
+  await update.getByText('已是最新发行版。', { exact: true }).waitFor();
   assert.equal(await update.getByRole('button', { name: '查看更新并下载', exact: true }).count(), 0);
   await app.evaluate(() => { globalThis.draftFixture.updateMode = 'new'; });
   await update.getByRole('button', { name: '检查更新', exact: true }).click();
-  await update.getByText('发现新版本 1.2.0', { exact: true }).waitFor();
+  await update.getByText('发现新发行版 1.2.0', { exact: true }).waitFor();
   await update.getByRole('button', { name: '查看更新并下载', exact: true }).click();
   assert.deepEqual(await app.evaluate(() => globalThis.draftFixture.links), ['https://github.com/FuFu-Flash/EasyHub/releases/tag/v1.2.0']);
   await app.evaluate(() => { globalThis.draftFixture.updateMode = 'error'; });
@@ -144,22 +155,22 @@ try {
   const body = '## Release notes\n\nKeep [documentation](https://example.com/guide) and ![hosted image](https://example.com/image.png).';
   const newKey = draftKey('draft-author', 7101, 'release');
   await openNewRelease('draft-project-one');
-  await page.getByRole('textbox', { name: '版本名称', exact: true }).fill(title);
+  await page.getByRole('textbox', { name: '发行版名称', exact: true }).fill(title);
   await page.getByRole('button', { name: 'Beta 测试版', exact: true }).click();
   await page.getByRole('textbox', { name: '版本号', exact: true }).fill('beta0.4');
-  await page.getByRole('textbox', { name: '版本介绍', exact: true }).fill(body);
+  await page.getByRole('textbox', { name: '发行版介绍', exact: true }).fill(body);
   await page.getByRole('button', { name: '添加图片', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: '选择本地图片', exact: true }).click();
   await page.locator('.release-selected-file').filter({ hasText: 'draft-picture.png' }).waitFor();
-  assert.match(await page.getByRole('textbox', { name: '版本介绍', exact: true }).inputValue(), /easyhub-image:fixture-local-image-grant/);
+  assert.match(await page.getByRole('textbox', { name: '发行版介绍', exact: true }).inputValue(), /easyhub-image:fixture-local-image-grant/);
   await frame();
   assert.equal(JSON.parse(await storedDraft(newKey)).title, title);
   await reload();
   await openNewRelease('draft-project-one');
-  assert.equal(await page.getByRole('textbox', { name: '版本名称', exact: true }).inputValue(), title);
+  assert.equal(await page.getByRole('textbox', { name: '发行版名称', exact: true }).inputValue(), title);
   assert.equal(await page.getByRole('textbox', { name: '版本号', exact: true }).inputValue(), 'beta0.4');
   assert.equal(await page.getByRole('button', { name: 'Beta 测试版', exact: true }).getAttribute('aria-pressed'), 'true');
-  assert.equal((await page.getByRole('textbox', { name: '版本介绍', exact: true }).inputValue()).trim(), body);
+  assert.equal((await page.getByRole('textbox', { name: '发行版介绍', exact: true }).inputValue()).trim(), body);
   await page.getByText('请重新添加上次选择的附件和本地图片。', { exact: false }).waitFor();
   assert.equal(await page.locator('.release-selected-file').count(), 0);
   await page.getByRole('button', { name: '预览发布效果', exact: true }).click();
@@ -168,17 +179,17 @@ try {
   await page.screenshot({ path: join(output, 'recovered-release-preview.png') });
 
   await openNewRelease('draft-project-two');
-  assert.notEqual(await page.getByRole('textbox', { name: '版本名称', exact: true }).inputValue(), title);
-  assert.equal(await page.getByRole('textbox', { name: '版本介绍', exact: true }).inputValue(), '');
+  assert.notEqual(await page.getByRole('textbox', { name: '发行版名称', exact: true }).inputValue(), title);
+  assert.equal(await page.getByRole('textbox', { name: '发行版介绍', exact: true }).inputValue(), '');
   await app.evaluate(() => { globalThis.draftFixture.account = 'another-account'; });
   await reload();
   await openNewRelease('draft-project-one');
-  assert.notEqual(await page.getByRole('textbox', { name: '版本名称', exact: true }).inputValue(), title);
-  assert.equal(await page.getByRole('textbox', { name: '版本介绍', exact: true }).inputValue(), '');
+  assert.notEqual(await page.getByRole('textbox', { name: '发行版名称', exact: true }).inputValue(), title);
+  assert.equal(await page.getByRole('textbox', { name: '发行版介绍', exact: true }).inputValue(), '');
   await app.evaluate(() => { globalThis.draftFixture.account = 'draft-author'; });
   await reload();
   await openNewRelease('draft-project-one');
-  assert.equal(await page.getByRole('textbox', { name: '版本名称', exact: true }).inputValue(), title);
+  assert.equal(await page.getByRole('textbox', { name: '发行版名称', exact: true }).inputValue(), title);
 
   // Editing an existing release restores its separate draft after closing the
   // editor and after reload. Failed saves retain it; successful saves clear it.
@@ -187,36 +198,36 @@ try {
   const editedBody = '<details><summary>Notes</summary>\n\nPersistent edit body.\n\n</details>';
   await openReleaseEdit('draft-project-one');
   let edit = page.getByTestId('release-edit-panel');
-  await edit.getByRole('textbox', { name: '版本名称', exact: true }).fill(editedTitle);
-  await edit.getByRole('textbox', { name: '版本介绍', exact: true }).fill(editedBody);
+  await edit.getByRole('textbox', { name: '发行版名称', exact: true }).fill(editedTitle);
+  await edit.getByRole('textbox', { name: '发行版介绍', exact: true }).fill(editedBody);
   await edit.getByRole('checkbox', { name: '这是测试版', exact: true }).check();
   await frame();
   assert.equal(JSON.parse(await storedDraft(editKey)).prerelease, true);
   await edit.getByRole('button', { name: '关闭编辑', exact: true }).click();
   await page.locator('.release-edit-entry').getByRole('button', { name: '编辑发行版', exact: true }).click();
   edit = page.getByTestId('release-edit-panel');
-  assert.equal(await edit.getByRole('textbox', { name: '版本名称', exact: true }).inputValue(), editedTitle);
+  assert.equal(await edit.getByRole('textbox', { name: '发行版名称', exact: true }).inputValue(), editedTitle);
   await reload();
   await openReleaseEdit('draft-project-one');
   edit = page.getByTestId('release-edit-panel');
-  assert.equal(await edit.getByRole('textbox', { name: '版本介绍', exact: true }).inputValue(), editedBody);
+  assert.equal(await edit.getByRole('textbox', { name: '发行版介绍', exact: true }).inputValue(), editedBody);
   assert.equal(await edit.getByRole('checkbox', { name: '这是测试版', exact: true }).isChecked(), true);
   await app.evaluate(() => { globalThis.draftFixture.editMode = 'error'; });
-  await edit.getByRole('button', { name: '保存版本介绍', exact: true }).click();
+  await edit.getByRole('button', { name: '保存发行版介绍', exact: true }).click();
   await edit.getByRole('alert').waitFor();
   assert.equal(JSON.parse(await storedDraft(editKey)).title, editedTitle);
   await app.evaluate(() => { globalThis.draftFixture.editMode = 'success'; });
-  await edit.getByRole('button', { name: '保存版本介绍', exact: true }).click();
-  await edit.getByText('版本介绍已更新。', { exact: true }).waitFor();
+  await edit.getByRole('button', { name: '保存发行版介绍', exact: true }).click();
+  await edit.getByText('发行版介绍已更新。', { exact: true }).waitFor();
   await frame();
   assert.equal(await storedDraft(editKey), null);
   assert.deepEqual(await app.evaluate(() => globalThis.draftFixture.edits.at(-1)), { owner: 'draft-author', repo: 'draft-project-one', releaseId: 7201, title: editedTitle, body: editedBody, prerelease: true });
   await page.screenshot({ path: join(output, 'release-edit-saved.png') });
 
   await openNewRelease('draft-project-one');
-  assert.equal(await page.getByRole('textbox', { name: '版本名称', exact: true }).inputValue(), title);
+  assert.equal(await page.getByRole('textbox', { name: '发行版名称', exact: true }).inputValue(), title);
   await page.getByRole('button', { name: '预览发布效果', exact: true }).click();
-  await page.getByRole('button', { name: '确认发布新版本', exact: true }).click();
+  await page.getByRole('button', { name: '确认发布发行版', exact: true }).click();
   await page.getByTestId('release-downloads').waitFor();
   await frame();
   assert.equal(await storedDraft(newKey), null);
