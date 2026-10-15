@@ -28,7 +28,9 @@ export async function runDemoChecks(page, { demoOnly = false } = {}) {
   await page.getByRole('button', { name: '标记为已解决', exact: true }).click(); await page.getByRole('button', { name: '重新打开', exact: true }).waitFor();
 
   await nav(page, '合并请求').click();
-  await page.locator('.live-issue-group').filter({ hasText: 'MyTool' }).locator('.issue-project-header').click();
+  const pendingGroup = page.locator('.live-issue-group').filter({ hasText: 'MyTool' }).locator('.issue-project-header');
+  await pendingGroup.waitFor();
+  assert.equal(await pendingGroup.getAttribute('aria-expanded'), 'true', 'Pending review groups open automatically');
   await page.getByRole('button').filter({ hasText: '修复窗口缩小时的按钮排版' }).last().click();
   await page.getByRole('button', { name: 'AI 审查', exact: true }).click(); await page.getByRole('button', { name: '同意并开始审查', exact: true }).click(); await page.locator('.ai-review-result').getByText(/演示结果/).waitFor();
 
