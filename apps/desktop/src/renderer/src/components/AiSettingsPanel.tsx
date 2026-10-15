@@ -85,6 +85,7 @@ export function AiSettingsPanel({ disabled = false, language = readLanguage() }:
         {!expanded && saved?.hasApiKey && <div className="ai-compact-model"><span>{t("aiSettingsPanel.model")}</span><StyledDropdown label={t("aiSettingsPanel.model")} value={saved.model} disabled={locked} options={modelChoices.map((choice) => ({ value: choice, label: choice }))} onChange={(choice) => { setModel(choice); void act('save', choice); }} /></div>}
       </div>
       {!expanded && error && <p className="live-error" role="alert"><ErrorMessage error={error} /></p>}
+      <FeedbackNotice message={notice} language={language} onClose={() => setNotice('')} />
       <div id="ai-settings-details" hidden={!expanded}>
       <p>{t("aiSettingsPanel.chooseAnAiProviderAndEnterYourOwnApi")}</p>
       {disabled ? <p className="ai-settings-note">{t("aiSettingsPanel.theDemoDoesNotStoreKeysUseTheFull")}</p> : <p className="ai-settings-note">{t("aiSettingsPanel.yourKeyIsKeptInThisComputerSSecure")}</p>}
@@ -95,7 +96,6 @@ export function AiSettingsPanel({ disabled = false, language = readLanguage() }:
         {saved?.providerId === 'legacy' && <p className="ai-settings-note">{t("aiSettingsPanel.yourPreviouslySavedProviderRemainsAvailableEnterANew")}</p>}
         {changedProvider && <p className="ai-settings-note">{t("aiSettingsPanel.enterTheApiKeyForTheNewlySelectedProvider")}</p>}
         {error && <p className="live-error" role="alert"><ErrorMessage error={error} /></p>}
-        <FeedbackNotice message={notice} language={language} onClose={() => setNotice('')} />
         <div className="ai-settings-actions">
           <button className="button button-primary" type="submit" disabled={locked || !model.trim() || (changedProvider && !apiKey.trim())}>{busy === 'save' && <RotateCw size={16} className="live-spin" />}{t("aiSettingsPanel.saveSettings")}</button>
           <button className="button button-quiet" type="button" disabled={locked || !saved?.hasApiKey || !saved.model || edited} onClick={() => void act('test')}>{busy === 'test' && <RotateCw size={16} className="live-spin" />}{t("aiSettingsPanel.testConnection")}</button>
