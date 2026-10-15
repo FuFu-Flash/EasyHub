@@ -29,6 +29,7 @@ export default function App() {
   const language = useLanguage();
   const t = useTranslation(language);
   const [initialMenuCommand, setInitialMenuCommand] = useState<MenuCommand>();
+  const [offlineRepairRequest, setOfflineRepairRequest] = useState(0);
   const [pairingCopied, setPairingCopied] = useState(false);
   const [user, setUser] = useState<GitHubUser | null>(null);
   const [authState, setAuthState] = useState('checking');
@@ -51,10 +52,15 @@ export default function App() {
   useApplicationMenu(
     { language, signedIn: false, busy: loginBusy, demoOnly: demoOnlyBuild },
     (command) => {
+      if (authOffline && (command === 'settings' || command === 'proxy-settings')) {
+        setOfflineRepairRequest((value) => value + 1);
+        return;
+      }
+      if (authOffline) setAuthOffline(false);
       setInitialMenuCommand(command);
       choose('demo');
     },
-    !user && (authChecking || needsWelcome(authState, welcomeChoice)),
+    !user && (authChecking || authOffline || needsWelcome(authState, welcomeChoice)),
   );
 
   useEffect(() => {
@@ -173,7 +179,15 @@ export default function App() {
         <p>{t('app.connectingToGithub')}</p>
       </div>
     );
-  if (authOffline && !user) return <OfflineStart onRetry={() => setAuthRetry((value) => value + 1)} />;
+  if (authOffline && !user)
+    return (
+      <OfflineStart
+        repairRequest={
+          offlineRepairRequest + (initialMenuCommand === 'settings' || initialMenuCommand === 'proxy-settings' ? 1 : 0)
+        }
+        onRetry={() => setAuthRetry((value) => value + 1)}
+      />
+    );
   if (user)
     return (
       <LiveWorkspace
