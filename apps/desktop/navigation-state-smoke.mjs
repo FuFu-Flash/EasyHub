@@ -68,7 +68,7 @@ try {
   await page.getByRole('heading', { name: '设置', exact: true }).waitFor();
   await page.keyboard.press('Alt+ArrowLeft');
   await page.locator('.detail-hero h1').filter({ hasText: 'own-project' }).waitFor();
-  const searchDraft = page.getByRole('combobox', { name: '搜索项目/用户…' });
+  const searchDraft = page.getByRole('combobox', { name: '搜索项目/用户', exact: true });
   await searchDraft.fill('unsent search draft');
   await searchDraft.press('Alt+ArrowLeft');
   assert.equal(await searchDraft.inputValue(), 'unsent search draft');
