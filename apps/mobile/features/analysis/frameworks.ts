@@ -1,3 +1,4 @@
+import { getTranslator } from '../localization/index.ts';
 import { throwIfCancelled } from '../network/cancellation.js';
 
 export type AnalysisFrameworkId = 'java' | 'native';
@@ -20,19 +21,19 @@ export function frameworkForFile(name: string): AnalysisFrameworkId | null {
 
 export function frameworkRequirement(status: Availability | null, name: string, language: 'zh' | 'en'): { ready: boolean; component: AnalysisFrameworkId | null; message: string } {
   const component = frameworkForFile(name);
-  if (!status) return { ready: false, component, message: language === 'en' ? 'Program review is unavailable in this build.' : '此版本无法使用程序文件审查。' };
+  if (!status) return { ready: false, component, message: getTranslator(language)("frameworks.programReviewIsUnavailableInThisBuild") };
   if (component) {
     if (component === 'java' ? status.javaAvailable : status.nativeAvailable) return { ready: true, component, message: '' };
     const value = (status.components ?? []).find((item) => item.id === component);
     const title = component === 'java' ? 'Java / Dalvik (JADX)' : 'Native (radare2 / r2ghidra)';
     return { ready: false, component, message: value && !value.supported
-      ? language === 'en' ? `${title} is not supported on this device.` : `${title} 不支持这台设备。`
-      : language === 'en' ? `Download ${title} in Settings before analyzing this file.` : `请先在设置中下载 ${title} 组件，再分析这个文件。` };
+      ? getTranslator(language)("frameworks.isNotSupportedOnThisDevice", { p0: title })
+      : getTranslator(language)("frameworks.downloadInSettingsBeforeAnalyzingThisFile", { p0: title }) };
   }
   if (status.javaAvailable || status.nativeAvailable) return { ready: true, component: null, message: '' };
   return { ready: false, component: null, message: (status.components ?? []).some((item) => item.supported)
-    ? language === 'en' ? 'Download the required program review component in Settings first.' : '请先在设置中下载所需的程序文件审查组件。'
-    : language === 'en' ? 'Program review components are not supported on this device.' : '程序文件审查组件不支持这台设备。' };
+    ? getTranslator(language)("frameworks.downloadTheRequiredProgramReviewComponentInSettingsFirst")
+    : getTranslator(language)("frameworks.programReviewComponentsAreNotSupportedOnThisDevice") };
 }
 
 /** Cancellation retains ownership until the native promise settles and cleans up. */

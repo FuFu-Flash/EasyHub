@@ -8,7 +8,7 @@ export function usePagedList<T>(fetchPage: (page: number, signal: AbortSignal) =
   useFocusEffect(useCallback(() => {
     if (!enabled) return;
     const unsubscribe = list.subscribe((state) => setView({ list, state }));
-    void list.refresh();
+    void list.revalidate();
     return () => { unsubscribe(); list.cancel(); };
   }, [list, enabled]));
   return { ...(view.list === list ? view.state : list.snapshot()), reload: list.refresh, more: list.more };

@@ -1,4 +1,4 @@
-import { GitHubClient, type GitHubComment, type GitHubCommit, type GitHubIssue, type GitHubPullFile, type GitHubPullRequest, type GitHubPullReview, type GitHubRelease, type GitHubRepo, type GitHubUser, type Transport } from '@easyhub/github';
+import { GitHubClient, type GitHubBranch, type GitHubComment, type GitHubCommit, type GitHubIssue, type GitHubPullFile, type GitHubPullRequest, type GitHubPullReview, type GitHubRelease, type GitHubRepo, type GitHubUser, type Transport } from '@easyhub/github';
 
 // Only SessionProvider's __DEV__ + EXPO_PUBLIC_UI_TEST guard can activate this transport.
 // It has no network fallback, and every mutation affects this in-memory fixture instance only.
@@ -99,9 +99,50 @@ const releases: GitHubRelease[] = [
   { id: 102, tag_name: 'v1.1.1-beta.2', name: 'Preview release · 预览版', body: '这个发行版没有额外下载附件，可下载项目源码。', draft: false, prerelease: true, published_at: '2026-09-24T09:00:00.000Z', assets: [] },
 ];
 const commits: GitHubCommit[] = [
-  { sha: headSha, commit: { message: '改进移动端排版与代码审查体验', author: { name: 'FuFu', date: createdAt } }, author: { login: uiFixtureUser.login }, stats: { additions: 52, deletions: 17 }, files: pullFiles.map((file) => ({ filename: file.filename, status: file.status })) },
-  { sha: baseSha, commit: { message: 'Support Markdown tables, comments and source downloads', author: { name: 'contributor-with-a-long-name', date: '2026-10-06T04:00:00.000Z' } }, author: { login: 'contributor-with-a-long-name' }, stats: { additions: 124, deletions: 9 }, files: [{ filename: 'README.md', status: 'modified' }] },
+  { sha: headSha, commit: { message: '改进移动端排版与代码审查体验\n\nKeep refreshed content visible and preserve the reader’s place.', author: { name: 'FuFu', date: createdAt } }, author: { login: uiFixtureUser.login }, stats: { additions: 5, deletions: 2 }, files: [
+    { filename: 'README.md', status: 'modified', additions: 2, deletions: 1, patch: '@@ -1,2 +1,3 @@\n # EasyHub\n-Refresh replaces the open list.\n+Refresh keeps the current list visible.\n+返回后保留已读页面。' },
+    { filename: 'apps/mobile/components/ProjectCardWithAnIntentionallyLongFileName.tsx', previous_filename: 'apps/mobile/components/ProjectCard.tsx', status: 'renamed', additions: 3, deletions: 1, patch: '@@ -1,2 +1,4 @@\n export function ProjectName() {\n-return <Text>{name}</Text>;\n+return <Text numberOfLines={2}>\n+  {name}\n+</Text>;' },
+    { filename: 'resources/EasyHub-Windows-x64-with-a-long-asset-name.exe', status: 'added', additions: 0, deletions: 0, sha: nativeExe.blobSha },
+    { filename: 'src/history/empty.ts', status: 'added', additions: 0, deletions: 0, sha: 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391' },
+  ] },
+  { sha: baseSha, commit: { message: 'Support Markdown tables, comments and source downloads', author: { name: 'contributor-with-a-long-name', date: '2026-10-06T04:00:00.000Z' } }, author: { login: 'contributor-with-a-long-name' }, stats: { additions: 1, deletions: 1 }, files: [{ filename: 'README.md', status: 'modified', additions: 1, deletions: 1, patch: '@@ -1 +1 @@\n-# Project\n+# EasyHub' }] },
 ];
+
+// These are authored repository contents, not interface copy. Keep their Chinese /
+// English text unchanged while translating the surrounding application controls.
+function fixtureBranches(repo: GitHubRepo): GitHubBranch[] {
+  return [
+    { name: 'main', commit: { sha: repo.name === 'history-pagination' ? '1'.padStart(40, '0') : headSha }, protected: true },
+    { name: 'feature/fix-ui', commit: { sha: '9'.repeat(40) }, protected: false },
+    { name: 'develop', commit: { sha: '8'.repeat(40) }, protected: false },
+    { name: 'empty-history', commit: { sha: '7'.repeat(40) }, protected: false },
+    ...(repo.name === 'history-pagination' ? Array.from({ length: 98 }, (_, index) => ({ name: `feature/workspace-${String(index + 1).padStart(3, '0')}`, commit: { sha: `e${(index + 1).toString(16).padStart(39, '0')}` }, protected: false })) : []),
+  ];
+}
+
+function fixtureChangedFile(index: number): GitHubPullFile {
+  return { filename: `src/history/change-${String(index).padStart(3, '0')}.ts`, status: 'added', additions: 1, deletions: 0,
+    patch: `@@ -0,0 +1 @@\n+export const historyChange${index} = true;` };
+}
+
+function fixtureHistory(repo: GitHubRepo, branch: string): GitHubCommit[] {
+  if (branch === 'empty-history') return [];
+  if (branch !== 'main') {
+    const selected = fixtureBranches(repo).find(item => item.name === branch);
+    if (!selected) return [];
+    const path = branch === 'develop' ? 'src/navigation/transitions.ts' : 'src/refresh/indicator.ts';
+    return [{ ...commits[0], sha: selected.commit.sha, commit: { ...commits[0].commit, message: `${branch} · 保留阅读位置 / Preserve the reading position` },
+      stats: { additions: 1, deletions: 1 }, files: [{ filename: path, status: 'modified', additions: 1, deletions: 1, patch: '@@ -1 +1 @@\n-const resetOnVisit = true;\n+const resetOnVisit = false;' }] }, ...commits];
+  }
+  if (repo.name !== 'history-pagination') return commits;
+  return Array.from({ length: 101 }, (_, index) => {
+    const files = index === 0 ? [...commits[0].files!.slice(0, 3), ...Array.from({ length: 98 }, (_, file) => fixtureChangedFile(file + 1))]
+      : index === 100 ? commits[1].files! : [fixtureChangedFile(index)];
+    return { ...commits[0], sha: (index + 1).toString(16).padStart(40, '0'), commit: { ...commits[0].commit, message: `History ${index + 1} / 101 · 分页测试\n\nRecorded repository content remains unchanged when the app language changes.`,
+      author: { name: 'FuFu · Workspace reader', date: new Date(Date.parse(createdAt) - index * 60_000).toISOString() } },
+    files, stats: { additions: files.reduce((sum, file) => sum + file.additions, 0), deletions: files.reduce((sum, file) => sum + file.deletions, 0) } };
+  });
+}
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const json = (value: unknown, status = 200) => new Response(status === 204 ? null : JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
 const text = (value: string, type = 'text/plain') => new Response(value, { headers: { 'Content-Type': type } });
@@ -268,9 +309,10 @@ export function createUiTestTransport(): Transport {
     if (endpoint === 'compare' && method === 'GET') return json({ status: 'ahead', ahead_by: 2, behind_by: 0, total_commits: 2, files: pullFiles });
     if (endpoint === 'branches') {
       if (path[5] === 'protection') return json({ message: 'No protection in fixture' }, 404);
+      if (path.length === 4 && method === 'GET') return json(pageItems(fixtureBranches(repo), url));
       const name = decodeURIComponent(path.slice(4).join('/'));
-      return ['main', 'feature/fix-ui', 'develop'].includes(name)
-        ? json({ name, protected: false }) : json({ message: 'UI fixture branch unavailable' }, 404);
+      const branch = fixtureBranches(repo).find(item => item.name === name);
+      return branch ? json(branch) : json({ message: 'UI fixture branch unavailable' }, 404);
     }
     if (endpoint === 'issues') {
       const number = Number(path[4]);
@@ -331,8 +373,17 @@ export function createUiTestTransport(): Transport {
         return json(pageItems(statuses, url));
       }
       if (!path[5]) {
-        const catalog = repo.name === 'history-pagination' ? Array.from({ length: 101 }, (_, index) => ({ ...commits[0], sha: (index + 1).toString(16).padStart(40, '0'), commit: { ...commits[0].commit, message: `History ${index + 1} / 101 · 分页测试` } })) : commits;
-        return json(sha ? catalog.find((commit) => commit.sha === sha) || { ...commits[0], sha } : pageItems(catalog, url));
+        if (sha) {
+          const commit = fixtureBranches(repo).flatMap(branch => fixtureHistory(repo, branch.name)).find(item => item.sha === sha.toLowerCase());
+          return commit ? json({ ...commit, files: pageItems(commit.files ?? [], url) }) : json({ message: 'UI fixture commit unavailable' }, 404);
+        }
+        const branch = url.searchParams.get('sha') || repo.default_branch;
+        if (!fixtureBranches(repo).some(item => item.name === branch)) return json({ message: 'UI fixture branch unavailable' }, 404);
+        const filter = url.searchParams.get('path') || '';
+        const catalog = fixtureHistory(repo, branch).filter(commit => !filter || commit.files?.some(file => file.filename === filter || file.filename.startsWith(`${filter.replace(/\/$/u, '')}/`)));
+        // GitHub list responses do not include every file diff; details use the
+        // separate, independently paginated immutable-commit endpoint above.
+        return json(pageItems(catalog, url).map(({ files: _files, ...commit }) => commit));
       }
     }
     if (endpoint === 'releases' && method === 'GET') {

@@ -63,9 +63,11 @@ test('mixed PR review uses the selected head/blob and maps binary findings witho
   assert.equal(result.findings[0].line, 2);
   assert.equal(result.findings[1].file, 'bin/tool.exe'); assert.equal(result.findings[1].address, '0x140001000');
   assert.equal(result.findings[1].analysisId, 'analysis-one'); assert.equal(Object.hasOwn(result.findings[1], 'line'), false);
-  assert.match(result.limitations.join(' '), /logo.png|1 files have no/);
+  assert.match(result.limitations.join(' '), /logo.png|1 file has no/);
   assert.match(result.limitations.join(' '), /No earlier version was compared/);
   assert.ok(progress.some((entry) => entry[2] === 'Reading bounded program evidence'));
+  assert.ok(progress.some((entry) => entry[3]?.step === 'analyzing-program' && entry[3].fileName === 'bin/tool.exe'));
+  assert.ok(progress.some((entry) => entry[3]?.step === 'reviewing-program' && entry[3].fileName === 'bin/tool.exe'));
   assert.deepEqual(progress.at(-1), [2, 2]);
 });
 

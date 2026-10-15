@@ -1,18 +1,20 @@
+import type { StaticMessageKey } from '@/features/localization';
+import { useTranslation } from '@/features/localization/react';
 import { Tabs } from 'expo-router';
 import { Easing, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePreferences } from '@/features/preferences/provider';
+
 import { useReducedMotion } from '@/features/motion/useReducedMotion';
 
 type TabName = 'index' | 'projects' | 'discover' | 'issues' | 'settings';
 
-const labels: Record<TabName, [string, string]> = {
-  index: ['首页', 'Home'],
-  projects: ['项目', 'Projects'],
-  discover: ['发现', 'Discover'],
-  issues: ['问题', 'Issues'],
-  settings: ['设置', 'Settings'],
+const labels: Record<TabName, StaticMessageKey> = {
+  index: "layout.home",
+  projects: "layout.projects",
+  discover: "layout.discover",
+  issues: "issues.issues",
+  settings: "settings.settings",
 };
 
 // Expo Router drives this opacity transition natively on Android and iOS.
@@ -40,7 +42,7 @@ function TabIcon({ name, color }: { name: TabName; color: string }) {
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const { t } = usePreferences();
+  const t = useTranslation();
   const reducedMotion = useReducedMotion();
 
   return <Tabs
@@ -53,7 +55,7 @@ export default function TabLayout() {
         return <Pressable
           key={route.key}
           accessibilityRole="tab"
-          accessibilityLabel={t(...labels[name])}
+          accessibilityLabel={t(labels[name])}
           accessibilityState={{ selected }}
           onPress={() => {
             const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
@@ -67,11 +69,11 @@ export default function TabLayout() {
       })}
     </View>}
   >
-    <Tabs.Screen name="index" options={{ title: t(...labels.index) }} />
-    <Tabs.Screen name="projects" options={{ title: t(...labels.projects) }} />
-    <Tabs.Screen name="discover" options={{ title: t(...labels.discover) }} />
-    <Tabs.Screen name="issues" options={{ title: t(...labels.issues) }} />
-    <Tabs.Screen name="settings" options={{ title: t(...labels.settings) }} />
+    <Tabs.Screen name="index" options={{ title: t(labels.index) }} />
+    <Tabs.Screen name="projects" options={{ title: t(labels.projects) }} />
+    <Tabs.Screen name="discover" options={{ title: t(labels.discover) }} />
+    <Tabs.Screen name="issues" options={{ title: t(labels.issues) }} />
+    <Tabs.Screen name="settings" options={{ title: t(labels.settings) }} />
   </Tabs>;
 }
 

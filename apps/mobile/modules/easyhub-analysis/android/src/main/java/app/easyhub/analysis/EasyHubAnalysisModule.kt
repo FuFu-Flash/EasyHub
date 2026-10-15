@@ -15,6 +15,7 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 class EasyHubAnalysisModule : Module() {
   private val executor = Executors.newSingleThreadExecutor()
@@ -22,10 +23,23 @@ class EasyHubAnalysisModule : Module() {
   private val lock = Any()
   private var active: AnalysisJob? = null
   private val cancelledBeforeStart = linkedMapOf<String, Long>()
+  private val initialized = AtomicBoolean(false)
+
+  private fun initialize(context: Context) {
+    if (!initialized.compareAndSet(false, true)) return
+    TemporaryAnalysisFiles.cleanup(context.cacheDir)
+    runCatching { FrameworkManager.cleanup(context) }
+  }
 
   override fun definition() = ModuleDefinition {
     Name("EasyHubAnalysis")
     Events("onProgress", "onFrameworkProgress")
+
+    AsyncFunction("prepareAnalysisCache") { promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) promise.reject("unavailable", "App context unavailable", null)
+      else executor.execute { initialize(context); promise.resolve(null) }
+    }
 
     Function("getStatus") {
       val context = appContext.reactContext ?: throw IllegalStateException("App context unavailable")
@@ -75,6 +89,7 @@ class EasyHubAnalysisModule : Module() {
           else promise.reject("busy", if (language == "en") "Another analysis is still finishing. Try again in a moment." else "另一个分析仍在结束，请稍后重试。", null)
         } else {
           executor.execute {
+            initialize(context)
             job.thread = Thread.currentThread()
             val root = File(context.cacheDir, "easyhub-analysis")
             val directory = File(root, job.id)
@@ -166,7 +181,7 @@ class EasyHubAnalysisModule : Module() {
     }
 
     OnCreate {
-      appContext.reactContext?.let { context -> executor.execute { runCatching { FrameworkManager.cleanup(context) } } }
+      appContext.reactContext?.let { context -> executor.execute { initialize(context) } }
     }
 
     OnDestroy {
@@ -194,6 +209,7 @@ class EasyHubAnalysisModule : Module() {
       return
     }
     executor.execute {
+      initialize(context)
       job.thread = Thread.currentThread()
       var result: Map<String, Any?>? = null
       var code: String? = null

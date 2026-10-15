@@ -1,6 +1,8 @@
+import { localizeError } from '../features/localization/error.ts';
+import { useTranslation } from '@/features/localization/react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { File } from 'expo-file-system';
 import type { BinaryAiReviewResult, BinaryAnalysisResult } from '@easyhub/types';
 import { AppAlert } from './AppAlert';
@@ -14,6 +16,8 @@ import { prepareProgramReview, runProgramReview, type ProgramReviewFile, type Pr
 import { isProgramReviewUiTest, programReviewServices } from '@/features/analysis/programReviewRuntime';
 import { MAX_ANALYSIS_BYTES } from '@/features/analysis/source';
 import { formatBytes } from '@/features/github/downloadProgress';
+import { useProgramReviewNotice } from '@/features/analysis/useProgramReviewNotice';
+import { usePageFeedback } from '@/features/workspace/usePageFeedback';
 
 type Operation = 'choose' | 'prepare' | 'extracting' | 'reviewing' | 'install' | 'remove' | 'cancel';
 type OperationLock = { id: number; kind: Operation };
@@ -50,38 +54,41 @@ function EvidenceSection({ title, children }: { title: string; children: ReactNo
 }
 
 function ProgramEvidence({ analysis }: { analysis: BinaryAnalysisResult }) {
-  const { t } = usePreferences();
-  return <EvidenceSection title={t('程序文件提取证据', 'Extracted program evidence')}>
+  const t = useTranslation();
+  return <EvidenceSection title={t("BinaryAnalysisSettings.extractedProgramEvidence")}>
     <Text selectable style={{ color: palette.ink, lineHeight: 23, marginBottom: 12 }}>{analysis.summary}</Text>
     <View style={{ gap: 7 }}>
-      <Text selectable style={{ color: palette.ink, lineHeight: 22 }}>{t('文件', 'File')}: {analysis.fileName}</Text>
-      <Text selectable style={{ color: palette.muted, lineHeight: 22 }}>{t('大小', 'Size')}: {formatBytes(analysis.size)}{'\n'}{t('格式', 'Format')}: {analysis.format}{'\n'}{t('架构', 'Architecture')}: {analysis.architecture}{'\n'}{t('函数 / 类', 'Functions / classes')}: {analysis.functionCount}</Text>
+      <Text selectable style={{ color: palette.ink, lineHeight: 22 }}>{t("BinaryAnalysisSettings.file")}: {analysis.fileName}</Text>
+      <Text selectable style={{ color: palette.muted, lineHeight: 22 }}>{t("BinaryAnalysisSettings.size")}: {formatBytes(analysis.size)}{'\n'}{t("BinaryAnalysisSettings.format")}: {analysis.format}{'\n'}{t("BinaryAnalysisSettings.architecture")}: {analysis.architecture}{'\n'}{t("BinaryAnalysisSettings.functionsClasses")}: {analysis.functionCount}</Text>
       <Text selectable style={{ color: palette.muted, fontSize: 12, lineHeight: 19 }}>SHA-256{'\n'}{analysis.sha256}</Text>
     </View>
     {analysis.functions.length > 0 && <View style={{ marginTop: 10 }}>
-      <Text style={{ color: palette.ink, fontWeight: '800', marginTop: 10 }}>{t('函数片段', 'Function excerpts')}</Text>
+      <Text style={{ color: palette.ink, fontWeight: '800', marginTop: 10 }}>{t("BinaryAnalysisSettings.functionExcerpts")}</Text>
       {analysis.functions.map((item, index) => <EvidenceSection key={`${analysis.id}:${index}`} title={`${item.name}\n${item.address}`}>
         <ScrollView horizontal style={{ backgroundColor: '#f3f6fb', borderRadius: 8 }}>
           <Text selectable style={{ color: palette.ink, fontFamily: 'monospace', fontSize: 12, lineHeight: 19, padding: 12 }}>{item.code}</Text>
         </ScrollView>
       </EvidenceSection>)}
     </View>}
-    {analysis.imports.length > 0 && <EvidenceSection title={t(`导入项 (${analysis.imports.length})`, `Imports (${analysis.imports.length})`)}>
+    {analysis.imports.length > 0 && <EvidenceSection title={t("BinaryAnalysisSettings.imports", { p0: analysis.imports.length })}>
       {analysis.imports.map((item, index) => <Text selectable key={index} style={{ color: palette.muted, lineHeight: 21, marginBottom: 7 }}>{item}</Text>)}
     </EvidenceSection>}
-    {analysis.strings.length > 0 && <EvidenceSection title={t(`文本片段 (${analysis.strings.length})`, `Text excerpts (${analysis.strings.length})`)}>
+    {analysis.strings.length > 0 && <EvidenceSection title={t("BinaryAnalysisSettings.textExcerpts", { p0: analysis.strings.length })}>
       {analysis.strings.map((item, index) => <Text selectable key={index} style={{ color: palette.muted, lineHeight: 21, marginBottom: 7 }}>{item}</Text>)}
     </EvidenceSection>}
     {analysis.limitations.length > 0 && <View style={{ marginTop: 16, gap: 7 }}>
-      <Text style={{ color: palette.ink, fontWeight: '800' }}>{t('提取范围', 'Extraction coverage')}</Text>
+      <Text style={{ color: palette.ink, fontWeight: '800' }}>{t("BinaryAnalysisSettings.extractionCoverage")}</Text>
       {analysis.limitations.map((item, index) => <Text key={index} style={{ color: palette.muted, lineHeight: 22 }}>• {item}</Text>)}
     </View>}
   </EvidenceSection>;
 }
 
 /** Local program review shares the same AI authorization and consent flow as PR review. */
-export function BinaryAnalysisSettings() {
-  const { language, t } = usePreferences();
+export function BinaryAnalysisSettings({ onOpenComponents }: { onOpenComponents?: () => void } = {}) {
+  const { language } = usePreferences();
+  const t = useTranslation();
+  const { programReview } = useLocalSearchParams<{ programReview?: string }>();
+  const { noticesEnabled, setNoticesEnabled } = useProgramReviewNotice();
   const [expanded, setExpanded] = useState(false);
   const [status, setStatus] = useState(engineStatus);
   const [componentsExpanded, setComponentsExpanded] = useState(false);
@@ -92,8 +99,8 @@ export function BinaryAnalysisSettings() {
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
   const [analysis, setAnalysis] = useState<BinaryAnalysisResult | null>(null);
   const [review, setReview] = useState<BinaryAiReviewResult | null>(null);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const { value: error, set: setError } = usePageFeedback('');
+  const { value: notice, set: setNotice } = usePageFeedback('');
   const mounted = useRef(true);
   const focused = useRef(false);
   const focusedLanguage = useRef(language);
@@ -112,7 +119,7 @@ export function BinaryAnalysisSettings() {
     focused.current = true;
     setStatus(engineStatus());
     if (focusedLanguage.current !== language) {
-      setAnalysis(null); setReview(null); setError(''); setNotice('');
+      setError(''); setNotice('');
     }
     focusedLanguage.current = language;
     return () => {
@@ -124,7 +131,13 @@ export function BinaryAnalysisSettings() {
         if (mounted.current) setBusy('cancel');
       }
     };
-  }, [invalidate, language]));
+  }, [invalidate, language, setError, setNotice]));
+  useFocusEffect(useCallback(() => {
+    if (programReview !== '1') return;
+    setExpanded(true); setComponentsExpanded(true);
+    onOpenComponents?.();
+    router.setParams({ programReview: undefined });
+  }, [onOpenComponents, programReview]));
 
   const current = (id: number): boolean => mounted.current && focused.current && focusedLanguage.current === language && generation.current === id;
   const begin = (kind: Operation): number | null => {
@@ -154,11 +167,11 @@ export function BinaryAnalysisSettings() {
         if (current(id) && !controller.signal.aborted && event.component === component) setFrameworkProgress(event);
       });
       if (current(id) && !controller.signal.aborted) {
-        setStatus(value); setNotice(t('组件已安装，可以开始审查。', 'Component installed. Review is ready.'));
+        setStatus(value); setNotice(t("BinaryAnalysisSettings.componentInstalledReviewIsReady"));
       }
     } catch (cause) {
-      if (mounted.current && focused.current && focusedLanguage.current === language && controller.signal.aborted) setNotice(t('下载已取消，可以重试。', 'Download canceled. You can retry.'));
-      else if (current(id)) setError(cause instanceof Error ? cause.message : t('组件下载未完成，请重试。', 'Component download did not complete. Please retry.'));
+      if (mounted.current && focused.current && focusedLanguage.current === language && controller.signal.aborted) setNotice(t("BinaryAnalysisSettings.downloadCanceledYouCanRetry"));
+      else if (current(id)) setError(localizeError(cause, t, t("BinaryAnalysisSettings.componentDownloadDidNotCompletePleaseRetry")));
     } finally {
       if (active.current === controller) active.current = null;
       installingComponentRef.current = null;
@@ -172,9 +185,9 @@ export function BinaryAnalysisSettings() {
     if (id === null) return;
     try {
       const value = await removeAnalysisFramework(component, language);
-      if (current(id)) { setStatus(value); setNotice(t('组件已移除，需要时可重新下载。', 'Component removed. Download it again when needed.')); }
+      if (current(id)) { setStatus(value); setNotice(t("BinaryAnalysisSettings.componentRemovedDownloadItAgainWhenNeeded")); }
     } catch (cause) {
-      if (current(id)) setError(cause instanceof Error ? cause.message : t('无法移除组件，请重试。', 'Could not remove the component. Please retry.'));
+      if (current(id)) setError(localizeError(cause, t, t("BinaryAnalysisSettings.couldNotRemoveTheComponentPleaseRetry")));
     } finally { if (mounted.current) setStatus(engineStatus()); finish(id); }
   };
   const checkStatus = (): void => {
@@ -184,10 +197,10 @@ export function BinaryAnalysisSettings() {
     try {
       const value = analysisEngineStatus();
       setStatus(value);
-      if (!value) throw new Error(t('此安装包未包含程序文件审查组件。', 'This build does not include program review components.'));
-      setNotice(t('组件状态已更新。', 'Component status refreshed.'));
+      if (!value) throw new Error(t("BinaryAnalysisSettings.thisBuildDoesNotIncludeProgramReviewComponents"));
+      setNotice(t("BinaryAnalysisSettings.componentStatusRefreshed"));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t('无法检查组件，请重试。', 'Could not check components. Please retry.'));
+      setError(localizeError(cause, t, t("BinaryAnalysisSettings.couldNotCheckComponentsPleaseRetry")));
     }
   };
   const chooseFile = async (): Promise<void> => {
@@ -199,13 +212,13 @@ export function BinaryAnalysisSettings() {
       const info = await analysisFileInfo(choice.result.uri);
       if (!current(id)) return;
       if (info.size !== null && info.size > (status?.maxBytes ?? MAX_ANALYSIS_BYTES)) {
-        throw new Error(t(`文件超过 ${formatBytes(status?.maxBytes ?? MAX_ANALYSIS_BYTES)}，请选择更小的文件。`, `The file exceeds ${formatBytes(status?.maxBytes ?? MAX_ANALYSIS_BYTES)}. Choose a smaller file.`));
+        throw new Error(t("BinaryAnalysisSettings.theFileExceedsChooseASmallerFile", { p0: formatBytes(status?.maxBytes ?? MAX_ANALYSIS_BYTES) }));
       }
       const file = { uri: choice.result.uri, ...info };
       selectedRef.current = file;
       setSelected(file); setAnalysis(null); setReview(null);
     } catch (cause) {
-      if (current(id)) setError(cause instanceof Error ? cause.message : t('无法选择文件，请重试。', 'Could not select the file. Please retry.'));
+      if (current(id)) setError(localizeError(cause, t, t("BinaryAnalysisSettings.couldNotSelectTheFilePleaseRetry")));
     } finally { finish(id); }
   };
   const startReview = async (prepared: ProgramReviewPreparation, confirmationId: number, file: ProgramReviewFile): Promise<void> => {
@@ -230,8 +243,8 @@ export function BinaryAnalysisSettings() {
         setAnalysis(result.analysis); setReview(result.review);
       }
     } catch (cause) {
-      if (mounted.current && focused.current && focusedLanguage.current === language && controller.signal.aborted) setNotice(t('已取消。', 'Canceled.'));
-      else if (current(id)) setError(cause instanceof Error ? cause.message : t('AI 审查未能完成，请检查文件和组件后重试。', 'AI review could not be completed. Check the file and components, then retry.'));
+      if (mounted.current && focused.current && focusedLanguage.current === language && controller.signal.aborted) setNotice(t("BinaryAnalysisSettings.canceled"));
+      else if (current(id)) setError(localizeError(cause, t, t("BinaryAnalysisSettings.aiReviewCouldNotBeCompletedCheckTheFileAndComponents")));
     } finally {
       if (active.current === controller) active.current = null;
       finish(id);
@@ -248,12 +261,12 @@ export function BinaryAnalysisSettings() {
       const prepared = await prepareProgramReview(file, language, programReviewServices);
       if (!current(id) || selectedRef.current !== file) return;
       const provider = AI_PROVIDERS.find((item) => item.id === prepared.settings.providerId)!;
-      AppAlert.alert(t('使用 AI 审查这个程序文件？', 'Use AI to review this program file?'),
-        `${t('确认后，将先在这台设备上提取程序内容，再向你的 AI 服务发送文件名、格式与架构、分析摘要，以及提取的函数代码、导入项和文本片段。', 'After confirmation, program content is extracted on this device. The file name, format, architecture, analysis summary, and extracted function code, imports, and text excerpts are then sent to your AI service.')}\n\n${t('服务商', 'Provider')}: ${provider.name}\n${t('服务地址', 'Service address')}: ${prepared.providerBaseUrl}\n${t('模型名称', 'Model name')}: ${prepared.settings.model}\n${t('文件', 'File')}: ${file.name}\n\n${t('请确认你愿意分享这些提取内容。服务商可能收费，审查结果供你进一步检查程序时参考。', 'Confirm that you want to share this extracted content. Your provider may charge for this request. Use the review to guide your own inspection.')}`,
-        [{ text: t('取消', 'Cancel'), style: 'cancel', onPress: () => { if (current(id)) generation.current++; } },
-          { text: t('同意并开始审查', 'Agree and start review'), onPress: () => { void startReview(prepared, id, file); } }]);
+      AppAlert.alert(t("BinaryAnalysisSettings.useAIToReviewThisProgramFile"),
+        `${t("BinaryAnalysisSettings.afterConfirmationProgramContentIsExtractedOnThisDeviceTheFile")}\n\n${t("BinaryAnalysisSettings.provider")}: ${provider.name}\n${t("BinaryAnalysisSettings.serviceAddress")}: ${prepared.providerBaseUrl}\n${t("AiReviewSettings.modelName")}: ${prepared.settings.model}\n${t("BinaryAnalysisSettings.file")}: ${file.name}\n\n${t("BinaryAnalysisSettings.confirmThatYouWantToShareThisExtractedContentYourProvider")}`,
+        [{ text: t("AiReviewSettings.cancel"), style: 'cancel', onPress: () => { if (current(id)) generation.current++; } },
+          { text: t("BinaryAnalysisSettings.agreeAndStartReview"), onPress: () => { void startReview(prepared, id, file); } }]);
     } catch (cause) {
-      if (current(id)) setError(cause instanceof Error ? cause.message : t('请先在上方设置 AI 授权，选择服务商并保存自己的 API Key。', 'Set up AI access above first. Choose a provider and save your own API key.'));
+      if (current(id)) setError(localizeError(cause, t, t("BinaryAnalysisSettings.setUpAIAccessAboveFirstChooseAProviderAndSave")));
     } finally { finish(id); }
   };
   const cancel = (): void => {
@@ -267,93 +280,99 @@ export function BinaryAnalysisSettings() {
 
   const ready = !!(status?.javaAvailable || status?.nativeAvailable);
   const selectedRequirement = selected ? frameworkRequirement(status, selected.name, language) : null;
-  const summary = busy === 'cancel' ? t('正在取消…', 'Canceling…')
-    : busy === 'install' ? t('正在下载审查组件…', 'Downloading review components…')
-    : busy === 'remove' ? t('正在移除组件…', 'Removing component…')
-    : busy === 'extracting' ? t('正在提取程序内容…', 'Extracting program content…')
-    : busy === 'reviewing' ? t('正在 AI 审查…', 'Reviewing with AI…')
-    : status?.javaAvailable && status.nativeAvailable ? t('已就绪 · 审查本地程序文件', 'Ready · review a local program file')
-    : ready ? t('部分组件已安装 · 点击管理', 'Some components installed · manage components')
-    : status?.components?.some((item) => item.supported) ? t('可选 · 下载程序文件审查组件', 'Optional · download program review components')
-    : t('组件不可用 · 点击查看', 'Components unavailable · view details');
+  const summary = busy === 'cancel' ? t("BinaryAnalysisSettings.canceling")
+    : busy === 'install' ? t("BinaryAnalysisSettings.downloadingReviewComponents")
+    : busy === 'remove' ? t("BinaryAnalysisSettings.removingComponent")
+    : busy === 'extracting' ? t("BinaryAnalysisSettings.extractingProgramContent")
+    : busy === 'reviewing' ? t("BinaryAnalysisSettings.reviewingWithAI")
+    : status?.javaAvailable && status.nativeAvailable ? t("BinaryAnalysisSettings.readyReviewALocalProgramFile")
+    : ready ? t("BinaryAnalysisSettings.someComponentsInstalledManageComponents")
+    : status?.components?.some((item) => item.supported) ? t("BinaryAnalysisSettings.optionalDownloadProgramReviewComponents")
+    : t("BinaryAnalysisSettings.componentsUnavailableViewDetails");
   const progressDetail = progress && progress.total > 0 ? progress.unit === 'bytes'
     ? `${formatBytes(progress.completed)} / ${formatBytes(progress.total)}` : `${progress.completed} / ${progress.total}` : '';
   const frameworkProgressDetail = frameworkProgress && frameworkProgress.total > 0 ? frameworkProgress.unit === 'bytes'
     ? `${formatBytes(frameworkProgress.completed)} / ${formatBytes(frameworkProgress.total)}` : `${frameworkProgress.completed} / ${frameworkProgress.total}` : '';
-  const frameworkPhaseText = busy === 'cancel' ? t('正在取消…', 'Canceling…')
-    : frameworkProgress?.phase === 'verifying' ? t('正在校验组件…', 'Verifying component…')
-    : frameworkProgress?.phase === 'installing' ? t('正在安装组件…', 'Installing component…')
-    : t('正在下载组件…', 'Downloading component…');
+  const frameworkPhaseText = busy === 'cancel' ? t("BinaryAnalysisSettings.canceling")
+    : frameworkProgress?.phase === 'verifying' ? t("BinaryAnalysisSettings.verifyingComponent")
+    : frameworkProgress?.phase === 'installing' ? t("BinaryAnalysisSettings.installingComponent")
+    : t("BinaryAnalysisSettings.downloadingComponent");
   return <Card>
     <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded((value) => !value)}
       style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ color: palette.ink, fontWeight: '800', fontSize: 18 }}>{t('程序文件审查', 'Program file review')}</Text>
+        <Text style={{ color: palette.ink, fontWeight: '800', fontSize: 18 }}>{t("BinaryAnalysisSettings.programFileReview")}</Text>
         <Text accessibilityLiveRegion="polite" style={{ color: palette.muted, marginTop: 6, lineHeight: 20 }}>{summary}</Text>
       </View>
       <MaterialArrow name={expanded ? 'expandLess' : 'expandMore'} />
     </Pressable>
     {expanded && <View style={{ marginTop: 15 }}>
-      <Text style={{ color: palette.muted, lineHeight: 22 }}>{t('与改进请求使用同一个 AI 服务。确认后自动提取程序内容并完成审查，提取证据收在审查结果中。', 'Uses the same AI provider as change requests. After confirmation, program content is extracted and reviewed, with the evidence included in the review results.')}</Text>
-      {isProgramReviewUiTest && <Text style={{ color: palette.muted, fontSize: 12, lineHeight: 19, marginTop: 8 }}>{t('界面测试：AI 使用本地模拟响应', 'UI testing: AI uses a local simulated response')}</Text>}
+      <Pressable accessibilityRole="switch" accessibilityState={{ checked: noticesEnabled }} onPress={() => setNoticesEnabled(!noticesEnabled)}
+        style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, marginBottom: 10 }}>
+        <View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: palette.ink, fontWeight: '700', lineHeight: 22 }}>{t("BinaryAnalysisSettings.componentInstallationReminders")}</Text>
+          <Text style={{ color: palette.muted, marginTop: 5, lineHeight: 21 }}>{t("BinaryAnalysisSettings.showAReminderWhenAPullRequestNeedsAMissingComponent")}</Text></View>
+        <Text style={{ color: noticesEnabled ? palette.blue : palette.muted, fontWeight: '700' }}>{noticesEnabled ? t("BinaryAnalysisSettings.on") : t("BinaryAnalysisSettings.off")}</Text>
+      </Pressable>
+      <Text style={{ color: palette.muted, lineHeight: 22 }}>{t("BinaryAnalysisSettings.usesTheSameAIProviderAsChangeRequestsAfterConfirmationProgram")}</Text>
+      {isProgramReviewUiTest && <Text style={{ color: palette.muted, fontSize: 12, lineHeight: 19, marginTop: 8 }}>{t("BinaryAnalysisSettings.uiTestingAIUsesALocalSimulatedResponse")}</Text>}
       <View style={{ marginTop: 16, padding: 12, borderRadius: 12, backgroundColor: '#f3f6fb' }}>
         <Pressable accessibilityRole="button" accessibilityState={{ expanded: componentsExpanded }} onPress={() => setComponentsExpanded((value) => !value)}
           style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: palette.ink, fontWeight: '800' }}>{t('管理审查组件', 'Manage review components')}</Text>
-            <Text style={{ color: palette.muted, lineHeight: 21, marginTop: 5 }}>{t('从项目仓库按需下载，可分别安装或移除。', 'Download from the project repository when needed. Install or remove each component separately.')}</Text></View>
+          <View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: palette.ink, fontWeight: '800' }}>{t("BinaryAnalysisSettings.manageReviewComponents")}</Text>
+            <Text style={{ color: palette.muted, lineHeight: 21, marginTop: 5 }}>{t("BinaryAnalysisSettings.downloadFromTheProjectRepositoryWhenNeededInstallOrRemoveEach")}</Text></View>
           <MaterialArrow name={componentsExpanded ? 'expandLess' : 'expandMore'} />
         </Pressable>
         {componentsExpanded && <View style={{ marginTop: 10, gap: 14 }}>
           {(status?.components ?? []).map((component) => <View key={component.id} style={{ borderTopWidth: 1, borderTopColor: palette.border, paddingTop: 13, gap: 9 }}>
-            <Text selectable style={{ color: palette.ink, fontWeight: '800', lineHeight: 22 }}>{component.id === 'java' ? 'Java / Dalvik · JADX' : t('原生程序 · radare2 / r2ghidra', 'Native programs · radare2 / r2ghidra')}{'\n'}{component.version}</Text>
-            <Text accessibilityLiveRegion={installingComponent === component.id ? 'polite' : 'none'} style={{ color: component.supported && component.installed ? palette.green : palette.muted, lineHeight: 22 }}>{installingComponent === component.id ? frameworkPhaseText : !component.supported ? t('此设备不支持', 'Not supported on this device') : component.installed ? t('已安装', 'Installed') : t('未安装', 'Not installed')}</Text>
+            <Text selectable style={{ color: palette.ink, fontWeight: '800', lineHeight: 22 }}>{component.id === 'java' ? 'Java / Dalvik · JADX' : t("BinaryAnalysisSettings.nativeProgramsRadare2R2ghidra")}{'\n'}{component.version}</Text>
+            <Text accessibilityLiveRegion={installingComponent === component.id ? 'polite' : 'none'} style={{ color: component.supported && component.installed ? palette.green : palette.muted, lineHeight: 22 }}>{installingComponent === component.id ? frameworkPhaseText : !component.supported ? t("BinaryAnalysisSettings.notSupportedOnThisDevice") : component.installed ? t("BinaryAnalysisSettings.installed") : t("BinaryAnalysisSettings.notInstalled")}</Text>
             <Text style={{ color: palette.muted, lineHeight: 22 }}>{installingComponent === component.id
-              ? frameworkProgressDetail || t('正在准备…', 'Preparing…')
-              : `${t('下载大小', 'Download size')}: ${formatBytes(component.downloadBytes)}${component.installed ? `\n${t('占用空间', 'Storage used')}: ${formatBytes(component.installedBytes)}` : ''}`}</Text>
-            {installingComponent === component.id ? <ReviewAction secondary disabled={busy === 'cancel'} title={busy === 'cancel' ? t('正在取消…', 'Canceling…') : t('取消下载', 'Cancel download')} onPress={cancel} />
+              ? frameworkProgressDetail || t("BinaryAnalysisSettings.preparing")
+              : `${t("BinaryAnalysisSettings.downloadSize")}: ${formatBytes(component.downloadBytes)}${component.installed ? `\n${t("BinaryAnalysisSettings.storageUsed")}: ${formatBytes(component.installedBytes)}` : ''}`}</Text>
+            {installingComponent === component.id ? <ReviewAction secondary disabled={busy === 'cancel'} title={busy === 'cancel' ? t("BinaryAnalysisSettings.canceling") : t("BinaryAnalysisSettings.cancelDownload")} onPress={cancel} />
               : (component.supported || component.installed) && <ReviewAction secondary={component.installed} disabled={!!busy} title={component.installed
-              ? component.id === 'java' ? t('移除 Java / Dalvik', 'Remove Java / Dalvik') : t('移除原生组件', 'Remove native component')
-              : component.id === 'java' ? t('下载 Java / Dalvik', 'Download Java / Dalvik') : t('下载原生组件', 'Download native component')}
+              ? component.id === 'java' ? t("BinaryAnalysisSettings.removeJavaDalvik") : t("BinaryAnalysisSettings.removeNativeComponent")
+              : component.id === 'java' ? t("BinaryAnalysisSettings.downloadJavaDalvik") : t("BinaryAnalysisSettings.downloadNativeComponent")}
               onPress={() => { if (component.installed) { void remove(component.id); } else { void install(component.id); } }} />}
           </View>)}
-          {!status && <Text style={{ color: palette.muted, lineHeight: 22 }}>{t('无法读取组件状态，请检查当前安装版本。', 'Could not read component status. Check the installed app version.')}</Text>}
-          <ReviewAction secondary title={t('检查组件', 'Check components')} disabled={!!busy} onPress={checkStatus} />
+          {!status && <Text style={{ color: palette.muted, lineHeight: 22 }}>{t("BinaryAnalysisSettings.couldNotReadComponentStatusCheckTheInstalledAppVersion")}</Text>}
+          <ReviewAction secondary title={t("BinaryAnalysisSettings.checkComponents")} disabled={!!busy} onPress={checkStatus} />
         </View>}
       </View>
       <Text style={{ color: palette.muted, lineHeight: 22, marginTop: 14 }}>APK · DEX · JAR · CLASS{'\n'}EXE · DLL · SO · ELF · Mach-O</Text>
-      <Text style={{ color: palette.muted, lineHeight: 22, marginTop: 7 }}>{t(`文件上限 ${formatBytes(status?.maxBytes ?? MAX_ANALYSIS_BYTES)}；Java 输入及展开字节码上限 ${formatBytes(status?.maxJavaBytes ?? 64 * 1024 * 1024)}。提取代码是抽样证据，可能不完整。`, `Files up to ${formatBytes(status?.maxBytes ?? MAX_ANALYSIS_BYTES)}; Java input and expanded bytecode up to ${formatBytes(status?.maxJavaBytes ?? 64 * 1024 * 1024)}. Extracted code is sampled and may be incomplete.`)}</Text>
+      <Text style={{ color: palette.muted, lineHeight: 22, marginTop: 7 }}>{t("BinaryAnalysisSettings.filesUpToJavaInputAndExpandedBytecodeUpToExtracted", { p0: formatBytes(status?.maxBytes ?? MAX_ANALYSIS_BYTES), p1: formatBytes(status?.maxJavaBytes ?? 64 * 1024 * 1024) })}</Text>
       <View style={{ marginTop: 16, paddingTop: 15, borderTopWidth: 1, borderTopColor: palette.border, gap: 10 }}>
         {selected ? <>
           <Text selectable style={{ color: palette.ink, fontWeight: '800', lineHeight: 23 }}>{selected.name}</Text>
-          <Text style={{ color: palette.muted }}>{selected.size === null ? t('大小由读取文件时核验', 'Size verified when the file is read') : formatBytes(selected.size)}</Text>
-        </> : <Text style={{ color: palette.muted, lineHeight: 22 }}>{t('选择要审查的程序文件，确认后自动提取内容并进行 AI 审查。', 'Select a program file. After confirmation, its content is extracted and reviewed with AI.')}</Text>}
-        <ReviewAction secondary title={busy === 'choose' ? t('正在选择…', 'Choosing…') : selected ? t('更换文件', 'Change file') : t('选择本地文件', 'Select local file')} disabled={!!busy || !status} onPress={() => { void chooseFile(); }} />
+          <Text style={{ color: palette.muted }}>{selected.size === null ? t("BinaryAnalysisSettings.sizeVerifiedWhenTheFileIsRead") : formatBytes(selected.size)}</Text>
+        </> : <Text style={{ color: palette.muted, lineHeight: 22 }}>{t("BinaryAnalysisSettings.selectAProgramFileAfterConfirmationItsContentIsExtractedAnd")}</Text>}
+        <ReviewAction secondary title={busy === 'choose' ? t("BinaryAnalysisSettings.choosing") : selected ? t("BinaryAnalysisSettings.changeFile") : t("BinaryAnalysisSettings.selectLocalFile")} disabled={!!busy || !status} onPress={() => { void chooseFile(); }} />
         {selected && !selectedRequirement?.ready && <Text style={{ color: palette.muted, lineHeight: 22 }}>{selectedRequirement?.message}</Text>}
-        {selected && !selectedRequirement?.ready && <ReviewAction secondary title={t('管理所需组件', 'Manage required components')} disabled={!!busy} onPress={() => setComponentsExpanded(true)} />}
-        {selected && <ReviewAction title={busy === 'prepare' ? t('正在读取 AI 设置…', 'Loading AI settings…') : review ? t('重新审查', 'Review again') : t('AI 审查', 'AI review')} disabled={!!busy || !selectedRequirement?.ready} onPress={() => { void prepareReview(); }} />}
-        {selected && <Text style={{ color: palette.muted, lineHeight: 21 }}>{t('只读取所选文件，不会运行该程序。', 'The selected file is read without running the program.')}</Text>}
+        {selected && !selectedRequirement?.ready && <ReviewAction secondary title={t("BinaryAnalysisSettings.manageRequiredComponents")} disabled={!!busy} onPress={() => setComponentsExpanded(true)} />}
+        {selected && <ReviewAction title={busy === 'prepare' ? t("BinaryAnalysisSettings.loadingAISettings") : review ? t("BinaryAnalysisSettings.reviewAgain") : t("BinaryAnalysisSettings.aiReview")} disabled={!!busy || !selectedRequirement?.ready} onPress={() => { void prepareReview(); }} />}
+        {selected && <Text style={{ color: palette.muted, lineHeight: 21 }}>{t("BinaryAnalysisSettings.theSelectedFileIsReadWithoutRunningTheProgram")}</Text>}
       </View>
       {!installingComponent && (busy === 'extracting' || busy === 'reviewing' || busy === 'cancel') && <View accessibilityLiveRegion="polite" style={{ marginTop: 16, gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <ActivityIndicator color={palette.blue} />
-          <Text style={{ color: palette.muted, lineHeight: 22, flex: 1, minWidth: 0 }}>{busy === 'cancel' ? t('正在取消…', 'Canceling…') : busy === 'reviewing' ? t('正在 AI 审查…', 'Reviewing with AI…') : progress?.message || t('正在提取程序内容…', 'Extracting program content…')}{progressDetail ? `\n${progressDetail}` : ''}</Text>
+          <Text style={{ color: palette.muted, lineHeight: 22, flex: 1, minWidth: 0 }}>{busy === 'cancel' ? t("BinaryAnalysisSettings.canceling") : busy === 'reviewing' ? t("BinaryAnalysisSettings.reviewingWithAI") : progress?.phase === 'preparing' ? t("analysis.preparingFile") : progress?.phase === 'complete' ? t("analysis.decompilationComplete") : t("BinaryAnalysisSettings.extractingProgramContent")}{progressDetail ? `\n${progressDetail}` : ''}</Text>
         </View>
-        <ReviewAction secondary title={busy === 'cancel' ? t('正在取消…', 'Canceling…') : t('取消', 'Cancel')} disabled={busy === 'cancel'} onPress={cancel} />
+        <ReviewAction secondary title={busy === 'cancel' ? t("BinaryAnalysisSettings.canceling") : t("AiReviewSettings.cancel")} disabled={busy === 'cancel'} onPress={cancel} />
       </View>}
       {!!error && <Text accessibilityRole="alert" style={{ color: '#bf3947', lineHeight: 22, marginTop: 15 }}>{error}</Text>}
       {!!notice && <Text accessibilityLiveRegion="polite" style={{ color: palette.muted, lineHeight: 22, marginTop: 15 }}>{notice}</Text>}
       {review && review.analysisId === analysis?.id && <View style={{ marginTop: 19, paddingTop: 17, borderTopWidth: 1, borderTopColor: palette.border }}>
-        <Text style={{ color: palette.ink, fontWeight: '800', fontSize: 18 }}>{t('AI 审查结果', 'AI review results')}</Text>
+        <Text style={{ color: palette.ink, fontWeight: '800', fontSize: 18 }}>{t("BinaryAnalysisSettings.aiReviewResults")}</Text>
         <Text selectable style={{ color: palette.ink, lineHeight: 23, marginTop: 11 }}>{review.summary}</Text>
         {review.findings.map((finding, index) => <View key={index} style={{ marginTop: 16, gap: 8 }}>
-          <Text style={{ color: finding.severity === 'high' ? '#bf3947' : palette.ink, fontWeight: '800', lineHeight: 22 }}>{finding.severity === 'high' ? t('重点关注', 'High priority') : finding.severity === 'medium' ? t('建议检查', 'Worth checking') : t('改进建议', 'Suggestion')}</Text>
+          <Text style={{ color: finding.severity === 'high' ? '#bf3947' : palette.ink, fontWeight: '800', lineHeight: 22 }}>{finding.severity === 'high' ? t("BinaryAnalysisSettings.highPriority") : finding.severity === 'medium' ? t("BinaryAnalysisSettings.worthChecking") : t("BinaryAnalysisSettings.suggestion")}</Text>
           {!!finding.address && <Text selectable style={{ color: palette.muted, fontFamily: 'monospace', lineHeight: 20 }}>{finding.address}</Text>}
           <Text selectable style={{ color: palette.ink, lineHeight: 22 }}>{finding.description}</Text>
           {!!finding.suggestion && <Text selectable style={{ color: palette.muted, lineHeight: 22 }}>{finding.suggestion}</Text>}
         </View>)}
-        {review.findings.length === 0 && <Text style={{ color: palette.muted, lineHeight: 22, marginTop: 12 }}>{t('本次审查没有提出具体问题。', 'This review did not report specific issues.')}</Text>}
+        {review.findings.length === 0 && <Text style={{ color: palette.muted, lineHeight: 22, marginTop: 12 }}>{t("BinaryAnalysisSettings.thisReviewDidNotReportSpecificIssues")}</Text>}
         {review.limitations.length > 0 && <View style={{ marginTop: 15, gap: 7 }}>
-          <Text style={{ color: palette.ink, fontWeight: '800' }}>{t('本次审查范围', 'Review coverage')}</Text>
+          <Text style={{ color: palette.ink, fontWeight: '800' }}>{t("BinaryAnalysisSettings.reviewCoverage")}</Text>
           {review.limitations.map((item, index) => <Text key={index} style={{ color: palette.muted, lineHeight: 22 }}>• {item}</Text>)}
         </View>}
       </View>}

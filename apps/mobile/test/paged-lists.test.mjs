@@ -91,3 +91,67 @@ test('pull refresh retains visible rows and stays pending until the new first pa
   assert.deepEqual(list.snapshot().items, [{ id: 1, title: 'new first page' }]);
   assert.equal(list.snapshot().nextPage, 2);
 });
+
+test('returning to a list revalidates every opened page without truncating visible rows', async () => {
+  const calls = [];
+  const last = deferred();
+  let revisiting = false;
+  const list = createPagedList(async (page) => {
+    calls.push(page);
+    if (revisiting && page === 2) return last.promise;
+    return { items: [{ id: page, title: `${revisiting ? 'new' : 'old'} ${page}` }], nextPage: page + 1 };
+  }, (item) => item.id);
+  await list.refresh(); await list.more(); list.cancel(); revisiting = true;
+  const task = list.revalidate(); await Promise.resolve();
+  assert.deepEqual(calls, [1, 2, 1, 2]);
+  assert.deepEqual(list.snapshot().items.map((item) => item.title), ['old 1', 'old 2']);
+  assert.equal(list.snapshot().busy, true);
+  last.resolve({ items: [{ id: 2, title: 'new 2' }], nextPage: 3 }); await task;
+  assert.deepEqual(list.snapshot().items.map((item) => item.title), ['new 1', 'new 2']);
+  assert.equal(list.snapshot().nextPage, 3);
+});
+
+test('failed window revalidation retains a consistent snapshot and retries the whole window', async () => {
+  const calls = [];
+  let revision = 'old';
+  const list = createPagedList(async (page) => {
+    calls.push(page);
+    if (revision === 'failed' && page === 2) throw new Error('offline');
+    return { items: [{ id: page, revision }], nextPage: page === 2 ? null : 2 };
+  }, (item) => item.id);
+  await list.refresh(); await list.more(); revision = 'failed'; await list.revalidate();
+  assert.deepEqual(list.snapshot().items.map((item) => item.revision), ['old', 'old']);
+  assert.equal(list.snapshot().failedPage, 2);
+  revision = 'new'; await list.more();
+  assert.deepEqual(calls, [1, 2, 1, 2, 1, 2]);
+  assert.deepEqual(list.snapshot().items.map((item) => item.revision), ['new', 'new']);
+  assert.equal(list.snapshot().failedPage, null);
+});
+
+test('a shorter refreshed result closes the old window, while explicit refresh resets it', async () => {
+  const calls = [];
+  let terminal = false;
+  const list = createPagedList(async (page) => {
+    calls.push(page);
+    return { items: [page], nextPage: terminal ? null : page + 1 };
+  }, (item) => item);
+  await list.refresh(); await list.more(); await list.more();
+  terminal = true; await list.revalidate();
+  assert.deepEqual(list.snapshot().items, [1]);
+  terminal = false; await list.more(); await list.refresh(); await list.revalidate();
+  assert.deepEqual(calls, [1, 2, 3, 1, 1, 1]);
+});
+
+test('leaving during window revalidation rejects all partial and late pages', async () => {
+  const last = deferred();
+  let revisiting = false;
+  const list = createPagedList(async (page) => {
+    if (revisiting && page === 2) return last.promise;
+    return { items: [`${revisiting ? 'new' : 'old'} ${page}`], nextPage: page + 1 };
+  }, (item) => item);
+  await list.refresh(); await list.more(); revisiting = true;
+  const task = list.revalidate(); await Promise.resolve(); list.cancel();
+  last.resolve({ items: ['late'], nextPage: null }); await task;
+  assert.deepEqual(list.snapshot().items, ['old 1', 'old 2']);
+  assert.equal(list.snapshot().busy, false);
+});

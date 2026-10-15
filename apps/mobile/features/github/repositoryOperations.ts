@@ -1,3 +1,4 @@
+import { getTranslator, type Translator } from '../localization/index.ts';
 import type { GitHubClient, GitHubForkComparison, GitHubPullRequest, GitHubRepo } from '@easyhub/github';
 
 export type RepositorySettingAction = 'visibility' | 'protection' | 'transfer' | 'archive' | 'delete';
@@ -5,37 +6,37 @@ export interface ProtectionState { branch: string; enabled: boolean; externalRul
 export interface ForkContributionBranches { headBranch: string; baseBranch: string }
 
 const messages = {
-  changed: ['项目信息或权限已变化，请刷新后重试。', 'Project details or permissions changed. Refresh and try again.'],
-  permission: ['你没有这个项目的管理权限。', 'You do not have permission to manage this project.'],
-  readonly: ['公开浏览模式下不能修改原项目。', 'The original project cannot be changed in public browsing mode.'],
-  archived: ['这个项目已存档，请先取消存档。', 'Unarchive this project before making changes.'],
-  fork: ['这个项目当前不允许创建仓库副本。', 'This project cannot be forked right now.'],
-  name: ['请输入有效的副本名称。', 'Enter a valid fork name.'],
-  owner: ['请输入其他用户或组织的有效名称。', 'Enter a valid different user or organization.'],
-  contribution: ['找不到属于你的可写仓库副本。', 'Could not find a writable fork owned by you.'],
-  upstream: ['原项目暂时无法接收改进请求。', 'The original project cannot accept contributions right now.'],
-  empty: ['仓库副本还没有可提交的修改，请先在 GitHub 更新副本。', 'Update your fork on GitHub before submitting a contribution.'],
-  protection: ['默认分支受其他规则保护，不能在这里覆盖这些规则。', 'Other rules protect this branch and cannot be overwritten here.'],
-  confirmation: ['请输入完整的项目名称以确认。', 'Enter the complete project name to confirm.'],
-  title: ['请填写改进标题，最多 256 个字符。', 'Enter a contribution title of up to 256 characters.'],
-  branch: ['请输入有效的来源分支和目标分支名称。', 'Enter valid source and target branch names.'],
-  branchMissing: ['分支不存在或已改名，请检查名称后重新对比。', 'A branch is missing or was renamed. Check its name and compare again.'],
-  account: ['授权账号与当前登录账号不同，请使用同一 GitHub 账号。', 'Authorize with the same GitHub account you are signed in with.'],
-  deletionExpired: ['删除授权已过期，请重新授权并再次确认。', 'Deletion authorization expired. Authorize and confirm again.'],
+  changed: "repositoryOperations.projectDetailsOrPermissionsChangedRefreshAndTryAgain",
+  permission: "repositoryOperations.youDoNotHavePermissionToManageThisProject",
+  readonly: "repositoryOperations.theOriginalProjectCannotBeChangedInPublicBrowsingMode",
+  archived: "repositoryOperations.unarchiveThisProjectBeforeMakingChanges",
+  fork: "repositoryOperations.thisProjectCannotBeForkedRightNow",
+  name: "repositoryOperations.enterAValidForkName",
+  owner: "repositoryOperations.enterAValidDifferentUserOrOrganization",
+  contribution: "repositoryOperations.couldNotFindAWritableForkOwnedByYou",
+  upstream: "repositoryOperations.theOriginalProjectCannotAcceptPullRequestsRightNow",
+  empty: "repositoryOperations.updateYourForkOnGitHubBeforeSubmittingAContribution",
+  protection: "repositoryOperations.otherRulesProtectThisBranchAndCannotBeOverwrittenHere",
+  confirmation: "repositoryOperations.enterTheCompleteProjectNameToConfirm",
+  title: "repositoryOperations.enterAPullRequestTitleOfUpTo256Characters",
+  branch: "ForkContributionPanel.enterValidSourceAndTargetBranchNames",
+  branchMissing: "repositoryOperations.aBranchIsMissingOrWasRenamedCheckItsNameAnd",
+  account: "repositoryOperations.authorizeWithTheSameGitHubAccountYouAreSignedInWith",
+  deletionExpired: "repositoryOperations.deletionAuthorizationExpiredAuthorizeAndConfirmAgain",
 } as const;
 type ErrorCode = keyof typeof messages;
 class RepositoryOperationError extends Error {
   code: ErrorCode;
-  constructor(code: ErrorCode) { super(messages[code][0]); this.code = code; }
+  constructor(code: ErrorCode) { super(getTranslator('zh')(messages[code])); this.code = code; }
 }
 const fail = (code: ErrorCode): never => { throw new RepositoryOperationError(code); };
-export function repositoryErrorMessage(error: unknown, t: (zh: string, en: string) => string): string {
-  if (error instanceof RepositoryOperationError) return t(messages[error.code][0], messages[error.code][1]);
-  if (isStatus(error, 401)) return t('GitHub 登录已失效，请重新登录。', 'Your GitHub session expired. Sign in again.');
-  if (isStatus(error, 403)) return t('GitHub 拒绝了操作，请检查权限或稍后重试。', 'GitHub declined the action. Check permissions or try again later.');
-  if (isStatus(error, 404)) return t('找不到这个项目，或你没有访问权限。', 'This project was not found, or you do not have access.');
-  if (isStatus(error, 422)) return t('GitHub 未接受这些内容，请检查名称和填写的信息。', 'GitHub did not accept these details. Check the name and form fields.');
-  return t('操作暂时无法完成，请检查网络后重试。', 'The action could not be completed. Check your connection and try again.');
+export function repositoryErrorMessage(error: unknown, t: Translator): string {
+  if (error instanceof RepositoryOperationError) return t(messages[error.code]);
+  if (isStatus(error, 401)) return t("repositoryOperations.yourGitHubSessionExpiredSignInAgain");
+  if (isStatus(error, 403)) return t("repositoryOperations.githubDeclinedTheActionCheckPermissionsOrTryAgainLater");
+  if (isStatus(error, 404)) return t("repositoryOperations.thisProjectWasNotFoundOrYouDoNotHaveAccess");
+  if (isStatus(error, 422)) return t("repositoryOperations.githubDidNotAcceptTheseDetailsCheckTheNameAndForm");
+  return t("repositoryOperations.theActionCouldNotBeCompletedCheckYourConnectionAndTry");
 }
 function isStatus(error: unknown, status: number): boolean { return typeof error === 'object' && error !== null && 'status' in error && error.status === status; }
 export function isValidRepositoryName(name: string): boolean { return /^[A-Za-z0-9_.-]{1,100}$/.test(name) && name !== '.' && name !== '..'; }

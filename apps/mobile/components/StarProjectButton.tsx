@@ -1,14 +1,17 @@
+import { useTranslation } from '@/features/localization/react';
 import { useCallback, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { useFocusEffect } from 'expo-router';
 import type { RefreshHandle } from '@/features/github/usePullRefresh';
 import { useSession } from '@/features/auth/session';
-import { usePreferences } from '@/features/preferences/provider';
+
 import { Action } from './elements';
 import { AppAlert } from './AppAlert';
+import { usePageFeedback } from '@/features/workspace/usePageFeedback';
 
 export function StarProjectButton({ owner, repo, ref }: { owner: string; repo: string; ref?: Ref<RefreshHandle> }) {
   const { client } = useSession();
-  const { t } = usePreferences();
+  const t = useTranslation();
+  const { capture } = usePageFeedback();
   const [starred, setStarred] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const focused = useRef(false);
@@ -35,11 +38,12 @@ export function StarProjectButton({ owner, repo, ref }: { owner: string; repo: s
     if (!client || busy || mutating.current) return;
     mutating.current = true; request.current?.abort(); request.current = null; task.current = null;
     setBusy(true);
+    const currentVisit = capture();
     try {
       const current = starred ?? await client.isStarred(owner, repo);
       await client.setStarred(owner, repo, !current); setStarred(!current);
-    } catch { AppAlert.alert(t('Star 更新失败', 'Could not update Star'), t('请检查网络和授权后重试。', 'Check your connection and permissions, then retry.')); }
+    } catch { if (currentVisit()) AppAlert.alert(t("StarProjectButton.couldNotUpdateStar"), t("StarProjectButton.checkYourConnectionAndPermissionsThenRetry")); }
     finally { mutating.current = false; setBusy(false); }
   };
-  return <Action title={busy ? t('正在更新…', 'Updating…') : starred ? t('★ 已 Star · 点击取消', '★ Starred · Tap to remove') : t('☆ 在 GitHub 上 Star', '☆ Star on GitHub')} secondary disabled={!client || busy} onPress={() => void toggle()} />;
+  return <Action title={busy ? t("StarProjectButton.updating") : starred ? t("StarProjectButton.starredTapToRemove") : t("StarProjectButton.starOnGitHub")} secondary disabled={!client || busy} onPress={() => void toggle()} />;
 }

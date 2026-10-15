@@ -1,3 +1,4 @@
+import { InterfaceError } from '../localization/error.ts';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { File, Paths } from 'expo-file-system';
@@ -24,10 +25,10 @@ function createConnection(initial: Credential): Connection {
   let pending: Promise<Credential> | null = null;
   let active = true;
   const token = async (): Promise<string> => {
-    if (!active) throw new Error('请先使用 GitHub 登录。');
+    if (!active) throw new InterfaceError("session.signInWithGitHubFirst").withDiagnostic("请先使用 GitHub 登录。");
     if (!current.expiresAt || current.expiresAt > Date.now() + 60_000) return current.accessToken;
     pending ??= refreshCredential(current).then(async (renewed) => {
-      if (!active) throw new Error('登录已取消。');
+      if (!active) throw new InterfaceError("deviceFlow.signInCanceled").withDiagnostic("登录已取消。");
       await SecureStore.setItemAsync(key, JSON.stringify(renewed));
       current = renewed;
       return renewed;
@@ -62,8 +63,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [connection]);
 
   const downloadAndShare = useCallback(async (path: string, name: string, onProgress: (loaded: number, total: number) => void, signal?: AbortSignal) => {
-    if (!connection) throw new Error('请先使用 GitHub 登录。');
-    if (!path.startsWith('/repos/') || !/^[-\w.]+$/.test(name)) throw new Error('下载地址无效。');
+    if (!connection) throw new InterfaceError("session.signInWithGitHubFirst").withDiagnostic("请先使用 GitHub 登录。");
+    if (!path.startsWith('/repos/') || !/^[-\w.]+$/.test(name)) throw new InterfaceError("session.theDownloadAddressIsInvalid").withDiagnostic("下载地址无效。");
     checkDownloadAbort(signal);
     if (uiTestMode) { await simulateUiTestDownload(onProgress, signal); return; }
     const destination = new File(Paths.cache, `${Date.now()}-${name}`);
@@ -73,7 +74,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         onProgress: ({ bytesWritten, totalBytes }) => onProgress(bytesWritten, totalBytes), signal,
       });
       checkDownloadAbort(signal);
-      if (!await Sharing.isAvailableAsync()) throw new Error('此设备暂不支持保存或分享文件。');
+      if (!await Sharing.isAvailableAsync()) throw new InterfaceError("session.savingOrSharingFilesIsUnavailableOnThisDevice").withDiagnostic("此设备暂不支持保存或分享文件。");
       checkDownloadAbort(signal);
       await Sharing.shareAsync(downloaded.uri);
     } catch (cause) {
@@ -100,7 +101,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     })();
     return () => { active = false; };
   }, []);
-  return <Context.Provider value={{ ready, user, client: connection?.client ?? null, signIn, signOut, downloadAndShare }}>{children}</Context.Provider>;
+  // Retained screens, drafts and private read caches belong to one account.
+  return <Context.Provider key={user?.id ?? 'signed-out'} value={{ ready, user, client: connection?.client ?? null, signIn, signOut, downloadAndShare }}>{children}</Context.Provider>;
 }
 
 export function useSession(): Session {

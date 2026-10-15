@@ -1,3 +1,4 @@
+import { InterfaceError } from '../localization/error.ts';
 export const GITHUB_CLIENT_ID = 'Ov23lixRW8K0uXzZqwMj';
 
 export interface DeviceCode { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval: number }
@@ -11,7 +12,7 @@ async function post<T>(path: string, data: Record<string, string>, signal?: Abor
     method: 'POST', signal, headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(data).toString(),
   });
-  if (!response.ok) throw new Error('GitHub 登录暂时不可用，请稍后重试。');
+  if (!response.ok) throw new InterfaceError("deviceFlow.githubSignInIsUnavailablePleaseTryAgainLater").withDiagnostic("GitHub 登录暂时不可用，请稍后重试。");
   return response.json() as Promise<T>;
 }
 
@@ -25,20 +26,20 @@ export async function requestDeletionDeviceCode(signal?: AbortSignal, transport:
 }
 
 export async function refreshCredential(current: Credential, signal?: AbortSignal, transport: typeof fetch = fetch): Promise<Credential> {
-  if (!current.refreshToken) throw new Error('GitHub 登录已过期，请重新登录。');
+  if (!current.refreshToken) throw new InterfaceError("deviceFlow.yourGitHubSignInExpiredSignInAgain").withDiagnostic("GitHub 登录已过期，请重新登录。");
   const result = await post<TokenReply>('/oauth/access_token', {
     client_id: GITHUB_CLIENT_ID, grant_type: 'refresh_token', refresh_token: current.refreshToken,
   }, signal, transport);
-  if (!result.access_token) throw new Error('GitHub 登录已过期，请重新登录。');
+  if (!result.access_token) throw new InterfaceError("deviceFlow.yourGitHubSignInExpiredSignInAgain").withDiagnostic("GitHub 登录已过期，请重新登录。");
   return { accessToken: result.access_token, refreshToken: result.refresh_token ?? current.refreshToken,
     expiresAt: result.expires_in ? Date.now() + result.expires_in * 1000 : undefined };
 }
 
 function pause(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (signal?.aborted) { reject(new Error('登录已取消。')); return; }
+    if (signal?.aborted) { reject(new InterfaceError("deviceFlow.signInCanceled").withDiagnostic("登录已取消。")); return; }
     const timer = setTimeout(() => { signal?.removeEventListener('abort', cancel); resolve(); }, ms);
-    const cancel = () => { clearTimeout(timer); reject(new Error('登录已取消。')); };
+    const cancel = () => { clearTimeout(timer); reject(new InterfaceError("deviceFlow.signInCanceled").withDiagnostic("登录已取消。")); };
     signal?.addEventListener('abort', cancel, { once: true });
   });
 }
@@ -56,9 +57,9 @@ export async function awaitDeviceAuthorization(code: DeviceCode, signal?: AbortS
       expiresAt: result.expires_in ? Date.now() + result.expires_in * 1000 : undefined };
     if (result.error === 'authorization_pending') continue;
     if (result.error === 'slow_down') { interval += Math.max(5, result.interval ?? 5) * 1000; continue; }
-    if (result.error === 'access_denied') throw new Error('你没有授权 EasyHub。');
+    if (result.error === 'access_denied') throw new InterfaceError("deviceFlow.youDidNotAuthorizeEasyHub").withDiagnostic("你没有授权 EasyHub。");
     if (result.error === 'expired_token') break;
-    throw new Error('登录暂时无法完成，请重试。');
+    throw new InterfaceError("deviceFlow.signInCouldNotBeCompletedPleaseRetry").withDiagnostic("登录暂时无法完成，请重试。");
   }
-  throw new Error('验证码已过期，请重新登录。');
+  throw new InterfaceError("deviceFlow.theVerificationCodeExpiredSignInAgain").withDiagnostic("验证码已过期，请重新登录。");
 }

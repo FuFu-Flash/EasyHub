@@ -1,5 +1,7 @@
 # Android 与桌面功能对齐
 
+2026-10-15：按桌面新增的工作区、本地化与术语规范继续同步，新增分支/文件修改记录和提交 AI 说明、阅读窗口保留、组件提醒与异常退出缓存清理。设计与验证约定见 [Android 工作区规范](android-workspace.md) 和 [Android 本地化规范](android-localization.md)。
+
 Android 1.1.0 下载：[arm64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)。最新验收见 [下拉刷新记录](android-pull-refresh.md) 和 [验收证据包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-verification.zip)。
 
 下文保留各阶段的测量；`artifacts/...` 表示未纳入 Git 的本地档案路径。公开证据包只包含 `android-pull-refresh/` 的 20 组案例、JSON/log、源码摘要和 APK 验收，不包含框架或更早阶段的完整档案。
