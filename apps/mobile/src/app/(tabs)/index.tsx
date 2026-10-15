@@ -1,12 +1,14 @@
+import { useSessionReadFocusEffect } from '@/features/auth/useSessionReadFocusEffect';
 import { getTranslator } from '@/features/localization';
 import { useTranslation } from '@/features/localization/react';
 import { useCallback, useRef, useState } from 'react';
 import { Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { AppAlert as Alert } from '@/components/AppAlert';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import type { GitHubActivityCount, GitHubRepo } from '@easyhub/github';
+import { SessionConnectionNotice } from '@/components/SessionConnectionNotice';
 import { useSession } from '@/features/auth/session';
 import { usePreferences } from '@/features/preferences/provider';
 import { Action, Card, DirectionLabel, ErrorText, Loading, Page, palette } from '@/components/elements';
@@ -74,7 +76,7 @@ function HomeProject({ repo, issueCount }: { repo: GitHubRepo; issueCount: numbe
 }
 
 export default function Home() {
-  const { ready, user, client } = useSession();
+  const { ready, user, client, recovery } = useSession();
   const { language } = usePreferences();
   const t = useTranslation();
   const { width, height, fontScale } = useWindowDimensions();
@@ -117,17 +119,20 @@ export default function Home() {
       if (active()) setError(t("home.couldNotLoadProjectsCheckYourConnectionAndTryAgain"));
     } finally { if (active()) setLoading(false); }
   }, [client, t]);
-  useFocusEffect(useCallback(() => { void load(); return () => request.current?.abort(); }, [load]));
+  useSessionReadFocusEffect(useCallback(() => { void load(); return () => request.current?.abort(); }, [load]));
   const { refresh, refreshing } = usePullRefresh([() => load(true)]);
 
   if (!ready) return <Loading />;
   if (!user) return <Page><View style={{ paddingTop: 90, gap: 18 }}><Text style={{ fontSize: 36, fontWeight: '800', color: palette.ink }}>EasyHub</Text><Text style={{ fontSize: 22, fontWeight: '700', color: palette.ink }}>{t("home.createAndShareWithEase")}</Text><Text style={{ color: palette.muted, lineHeight: 24 }}>{t("home.signInWithGitHubToViewProjectsReplyToIssuesAnd")}</Text><Action title={t("discover.signInWithGitHub")} onPress={() => router.push('/login')} /></View></Page>;
+
+  if (recovery && repos.length === 0) return <Page><Text accessibilityRole="header" style={{ color: palette.ink, fontSize: 26, fontWeight: '800', marginBottom: 12 }}>{recovery === 'offline' ? t('sessionRecovery.offlineTitle') : t('home.myProjects')}</Text><Text style={{ color: palette.muted, lineHeight: 23 }}>{t('sessionRecovery.offlineNoProjects')}</Text></Page>;
 
   const hour = new Date().getHours();
   const greeting = hour < 11 ? t("home.goodMorning") : hour < 18 ? t("home.goodAfternoon") : t("home.goodEvening");
 
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
     <ScrollView nestedScrollEnabled={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[palette.blue]} tintColor={palette.blue} />} contentContainerStyle={styles.content}>
+      <SessionConnectionNotice />
       <View style={styles.topbar}>
         <View style={styles.brand}><Image source={appIcon} style={styles.brandIcon} /><Text style={styles.brandName} numberOfLines={1}>EasyHub</Text></View>
         <View style={styles.topbarActions}>

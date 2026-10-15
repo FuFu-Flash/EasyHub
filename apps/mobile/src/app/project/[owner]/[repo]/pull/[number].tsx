@@ -1,3 +1,4 @@
+import { useSessionReadFocusEffect } from '@/features/auth/useSessionReadFocusEffect';
 import { friendlyGitHubError } from '@/features/localization/githubError';
 import { localizeError } from '../../../../../../features/localization/error.ts';
 import { useTranslation } from '@/features/localization/react';
@@ -11,7 +12,7 @@ import { PullChecksPanel, type PullChecksHandle } from '@/components/PullChecksP
 import { PullBinaryEvidence } from '@/components/PullBinaryEvidence';
 import { ProgramReviewPrompt } from '@/components/ProgramReviewPrompt';
 import type { BinaryAnalysisResult } from '@easyhub/types';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { GitHubError, isEmptyAddedPullFile, type GitHubComment, type GitHubPullFile, type GitHubPullRequest, type GitHubPullReview, type GitHubRepo, type GitHubReviewEvent } from '@easyhub/github';
 import { useSession } from '@/features/auth/session';
 import { usePreferences } from '@/features/preferences/provider';
@@ -224,7 +225,7 @@ function PullDetails({ owner, repo, number }: PullParameters) {
     return task;
   }, [client, owner, repo, pullNumber, t, loadComments, loadReviews, stopReadWork]);
   const { refresh, refreshing } = usePullRefresh([() => load(true)]);
-  useFocusEffect(useCallback(() => {
+  useSessionReadFocusEffect(useCallback(() => {
     focused.current = true; setShowChecks(true); void load();
     return () => { focused.current = false; setShowChecks(false); stopReadWork(); };
   }, [load, stopReadWork]));

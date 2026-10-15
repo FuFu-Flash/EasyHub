@@ -1,7 +1,8 @@
+import { useSessionReadFocusEffect } from '@/features/auth/useSessionReadFocusEffect';
 import { useTranslation } from '@/features/localization/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import type { GitHubRelease } from '@easyhub/github';
 import { useSession } from '@/features/auth/session';
 import { usePreferences } from '@/features/preferences/provider';
@@ -64,7 +65,7 @@ function ReleaseDetails({ owner, repo, id }: { owner: string; repo: string; id: 
     return task;
   }, [client, owner, repo, id, t]);
   const { refresh, refreshing } = usePullRefresh([load]);
-  useFocusEffect(useCallback(() => {
+  useSessionReadFocusEffect(useCallback(() => {
     void load();
     return () => { readController.current?.abort(); readController.current = null; readTask.current = null; controller.current?.abort(); };
   }, [load]));

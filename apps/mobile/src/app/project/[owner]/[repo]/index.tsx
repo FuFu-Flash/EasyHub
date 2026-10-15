@@ -1,3 +1,4 @@
+import { useSessionReadFocusEffect } from '@/features/auth/useSessionReadFocusEffect';
 import { useTranslation } from '@/features/localization/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -201,7 +202,7 @@ function ProjectDetails({ owner, repo, section: initialSection, mode, focusTag, 
     } catch { if (current() && generation === readGeneration.current && !controller.signal.aborted) Alert.alert(t("project.couldNotLoadMore"), t("project.pleaseTryAgainLater")); }
     finally { if (generation === readGeneration.current && !controller.signal.aborted) setLoadingMoreIssues(false); }
   };
-  useFocusEffect(useCallback(() => {
+  useSessionReadFocusEffect(useCallback(() => {
     void refreshProject();
     return () => { readGeneration.current += 1; readRequest.current?.abort(); readRequest.current = null; readTask.current = null; };
   }, [refreshProject]));

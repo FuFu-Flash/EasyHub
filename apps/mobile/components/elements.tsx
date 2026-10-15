@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import type { GitHubRepo } from '@easyhub/github';
 
+import { SessionConnectionNotice } from './SessionConnectionNotice';
 import { MaterialArrow, type MaterialArrowName } from './MaterialArrow';
 
 export const palette = { ink: '#18263e', muted: '#77869d', blue: '#2477ed', border: '#e3eaf4', green: '#1da86a', background: '#f5f8fd' };
@@ -25,7 +26,7 @@ export function BackLink({ title, onPress = () => router.back(), marginBottom = 
 
 export function Page({ children, refresh, refreshing = false, scrollRef }: { children: ReactNode; refresh?: () => void; refreshing?: boolean; scrollRef?: Ref<ScrollView> }) {
   // The parent refresh control owns vertical pulls, including content shorter than the viewport.
-  return <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: palette.background }}><KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}><ScrollView ref={scrollRef} nestedScrollEnabled={false} keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, padding: 22, paddingBottom: 48 }} refreshControl={refresh ? <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[palette.blue]} tintColor={palette.blue} /> : undefined}>{children}</ScrollView></KeyboardAvoidingView></SafeAreaView>;
+  return <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: palette.background }}><KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}><ScrollView ref={scrollRef} nestedScrollEnabled={false} keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, padding: 22, paddingBottom: 48 }} refreshControl={refresh ? <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[palette.blue]} tintColor={palette.blue} /> : undefined}><SessionConnectionNotice />{children}</ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }
 
 export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {

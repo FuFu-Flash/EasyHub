@@ -1,8 +1,9 @@
+import { useSessionReadFocusEffect } from '@/features/auth/useSessionReadFocusEffect';
 import { useTranslation } from '@/features/localization/react';
 import { useCallback, useRef, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { AppAlert as Alert } from '@/components/AppAlert';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import type { GitHubComment, GitHubIssue, GitHubRepo } from '@easyhub/github';
 import { useSession } from '@/features/auth/session';
 import { usePreferences } from '@/features/preferences/provider';
@@ -70,7 +71,7 @@ function IssueDetails({ owner, repo, number }: IssueParameters) {
     return task;
   }, [client, owner, repo, issueNumber, t]);
   const { refresh, refreshing } = usePullRefresh([async () => { if (!busy) await load(true); }]);
-  useFocusEffect(useCallback(() => {
+  useSessionReadFocusEffect(useCallback(() => {
     void load();
     return () => { request.current?.abort(); request.current = null; readTask.current = null; };
   }, [load]));

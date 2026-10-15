@@ -1,7 +1,8 @@
+import { useSessionReadFocusEffect } from '@/features/auth/useSessionReadFocusEffect';
 import { useTranslation } from '@/features/localization/react';
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { Linking, Text, View } from 'react-native';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { validHistoryBranch, type GitHubRepo } from '@easyhub/github';
 import { useSession } from '@/features/auth/session';
 import { usePreferences } from '@/features/preferences/provider';
@@ -36,7 +37,7 @@ function VersionDetails({ owner, repo, sha, branch, mode }: Parameters) {
   const transfer = useArchiveDownload(downloadAndShare);
   const cancelDownload = transfer.cancel;
   const { refresh, refreshing } = usePullRefresh([reader.reload]);
-  useFocusEffect(useCallback(() => {
+  useSessionReadFocusEffect(useCallback(() => {
     if (!client) return;
     const controller = new AbortController();
     void reader.revalidate();

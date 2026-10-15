@@ -3,6 +3,17 @@ export const GITHUB_CLIENT_ID = 'Ov23lixRW8K0uXzZqwMj';
 
 export interface DeviceCode { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval: number }
 export interface Credential { accessToken: string; refreshToken?: string; expiresAt?: number }
+export class CredentialExpiredError extends InterfaceError<'deviceFlow.yourGitHubSignInExpiredSignInAgain'> {
+  readonly code = 'GITHUB_CREDENTIAL_EXPIRED';
+  constructor() { super('deviceFlow.yourGitHubSignInExpiredSignInAgain'); }
+}
+
+class OAuthResponseError extends InterfaceError<'deviceFlow.githubSignInIsUnavailablePleaseTryAgainLater'> {
+  readonly status: number;
+  readonly oauthError?: string;
+  constructor(status: number, oauthError?: string) { super('deviceFlow.githubSignInIsUnavailablePleaseTryAgainLater'); this.status = status; this.oauthError = oauthError; }
+}
+
 interface TokenReply { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; interval?: number }
 
 const endpoint = 'https://github.com/login';
@@ -12,7 +23,11 @@ async function post<T>(path: string, data: Record<string, string>, signal?: Abor
     method: 'POST', signal, headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(data).toString(),
   });
-  if (!response.ok) throw new InterfaceError("deviceFlow.githubSignInIsUnavailablePleaseTryAgainLater").withDiagnostic("GitHub 登录暂时不可用，请稍后重试。");
+  if (!response.ok) {
+    let oauthError: string | undefined;
+    try { const reply = await response.json() as { error?: unknown }; if (typeof reply?.error === 'string') oauthError = reply.error; } catch { /* HTTP status is still available. */ }
+    throw new OAuthResponseError(response.status, oauthError);
+  }
   return response.json() as Promise<T>;
 }
 
@@ -26,11 +41,21 @@ export async function requestDeletionDeviceCode(signal?: AbortSignal, transport:
 }
 
 export async function refreshCredential(current: Credential, signal?: AbortSignal, transport: typeof fetch = fetch): Promise<Credential> {
-  if (!current.refreshToken) throw new InterfaceError("deviceFlow.yourGitHubSignInExpiredSignInAgain").withDiagnostic("GitHub 登录已过期，请重新登录。");
-  const result = await post<TokenReply>('/oauth/access_token', {
-    client_id: GITHUB_CLIENT_ID, grant_type: 'refresh_token', refresh_token: current.refreshToken,
-  }, signal, transport);
-  if (!result.access_token) throw new InterfaceError("deviceFlow.yourGitHubSignInExpiredSignInAgain").withDiagnostic("GitHub 登录已过期，请重新登录。");
+  if (!current.refreshToken) throw new CredentialExpiredError();
+  let result: TokenReply;
+  try {
+    result = await post<TokenReply>('/oauth/access_token', {
+      client_id: GITHUB_CLIENT_ID, grant_type: 'refresh_token', refresh_token: current.refreshToken,
+    }, signal, transport);
+  } catch (cause) {
+    if (cause instanceof OAuthResponseError && (cause.status === 400 || cause.status === 401)
+      && ['bad_refresh_token', 'expired_token', 'invalid_grant'].includes(cause.oauthError ?? '')) throw new CredentialExpiredError();
+    throw cause;
+  }
+  if (!result.access_token) {
+    if (['bad_refresh_token', 'expired_token', 'invalid_grant'].includes(result.error ?? '')) throw new CredentialExpiredError();
+    throw new InterfaceError('deviceFlow.githubSignInIsUnavailablePleaseTryAgainLater');
+  }
   return { accessToken: result.access_token, refreshToken: result.refresh_token ?? current.refreshToken,
     expiresAt: result.expires_in ? Date.now() + result.expires_in * 1000 : undefined };
 }

@@ -1,7 +1,8 @@
+import { useSessionReadFocusEffect } from '@/features/auth/useSessionReadFocusEffect';
 import { useTranslation } from '@/features/localization/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { type Contributions, type GitHubRepo, type GitHubUser } from '@easyhub/github';
 import { useSession } from '@/features/auth/session';
 
@@ -82,7 +83,7 @@ function ProfileDetails({ login }: { login: string }) {
   const dayLoader = useRef(loadDay);
   useEffect(() => { dayLoader.current = loadDay; }, [loadDay]);
   const { refresh, refreshing } = usePullRefresh([loadProfile, loadDay]);
-  useFocusEffect(useCallback(() => {
+  useSessionReadFocusEffect(useCallback(() => {
     focused.current = true; void loadProfile(); void dayLoader.current();
     return () => {
       focused.current = false;

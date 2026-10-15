@@ -1,7 +1,8 @@
+import { useSessionReadFocusEffect } from '@/features/auth/useSessionReadFocusEffect';
 import { useTranslation } from '@/features/localization/react';
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import type { GitHubRepo } from '@easyhub/github';
 import { useSession } from '@/features/auth/session';
 
@@ -34,7 +35,7 @@ export default function Projects() {
     await Promise.all([projects, savedProjects]);
     if (active()) setBusy(false);
   }, [client, user, t]);
-  useFocusEffect(useCallback(() => { void load(); return () => request.current?.abort(); }, [load]));
+  useSessionReadFocusEffect(useCallback(() => { void load(); return () => request.current?.abort(); }, [load]));
   const { refresh, refreshing } = usePullRefresh([load]);
   if (!ready) return <Loading />;
   if (!client) return <Page><Text style={{ fontSize: 26, fontWeight: '800' }}>{t("home.myProjects")}</Text><Text style={{ color: palette.muted, marginVertical: 20 }}>{t("projects.signInToViewYourGitHubProjects")}</Text><Action title={t("discover.signInWithGitHub")} onPress={() => router.push('/login')} /></Page>;

@@ -1,3 +1,4 @@
+import { useSessionReadFocusEffect } from '@/features/auth/useSessionReadFocusEffect';
 import { friendlyGitHubError } from '@/features/localization/githubError';
 import type { StaticMessageKey } from '@/features/localization';
 import { useTranslation } from '@/features/localization/react';
@@ -177,7 +178,7 @@ export default function Discover() {
     } catch (cause) { if (active()) setError(friendlyGitHubError(cause, t)); }
     finally { if (active()) setBusy(false); }
   }, [address, client, page, period, recordSearch, scope, search, searching, searchPage, targetKey, user, setError, t]);
-  useFocusEffect(useCallback(() => {
+  useSessionReadFocusEffect(useCallback(() => {
     const timer = setTimeout(() => { scheduled.current = null; void load(true); }, searching ? 450 : 0);
     scheduled.current = timer;
     return () => { clearTimeout(timer); scheduled.current = null; request.current?.abort(); };

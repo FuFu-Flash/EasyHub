@@ -1,7 +1,8 @@
+import { useSessionReadFocusEffect } from '@/features/auth/useSessionReadFocusEffect';
 import { useTranslation } from '@/features/localization/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSession } from '@/features/auth/session';
 
 import { useTranslatedContent } from '@/features/translation/useTranslatedContent';
@@ -58,7 +59,7 @@ export default function Issues() {
       }
     }).catch(() => { if (active()) setError(t("issues.couldNotLoadIssuesPleaseTryAgain")); }).finally(() => { if (active()) setBusy(false); });
   }, [client, t, issueFilter]);
-  useFocusEffect(useCallback(() => { void load(); return () => request.current?.abort(); }, [load]));
+  useSessionReadFocusEffect(useCallback(() => { void load(); return () => request.current?.abort(); }, [load]));
   const { refresh, refreshing } = usePullRefresh([
     () => load(true),
     () => searchRefresh.current?.refresh() ?? Promise.resolve(),
