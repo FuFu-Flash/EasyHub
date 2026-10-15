@@ -22,7 +22,7 @@ const app = await electron.launch({
   executablePath: packaged ? packagedExecutable : electronPath,
   args: [...(packaged ? [] : ['.']), `--user-data-dir=${profile}`],
   cwd: process.cwd(),
-  env: { ...process.env, EASYHUB_PROXY_APP_ONLY_TEST: '1' },
+  env: { ...process.env, EASYHUB_PROXY_APP_ONLY_TEST: '1', EASYHUB_TEST_MODE: '1', EASYHUB_TEST_USER_DATA: profile },
 });
 try {
   assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
