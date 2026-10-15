@@ -686,7 +686,7 @@ svg{flex-shrink:0}
 .reply-card label{font-size:var(--eh-text-13);font-weight:var(--eh-weight-700)}
 .reply-card textarea{resize:vertical}
 .reply-card>div{display:flex;justify-content:space-between}
-.settings-stack{display:grid;gap:var(--eh-space-16);max-width:810px}
+.settings-stack{display:grid;gap:var(--eh-space-16);width:100%;min-width:0}
 .settings-panel{display:flex;gap:17px;padding:25px}
 .settings-panel h2{margin:0 0 5px}
 .settings-panel p{color:var(--eh-color-faint);margin-bottom:15px}
@@ -1071,7 +1071,7 @@ html,body,#root{height:100%;overflow:hidden}
 .live-repo-row small{color:var(--eh-color-faint);font-size:var(--eh-text-12);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .live-repo-row>svg{color:var(--eh-color-faint)}
 .live-empty{padding:18px;color:var(--eh-color-faint);font-size:var(--eh-text-12)}
-.live-form{max-width:740px;padding:25px}
+.live-form{width:100%;min-width:0;padding:25px}
 .live-form .field{margin-bottom:17px}
 .live-form textarea{width:100%;font:inherit;border:1px solid var(--eh-color-line-strong);border-radius:var(--eh-radius-8);padding:11px;resize:vertical}
 .live-file{padding:var(--eh-space-10) 0;border-top:1px solid var(--eh-color-surface-sunken);color:var(--eh-color-muted);font-size:var(--eh-text-12)}
@@ -2138,6 +2138,8 @@ body { font-family: var(--eh-font-sans); font-size: var(--eh-text-14); }
 .page-content p { font-size: var(--eh-text-14); }
 .app-shell[data-layout="compact"] .page-content p { font-size: var(--eh-text-13); }
 .app-shell .page-content,.app-shell[data-layout="compact"] .page-content { padding-right: max(var(--eh-space-64), env(safe-area-inset-right)); }
+.app-shell .page-content.page-form-layout { padding-inline: clamp(var(--eh-space-24),2.5vw,var(--eh-space-40)); }
+.app-shell[data-layout="compact"] .page-content.page-form-layout { padding-inline: var(--eh-space-16); }
 /* Recovery screens keep shell controls and keyboard recovery available. */
 .page-recovery { padding: var(--eh-space-24); min-width: 0; }
 .page-recovery > .panel { padding: var(--eh-space-28); max-width: 720px; margin: var(--eh-space-24) auto; }

@@ -38,6 +38,7 @@ function WorkspaceShell() {
   const root = useRef<HTMLDivElement>(null), refreshIcon = useRef<SVGSVGElement>(null), refreshingLock = useRef(false);
   const [search, setSearch] = useState(''), [languageMenuOpen, setLanguageMenuOpen] = useState(false), [refreshing, setRefreshing] = useState(false);
   const instance = JSON.stringify([page.view,page.params.repo,page.params.localId,page.params.number,page.params.sha,page.params.login,page.params.visit]);
+  const formPage = page.view === 'settings' || page.view === 'new-project';
   const canScrollDown = useShellEffects(root, scrollArea, language, instance);
   useEffect(() => { if (page.view === 'projects' || page.view === 'discover') setSearch(page.params.query ?? ''); }, [page.view,page.params.query]);
   useNavigationShortcuts(() => { if (!navigateNested('back')) navigation.back(); }, () => { if (!navigateNested('forward')) navigation.forward(); });
@@ -76,7 +77,7 @@ function WorkspaceShell() {
     </header>
     {demo&&<div className="demo-mode-notice" role="status"><span>{t("liveWorkspace.demoModeChangesAreNotUploadedToGithubFiles")}</span>{!demo.only&&<button className="button button-quiet small-button" onClick={demo.onLogin}>{t("liveWorkspace.signInToGithub")}</button>}</div>}
     <FeedbackNotice message={w.error} kind="error" onClose={()=>w.setError('')} language={language}/><FeedbackNotice message={w.notice} onClose={()=>w.setNotice('')} language={language}/>
-    <NavigationPages active={instance}><PageRouteContext.Provider value={page}><main className={`page-content live-page${page.view==='home'||page.view==='projects'?' page-with-footer':''}`}><div className="v2-page-transition" key={page.view}>
+    <NavigationPages active={instance}><PageRouteContext.Provider value={page}><main className={`page-content live-page${page.view==='home'||page.view==='projects'?' page-with-footer':''}${formPage?' page-form-layout':''}`}><div className="v2-page-transition" key={page.view}>
       {offline&&<div className="live-offline" role="status" aria-live="polite"><span>{t("liveWorkspace.githubIsTemporarilyUnavailableShowingYourLastSavedData")}</span><button className="button button-quiet small-button" disabled={authRetrying} onClick={onRetryAuth}>{t("liveWorkspace.retry")}</button><button className="text-link" onClick={()=>{navigation.sidebar('settings');requestAnimationFrame(()=>root.current?.querySelector('.github-proxy-panel')?.scrollIntoView({block:'center'}));}}>{t("liveWorkspace.networkRepair")}</button></div>}
       <PageStatus loading={w.loading&&!w.repos.length} error="" cancel={w.cancelRepoReads}/><WorkspacePage/>
     </div></main></PageRouteContext.Provider></NavigationPages>
