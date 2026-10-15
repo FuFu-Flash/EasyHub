@@ -1,3 +1,4 @@
+import { formatDateTime } from '../format';
 import { useTranslation } from '../localization';
 import { useEasyHub } from '../bridge';
 import { ErrorMessage } from './ErrorMessage';
@@ -181,7 +182,7 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
       {connectionError && <p className="github-proxy-error" role="alert"><ErrorMessage error={connectionError} /></p>}
       {!disabled && <div className="github-proxy-footer">
         <span className="github-proxy-last-check">{status?.checkedAt && !Number.isNaN(Date.parse(status.checkedAt))
-          ? t("hostsRepairPanel.checkedAt", { p0: t("hostsRepairPanel.lastChecked"), p1: new Date(status.checkedAt).toLocaleString(language === 'en' ? 'en-US' : 'zh-CN') }) : ''}</span>
+          ? t("hostsRepairPanel.checkedAt", { p0: t("hostsRepairPanel.lastChecked"), p1: formatDateTime(status.checkedAt, language) }) : ''}</span>
         <div className="github-proxy-actions">
           {(busy && busy !== 'cleanup') || status?.state === 'checking' ? <button type="button" className="button button-quiet" onClick={() => void cancel()}>{t("hostsRepairPanel.cancel")}</button>
             : !status ? <button type="button" className="button button-quiet" disabled={loading} onClick={() => void reload()}><RotateCw size={15} />{t("hostsRepairPanel.retry")}</button>

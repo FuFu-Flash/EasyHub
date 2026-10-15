@@ -1,3 +1,4 @@
+import { formatDateTime } from '../format';
 import { useTranslation } from '../localization';
 import { useEasyHub } from '../bridge';
 import { ErrorMessage } from './ErrorMessage';
@@ -15,7 +16,6 @@ import { StyledDropdown } from './StyledDropdown';
 import { CommitExplanation } from './CommitExplanation';
 import { parsePullPatch } from './pullReviewPresentation';
 
-const date = (value: string | undefined, language: Language): string => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString(language === 'en' ? 'en-US' : 'zh-CN') : '';
 const appendCommits = (old: GitHubCommit[], items: GitHubCommit[]): GitHubCommit[] => [...old, ...items.filter(item => !old.some(known => known.sha === item.sha))];
 
 export function SourceHistoryButton({ language, onClick }: { language: Language; onClick: () => void }) {
@@ -78,7 +78,7 @@ function CommitChanges({ repo, item, language, onFileHistory }: { repo: GitHubRe
   const url = `https://github.com/${encodeURIComponent(repo.owner.login)}/${encodeURIComponent(repo.name)}/commit/${item.sha}`;
   return <section className="panel source-history-detail" aria-busy={loading}>
     <div className="source-history-commit-heading"><h2 data-content-original>{commit.commit.message.split('\n')[0]}</h2><button className="text-link" onClick={() => void easyHub?.openExternalLink(url)}><ExternalLink size={15} />GitHub</button></div>
-    <p className="source-history-meta" data-content-original>{author} · {date(commit.commit.author?.date, language)} · <code>{item.sha.slice(0, 8)}</code></p>
+    <p className="source-history-meta" data-content-original>{author} · {formatDateTime(commit.commit.author?.date, language)} · <code>{item.sha.slice(0, 8)}</code></p>
     {commit.commit.message.includes('\n') && <p className="source-history-message" data-content-original>{commit.commit.message.slice(commit.commit.message.indexOf('\n') + 1).trim()}</p>}
     {detail && <p className="source-history-statistics">{t("sourceHistory.changedFiles")} {detail.files?.length ?? 0}{nextPage ? '+' : ''} · <span>+{detail.stats?.additions ?? 0}</span> / <span>−{detail.stats?.deletions ?? 0}</span></p>}
     <div className="source-history-explanation"><CommitExplanation owner={repo.owner.login} repo={repo.name} sha={item.sha} language={language} disabled={!detail || !detail.files?.length} /></div>
@@ -157,7 +157,7 @@ export function SourceHistory({ repo, language, onBack, scrollArea }: { repo: Gi
       <section className="panel source-history-list" aria-busy={loading}>
         {items.map(item => <button type="button" className="source-history-row" key={item.sha} onClick={() => { rememberScroll(); setSelected(item); }}>
           <span className="source-history-avatar" aria-hidden="true">{item.author?.avatar_url ? <img src={item.author.avatar_url} alt="" onError={event => { event.currentTarget.style.display = 'none'; }} /> : <History size={18} />}</span>
-          <span className="source-history-row-main"><strong data-content-original>{item.commit.message.split('\n')[0]}</strong><small><span data-content-original>{item.author?.login || item.commit.author?.name || t("sourceHistory.unknownAuthor")}</span> · {date(item.commit.author?.date, language)}</small></span>
+          <span className="source-history-row-main"><strong data-content-original>{item.commit.message.split('\n')[0]}</strong><small><span data-content-original>{item.author?.login || item.commit.author?.name || t("sourceHistory.unknownAuthor")}</span> · {formatDateTime(item.commit.author?.date, language)}</small></span>
           <code data-content-original>{item.sha.slice(0, 8)}</code><ChevronRight size={17} />
         </button>)}
         {loading && <p className="muted" role="status"><RotateCw size={16} className="live-spin" /> {t("sourceHistory.loadingCommits")}</p>}

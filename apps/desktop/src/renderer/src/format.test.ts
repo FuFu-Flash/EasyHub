@@ -6,6 +6,8 @@ describe('dates in the application language', () => {
     expect(formatDateTime('2026-10-14T12:00:00Z', 'en')).toContain('Oct');
     expect(formatDateTime('2026-10-14T12:00:00Z', 'zh')).toContain('2026');
     expect(formatDateTime('invalid', 'en')).toBe('—');
+    expect(formatDateTime(undefined, 'en')).toBe('—');
+    expect(formatDateTime(null, 'zh')).toBe('—');
   });
   it('handles recent, past, future and invalid timestamps', () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-14T12:00:00Z'));

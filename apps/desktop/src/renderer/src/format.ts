@@ -1,8 +1,8 @@
 import { getTranslator } from './localization';
 import type { Language } from './i18n';
 const locale = (language: Language): string => language === 'en' ? 'en-US' : 'zh-CN';
-export function formatDateTime(iso: string, language: Language): string {
-  const date = new Date(iso);
+export function formatDateTime(iso: string | null | undefined, language: Language): string {
+  const date = new Date(iso ?? '');
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat(locale(language), { dateStyle: 'medium', timeStyle: 'short' }).format(date) : '—';
 }
 export function formatRelative(iso: string, language: Language): string {
