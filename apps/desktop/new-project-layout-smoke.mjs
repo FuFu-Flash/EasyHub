@@ -50,6 +50,7 @@ try{
         assert.ok(Math.abs(measurement.left-measurement.right)<=4,`${screen} should have balanced outer gutters: ${JSON.stringify(measurement)}`);
         assert.ok(measurement.overflow<=2&&measurement.controlsTop===0&&Math.abs(width-measurement.controlsRight)<=1);
         assert.equal(await page.locator('.local-project-card').count(),0);
+        assert.equal(await page.locator('.scroll-down-cue').count(),0,'Form pages use normal scrolling; a floating cue must not occupy the reclaimed right gutter');
         if(language==='en'){
           const leaks=await page.evaluate(()=>{const leaks=[],root=document.querySelector('.app-shell'),walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode())){const el=node.parentElement;if(el?.getBoundingClientRect().width&&!el.closest('[data-content-original]')&&/[\u3400-\u9fff]/u.test(node.data))leaks.push(node.data.trim());}for(const el of root.querySelectorAll('[title],[aria-label],[placeholder]'))if(el.getBoundingClientRect().width)for(const attr of ['title','aria-label','placeholder']){const value=el.getAttribute(attr)||'';if(/[\u3400-\u9fff]/u.test(value))leaks.push(attr+': '+value);}return leaks;});assert.deepEqual(leaks,[],'English creation and settings UI, including attributes, must not contain Chinese');
         }
