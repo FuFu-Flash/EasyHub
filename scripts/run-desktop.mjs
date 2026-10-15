@@ -4,6 +4,7 @@ const allowed = new Set(['dev', 'typecheck', 'lint', 'test', 'test:ui', 'test:pu
 const task = process.argv[2];
 allowed.add('format');
 allowed.add('format:check');
+allowed.add('test:consistency-repair');
 allowed.add('test:ai-review-ui');
 allowed.add('test:live-pull-download');
 allowed.add('test:local-introduction-ui');

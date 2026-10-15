@@ -7,6 +7,7 @@
   "scripts": {
     "format": "node scripts/run-desktop.mjs format",
     "format:check": "node scripts/run-desktop.mjs format:check",
+    "test:consistency-repair": "node scripts/run-desktop.mjs test:consistency-repair",
     "dev": "node scripts/run-desktop.mjs dev",
     "dev:mobile": "node scripts/run-mobile.mjs start",
     "typecheck:mobile": "node scripts/run-mobile.mjs typecheck",
