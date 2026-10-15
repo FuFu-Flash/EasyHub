@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 helper_directory="$(cd -- "$(dirname -- "$0")" && pwd)"
-source_root="$(cd -- "$helper_directory/../.." && pwd)"
+source_root="$(cd -- "${EASYHUB_NATIVE_SOURCE_ROOT:-$helper_directory/../..}" && pwd)"
 helper_output="${1:-$helper_directory/../apps/desktop/resources/easyhub-proxy-helper}"
 compiler_flags=(-O)
 if [[ "${2:-}" == "--debug" ]]; then compiler_flags=(-Onone -g -D DEBUG); fi
