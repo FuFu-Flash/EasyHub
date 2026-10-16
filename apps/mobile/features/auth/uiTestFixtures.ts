@@ -99,8 +99,8 @@ const releases: GitHubRelease[] = [
   { id: 102, tag_name: 'v1.1.1-beta.2', name: 'Preview release · 预览版', body: '这个发行版没有额外下载附件，可下载项目源码。', draft: false, prerelease: true, published_at: '2026-09-24T09:00:00.000Z', assets: [] },
 ];
 const commits: GitHubCommit[] = [
-  { sha: headSha, commit: { message: '改进移动端排版与代码审查体验', author: { name: 'FuFu', date: createdAt } }, author: { login: uiFixtureUser.login }, stats: { additions: 52, deletions: 17 }, files: pullFiles.map((file) => ({ filename: file.filename, status: file.status })) },
-  { sha: baseSha, commit: { message: 'Support Markdown tables, comments and source downloads', author: { name: 'contributor-with-a-long-name', date: '2026-10-06T04:00:00.000Z' } }, author: { login: 'contributor-with-a-long-name' }, stats: { additions: 124, deletions: 9 }, files: [{ filename: 'README.md', status: 'modified' }] },
+  { sha: headSha, commit: { message: '改进移动端排版与代码审查体验', author: { name: 'FuFu', date: createdAt } }, author: { login: uiFixtureUser.login }, stats: { additions: 52, deletions: 17 }, files: pullFiles.map((file) => ({ filename: file.filename, status: file.status, additions: file.additions, deletions: file.deletions })) },
+  { sha: baseSha, commit: { message: 'Support Markdown tables, comments and source downloads', author: { name: 'contributor-with-a-long-name', date: '2026-10-06T04:00:00.000Z' } }, author: { login: 'contributor-with-a-long-name' }, stats: { additions: 124, deletions: 9 }, files: [{ filename: 'README.md', status: 'modified', additions: 124, deletions: 9 }] },
 ];
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const json = (value: unknown, status = 200) => new Response(status === 204 ? null : JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
