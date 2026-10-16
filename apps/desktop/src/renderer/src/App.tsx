@@ -9,6 +9,7 @@ import { useDialogFocus } from './components/useDialogFocus';
 import { LiveWorkspace } from './LiveWorkspace';
 import { DemoWorkspace } from './DemoWorkspace';
 import { OfflineStart } from './components/OfflineStart';
+import { PairingCode } from './components/PairingCode';
 import appIcon from './assets/easyhub-icon.svg';
 
 const demoOnlyBuild = import.meta.env.VITE_EASYHUB_DEMO_ONLY === 'true';
@@ -18,6 +19,7 @@ interface LoginFlow {
   verificationUri: string;
   expiresAt: number;
   interval: number;
+  codeCopied?: boolean;
 }
 
 export default function App() {
@@ -231,14 +233,22 @@ export default function App() {
             {flow ? (
               <>
                 <p>{t('app.githubOpenedInYourBrowserEnterThisCodeAnd')}</p>
-                <strong className="oauth-code">{flow.userCode}</strong>
-                <p className="oauth-wait">{t('app.waitingForYourConfirmationOnGithub')}</p>
-                <button
-                  className="button button-quiet"
-                  onClick={() => void window.easyHub?.openExternalLink(flow.verificationUri)}
+                <PairingCode
+                  key={`${flow.userCode}:${flow.expiresAt}`}
+                  code={flow.userCode}
+                  codeCopied={flow.codeCopied}
+                  pendingMessage={t('app.waitingForYourConfirmationOnGithub')}
                 >
-                  {t('app.openGithubAgain')}
-                </button>
+                  <button
+                    className="button button-quiet"
+                    onClick={() => void window.easyHub?.openExternalLink(flow.verificationUri)}
+                  >
+                    {t('app.openGithubAgain')}
+                  </button>
+                  <button className="button button-quiet" onClick={cancelLogin}>
+                    {t('app.cancel')}
+                  </button>
+                </PairingCode>
               </>
             ) : loginBusy ? (
               <p>{t('app.connectingToGithub')}</p>
@@ -252,11 +262,13 @@ export default function App() {
                 </button>
               </>
             )}
-            <div className="modal-actions">
-              <button className="button button-quiet" onClick={cancelLogin}>
-                {t('app.cancel')}
-              </button>
-            </div>
+            {!flow && (
+              <div className="modal-actions">
+                <button className="button button-quiet" onClick={cancelLogin}>
+                  {t('app.cancel')}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

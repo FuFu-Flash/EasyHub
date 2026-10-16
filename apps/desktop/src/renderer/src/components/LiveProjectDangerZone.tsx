@@ -1,8 +1,10 @@
 import { useTranslation } from '../localization';
 import { useEasyHub } from '../bridge';
 import { ErrorMessage } from './ErrorMessage';
+import { PairingCode } from './PairingCode';
+import { useDialogFocus } from './useDialogFocus';
 import { errorText } from '../errors';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GitHubRepo } from '@easyhub/github';
 import { X } from 'lucide-react';
 import type { Language } from '../i18n';
@@ -19,6 +21,7 @@ interface DeviceFlow {
   verificationUri: string;
   expiresAt: number;
   interval: number;
+  codeCopied?: boolean;
 }
 
 export function LiveProjectDangerZone({
@@ -47,6 +50,8 @@ export function LiveProjectDangerZone({
   const [deleteScope, setDeleteScope] = useState(false);
   const [flow, setFlow] = useState<DeviceFlow | null>(null);
   const [authMessage, setAuthMessage] = useState('');
+  const dialog = useRef<HTMLDivElement>(null);
+  useDialogFocus(Boolean(action), dialog, close);
 
   useEffect(() => {
     if (!flow) return;
@@ -245,7 +250,14 @@ export function LiveProjectDangerZone({
             if (event.target === event.currentTarget) close();
           }}
         >
-          <div className="modal danger-modal" role="dialog" aria-modal="true" aria-labelledby="live-danger-title">
+          <div
+            className="modal danger-modal"
+            ref={dialog}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="live-danger-title"
+          >
             <button
               className="icon-button modal-close"
               aria-label={t('liveProjectDangerZone.close')}
@@ -312,17 +324,22 @@ export function LiveProjectDangerZone({
             </label>
             {flow && (
               <div className="danger-auth">
-                <p>
-                  {t('liveProjectDangerZone.enterThisCodeOnGithub')} <strong>{flow.userCode}</strong>
-                </p>
-                <button
-                  type="button"
-                  className="button button-quiet"
-                  onClick={() => void easyHub?.openExternalLink(flow.verificationUri)}
+                <p>{t('liveProjectDangerZone.enterThisCodeOnGithub')}</p>
+                <PairingCode
+                  key={`${flow.userCode}:${flow.expiresAt}`}
+                  code={flow.userCode}
+                  codeCopied={flow.codeCopied}
+                  language={language}
+                  pendingMessage={t('liveProjectDangerZone.waitingForAuthorization')}
                 >
-                  {t('liveProjectDangerZone.openGithubAuthorization')}
-                </button>
-                <small>{t('liveProjectDangerZone.waitingForAuthorization')}</small>
+                  <button
+                    type="button"
+                    className="button button-quiet"
+                    onClick={() => void easyHub?.openExternalLink(flow.verificationUri)}
+                  >
+                    {t('liveProjectDangerZone.openGithubAuthorization')}
+                  </button>
+                </PairingCode>
               </div>
             )}
             {authMessage && (

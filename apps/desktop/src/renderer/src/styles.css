@@ -4606,8 +4606,18 @@ body,
     max-height: 94vh;
   }
 }
+.pairing-code-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--eh-space-8);
+  margin-top: var(--eh-space-12);
+}
+.pairing-code-actions .button {
+  padding-inline: var(--eh-space-12);
+}
 .oauth-modal {
-  max-width: 440px;
+  max-width: 480px;
 }
 .oauth-code {
   display: block;

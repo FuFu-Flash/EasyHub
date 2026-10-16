@@ -9,6 +9,7 @@
   "scripts": {
     "format": "prettier --write \"src/renderer/**/*.{ts,tsx,css,html,json}\"",
     "format:check": "prettier --check \"src/renderer/**/*.{ts,tsx,css,html,json}\"",
+    "test:pairing-code": "node pairing-code-smoke.mjs",
     "test:consistency-repair": "node consistency-repair-smoke.mjs",
     "dev": "electron-vite dev",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",

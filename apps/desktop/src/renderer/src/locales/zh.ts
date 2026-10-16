@@ -1,5 +1,9 @@
 /** Interface copy only; repository content never enters this catalog. */
 export const zh = {
+  'pairingCode.copied': '配对码已复制，可直接粘贴到 GitHub。',
+  'pairingCode.copyFailed': '无法复制配对码，请手动选择上方代码。',
+  'pairingCode.copy': '复制配对码',
+  'pairingCode.copying': '正在复制…',
   'app.offlineWithoutProjectData': '暂时连不上 GitHub，还没有可显示的项目数据',
   'app.backToConnection': '返回连接提示',
   'app.offlineWithoutProjectDataHelp': '登录信息仍然保留。请检查网络后重试，或打开网络修复。',

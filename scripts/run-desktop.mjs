@@ -5,6 +5,7 @@ const task = process.argv[2];
 allowed.add('format');
 allowed.add('format:check');
 allowed.add('test:consistency-repair');
+allowed.add('test:pairing-code');
 allowed.add('test:ai-review-ui');
 allowed.add('test:live-pull-download');
 allowed.add('test:local-introduction-ui');

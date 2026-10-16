@@ -1,6 +1,10 @@
 import type { zh } from './zh';
 import type { CatalogMessage } from '../localizationTypes';
 export const en = {
+  'pairingCode.copied': 'Pairing code copied. Paste it on GitHub.',
+  'pairingCode.copyFailed': 'Could not copy the pairing code. Select the code above manually.',
+  'pairingCode.copy': 'Copy pairing code',
+  'pairingCode.copying': 'Copying…',
   'app.offlineWithoutProjectData': 'GitHub is temporarily unavailable. No project data is available yet.',
   'app.backToConnection': 'Back to connection status',
   'app.offlineWithoutProjectDataHelp':

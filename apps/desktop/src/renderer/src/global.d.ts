@@ -147,12 +147,24 @@ declare global {
       binaryAiReview: (input: BinaryAiReviewRequest) => Promise<BinaryAiReviewResult>;
       onBinaryAnalysisProgress: (callback: (value: BinaryAnalysisProgress) => void) => () => void;
       onAiReviewProgress: (callback: (value: AiReviewProgress) => void) => () => void;
-      authStart: () => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;
+      authStart: () => Promise<{
+        userCode: string;
+        verificationUri: string;
+        expiresAt: number;
+        interval: number;
+        codeCopied?: boolean;
+      }>;
       authStartDeletion: (
         owner: string,
         repo: string,
         id: number,
-      ) => Promise<{ userCode: string; verificationUri: string; expiresAt: number; interval: number }>;
+      ) => Promise<{
+        userCode: string;
+        verificationUri: string;
+        expiresAt: number;
+        interval: number;
+        codeCopied?: boolean;
+      }>;
       authPoll: () => Promise<{ state: 'waiting' | 'complete'; user?: GitHubUser; interval?: number }>;
       authCancel: () => Promise<void>;
       authLogout: () => Promise<void>;
