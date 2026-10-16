@@ -13,8 +13,8 @@ const scenario=process.argv[2]??'all';
 await mkdir(output,{recursive:true});
 const profile=await mkdtemp(join(tmpdir(),'easyhub-create-review-'));
 const fixture=`import React from'react';import{createRoot}from'react-dom/client';import App from'/src/App.tsx';import{DemoWorkspace}from'/src/DemoWorkspace.tsx';import{createDemoBridge}from'/src/demo/demoBridge.ts';import'/src/styles.css';
-const data=createDemoBridge();window.calls=[];window.failCreate=false;window.holdCreate=false;window.folderPath=null;window.data=data;
-const bridge={...data.api,authStatus:async()=>({state:'signed-in',user:data.user,clientId:'fixture'}),chooseFolder:async()=>{window.calls.push({method:'chooseFolder'});return window.folderPath?data.api.chooseFolder():null;},localStatus:async(id)=>{if(id=== (await data.api.localList())[1]?.id)throw Error('[NOT_FOUND] Folder moved');return data.api.localStatus(id);},localCreate:async(...args)=>{window.calls.push({method:'localCreate',args});return data.api.localCreate(...args);},localPublish:async(...args)=>{window.calls.push({method:'localPublish',args});return data.api.localPublish(...args);},github:async(action,...args)=>{window.calls.push({method:action,args});if(action==='createRepo'){if(window.failCreate)throw Error('[NETWORK] Fixture offline');if(window.holdCreate)await new Promise(resolve=>window.finishCreate=resolve);}return data.api.github(action,...args);}};Object.defineProperty(window,'easyHub',{value:Object.freeze(bridge)});createRoot(document.getElementById('root')).render(new URLSearchParams(location.search).get('mode')==='demo'?<DemoWorkspace demoOnly onLogin={()=>{}}/>:<App/>);`;
+const data=createDemoBridge();window.calls=[];window.failCreate=false;window.holdCreate=false;window.folderPath=null;window.inspectName=null;window.data=data;
+const bridge={...data.api,authStatus:async()=>({state:'signed-in',user:data.user,clientId:'fixture'}),chooseFolder:async()=>{window.calls.push({method:'chooseFolder'});return window.folderPath?data.api.chooseFolder():null;},localInspect:async(path)=>{const result=await data.api.localInspect(path);return window.inspectName===null?result:{...result,name:window.inspectName};},localStatus:async(id)=>{if(id=== (await data.api.localList())[1]?.id)throw Error('[NOT_FOUND] Folder moved');return data.api.localStatus(id);},localCreate:async(...args)=>{window.calls.push({method:'localCreate',args});return data.api.localCreate(...args);},localPublish:async(...args)=>{window.calls.push({method:'localPublish',args});return data.api.localPublish(...args);},github:async(action,...args)=>{window.calls.push({method:action,args});if(action==='createRepo'){if(window.failCreate)throw Error('[NETWORK] Fixture offline');if(window.holdCreate)await new Promise(resolve=>window.finishCreate=resolve);}return data.api.github(action,...args);}};Object.defineProperty(window,'easyHub',{value:Object.freeze(bridge)});createRoot(document.getElementById('root')).render(new URLSearchParams(location.search).get('mode')==='demo'?<DemoWorkspace demoOnly onLogin={()=>{}}/>:<App/>);`;
 const server=await createServer({configFile:false,root:join(desktop,'src/renderer'),plugins:[react(),{
   name:'new-project-review',resolveId(id){if(id==='virtual:new-project.jsx')return'\0'+id;},async load(id){if(id==='\0virtual:new-project.jsx')return(await transformWithEsbuild(fixture,'fixture.jsx',{loader:'jsx',jsx:'automatic'})).code;},
   configureServer(s){s.middlewares.use(async(req,res,next)=>{if(!req.url?.startsWith('/new-project-review'))return next();res.setHeader('content-type','text/html;charset=utf-8');res.end(await s.transformIndexHtml(req.url,'<div id="root"></div><script type="module" src="/@id/virtual:new-project.jsx"></script>'));});},
@@ -58,13 +58,53 @@ try{
       }
     }
   }
+  if (scenario === 'all' || scenario === 'names') {
+    for (const mode of ['real', 'demo']) for (const language of ['zh', 'en']) {
+      await reset(language, 'comfortable', mode); await openNew(language);
+      const form = page.locator('.live-create-form');
+      const name = form.getByRole('textbox', { name: language === 'zh' ? '项目名称' : 'Project Name', exact: true });
+      const folder = form.locator('.folder-field > span');
+      const choose = form.getByRole('button', { name: language === 'zh' ? '选择文件夹' : 'Choose Folder', exact: true });
+      await page.evaluate(() => { window.folderPath = 'selected'; });
+      const chooseNext = async () => {
+        const previous = await folder.getAttribute('title'); await choose.click();
+        await page.waitForFunction(previous => document.querySelector('.folder-field > span')?.getAttribute('title') !== previous, previous);
+        await page.waitForFunction(() => !document.querySelector('.live-create-form .folder-field button').disabled);
+        return (await folder.getAttribute('title')).split(/[\\/]/).filter(Boolean).at(-1);
+      };
+      await name.fill('my-own-project-name'); await chooseNext();
+      assert.equal(await name.inputValue(), 'my-own-project-name', 'Choosing a folder must preserve a manually entered project name');
+      await name.fill(''); const first = await chooseNext();
+      assert.equal(await name.inputValue(), first, 'An empty name gets the selected folder name');
+      const second = await chooseNext(); assert.notEqual(first, second);
+      assert.equal(await name.inputValue(), second, 'An untouched automatic name follows the next folder');
+      await name.fill('custom-after-auto'); await chooseNext();
+      assert.equal(await name.inputValue(), 'custom-after-auto', 'Editing an automatic name stops folder-name updates');
+      await name.fill('   '); const afterClear = await chooseNext();
+      assert.equal(await name.inputValue(), afterClear, 'Clearing the name allows automatic filling again');
+      if (mode === 'real') {
+        await page.evaluate(() => { window.inspectName = 'inspected-project'; });
+        await name.fill(''); await chooseNext();
+        assert.equal(await name.inputValue(), 'inspected-project', 'Use a name returned by folder inspection when present');
+        await name.fill('retain-on-cancel'); const beforeCancel = await folder.getAttribute('title');
+        await page.evaluate(() => { window.folderPath = null; }); await choose.click();
+        await page.waitForFunction(() => !document.querySelector('.live-create-form .folder-field button').disabled);
+        assert.equal(await name.inputValue(), 'retain-on-cancel'); assert.equal(await folder.getAttribute('title'), beforeCancel);
+      }
+      await reset(language, 'compact', mode); await openNew(language);
+      await page.evaluate(() => { window.folderPath = 'selected'; });
+      await name.fill('NewProject-1'); await chooseNext(); await chooseNext();
+      assert.equal(await name.inputValue(), 'NewProject-1', 'A manual name matching a folder suggestion was never automatically assigned');
+      await page.screenshot({ path: join(output, `names-${mode}-${language}.png`), scale: 'css' });
+    }
+  }
   if(scenario==='all'||scenario==='workflows'){
     await reset();await openNew();const form=page.locator('.live-create-form'),name=form.getByRole('textbox',{name:'项目名称',exact:true}),description=form.getByRole('textbox',{name:'一句介绍',exact:true}),submit=form.getByRole('button',{name:'创建项目',exact:true});
     await name.fill('cloud-only-project');await description.fill('Retain this description after failure');await page.evaluate(()=>window.failCreate=true);await submit.click();await page.locator('.local-workspace .live-error').waitFor();assert.equal(await name.inputValue(),'cloud-only-project');assert.equal(await description.inputValue(),'Retain this description after failure');
     await page.evaluate(()=>{window.failCreate=false;window.holdCreate=true;});await submit.click();await page.waitForFunction(()=>typeof window.finishCreate==='function');assert.equal(await submit.isDisabled(),true);await page.evaluate(()=>window.finishCreate());await page.locator('.detail-hero h1').waitFor();assert.equal(await page.locator('.detail-hero h1').innerText(),'cloud-only-project');
     const calls=await page.evaluate(()=>window.calls);assert.equal(calls.filter(c=>c.method==='createRepo').length,2);assert.equal(calls.filter(c=>c.method==='createRepo').at(-1).args[2],true,'Cloud projects default to private');assert.equal(calls.filter(c=>['chooseFolder','localCreate','localPublish'].includes(c.method)).length,0,'Cloud creation cannot pick or publish local files');assert.equal(await page.evaluate(()=>window.data.api.localList().then(links=>links.length)),3);
     await openNew();await page.evaluate(()=>{window.holdCreate=false;window.folderPath='selected';});await form.getByRole('button',{name:'选择文件夹',exact:true}).click();await form.getByRole('button',{name:'取消选择文件夹',exact:true}).click();await name.fill('public-cloud-project');await description.fill('A public project with no local folder');await form.getByRole('button',{name:/所有人/}).click();await submit.click();await page.locator('.detail-hero h1').waitFor();assert.equal(await page.locator('.detail-hero h1').innerText(),'public-cloud-project');const publicCall=await page.evaluate(()=>window.calls.filter(c=>c.method==='createRepo').at(-1));assert.equal(publicCall.args[2],false);assert.equal(await page.evaluate(()=>window.data.api.localList().then(links=>links.length)),3,'Clearing a chosen folder still creates only a cloud project');await page.evaluate(()=>window.folderPath=null);
-    await openNew();await form.getByRole('button',{name:'选择文件夹',exact:true}).click();assert.equal(await name.inputValue(),'');await name.fill('local-project-fixture');await page.evaluate(()=>window.folderPath='C:\\Fixtures\\local-project-fixture');await form.getByRole('button',{name:'选择文件夹',exact:true}).click();await submit.click();await page.locator('.local-project-card').waitFor();assert.equal(await page.locator('.local-project-card').count(),1);await page.getByRole('textbox',{name:'这次改了什么？',exact:true}).waitFor();assert.equal((await page.evaluate(()=>window.calls)).filter(c=>c.method==='localPublish').length,0,'Folder creation still requires explicit file selection before publishing');
+    await openNew();await form.getByRole('button',{name:'选择文件夹',exact:true}).click();assert.equal(await name.inputValue(),'');await name.fill('local-project-fixture');await page.evaluate(()=>window.folderPath='C:\\Fixtures\\local-project-fixture');await form.getByRole('button',{name:'选择文件夹',exact:true}).click();await submit.click();await page.locator('.local-project-card').waitFor();assert.equal(await page.locator('.local-project-card').count(),1);await page.getByRole('textbox',{name:'这次改了什么？',exact:true}).waitFor();assert.equal((await page.evaluate(()=>window.calls)).filter(c=>c.method==='localPublish').length,0,'Folder creation still requires explicit file selection before publishing');assert.equal((await page.evaluate(()=>window.calls)).filter(c=>c.method==='localCreate').at(-1).args[1],'local-project-fixture','The manually entered name reaches project creation unchanged');
     await openNew();assert.equal(await page.locator('.local-project-card').count(),0,'A second new-project visit cannot show the previously created local project');assert.equal(await name.inputValue(),'');assert.equal(await form.getByRole('button',{name:/只有我/}).getAttribute('aria-pressed'),'true');
     await name.fill('unsent-project-draft');await description.fill('Keep this while visiting settings');await nav('设置').click();await nav('我的项目').click();assert.equal(await name.inputValue(),'unsent-project-draft');assert.equal(await description.inputValue(),'Keep this while visiting settings');await form.getByRole('button',{name:'选择文件夹',exact:true}).focus();await page.keyboard.press('Tab');assert.equal(await form.getByRole('button',{name:/只有我/}).evaluate(el=>el===document.activeElement),true,'Creation fields remain keyboard reachable');
     await reset('en','compact','demo');await openNew('en');await page.locator('.live-create-form').getByRole('textbox',{name:'Project Name',exact:true}).fill('demo-cloud-project');await page.locator('.live-create-form').getByRole('button',{name:'Create Project',exact:true}).click();await page.locator('.detail-hero h1').waitFor();assert.equal(await page.locator('.detail-hero h1').innerText(),'demo-cloud-project');

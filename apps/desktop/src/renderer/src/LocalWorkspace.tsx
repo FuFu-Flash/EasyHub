@@ -87,6 +87,7 @@ export function LocalWorkspace({
   const [inspection, setInspection] = useState<FolderInspection | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const lastAutomaticName = useRef('');
   const [description, setDescription] = useState('');
   const [isPrivate, setIsPrivate] = useState(true);
   const [publishId, setPublishId] = useState<string | null>(initialPublish ? (initialLocalId ?? null) : null);
@@ -299,7 +300,11 @@ export function LocalWorkspace({
       if (!path) return;
       const result = await api.localInspect(path);
       setInspection(result);
-      setName(result.name ?? path.split(/[\\/]/).filter(Boolean).at(-1) ?? '');
+      if (!name.trim() || name === lastAutomaticName.current) {
+        const suggestedName = result.name ?? path.split(/[\\/]/).filter(Boolean).at(-1) ?? '';
+        lastAutomaticName.current = suggestedName;
+        setName(suggestedName);
+      }
       if (result.state === 'github') {
         const link = await api.localConnect(path);
         setInspection(null);
