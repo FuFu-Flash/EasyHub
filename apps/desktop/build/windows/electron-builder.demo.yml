@@ -1,7 +1,7 @@
 appId: com.easyhub.desktop.demo
 productName: EasyHub Demo
 directories:
-  output: release/demo
+  output: release/windows/demo
   buildResources: resources
 files:
   - out/main/**/*

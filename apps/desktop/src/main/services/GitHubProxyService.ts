@@ -8,7 +8,7 @@ import { GitHubOriginAgent, isGitHubHost } from './githubProxyOrigin';
 import type { OriginRule } from './githubProxyOrigin';
 import { DEFAULT_GITHUB_RULES, parseSteamGitHubRules } from './steamGitHubRules';
 import { GITHUB_CLIENT_ID } from './githubAuthConfig';
-import type { WindowsSystemProxy } from './WindowsSystemProxy';
+import type { SystemProxy } from '../../shared/systemProxy';
 import type { GitHubSystemRelay } from './GitHubSystemRelay';
 
 interface ProxyDependencies {
@@ -17,7 +17,7 @@ interface ProxyDependencies {
   legacyHosts: () => Promise<boolean>;
   closeConnections?: () => Promise<void>;
   originFetch?: (request: Request, agent: GitHubOriginAgent) => Promise<Response>;
-  systemProxy?: Pick<WindowsSystemProxy, 'initialize' | 'acquire' | 'release' | 'status' | 'destroy'>;
+  systemProxy?: SystemProxy;
   systemRelay?: Pick<GitHubSystemRelay, 'start' | 'stop' | 'ownsProxyChoice'>;
 }
 

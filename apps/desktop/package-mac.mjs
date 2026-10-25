@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const desktopDir = dirname(fileURLToPath(import.meta.url));
 const sourceRoot = join(desktopDir, '../..');
 const pnpmEntrypoint = process.env.npm_execpath;
-const releaseDirectory = process.env.EASYHUB_DESKTOP_RELEASE_DIR ?? '/tmp/easyhub-desktop-release';
+const releaseDirectory = process.env.EASYHUB_DESKTOP_RELEASE_DIR ?? join(desktopDir, 'release', 'macos');
 if (process.platform !== 'darwin' || process.arch !== 'arm64') {
   throw new Error('请在 Apple Silicon Mac 上生成 macOS 安装包。');
 }
@@ -17,7 +17,7 @@ if (!pnpmEntrypoint || !isAbsolute(pnpmEntrypoint)) {
 }
 if (!isAbsolute(releaseDirectory)) throw new Error('EASYHUB_DESKTOP_RELEASE_DIR 必须是绝对路径。');
 const metadata = JSON.parse(await readFile(join(desktopDir, 'package.json'), 'utf8'));
-if (metadata.version !== '1.2.2') throw new Error('此构建配置对应 EasyHub 1.2.2 (18)。');
+if (!/^\d+\.\d+\.\d+$/u.test(metadata.version)) throw new Error('无法识别 EasyHub 桌面版本号。');
 
 const environment = { ...process.env,
   PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
@@ -59,10 +59,10 @@ try {
 run(process.execPath, [pnpmEntrypoint, 'exec', 'electron-vite', 'build']);
 // The Mac copier omits bundled JS dependencies, so an ordinary Windows/dev
 // build must never accidentally be packaged with this configuration.
-await access(join(desktopDir, 'out/main/bundled-dependency-notices.txt'), constants.R_OK);
-await access(join(desktopDir, 'out/renderer/bundled-dependency-notices.txt'), constants.R_OK);
+await access(join(desktopDir, 'out/macos/main/bundled-dependency-notices.txt'), constants.R_OK);
+await access(join(desktopDir, 'out/macos/renderer/bundled-dependency-notices.txt'), constants.R_OK);
 run(process.execPath, [pnpmEntrypoint, 'exec', 'electron-builder',
-  '--config', 'electron-builder-mac.yml', '--mac', '--arm64', '--dir', '--publish', 'never',
+  '--config', 'build/macos/electron-builder.yml', '--mac', '--arm64', '--dir', '--publish', 'never',
   `--config.directories.output=${releaseDirectory}`]);
 
 const application = join(releaseDirectory, 'mac-arm64/EasyHub.app');
@@ -71,4 +71,4 @@ await access(join(contents, 'Resources/app.asar.unpacked'), constants.R_OK);
 await access(join(contents, 'Resources/UPSTREAM.txt'), constants.R_OK);
 await access(join(contents, 'Resources/LICENSE'), constants.R_OK);
 run('/usr/bin/codesign', ['--verify', '--deep', '--strict', application]);
-process.stdout.write(`EasyHub 1.2.2 (18) macOS arm64 app: ${application}\n`);
+process.stdout.write(`EasyHub ${metadata.version} macOS arm64 app: ${application}\n`);

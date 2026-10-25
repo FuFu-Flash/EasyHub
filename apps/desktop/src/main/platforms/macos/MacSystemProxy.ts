@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile, rename, rm, writeFile } from 'node:fs/promises';
-import type { WindowsSystemProxyStatus } from './WindowsSystemProxy';
+import type { SystemProxyStatus } from '../../../shared/systemProxy';
 
 interface ManualProxy { enabled: boolean; server: string; port: number; authenticated: boolean }
 export interface MacProxySettings {
@@ -304,14 +304,14 @@ export class MacSystemProxy {
   private readonly platform: NodeJS.Platform;
   private lease: MacProxyLease | null = null;
   private ready = false;
-  private state: WindowsSystemProxyStatus = { mode: 'off' };
+  private state: SystemProxyStatus = { mode: 'off' };
   private queue: Promise<unknown> = Promise.resolve();
   constructor(private readonly leasePath: string, private readonly deps: MacSystemProxyDependencies = {}) {
     this.adapter = deps.adapter ?? { ...createMacSystemProxyAdapter(), armRecovery: armMacRecovery };
     this.store = deps.store ?? createMacProxyLeaseStore(leasePath);
     this.platform = deps.platform ?? process.platform;
   }
-  private serial(work: () => Promise<void>): Promise<WindowsSystemProxyStatus> {
+  private serial(work: () => Promise<void>): Promise<SystemProxyStatus> {
     const operation = this.queue.then(work, work).then(() => ({ ...this.state }));
     this.queue = operation.catch(() => undefined); return operation;
   }
@@ -375,8 +375,8 @@ export class MacSystemProxy {
       this.ready = true;
     } catch { this.state = { mode: 'unavailable', error: '无法恢复之前的系统代理设置，请稍后重试。' }; }
   }
-  initialize(): Promise<WindowsSystemProxyStatus> { return this.serial(() => this.initializeInternal()); }
-  acquire(pacUrl: string, existingEffectiveProxy?: boolean): Promise<WindowsSystemProxyStatus> {
+  initialize(): Promise<SystemProxyStatus> { return this.serial(() => this.initializeInternal()); }
+  acquire(pacUrl: string, existingEffectiveProxy?: boolean): Promise<SystemProxyStatus> {
     return this.serial(async () => {
       await this.initializeInternal(); if (!this.ready) return;
       if (!validPacUrl(pacUrl)) { this.state = { mode: 'unavailable', error: '本地系统代理地址无效。' }; return; }
@@ -417,17 +417,17 @@ export class MacSystemProxy {
       }
     });
   }
-  status(): Promise<WindowsSystemProxyStatus> {
+  status(): Promise<SystemProxyStatus> {
     return this.serial(async () => { await this.initializeInternal(); if (!this.ready || !this.lease) return;
       try { if (!equal(await this.adapter.read(), this.lease.applied)) { await this.restore(); this.state = { mode: 'external' }; }
         else this.state = { mode: 'managed' }; }
       catch { this.state = { mode: 'unavailable', error: '无法检查系统代理状态。' }; }
     });
   }
-  release(): Promise<WindowsSystemProxyStatus> {
+  release(): Promise<SystemProxyStatus> {
     return this.serial(async () => { await this.initializeInternal(); if (!this.ready) return;
       try { await this.restore(); } catch { this.state = { mode: 'unavailable', error: '系统代理恢复失败，请稍后重试。' }; }
     });
   }
-  destroy(): Promise<WindowsSystemProxyStatus> { return this.release(); }
+  destroy(): Promise<SystemProxyStatus> { return this.release(); }
 }

@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const desktopDir = dirname(fileURLToPath(import.meta.url));
+if (process.platform !== 'win32') throw new Error('Windows 安装包请在 Windows 上构建；macOS 请使用 macos-development 分支的 package:mac。');
 const pnpmEntrypoint = process.env.npm_execpath;
 if (!pnpmEntrypoint) {
   process.stderr.write('请通过 pnpm package:win 运行打包命令。\n');
@@ -19,7 +20,7 @@ const environment = {
 
 for (const args of [
   ['exec', 'electron-vite', 'build'],
-  ['exec', 'electron-builder', '--win', '--x64', '--publish', 'never'],
+  ['exec', 'electron-builder', '--config', 'build/windows/electron-builder.yml', '--win', '--x64', '--publish', 'never'],
 ]) {
   const result = spawnSync(process.execPath, [pnpmEntrypoint, ...args], {
     cwd: desktopDir,
@@ -30,7 +31,7 @@ for (const args of [
 }
 
 const { version } = JSON.parse(await readFile(join(desktopDir, 'package.json'), 'utf8'));
-const core = join(desktopDir, 'release', `EasyHub-${version}-core.exe`);
+const core = join(desktopDir, 'release', 'windows', `EasyHub-${version}-core.exe`);
 const windows = process.env.WINDIR ?? 'C:\\Windows';
 const framework = join(windows, 'Microsoft.NET', 'Framework64', 'v4.0.30319');
 const gac = join(windows, 'Microsoft.NET', 'assembly');
@@ -42,13 +43,13 @@ const references = [
   join(framework, 'System.Xaml.dll'),
   join(framework, 'System.Windows.Forms.dll'),
 ];
-const assemblyInfo = join(desktopDir, 'out', 'installer-assembly-info.cs');
+const assemblyInfo = join(desktopDir, 'out', 'windows', 'installer-assembly-info.cs');
 await writeFile(assemblyInfo,
   `[assembly: System.Reflection.AssemblyTitle("EasyHub 安装程序")]\n` +
   `[assembly: System.Reflection.AssemblyProduct("EasyHub")]\n` +
   `[assembly: System.Reflection.AssemblyVersion("${version}.0")]\n` +
   `[assembly: System.Reflection.AssemblyFileVersion("${version}.0")]\n`);
-const setup = join(desktopDir, 'release', `EasyHub-${version}-setup.exe`);
+const setup = join(desktopDir, 'release', 'windows', `EasyHub-${version}-setup.exe`);
 const icon = join(desktopDir, 'resources', 'easyhub.ico');
 const compile = spawnSync(join(framework, 'csc.exe'), [
   '/nologo', '/codepage:65001', '/target:winexe', '/platform:x64', '/optimize+', `/out:${setup}`,

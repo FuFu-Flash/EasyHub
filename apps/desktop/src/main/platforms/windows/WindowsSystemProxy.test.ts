@@ -296,7 +296,7 @@ describe('Windows current-user proxy ownership', () => {
     const leasePath = join(root, 'lease.json');
     const statePath = join(root, 'restored.txt');
     const scriptPath = join(root, 'guardian-fixture.ps1');
-    const source = await readFile(join(__dirname, '../../../resources/windows-system-proxy.ps1'), 'utf8');
+    const source = await readFile(join(__dirname, '../../../../resources/windows-system-proxy.ps1'), 'utf8');
     // Replace the entire WinINet assembly before executing the watcher; all mutations
     // go to a temporary fixture file. No test starts the real native write operation.
     const assembly = `Add-Type -TypeDefinition @'

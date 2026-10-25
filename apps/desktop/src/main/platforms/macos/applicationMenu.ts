@@ -1,5 +1,5 @@
 import type { MenuItemConstructorOptions } from 'electron';
-import { canRunMenuCommand, type MenuCommand, type MenuState } from '../shared/applicationMenu';
+import { canRunMenuCommand, type MenuCommand, type MenuState } from '../../../shared/applicationMenu';
 
 export const PROJECT_URL = 'https://github.com/FuFu-Flash/EasyHub';
 export const FEEDBACK_URL = 'https://github.com/FuFu-Flash/EasyHub/issues/new/choose';

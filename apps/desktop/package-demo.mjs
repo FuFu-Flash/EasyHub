@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const desktopDir = dirname(fileURLToPath(import.meta.url));
+if (process.platform !== 'win32') throw new Error('Windows 演示安装包请在 Windows 上构建。');
 const pnpmEntrypoint = process.env.npm_execpath;
 if (!pnpmEntrypoint) {
   process.stderr.write('请通过 pnpm package:demo 运行打包命令。\n');
@@ -18,7 +19,7 @@ const environment = {
 
 for (const args of [
   ['exec', 'electron-vite', 'build'],
-  ['exec', 'electron-builder', '--config', 'electron-builder.demo.yml', '--win', 'portable', '--x64', '--publish', 'never'],
+  ['exec', 'electron-builder', '--config', 'build/windows/electron-builder.demo.yml', '--win', 'portable', '--x64', '--publish', 'never'],
 ]) {
   const result = spawnSync(process.execPath, [pnpmEntrypoint, ...args], {
     cwd: desktopDir,

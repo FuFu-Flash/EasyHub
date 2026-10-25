@@ -95,7 +95,7 @@ describe.skipIf(process.platform !== 'darwin')('MacProxyService isolated helper 
   beforeAll(async () => {
     resources = await mkdtemp(join(tmpdir(), 'easyhub-mac-helper-service-'));
     const executable = join(resources, 'debug-helper');
-    const build = fileURLToPath(new URL('../../../../../mac-helper/build-helper.sh', import.meta.url));
+    const build = fileURLToPath(new URL('../../../../../../mac-helper/build-helper.sh', import.meta.url));
     await promisify(execFile)('/bin/bash', [build, executable, '--debug'], { timeout: 60000 });
     const quoted = `'${executable.replace(/'/g, "'\\''")}'`;
     await writeFile(join(resources, 'easyhub-proxy-helper'), `#!/bin/sh\nexec ${quoted} --test-fixture\n`, { mode: 0o700 });

@@ -8,6 +8,7 @@ import { bundledDependencyNotices } from './scripts/bundled-dependency-notices';
 // Each release flag is restricted to its platform; ordinary development stays unchanged.
 const compactRelease = (process.platform === 'darwin' && process.env.EASYHUB_MAC_BUNDLE === '1')
   || (process.platform === 'win32' && process.env.EASYHUB_WIN_BUNDLE === '1');
+const output = compactRelease ? `out/${process.platform === 'darwin' ? 'macos' : 'windows'}` : 'out';
 const dependencies = Object.keys(JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).dependencies);
 const bundledDependencies = compactRelease
   ? dependencies.filter(name => name !== '@napi-rs/keyring')
@@ -16,16 +17,16 @@ const bundledDependencies = compactRelease
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({ exclude: bundledDependencies }), ...(compactRelease ? [bundledDependencyNotices()] : [])],
-    build: { outDir: 'out/main', ...(compactRelease ? { minify: 'esbuild' as const } : {}) },
+    build: { outDir: `${output}/main`, ...(compactRelease ? { minify: 'esbuild' as const } : {}) },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
-    build: { outDir: 'out/preload', ...(compactRelease ? { minify: 'esbuild' as const } : {}) },
+    build: { outDir: `${output}/preload`, ...(compactRelease ? { minify: 'esbuild' as const } : {}) },
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
     plugins: [react(), ...(compactRelease ? [bundledDependencyNotices()] : [])],
     resolve: { alias: { '@': resolve(__dirname, 'src/renderer/src') } },
-    build: { outDir: resolve(__dirname, 'out/renderer') },
+    build: { outDir: resolve(__dirname, output, 'renderer') },
   },
 });

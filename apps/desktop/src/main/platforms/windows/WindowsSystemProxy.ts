@@ -1,3 +1,4 @@
+import type { SystemProxyStatus } from '../../../shared/systemProxy';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
@@ -11,10 +12,7 @@ export interface WindowsProxySettings {
   autoConfigUrl: string;
 }
 
-export interface WindowsSystemProxyStatus {
-  mode: 'off' | 'managed' | 'existing' | 'external' | 'unavailable';
-  error?: string;
-}
+export type WindowsSystemProxyStatus = SystemProxyStatus;
 
 export interface WindowsSystemProxyAdapter {
   read(): Promise<WindowsProxySettings>;
