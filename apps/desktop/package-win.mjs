@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const desktopDir = dirname(fileURLToPath(import.meta.url));
-if (process.platform !== 'win32') throw new Error('Windows 安装包请在 Windows 上构建；macOS 请使用 macos-development 分支的 package:mac。');
+if (process.platform !== 'win32') throw new Error('Windows 安装包请在 Windows 上构建；macOS 请使用 macos 分支的 package:mac。');
 const pnpmEntrypoint = process.env.npm_execpath;
 if (!pnpmEntrypoint) {
   process.stderr.write('请通过 pnpm package:win 运行打包命令。\n');
