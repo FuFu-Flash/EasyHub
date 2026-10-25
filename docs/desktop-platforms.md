@@ -1,6 +1,6 @@
 # 桌面平台开发与构建
 
-分支归属以根目录 [AGENTS.md](../AGENTS.md) 为准。`main` 保留 Windows/Android 与共享功能基线；Mac 开发源码在 [macos](https://github.com/FuFu-Flash/EasyHub/tree/macos)。复用仓库已有的 `macos` 分支作为 Mac 开发与构建入口。
+分支归属以根目录 [AGENTS.md](../AGENTS.md) 为准。`main` 保留 Windows/Android 与共享功能基线；Mac 开发源码在 [macos](https://github.com/FuFu-Flash/EasyHub/tree/macos)。
 
 建议用两个独立的 Git 检出目录分别开发 Windows 与 Mac。同步共享功能时从 main 选择提交合入 Mac 分支；Mac 平台改动不整分支合回 main。
 
