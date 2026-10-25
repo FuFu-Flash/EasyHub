@@ -1,3 +1,5 @@
+import type { MenuCommand } from '../../../shared/applicationMenu';
+import { readWindowControlStyle } from '../windowControlStyle';
 import { getTranslator, type Translator } from '../localization';
 import type { DemoNotice } from '../demo/demoBridge';
 import type { GitHubActivityCount, GitHubRepo, GitHubUser } from '@easyhub/github';
@@ -14,6 +16,7 @@ import { historyKey, readSearchHistory, rememberSearch, type SearchEntry, type S
 import { useWorkspaceNavigation } from './NavigationContext';
 
 export interface WorkspaceProps {
+  initialMenuCommand?: MenuCommand;
   user: GitHubUser;
   onLogout: () => void | Promise<void>;
   offline?: boolean;
@@ -82,7 +85,7 @@ function useController(props: WorkspaceProps) {
       checkingLocal: false,
       loading: false,
       language: readLanguage(),
-      windowStyle: localStorage.getItem('easyhub:window-control-style') === 'reference' ? 'reference' : 'windows',
+      windowStyle: readWindowControlStyle(),
       automaticTranslation: localStorage.getItem('easyhub:auto-translate') === 'true',
       translationTarget: localStorage.getItem('easyhub:translation-target') === 'en' ? 'en' : 'zh-CN',
       translationNamesText: storage.getItem(`easyhub:translation-names:${props.user.login}`) ?? '',

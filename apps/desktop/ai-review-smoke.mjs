@@ -348,9 +348,13 @@ try {
   await page.setViewportSize({ width: 800, height: 760 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'Review overview should fit a narrow window');
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.locator('.issue-project-header').filter({ hasText: 'owned-repo' }).click();
+  assert.equal(await page.locator('.issue-project-header').filter({ hasText: 'owned-repo' }).getAttribute('aria-expanded'), 'true',
+    'Repositories with pending reviews must open automatically');
   await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByRole('button', { name: /Trojan test/ }).waitFor();
   await page.getByRole('button', { name: '已处理', exact: true }).click();
+  const handledGroup = page.locator('.issue-project-header').filter({ hasText: 'owned-repo' });
+  assert.equal(await handledGroup.getAttribute('aria-expanded'), 'false', 'Handled groups keep their own collapsed state');
+  await handledGroup.click();
   await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByRole('button', { name: /Already handled/ }).waitFor();
   await page.getByRole('button', { name: /待审查 7/ }).click();
   await page.locator('.sidebar-nav').getByRole('button', { name: '问题', exact: true }).click();

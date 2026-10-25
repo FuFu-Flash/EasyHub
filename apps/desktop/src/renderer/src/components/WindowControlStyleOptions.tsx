@@ -1,3 +1,4 @@
+import { useTranslation } from '../localization';
 import { Check } from 'lucide-react';
 import type { WindowControlStyle } from '../windowControlStyle';
 
@@ -8,11 +9,12 @@ export function WindowControlStyleOptions({
   value: WindowControlStyle;
   onChange: (value: WindowControlStyle) => void;
 }) {
+  const t = useTranslation();
   const isMac = window.easyHub?.platform === 'darwin';
   const options: WindowControlStyle[] = isMac ? ['reference', 'windows'] : ['windows', 'reference'];
 
   return (
-    <div className="window-style-options" role="group" aria-label="窗口控件样式">
+    <div className="window-style-options" role="group" aria-label={t('settingsPage.windowControlStyle')}>
       {options.map((style) => (
         <button
           key={style}
@@ -29,15 +31,17 @@ export function WindowControlStyleOptions({
             <span />
           </span>
           <span>
-            <strong>{style === 'reference' ? '圆点风格' : 'Windows 风格'}</strong>
+            <strong>{t(style === 'reference' ? 'settingsPage.dotStyle' : 'settingsPage.windowsStyle')}</strong>
             <small>
-              {style === 'reference'
-                ? isMac
-                  ? '默认 · 左上角圆点'
-                  : '参考图 · 左上角圆点'
-                : isMac
-                  ? '右上角按钮'
-                  : '默认 · 右上角按钮'}
+              {t(
+                style === 'reference'
+                  ? isMac
+                    ? 'mac.defaultDotStyle'
+                    : 'settingsPage.referenceTopLeft'
+                  : isMac
+                    ? 'settingsPage.topRightButtons'
+                    : 'mac.defaultWindowsStyle',
+              )}
             </small>
           </span>
           {value === style && <Check size={18} className="window-style-check" />}

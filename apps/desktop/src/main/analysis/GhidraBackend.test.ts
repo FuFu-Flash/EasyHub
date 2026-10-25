@@ -305,7 +305,8 @@ describe('GhidraBackend', () => {
       expect(childPid).toBeGreaterThan(0);
       expect(() => process.kill(childPid, 0)).not.toThrow();
       await owned.stop();
-      expect(() => process.kill(childPid, 0)).toThrow();
+      // The parent can close before macOS finishes reaping the signalled child.
+      await expect.poll(() => { try { process.kill(childPid, 0); return false; } catch { return true; } }, { timeout: 2000 }).toBe(true);
       expect(() => process.kill(owned.pid!, 0)).toThrow();
     } finally { await owned.stop(); }
   });

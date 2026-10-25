@@ -7,6 +7,9 @@ import { chromium } from 'playwright-core';
 import { createServer } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const backShortcut = process.platform === 'darwin' ? 'Meta+[' : 'Alt+ArrowLeft';
+const forwardShortcut = process.platform === 'darwin' ? 'Meta+]' : 'Alt+ArrowRight';
+
 const root = dirname(fileURLToPath(import.meta.url));
 const output = join(root, 'out', 'pull-review-tools-smoke');
 await mkdir(output, { recursive: true });
@@ -70,9 +73,9 @@ try {
   await page.route('**/*', route => new URL(route.request().url()).origin === new URL(url).origin ? route.continue() : route.abort());
   await page.goto(url); await page.getByRole('button', { name: /Change 7/ }).click();
   await page.locator('.pull-checks').waitFor();
-  await page.keyboard.press('Alt+ArrowLeft');
+  await page.keyboard.press(backShortcut);
   await page.getByRole('button', { name: /Change 7/ }).waitFor();
-  await page.keyboard.press('Alt+ArrowRight');
+  await page.keyboard.press(forwardShortcut);
   await page.locator('.pull-checks').waitFor();
   assert.deepEqual(await page.locator('.issue-detail').evaluate(element => [...element.children].filter(child => child.matches('.pull-checks,.pull-files,.conversation,.reply-card,.pull-review-actions')).map(child => child.className)), ['pull-checks', 'pull-files', 'conversation', 'reply-card', 'pull-review-actions']);
   await page.getByText('检查结果尚未完整载入', { exact: true }).waitFor();

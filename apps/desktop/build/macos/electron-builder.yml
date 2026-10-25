@@ -1,8 +1,6 @@
 appId: app.easyhub.mac
 productName: EasyHub
-buildVersion: '18'
-extraMetadata:
-  version: 1.2.2
+buildVersion: '21'
 directories:
   output: release/macos
   buildResources: resources
@@ -37,7 +35,7 @@ asar: true
 asarUnpack:
   - '**/*.node'
 npmRebuild: false
-afterPack: scripts/clean-mac-package-xattrs.cjs
+afterPack: scripts/clean-mac-package-xattrs.mjs
 electronDist: node_modules/electron/dist
 electronLanguages:
   - en-US
@@ -51,7 +49,7 @@ mac:
   icon: resources/easyhub.icns
   category: public.app-category.developer-tools
   minimumSystemVersion: '12.0'
-  bundleVersion: '18'
+  bundleVersion: '21'
   identity: '-'
   hardenedRuntime: false
   notarize: false

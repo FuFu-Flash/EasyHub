@@ -473,7 +473,7 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       }
     };
     switch (action) {
-      case 'appUpdate': if (args.length === 0) return await checkAppUpdate(app.getVersion(), (input, init) => net.fetch(String(input), init)); invalid();
+      case 'appUpdate': if (args.length === 0) return await checkAppUpdate(app.getVersion(), (input, init) => net.fetch(String(input), init), process.platform); invalid();
       case 'user': return await client.user(controller?.signal);
       case 'profile': if (validRepoPart(owner)) return await client.profile(owner, controller?.signal); invalid();
       case 'contributions': if (validRepoPart(owner) && typeof repo === 'string' && /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/.test(repo) && typeof third === 'string' && /^\d{4}-\d{2}-\d{2}T23:59:59\.999Z$/.test(third) && Date.parse(third) >= Date.parse(repo) && Date.parse(third) - Date.parse(repo) <= 370 * 86400000) return await client.contributions(owner, repo, third, controller?.signal); invalid();

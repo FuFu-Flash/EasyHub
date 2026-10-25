@@ -1,3 +1,5 @@
+import { WindowTrafficLights } from './components/WindowTrafficLights';
+import { useNativeShell } from './workspace/useNativeShell';
 import { useTranslation } from './localization';
 import { PageStatus } from './pages/shared';
 import {
@@ -76,6 +78,7 @@ function WorkspaceShell() {
   const [search, setSearch] = useState(''),
     [languageMenuOpen, setLanguageMenuOpen] = useState(false),
     [refreshing, setRefreshing] = useState(false);
+  useNativeShell(root, refreshing);
   const instance = JSON.stringify([
     page.view,
     page.params.repo,
@@ -225,23 +228,11 @@ function WorkspaceShell() {
           <div className="main-column" ref={scrollArea}>
             <header className={`topbar topbar-${windowStyle}`}>
               {windowStyle === 'reference' && (
-                <div className="window-controls" aria-label={t('liveWorkspace.windowControls')}>
-                  <button
-                    className="window-dot window-close"
-                    aria-label={t('liveWorkspace.closeWindow')}
-                    onClick={() => void easyHub?.closeWindow()}
-                  />
-                  <button
-                    className="window-dot window-minimize"
-                    aria-label={t('liveWorkspace.minimizeWindow')}
-                    onClick={() => void easyHub?.minimizeWindow()}
-                  />
-                  <button
-                    className="window-dot window-maximize"
-                    aria-label={t('liveWorkspace.maximizeOrRestoreWindow')}
-                    onClick={() => void easyHub?.toggleMaximizeWindow()}
-                  />
-                </div>
+                <WindowTrafficLights
+                  onAction={(action) => {
+                    void easyHub?.[action]();
+                  }}
+                />
               )}
               <button className="topbar-brand" onClick={() => navigation.sidebar('home')}>
                 <img src={appIcon} alt="" />
