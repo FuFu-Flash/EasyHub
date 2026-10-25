@@ -22,7 +22,9 @@
 在仓库根目录安装锁定依赖：`pnpm install --frozen-lockfile`。
 
 - Windows 系统、main 分支：`pnpm package:win`。安装版与便携版在 `apps/desktop/release/windows`。
-- Apple Silicon Mac、macos-development 分支：`pnpm package:mac`。应用在 `apps/desktop/release/macos/mac-arm64/EasyHub.app`。
+- Apple Silicon Mac、macos-development 分支：`pnpm package:mac`。DMG 和 ZIP 在 `apps/desktop/release/macos`。
 - 两端通用：`pnpm typecheck`、`pnpm lint`、`pnpm test`、`pnpm build`。
 
 发布构建显式指定平台配置，并将平台中间文件映射为 ASAR 内统一的 out 目录。普通开发和现有 smoke 入口不变。构建不会自动上传安装包或创建发行版。
+
+Mac 签名在系统临时目录内完成，再输出包含完整签名应用的 DMG / ZIP；避免桌面同步服务给应用包附加 Finder 元数据。构建结束清理本次临时目录，安装镜像和 ZIP 仍留在 Mac 独立产物目录。

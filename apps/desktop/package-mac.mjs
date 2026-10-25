@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { access, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rename, rm, symlink } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join } from 'node:path';
@@ -61,14 +61,29 @@ run(process.execPath, [pnpmEntrypoint, 'exec', 'electron-vite', 'build']);
 // build must never accidentally be packaged with this configuration.
 await access(join(desktopDir, 'out/macos/main/bundled-dependency-notices.txt'), constants.R_OK);
 await access(join(desktopDir, 'out/macos/renderer/bundled-dependency-notices.txt'), constants.R_OK);
-run(process.execPath, [pnpmEntrypoint, 'exec', 'electron-builder',
-  '--config', 'build/macos/electron-builder.yml', '--mac', '--arm64', '--dir', '--publish', 'never',
-  `--config.directories.output=${releaseDirectory}`]);
-
-const application = join(releaseDirectory, 'mac-arm64/EasyHub.app');
-const contents = join(application, 'Contents');
-await access(join(contents, 'Resources/app.asar.unpacked'), constants.R_OK);
-await access(join(contents, 'Resources/UPSTREAM.txt'), constants.R_OK);
-await access(join(contents, 'Resources/LICENSE'), constants.R_OK);
-run('/usr/bin/codesign', ['--verify', '--deep', '--strict', application]);
-process.stdout.write(`EasyHub ${metadata.version} macOS arm64 app: ${application}\n`);
+// File Provider can attach Finder metadata during nested helper renames. Sign
+// outside the synced checkout, then publish only the verified generated bundle.
+const packageDirectory = await mkdtemp(join(tmpdir(), 'easyhub-macos-package-'));
+try {
+  run(process.execPath, [pnpmEntrypoint, 'exec', 'electron-builder',
+    '--config', 'build/macos/electron-builder.yml', '--mac', '--arm64', '--dir', '--publish', 'never',
+    `--config.directories.output=${packageDirectory}`]);
+  const signedApplication = join(packageDirectory, 'mac-arm64/EasyHub.app');
+  run('/usr/bin/codesign', ['--verify', '--deep', '--strict', signedApplication]);
+  // Keep the signed bundle inside the disk image / ZIP. Copying an .app back
+  // into a File Provider directory can immediately reattach invalid metadata.
+  const imageDirectory = join(packageDirectory, 'image');
+  await mkdir(imageDirectory);
+  run('/usr/bin/ditto', [signedApplication, join(imageDirectory, 'EasyHub.app')]);
+  await symlink('/Applications', join(imageDirectory, 'Applications'));
+  run('/usr/bin/codesign', ['--verify', '--deep', '--strict', join(imageDirectory, 'EasyHub.app')]);
+  const image = join(packageDirectory, 'EasyHub-macOS.dmg');
+  const archive = join(packageDirectory, 'EasyHub-macOS.zip');
+  run('/usr/bin/hdiutil', ['create', '-volname', 'EasyHub', '-srcfolder', imageDirectory, '-format', 'ULMO', image]);
+  run('/usr/bin/hdiutil', ['verify', image]);
+  run('/usr/bin/ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', signedApplication, archive]);
+  await mkdir(releaseDirectory, { recursive: true });
+  await rename(image, join(releaseDirectory, 'EasyHub-macOS.dmg'));
+  await rename(archive, join(releaseDirectory, 'EasyHub-macOS.zip'));
+  process.stdout.write(`EasyHub ${metadata.version} macOS arm64: ${releaseDirectory}/EasyHub-macOS.dmg and EasyHub-macOS.zip\n`);
+} finally { await rm(packageDirectory, { recursive: true, force: true }); }

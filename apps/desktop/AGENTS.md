@@ -9,3 +9,4 @@
 - ASAR 内部仍使用 `out/main`、`out/preload`、`out/renderer`，避免改变启动入口与 IPC 路径。
 - 保留平台运行时判断。Windows 代理和 PowerShell 只在 Windows 调用；Mac 菜单、系统代理和签名只在 Mac 调用。误用平台打包命令应在构建或写文件前失败。
 - 修改构建规则后运行平台隔离单测、桌面类型检查/lint/单测/build，并在对应系统验证产物。Mac 构建成功不能作为 Windows 实机打包成功的证据。
+- Mac 发行包在系统临时目录内完成签名，交付 DMG / ZIP 到 `release/macos`；避免把已签名的 `.app` 目录复制回桌面同步目录，导致 Finder 元数据使签名校验失效。
