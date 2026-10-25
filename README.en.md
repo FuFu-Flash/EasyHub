@@ -47,7 +47,7 @@ The Windows editions are for 64-bit PCs. The installer detects a previous instal
 
 ## macOS must-read
 
-Development branches: Windows / Android use `main`; macOS uses [`macos-development`](https://github.com/FuFu-Flash/EasyHub/tree/macos-development). See [desktop platform layout and build commands](docs/desktop-platforms.md).
+Development branches: Windows / Android use `main`; macOS uses [`macos`](https://github.com/FuFu-Flash/EasyHub/tree/macos). See [desktop platform layout and build commands](docs/desktop-platforms.md).
 
 The current Mac package is **1.2.2 (build 18)**. The DMG is **72.9 MB**, **35.09% smaller** than the previous build. Matching source: [macos-v1.2.2-build18-macos12](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.2.2-build18-macos12).
 
