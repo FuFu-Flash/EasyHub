@@ -9345,3 +9345,8 @@ body {
     display: none;
   }
 }
+
+/* Pages with the bottom shortcuts end close to the window edge, so the shortcuts sit at the same height on every page. */
+.app-shell .page-content.page-with-footer {
+  padding-bottom: var(--eh-space-14);
+}
