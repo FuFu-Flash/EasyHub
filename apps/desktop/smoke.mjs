@@ -117,9 +117,9 @@ try {
   await page.evaluate(() => window.localStorage.setItem('easyhub:language', 'zh'));
   await page.reload();
   await page.locator('.live-connected').waitFor();
-  await page.locator('.v2-feature-card').waitFor();
+  await page.locator('.home-task-list').waitFor();
   await page.locator('.home-dashboard').waitFor();
-  await page.locator('.v2-feature-card').getByText('1 个文件有修改，查看后再发布。').waitFor();
+  await page.locator('.home-task-row').getByText('有 1 个文件还没发布', { exact: true }).waitFor();
   await page.getByRole('button', { name: '账户菜单' }).click();
   await page.getByRole('menuitem', { name: '我收藏的项目' }).click();
   await page.getByRole('heading', { name: '还没有收藏的项目' }).waitFor();

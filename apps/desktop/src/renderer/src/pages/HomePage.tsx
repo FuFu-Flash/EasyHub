@@ -1,12 +1,12 @@
 import { useTranslation } from '../localization';
 import type { GitHubCommit, GitHubRepo } from '@easyhub/github';
 import type { LocalProjectLink } from '@easyhub/types';
-import { ArrowRight, ChevronRight, CloudDownload, FolderOpen } from 'lucide-react';
-import { canReviewRepository, sumActivity } from '../activityCounts';
-import { DashboardIntro } from '../components/DashboardIntro';
+import { ArrowRight, ChevronRight, CloudDownload, FolderOpen, Plus } from 'lucide-react';
+import { canReviewRepository } from '../activityCounts';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { errorText as message } from '../errors';
 import { formatRelative } from '../format';
+import { type HomeTask, homeTasks } from '../homeTasks';
 import { projectPresentation } from '../projectPresentation';
 import { findLocalLink } from '../repositoryLinks';
 import { usePageFeedback } from '../workspace/pageFeedback';
@@ -44,9 +44,7 @@ export function HomePage() {
   const { openProject, openLocal, openVersionFor } = usePageActions();
   const relativeDate = formatRelative;
   const ownRepos = repos.filter((repo) => !repo.fork);
-  const totalPendingIssues = sumActivity(repos, activityCounts, 'issues'),
-    reviewRepos = repos.filter((repo) => canReviewRepository(repo, user.login)),
-    totalPendingPulls = sumActivity(reviewRepos, activityCounts, 'pullRequests');
+  const reviewRepos = repos.filter((repo) => canReviewRepository(repo, user.login));
   const pendingIssueCount = (repo: GitHubRepo) => activityCounts[repo.id]?.issues ?? null;
   const setView = (view: View) =>
     navigation.navigate(
@@ -90,29 +88,16 @@ export function HomePage() {
     recentError = updates.error || (updates.data.partial ? t('homePage.updatesForSomeProjectsCouldNotBeLoaded') : '');
 
   const busy = sharedLoading;
-  const pendingLocal = localLinks
-    .map((link) => ({
-      link,
-      repo: repos.find((repo) => repo.id === link.repositoryId),
-      status: localStatuses[link.id],
-    }))
-    .find((item) => item.repo && item.status?.files.length);
-  const states = localLinks.map((link) =>
-    projectPresentation(localStatuses[link.id], remotePreviews[link.id], localErrors[link.id], language),
-  );
-  const localState =
-    localLinks.length === 0
-      ? 'none'
-      : checkingLocal || states.some((s) => s.state === 'checking')
-        ? 'checking'
-        : states.some((s) => s.state === 'unavailable' || s.state === 'review')
-          ? 'unavailable'
-          : states.some((s) => s.state === 'remote')
-            ? 'remote'
-            : 'saved';
-  const unpublishedCount = localLinks.some((link) => !localStatuses[link.id] || localErrors[link.id])
-    ? null
-    : localLinks.reduce((n, link) => n + (localStatuses[link.id]?.files.length ?? 0), 0);
+  const tasks = homeTasks({
+    repos,
+    reviewRepos,
+    localLinks,
+    localStatuses,
+    remotePreviews,
+    localErrors,
+    activityCounts,
+  });
+  const checking = checkingLocal || localLinks.some((link) => !localStatuses[link.id] && !localErrors[link.id]);
   async function getLatestFromHome(link: LocalProjectLink, repo: GitHubRepo) {
     try {
       const preview = await easyHub.localCheckSync(link.id);
@@ -132,136 +117,150 @@ export function HomePage() {
       setError(message(cause));
     }
   }
-  function homeRepoRow(repo: GitHubRepo) {
-    const link = findLocalLink(repo, localLinks);
-    const changed = link ? (localStatuses[link.id]?.files.length ?? 0) : 0;
-    const remote = link ? remotePreviews[link.id] : undefined;
-    const state = link
-      ? projectPresentation(localStatuses[link.id], remote, localErrors[link.id], language)
-      : { state: 'saved', text: t('homePage.savedOnGithub') };
-    const hasRemote = remote?.state === 'ready' || remote?.state === 'review';
+  function taskRow(task: HomeTask, index: number) {
+    const { repo, link, count = 0 } = task;
+    const [title, action] = {
+      publish: [t('projectStatus.unpublished', { count }), t('homePage.reviewAndPublish')],
+      review: [t('localWorkspace.contentNeedsYourChoice'), t('homePage.reviewContents')],
+      unavailable: [t('projectStatus.unavailable'), t('homePage.openProject')],
+      issues: [t('issuesPage.openIssues', { p0: count }), t('homePage.viewIssues')],
+      pulls: [t('pullReviewGroups.pullRequestsAwaitingReview', { p0: count }), t('homePage.reviewPullRequests')],
+      sync: [t('projectStatus.remote'), t('homePage.getLatest')],
+    }[task.kind];
+    const act = () => {
+      if (task.kind === 'issues') setView('issues');
+      else if (task.kind === 'pulls') setView('pulls');
+      else if (task.kind === 'sync') void getLatestFromHome(link!, repo);
+      else openLocal(link!, repo, task.kind === 'publish', remotePreviews[link!.id]?.state === 'review');
+    };
     return (
-      <div className="home-project-row" key={repo.id}>
-        <RepoLogo repo={repo} />
-        <button className="home-project-name" onClick={() => void openProject(repo)}>
-          <strong>{repo.name}</strong>
-          <span>{repo.description || t('homePage.noProjectDescriptionYet')}</span>
-        </button>
-        <div className="home-project-meta">
-          <span className={`home-row-status ${state.state}`}>
-            <i />
-            {changed ? t('homePage.changesToReview') : state.text}
-          </span>
+      <li className="home-task-row" key={`${task.kind}:${repo.id}`}>
+        <RepoLogo repo={repo} small />
+        <span className="home-task-copy">
+          <strong>{title}</strong>
           <small>
-            {t('home.rowMeta', {
-              time: relativeDate(repo.updated_at, language),
-              count: pendingIssueCount(repo) ?? '…',
-            })}
+            {link
+              ? t('homePage.taskMeta', { name: repo.name, time: relativeDate(repo.updated_at, language) })
+              : repo.name}
           </small>
-        </div>
-        <div className="home-project-actions">
-          {remote?.state === 'review' ? (
-            <button
-              className="button button-primary"
-              onClick={() => {
-                openLocal(link!, repo, false, true);
-              }}
-            >
-              {t('homePage.reviewContents')}
-            </button>
-          ) : changed && link ? (
-            <button className="button button-primary" onClick={() => openLocal(link, repo)}>
-              {t('homePage.viewChanges')}
-            </button>
-          ) : hasRemote && link ? (
-            <button className="button button-quiet" disabled={busy} onClick={() => void getLatestFromHome(link, repo)}>
-              {t('homePage.getLatest')}
-            </button>
-          ) : (
-            <button className="button button-quiet" onClick={() => void openProject(repo)}>
-              {t('homePage.openProject')}
-            </button>
-          )}
-        </div>
-      </div>
+        </span>
+        <button
+          className={`button small-button ${index === 0 ? 'button-primary' : 'button-quiet'}`}
+          disabled={task.kind === 'sync' && busy}
+          aria-label={t('homePage.taskAction', { action, name: repo.name })}
+          onClick={act}
+        >
+          {action}
+        </button>
+      </li>
+    );
+  }
+  function projectRow(repo: GitHubRepo) {
+    const link = findLocalLink(repo, localLinks);
+    const state = link
+      ? projectPresentation(localStatuses[link.id], remotePreviews[link.id], localErrors[link.id], language)
+      : { state: 'saved', text: t('homePage.savedOnGithub') };
+    return (
+      <tr className="home-project-row" key={repo.id}>
+        <th scope="row">
+          <button className="home-project-name" onClick={() => void openProject(repo)}>
+            <RepoLogo repo={repo} small />
+            <strong>{repo.name}</strong>
+          </button>
+        </th>
+        <td>
+          <span className={`home-row-status ${state.state}`}>{state.text}</span>
+        </td>
+        <td className="home-project-updated">{relativeDate(repo.updated_at, language)}</td>
+        <td className="home-project-issues">{pendingIssueCount(repo) ?? '…'}</td>
+        <td className="home-project-actions">
+          <button className="button button-quiet small-button" onClick={() => void openProject(repo)}>
+            {t('homePage.openProject')}
+          </button>
+        </td>
+      </tr>
     );
   }
 
   return (
     <>
-      <DashboardIntro
-        projectCount={ownRepos.length}
-        unpublishedCount={unpublishedCount}
-        localState={localState}
-        projectChanges={pendingLocal?.status?.files.length}
-        issueCount={totalPendingIssues}
-        pullCount={totalPendingPulls}
-        projectName={pendingLocal?.repo?.name}
-        onCreate={() => setView('new-project')}
-        onContinue={() => {
-          if (pendingLocal) openLocal(pendingLocal.link, pendingLocal.repo, true);
-          else {
-            navigation.navigate('projects', { scope: localLinks.length ? 'local' : 'mine' });
-          }
-        }}
-        onProjects={() => {
-          setView('projects');
-        }}
-        onIssues={() => {
-          setView('issues');
-        }}
-        onPulls={() => {
-          setView('pulls');
-        }}
-      />
       <div className="home-dashboard">
-        <section className="home-panel home-projects-panel">
-          <div className="home-panel-heading">
-            <h2>{t('homePage.myProjects')}</h2>
-            <button className="text-link" onClick={() => setView('projects')}>
-              {t('homePage.viewAll')} <ChevronRight size={17} />
-            </button>
-          </div>
-          <div className="home-project-list">
-            {ownRepos.slice(0, 3).map(homeRepoRow)}
-            {ownRepos.length === 0 && !busy && (
-              <p className="live-empty">{t('homePage.noProjectsYetYouCanCreateOne')}</p>
+        <div className="home-main">
+          <h1 className="home-heading">{t('homePage.title')}</h1>
+          <section className="home-section" aria-labelledby="home-tasks-heading">
+            <div className="home-section-heading">
+              <h2 id="home-tasks-heading">{t('homePage.needsYourAttention')}</h2>
+              {tasks.length > 0 && <span className="home-section-count">{tasks.length}</span>}
+            </div>
+            {tasks.length > 0 && <ul className="home-task-list">{tasks.map(taskRow)}</ul>}
+            {checking && <p className="home-task-note">{t('homePage.checkingLocalProjects')}</p>}
+            {!tasks.length && !checking && <p className="home-task-note">{t('homePage.nothingNeedsYourAttention')}</p>}
+          </section>
+          <section className="home-section" aria-labelledby="home-projects-heading">
+            <div className="home-section-heading">
+              <h2 id="home-projects-heading">{t('homePage.myProjects')}</h2>
+              <span className="home-section-actions">
+                <button className="text-link" onClick={() => setView('projects')}>
+                  {t('homePage.viewAllProjects', { count: ownRepos.length })} <ChevronRight size={15} />
+                </button>
+                <button className="button button-quiet small-button" onClick={() => setView('new-project')}>
+                  <Plus size={15} />
+                  {t('homePage.newProject')}
+                </button>
+              </span>
+            </div>
+            {ownRepos.length > 0 ? (
+              <table className="home-project-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{t('homePage.projectName')}</th>
+                    <th scope="col">{t('homePage.projectStatus')}</th>
+                    <th scope="col">{t('homePage.projectUpdated')}</th>
+                    <th scope="col" className="home-project-issues">
+                      {t('homePage.projectIssues')}
+                    </th>
+                    <th scope="col" aria-label={t('homePage.projectActions')} />
+                  </tr>
+                </thead>
+                <tbody>{ownRepos.slice(0, 5).map(projectRow)}</tbody>
+              </table>
+            ) : (
+              !busy && <p className="home-task-note">{t('homePage.noProjectsYetYouCanCreateOne')}</p>
             )}
-          </div>
-        </section>
-        <section className="home-panel home-recent-panel">
-          <div className="home-panel-heading">
-            <h2>{t('homePage.recentUpdates')}</h2>
+          </section>
+        </div>
+        <aside className="home-activity" aria-labelledby="home-activity-heading">
+          <div className="home-section-heading">
+            <h2 id="home-activity-heading">{t('homePage.recentUpdates')}</h2>
             <button className="text-link" onClick={() => setView('recent-history')}>
-              {t('homePage.viewAll')} <ChevronRight size={17} />
+              {t('homePage.viewAll')} <ChevronRight size={15} />
             </button>
           </div>
-          <div className="home-recent-list">
-            {recentUpdates.slice(0, 4).map(({ repo, commit: item }) => (
-              <button
-                className="home-recent-row"
-                key={`${repo.id}:${item.sha}`}
-                onClick={() => void openVersionFor(repo, item)}
-              >
-                <RepoLogo repo={repo} small />
-                <span>
-                  <strong>{repo.name}</strong>
-                  <small>{relativeDate(item.commit.author?.date ?? repo.pushed_at ?? repo.updated_at, language)}</small>
-                  <em data-content-original>{item.commit.message.split('\n')[0]}</em>
-                </span>
-              </button>
-            ))}
-            {recentLoading && <p className="muted">{t('homePage.loadingRecentUpdates')}</p>}
-            {recentError && (
-              <p className="muted">
-                <ErrorMessage error={recentError} />
-              </p>
-            )}
-            {!recentLoading && !recentUpdates.length && !recentError && (
-              <p className="muted">{t('homePage.noChangeHistoryYet')}</p>
-            )}
-          </div>
-        </section>
+          {recentUpdates.length > 0 && (
+            <ol className="home-activity-list">
+              {recentUpdates.slice(0, 5).map(({ repo, commit: item }) => (
+                <li key={`${repo.id}:${item.sha}`}>
+                  <button className="home-recent-row" onClick={() => void openVersionFor(repo, item)}>
+                    <strong>{repo.name}</strong>
+                    <em data-content-original>{item.commit.message.split('\n')[0]}</em>
+                    <small>
+                      {relativeDate(item.commit.author?.date ?? repo.pushed_at ?? repo.updated_at, language)}
+                    </small>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+          {recentLoading && <p className="home-task-note">{t('homePage.loadingRecentUpdates')}</p>}
+          {recentError && (
+            <p className="home-task-note">
+              <ErrorMessage error={recentError} />
+            </p>
+          )}
+          {!recentLoading && !recentUpdates.length && !recentError && (
+            <p className="home-task-note">{t('homePage.noChangeHistoryYet')}</p>
+          )}
+        </aside>
       </div>
       <div className="home-shortcuts">
         <button

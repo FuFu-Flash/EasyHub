@@ -180,7 +180,7 @@ try {
   const checkViews = async (label, preference, density) => {
     await waitLayout(preference, density);
     await page.locator('.sidebar-nav').getByRole('button', { name: names().home, exact: true }).click();
-    await page.locator('.v2-home-heading').waitFor();
+    await page.locator('.home-heading').waitFor();
     await recordGeometry(label + '-home');
     await checkFooter(label + '-home');
     await page.locator('.sidebar-nav').getByRole('button', { name: names().projects, exact: true }).click();

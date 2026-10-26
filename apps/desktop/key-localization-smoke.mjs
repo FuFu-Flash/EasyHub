@@ -65,7 +65,7 @@ try {
   await page.locator('.download-notification-trigger').click(); await page.getByRole('button',{name:'关闭通知',exact:true}).click();
   assert.equal(await page.locator('.download-notification-count').count(),0);
   await page.locator('.language-trigger').click(); await page.locator('.language-menu').getByRole('button',{name:'English',exact:true}).click();
-  await nav('Home').waitFor(); assert.doesNotMatch(await page.locator('.v2-home-heading h1').innerText(),/[\u3400-\u9fff]/u,'Greeting updates in the same render as the language switch'); assert.equal(await page.locator('.sidebar-nav').getAttribute('aria-label'),'Main navigation');
+  await nav('Home').waitFor(); assert.doesNotMatch(await page.locator('.home-heading').innerText(),/[\u3400-\u9fff]/u,'Greeting updates in the same render as the language switch'); assert.equal(await page.locator('.sidebar-nav').getAttribute('aria-label'),'Main navigation');
   assert.equal(await page.locator('.download-notification-count').count(),0,'Changing language must not make read notifications unread');
   await page.locator('.language-trigger').click(); await page.locator('.language-menu button').first().click(); await nav('首页').waitFor();
   await nav('合并请求').click();

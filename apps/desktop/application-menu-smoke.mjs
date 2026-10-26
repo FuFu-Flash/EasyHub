@@ -151,7 +151,7 @@ try {
     await heading(title);
   }
   await clickMenu('home');
-  await page.locator('.v2-feature-card').waitFor();
+  await page.locator('.home-dashboard').waitFor();
   await clickMenu('search');
   await page.waitForFunction(() => document.activeElement === document.querySelector('.topbar-search input'));
   await clickMenu('proxy-settings');
@@ -219,7 +219,7 @@ try {
   await page.waitForFunction(() => document.activeElement?.closest('.github-proxy-panel'));
   await page.screenshot({ path: 'out/application-menu-settings-smoke.png' });
 
-  await clickMenu('home'); await page.locator('.v2-feature-card').waitFor();
+  await clickMenu('home'); await page.locator('.home-dashboard').waitFor();
   const marker = await page.evaluate(() => { window.menuSmokeDocument = crypto.randomUUID(); return window.menuSmokeDocument; });
   const beforeRefresh = await app.evaluate(() => ({ authReads: globalThis.applicationMenuSmoke.authReads, repoReads: globalThis.applicationMenuSmoke.repoReads }));
   await app.evaluate(() => { globalThis.applicationMenuSmoke.holdRepos = true; });

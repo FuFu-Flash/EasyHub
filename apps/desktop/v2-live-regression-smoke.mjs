@@ -171,7 +171,7 @@ try {
   await page.getByRole('heading', { name: '最近更新', exact: true }).waitFor();
   assert.equal(await page.locator('.history-row').count(), 2);
   await page.getByRole('button', { name: '返回首页', exact: true }).click();
-  await page.locator('.v2-dashboard-intro').waitFor();
+  await page.locator('.home-dashboard').waitFor();
 
   const notifications = page.getByRole('button', { name: '通知', exact: true });
   const badge = page.locator('.download-notification-count');
