@@ -9,7 +9,7 @@ import { installDownloadFixture } from './download-fixture.mjs';
 // Real built renderer with isolated IPC. Covers only stale favorites and a
 // delayed publication failure crossing repository navigation. Network is denied.
 const desktop = dirname(fileURLToPath(import.meta.url));
-const product = process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
+const product = process.argv.includes('--packaged') ? join(desktop, 'release', 'windows', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'release-navigation-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));

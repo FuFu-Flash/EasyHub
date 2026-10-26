@@ -7,7 +7,7 @@ import electronPath from 'electron';
 import { installDownloadFixture } from './download-fixture.mjs';
 
 const desktop = dirname(fileURLToPath(import.meta.url));
-const product = process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
+const product = process.argv.includes('--packaged') ? join(desktop, 'release', 'windows', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'navigation-state-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));

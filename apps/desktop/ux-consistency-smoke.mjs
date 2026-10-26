@@ -98,8 +98,9 @@ try {
     });untranslated.push(...leaks.map(text=>({label,text})));await page.screenshot({animations:'disabled',timeout:10000,path:join(output,`en-1000-${label}.png`)});
   }
   await page.locator('.language-trigger').click();
-  assert.ok(await page.getByRole('button',{name:'Chinese',exact:true}).isVisible());
-  assert.ok(!/[\u3400-\u9fff]/u.test(await page.locator('.language-menu').innerText()));
+  assert.ok(await page.getByRole('button',{name:'中文',exact:true}).isVisible());
+  // Each language is listed under its own name, so a reader can always find their way back.
+  assert.ok(await page.getByRole('button',{name:'English',exact:true}).isVisible());
   await page.getByRole('button',{name:'English',exact:true}).click();
   assert.equal(await page.locator('.window-style-option').first().locator('small').innerText(),'Top-right buttons');
   await writeFile(join(output,'language-leaks.json'),JSON.stringify(untranslated,null,2));assert.deepEqual(untranslated,[],'Untranslated interface text');

@@ -72,7 +72,7 @@ try {
   await page.getByRole('button', { name: '下载源码 ZIP' }).waitFor();
   await page.screenshot({ path: 'out/release-downloads-smoke.png' });
   await page.locator('.sidebar-nav button').filter({ hasText: '发现' }).click();
-  await page.locator('.discover-search input').fill('wide');
+  await page.locator('.topbar-search input').fill('wide'); await page.locator('.topbar-search input').press('Enter');
   await page.locator('.search-result-grid .trending-card').first().waitFor();
   await page.locator('.search-display-switch button').filter({ hasText: '精简' }).click();
   await page.setViewportSize({ width: 1600, height: 800 });

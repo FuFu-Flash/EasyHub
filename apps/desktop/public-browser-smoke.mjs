@@ -5,7 +5,7 @@ import electronPath from 'electron';
 import { installDownloadFixture } from './download-fixture.mjs';
 
 const packaged = process.argv.includes('--packaged');
-const app = await electron.launch({ executablePath: packaged ? join(process.cwd(), 'release/win-unpacked/EasyHub.exe') : electronPath, args: packaged ? [] : ['.'], cwd: process.cwd() });
+const app = await electron.launch({ executablePath: packaged ? join(process.cwd(), 'release/windows/win-unpacked/EasyHub.exe') : electronPath, args: packaged ? [] : ['.'], cwd: process.cwd() });
 try {
   await app.evaluate(({ ipcMain }) => {
     const project = { id: 200, name: 'sample-public', full_name: 'another-author/sample-public', description: 'A public sample', private: false, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'another-author', avatar_url: 'https://avatars.githubusercontent.com/u/12345?v=4' }, open_issues_count: 1 };
@@ -79,7 +79,7 @@ try {
   await page.reload();
   await page.locator('.live-connected').waitFor();
   await page.locator('.topbar-search input').fill('https://github.com/another-author/sample-public');
-  await page.locator('.discover-search input').press('Enter');
+  await page.locator('.topbar-search input').press('Enter');
   await page.getByTestId('public-project-browser').waitFor();
   const browser = page.getByTestId('public-project-browser');
   assert.equal(await browser.locator('.public-browser-hero .public-owner-avatar img').getAttribute('src'), 'https://avatars.githubusercontent.com/u/12345?v=4');
@@ -176,7 +176,7 @@ try {
   await browser.getByRole('button', { name: /Improve results/ }).click();
   await browser.getByText('src/search.ts').waitFor();
   await page.screenshot({ path: 'out/public-pull-detail-smoke.png' });
-  await browser.getByRole('button', { name: '返回合并请求审查' }).click();
+  await browser.getByRole('button', { name: '返回', exact: true }).click();
   await browser.getByRole('button', { name: '提出问题/建议' }).click();
   await proposalForm.getByRole('radio', { name: /提交合并请求/ }).check();
   await proposalForm.getByRole('textbox', { name: '副本名称' }).waitFor();
@@ -222,7 +222,8 @@ try {
   await browser.locator(':scope > .back-link').click();
   await browser.locator('.public-browser-tabs button.selected').filter({ hasText: '项目介绍' }).waitFor();
   await browser.getByRole('button', { name: '返回搜索结果' }).click();
-  await page.locator('.discover-search input').fill('');
+  await page.locator('.sidebar-nav').getByRole('button', { name: '发现' }).click();
+  await page.locator('.topbar-search input').fill('');
   await page.getByRole('heading', { name: '搜索历史' }).waitFor();
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目' }).click();
   await page.getByRole('button', { name: '我的云端项目' }).click();

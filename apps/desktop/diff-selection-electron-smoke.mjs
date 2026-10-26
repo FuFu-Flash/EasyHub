@@ -15,7 +15,7 @@ await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
 const profile = join(run, 'profile');
 await mkdir(profile);
-const assets = packaged ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar', 'out') : join(desktop, 'out');
+const assets = packaged ? join(desktop, 'release', 'windows', 'win-unpacked', 'resources', 'app.asar', 'out') : join(desktop, 'out');
 const launcher = join(run, 'launch.cjs');
 await writeFile(launcher, `
 const { app, ipcMain } = require('electron');
@@ -201,9 +201,8 @@ try {
   await page.locator('.project-card').getByRole('button', { name: '打开项目', exact: true }).click();
   await page.getByRole('button', { name: '查看不同', exact: true }).click();
   await checkRegion(page.locator('.local-diff-lines'), 'local-diff');
-  await page.locator('.sidebar-nav').getByRole('button', { name: /^问题/ }).click();
-  await page.getByRole('tab', { name: /合并请求审查/ }).click();
-  await page.locator('.issue-project-header').click();
+  await page.locator('.sidebar-nav').getByRole('button', { name: /^合并请求/ }).click();
+  if (await page.locator('.issue-project-header').getAttribute('aria-expanded') !== 'true') await page.locator('.issue-project-header').click();
   await page.getByRole('button', { name: /Review selectable code/ }).click();
   await page.locator('.pull-file-toggle').click();
   await checkRegion(page.locator('.pull-diff-scroll'), 'pull-diff');

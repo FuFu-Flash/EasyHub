@@ -11,7 +11,7 @@ import { installDownloadFixture } from './download-fixture.mjs';
 const desktop = dirname(fileURLToPath(import.meta.url));
 const packaged = process.argv.includes('--packaged');
 const onlyPendingCase = process.argv.find(value => value.startsWith('--pending-case='))?.slice(15);
-const product = packaged ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
+const product = packaged ? join(desktop, 'release', 'windows', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'navigation-detail-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));

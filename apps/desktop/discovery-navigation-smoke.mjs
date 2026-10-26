@@ -7,7 +7,7 @@ import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
 
 const desktop = dirname(fileURLToPath(import.meta.url));
-const product = process.argv.includes('--packaged') ? join(desktop,'release/win-unpacked/resources/app.asar') : desktop;
+const product = process.argv.includes('--packaged') ? join(desktop,'release/windows/win-unpacked/resources/app.asar') : desktop;
 const profile = await mkdtemp(join(tmpdir(),'easyhub-discovery-navigation-'));
 const bootstrap = join(profile,'bootstrap.cjs');
 await writeFile(bootstrap, `const{app}=require('electron');app.setPath('userData',${JSON.stringify(join(profile,'data'))});process.env.EASYHUB_PROXY_APP_ONLY_TEST='1';process.env.ELECTRON_RENDERER_URL='data:text/html,Discovery fixture';require(${JSON.stringify(join(product,'out/main/index.js'))});`);

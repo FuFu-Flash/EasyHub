@@ -6,8 +6,8 @@ import { join } from 'node:path';
 
 const desktop = process.cwd();
 const { version } = JSON.parse(readFileSync(join(desktop, 'package.json'), 'utf8'));
-const setup = join(desktop, 'release', `EasyHub-${version}-setup.exe`);
-const portable = join(desktop, 'release', `EasyHub-${version}-portable.exe`);
+const setup = join(desktop, 'release', 'windows', `EasyHub-${version}-setup.exe`);
+const portable = join(desktop, 'release', 'windows', `EasyHub-${version}-portable.exe`);
 const screenshot = join(desktop, 'out', 'installer-native.png');
 const progressScreenshot = join(desktop, 'out', 'installer-native-progress.png');
 const nativeScreenshot = join(desktop, 'out', 'installer-native-window.png');

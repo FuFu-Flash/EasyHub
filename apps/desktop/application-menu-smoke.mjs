@@ -197,12 +197,11 @@ try {
   for (const command of commands) assert.equal(getItem(await menuSnapshot(), `easyhub-${command}`).enabled, true, `${command} should be available to the idle signed-in workspace`);
   await clickMenu('projects'); await heading('我的项目');
   await clickMenu('issues'); await heading('问题');
-  assert.equal(await page.getByRole('tab', { name: /^问题/ }).getAttribute('aria-selected'), 'true');
+  assert.match(await page.locator('.sidebar-nav button.active').innerText(), /^问题/);
   await clickMenu('reviews'); await heading('合并请求审查');
-  assert.equal(await page.getByRole('tab', { name: /^合并请求审查/ }).getAttribute('aria-selected'), 'true');
-  assert.equal(await page.getByRole('tab', { name: /^问题/ }).getAttribute('aria-selected'), 'false');
+  assert.match(await page.locator('.sidebar-nav button.active').innerText(), /^合并请求/);
   await clickMenu('issues'); await heading('问题');
-  assert.equal(await page.getByRole('tab', { name: /^合并请求审查/ }).getAttribute('aria-selected'), 'false');
+  assert.match(await page.locator('.sidebar-nav button.active').innerText(), /^问题/);
   await clickMenu('discover'); await heading('发现 / 搜索');
   await clickMenu('starred'); await heading('我收藏的项目');
   await page.locator('.starred-project-card').first().waitFor();

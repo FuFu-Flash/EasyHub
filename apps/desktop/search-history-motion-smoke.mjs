@@ -21,7 +21,7 @@ const channels = [...new Set([...preload.matchAll(/ipcRenderer\.invoke\(([^,\r\n
 assert.ok(channels.length > 40);
 const executableArgument = process.argv.find(value => value.startsWith('--executable='));
 const executable = executableArgument?.slice('--executable='.length)
-  ?? (process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'EasyHub.exe') : null);
+  ?? (process.argv.includes('--packaged') ? join(desktop, 'release', 'windows', 'win-unpacked', 'EasyHub.exe') : null);
 if (executableArgument) assert.ok(isAbsolute(executable), '--executable must be an absolute path.');
 const baseline = process.argv.includes('--baseline');
 const launcher = join(directory, 'launch.cjs');
@@ -187,8 +187,8 @@ try {
     await focusLastHistory();
     await page.keyboard.press('Enter');
     await page.locator('.search-history').waitFor({ state: 'hidden' });
-    assert.equal(await page.locator('.toolbar .search-box input').inputValue(), history[9].query);
-    await page.locator('.toolbar .search-box').getByRole('button', { name: '清除搜索', exact: true }).click();
+    assert.equal(await page.locator('.topbar-search input').inputValue(), history[9].query);
+    await page.locator('.topbar-search').getByRole('button', { name: '清除搜索', exact: true }).click();
     await page.locator('.search-history').waitFor();
     await page.locator('.search-history').getByRole('button', { name: '清除全部', exact: true }).click();
     await page.locator('.search-history').waitFor({ state: 'hidden' });
@@ -205,7 +205,7 @@ try {
       return { indicator: r(indicator), selected: r(selected), text: selected.textContent.trim(),
         durations: getComputedStyle(indicator).transitionDuration,
         animations: indicator.getAnimations().filter(animation => animation.playState === 'running').length,
-        pressed: [...element.querySelectorAll(':scope > button')].filter(button => button.getAttribute('aria-pressed') === 'true').length,
+        pressed: [...element.querySelectorAll(':scope > button')].filter(button => button.getAttribute('aria-pressed') === 'true' || button.getAttribute('aria-selected') === 'true').length,
         markerIgnored: indicator.getAttribute('aria-hidden') === 'true' && getComputedStyle(indicator).pointerEvents === 'none' };
     });
     const finish = async group => {
@@ -245,11 +245,11 @@ try {
     await load();
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     const projects = page.locator('.toolbar > .segmented').first();
-    await slide(projects, 3, 'Project scope click');
+    await slide(projects, 2, 'Project scope click');
     await slide(projects, 1, 'Project scope keyboard', true);
     await projects.evaluate(async group => {
       const buttons = group.querySelectorAll(':scope > button');
-      for (const index of [0, 2, 3, 1]) {
+      for (const index of [0, 2, 0, 1]) {
         buttons[index].click();
         await new Promise(resolve => setTimeout(resolve, 24));
       }
@@ -297,8 +297,8 @@ try {
     const issues = page.locator('.toolbar .segmented').first();
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await slide(issues, 1, 'Issue filter');
-    await page.getByRole('tab', { name: /^合并请求审查/ }).first().click();
-    const reviews = page.locator('.toolbar .segmented').first();
+    await page.locator('.sidebar-nav').getByRole('button', { name: /^合并请求/ }).click();
+    const reviews = page.locator('.toolbar .segmented').filter({ hasText: '待审查' }).first();
     await reviews.locator(':scope > button').first().getByText('待审查', { exact: false }).waitFor();
     await slide(reviews, 1, 'Review filter');
     assert.deepEqual(errors, []);

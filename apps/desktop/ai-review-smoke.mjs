@@ -239,7 +239,7 @@ try {
   await page.screenshot({ path: 'out/ai-review-mixed-program-en.png' });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.locator('.language-trigger').click();
-  await page.getByRole('button', { name: 'Chinese', exact: true }).click();
+  await page.getByRole('button', { name: '中文', exact: true }).click();
   await page.getByRole('button', { name: '返回', exact: true }).click();
   await pulls.getByRole('button').filter({ hasText: 'Program only' }).click();
   await pulls.getByText('bin/helper.dll', { exact: true }).waitFor();
@@ -348,9 +348,12 @@ try {
   await page.setViewportSize({ width: 800, height: 760 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'Review overview should fit a narrow window');
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.locator('.issue-project-header').filter({ hasText: 'owned-repo' }).click();
+  const ownedHeader = page.locator('.issue-project-header').filter({ hasText: 'owned-repo' });
+  if (await ownedHeader.getAttribute('aria-expanded') !== 'true') await ownedHeader.click();
   await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByRole('button', { name: /Trojan test/ }).waitFor();
   await page.getByRole('button', { name: '已处理', exact: true }).click();
+  await ownedHeader.waitFor();
+  if (await ownedHeader.getAttribute('aria-expanded') !== 'true') await ownedHeader.click();
   await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByRole('button', { name: /Already handled/ }).waitFor();
   await page.getByRole('button', { name: /待审查 7/ }).click();
   await page.locator('.sidebar-nav').getByRole('button', { name: '问题', exact: true }).click();

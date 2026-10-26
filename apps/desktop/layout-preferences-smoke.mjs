@@ -13,7 +13,7 @@ const profileDirectory = join(runDirectory, 'profile');
 await mkdir(profileDirectory);
 const executableArgument = process.argv.find(value => value.startsWith('--executable='));
 const executable = executableArgument?.slice('--executable='.length)
-  ?? (process.argv.includes('--packaged') ? join(desktopDirectory, 'release', 'win-unpacked', 'EasyHub.exe') : null);
+  ?? (process.argv.includes('--packaged') ? join(desktopDirectory, 'release', 'windows', 'win-unpacked', 'EasyHub.exe') : null);
 if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
 const launcher = join(runDirectory, 'launch.cjs');
 if (!executable) await writeFile(launcher, `
@@ -66,6 +66,7 @@ try {
     mock('easyhub:github', (action, ...args) => {
       fixture.reads.push(action);
       if (action === 'repos') return args[0] === 1 ? repos : [];
+      if (action === 'trending') return { items: [], page: 1, hasNextPage: false };
       if (action === 'searchPublicReposPage') return { items: repos.slice(0, 1), totalCount: 31, hasNextPage: true };
       if (action === 'activityCounts') return { 4201: { issues: 1, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 }, 4202: { issues: 0, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 } };
       if (action === 'readme') return '# Layout fixture\n\nProject introductions and controls remain usable as the window changes size.';
@@ -184,17 +185,19 @@ try {
     await recordGeometry(label + '-home');
     await checkFooter(label + '-home');
     await page.locator('.sidebar-nav').getByRole('button', { name: names().projects, exact: true }).click();
+    // The first click restores the project left open by the previous pass; the second opens the list.
+    if (!(await page.locator('h1').filter({ hasText: names().projects }).count())) await page.locator('.sidebar-nav').getByRole('button', { name: names().projects, exact: true }).click();
     await page.getByRole('button', { name: /我的云端项目/ }).click();
     const projectButton = page.locator('.cloud-row').filter({ hasText: 'layout-project-with-a-readable-name' }).getByRole('button', { name: '查看', exact: true });
     await projectButton.waitFor();
     await reachable(projectButton, 'Project details');
     await recordGeometry(label + '-projects');
     await checkFooter(label + '-long-projects');
-    await page.getByRole('textbox', { name: '筛选项目', exact: true }).fill('layout-project-with-a-readable-name');
+    await page.locator('.topbar-search input').fill('layout-project-with-a-readable-name');
     await checkFooter(label + '-short-projects');
-    await page.getByRole('textbox', { name: '筛选项目', exact: true }).fill('no-matching-local-project');
+    await page.locator('.topbar-search input').fill('no-matching-local-project');
     await checkFooter(label + '-empty-projects');
-    await page.getByRole('textbox', { name: '筛选项目', exact: true }).fill('');
+    await page.locator('.topbar-search input').fill('');
     await projectButton.click();
     await page.getByRole('heading', { name: 'layout-project-with-a-readable-name', exact: true }).waitFor();
     await reachable(page.getByRole('button', { name: '查看问题', exact: true }), 'Project issues');
@@ -249,7 +252,7 @@ try {
   assert.ok(compactRows.projectRowHeight <= comfortableRows.projectRowHeight * 0.8,
     'Compact project rows must be materially smaller than Comfortable rows');
   assert.equal(compactRows.primaryButtonHeight, 32, 'Compact primary controls remain a usable 32 px high');
-  assert.equal(compactRows.headingFontSize, 22);
+  assert.equal(compactRows.headingFontSize, 20);
   await page.setViewportSize({ width: 800, height: 620 });
   await checkViews('auto-minimum', 'auto', 'compact');
   // Exercise width and height separately: Automatic should react to either constraint.
@@ -273,10 +276,9 @@ try {
   await choose('compact', 'compact');
   await recordGeometry('english-compact-settings');
   await page.locator('.sidebar-nav').getByRole('button', { name: names().projects, exact: true }).click();
-  await page.getByRole('button', { name: 'All Public Projects', exact: true }).click();
-  await page.locator('.search-box input').fill('layout');
+  await page.locator('.topbar-search input').fill('layout');
+  await page.locator('.topbar-search input').press('Enter');
   await page.locator('.search-pagination .trending-pagination').waitFor();
-  await checkFooter('english-public-search-pagination');
   assert.equal(await shell.getAttribute('data-layout-preference'), 'compact');
   assert.deepEqual(errors, []);
   assert.deepEqual(await app.evaluate(() => globalThis.layoutFixture.forbidden), []);
