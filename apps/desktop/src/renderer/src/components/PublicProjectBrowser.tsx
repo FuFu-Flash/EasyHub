@@ -693,7 +693,11 @@ export function PublicProjectBrowser({
           {proposalNotice}
         </div>
       )}
-      <nav className="public-browser-tabs" aria-label={t('publicProjectBrowser.projectContent')}>
+      <SegmentedControl
+        className="public-browser-tabs"
+        motionKey={`public-project-tabs:${repo.id}`}
+        aria-label={t('publicProjectBrowser.projectContent')}
+      >
         <button className={tab === 'intro' ? 'selected' : ''} onClick={() => changeTab('intro')}>
           {t('publicProjectBrowser.projectIntroduction')}
         </button>
@@ -708,7 +712,7 @@ export function PublicProjectBrowser({
         <button className={tab === 'history' ? 'selected' : ''} onClick={() => changeTab('history')}>
           {t('publicProjectBrowser.changeHistory')}
         </button>
-      </nav>
+      </SegmentedControl>
       {tab === 'pulls' && (
         <PullRequestsPanel
           repo={repo}

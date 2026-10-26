@@ -1,8 +1,23 @@
 import { Children, cloneElement, isValidElement, useLayoutEffect, useRef } from 'react';
 import type { ButtonHTMLAttributes, HTMLAttributes } from 'react';
 
+interface IndicatorPosition {
+  transform: string;
+  width: string;
+  height: string;
+}
+
+// Where each shared tab bar last showed its selection. Pages that cache one copy per tab
+// render a new bar on every switch; the new bar slides from here instead of jumping.
+const lastPositions = new Map<string, IndicatorPosition>();
+
 /** Keeps each option's existing click behavior, with one measured selection background. */
-export function SegmentedControl({ children, className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
+export function SegmentedControl({
+  children,
+  className = '',
+  motionKey,
+  ...props
+}: HTMLAttributes<HTMLDivElement> & { motionKey?: string }) {
   const container = useRef<HTMLDivElement>(null);
   const measureSelection = useRef<(() => void) | null>(null);
 
@@ -12,17 +27,38 @@ export function SegmentedControl({ children, className = '', ...props }: HTMLAtt
     const indicator = group.querySelector<HTMLElement>(':scope > .segmented-indicator');
     if (!indicator) return;
     const buttons = (): HTMLButtonElement[] => [...group.querySelectorAll<HTMLButtonElement>(':scope > button')];
+    let shown = false;
+    const place = (position: IndicatorPosition): void => {
+      indicator.style.transform = position.transform;
+      indicator.style.width = position.width;
+      indicator.style.height = position.height;
+    };
     const measure = (): void => {
       const selected = group.querySelector<HTMLButtonElement>(':scope > button.selected');
       if (!selected || !selected.offsetWidth || !selected.offsetHeight) {
         delete group.dataset.segmentedReady;
+        shown = false;
         return;
       }
       const groupRect = group.getBoundingClientRect();
       const buttonRect = selected.getBoundingClientRect();
-      indicator.style.transform = `translate3d(${buttonRect.left - groupRect.left - group.clientLeft + group.scrollLeft}px, ${buttonRect.top - groupRect.top - group.clientTop + group.scrollTop}px, 0)`;
-      indicator.style.width = `${buttonRect.width}px`;
-      indicator.style.height = `${buttonRect.height}px`;
+      const target = {
+        transform: `translate3d(${buttonRect.left - groupRect.left - group.clientLeft + group.scrollLeft}px, ${buttonRect.top - groupRect.top - group.clientTop + group.scrollTop}px, 0)`,
+        width: `${buttonRect.width}px`,
+        height: `${buttonRect.height}px`,
+      };
+      const previous = motionKey ? lastPositions.get(motionKey) : undefined;
+      if (!shown && previous && previous.transform !== target.transform) {
+        // Start where the last bar for this key left off, then let the transition carry it over.
+        delete group.dataset.segmentedMotion;
+        place(previous);
+        group.dataset.segmentedReady = 'true';
+        void indicator.offsetWidth;
+        group.dataset.segmentedMotion = 'true';
+      }
+      shown = true;
+      place(target);
+      if (motionKey) lastPositions.set(motionKey, target);
       indicator.style.borderRadius = getComputedStyle(selected).borderRadius;
       group.dataset.segmentedReady = 'true';
     };
@@ -57,7 +93,7 @@ export function SegmentedControl({ children, className = '', ...props }: HTMLAtt
       group.removeEventListener('scroll', measure);
       measureSelection.current = null;
     };
-  }, []);
+  }, [motionKey]);
 
   useLayoutEffect(() => {
     measureSelection.current?.();
