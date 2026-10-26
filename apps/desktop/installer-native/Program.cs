@@ -45,8 +45,11 @@ namespace EasyHubInstaller
     internal sealed class InstallerWindow : Window
     {
         private const string RegistryKey = @"Software\ebd6f51a-0651-5201-90c0-182908705a0a";
-        private static readonly Brush Ink = ColorBrush("#172743");
-        private static readonly Brush Muted = ColorBrush("#71829C");
+        private static readonly Brush Ink = ColorBrush("#1D1D1B");
+        private static readonly Brush Muted = ColorBrush("#62625D");
+        private static readonly Brush Line = ColorBrush("#E3E3DF");
+        // The progress test reserves #287AF0 for the moving bar, so step markers use the app blue.
+        private static readonly Brush StepBlue = ColorBrush("#2369DE");
         private static readonly Brush Blue = ColorBrush("#287AF0");
         private static readonly Brush PaleBlue = ColorBrush("#EAF3FF");
         private readonly Canvas root = new Canvas();
@@ -68,6 +71,9 @@ namespace EasyHubInstaller
         private bool useCornerRegion;
         private TranslateTransform progressTransform;
         private DoubleAnimationUsingKeyFrames progressAnimation;
+        private readonly Border[] stepRows = new Border[3];
+        private readonly Border[] stepMarks = new Border[3];
+        private readonly TextBlock[] stepLabels = new TextBlock[3];
 
         [StructLayout(LayoutKind.Sequential)]
         private struct NativeRect { public int Left, Top, Right, Bottom; }
@@ -197,7 +203,7 @@ namespace EasyHubInstaller
             shell.Width = 900;
             shell.Height = 620;
             shell.BorderThickness = new Thickness(1);
-            shell.BorderBrush = ColorBrush("#D6E2F3");
+            shell.BorderBrush = ColorBrush("#D4D4CF");
             shell.CornerRadius = new CornerRadius(8);
             shell.Clip = new RectangleGeometry(new Rect(0, 0, 900, 620), 8, 8);
             shell.Child = root;
@@ -214,18 +220,19 @@ namespace EasyHubInstaller
             BuildDone();
             progress.Visibility = Visibility.Collapsed;
             done.Visibility = Visibility.Collapsed;
+            ShowStep(0);
         }
 
         private void BuildHeader()
         {
             var header = Add(root, new Canvas { Width = 898, Height = 67, Background = Brushes.White }, 0, 0);
-            Add(header, new Border { Width = 898, Height = 1, Background = ColorBrush("#E6EDF7") }, 0, 66);
+            Add(header, new Border { Width = 898, Height = 1, Background = Line }, 0, 66);
             Add(header, new Image { Width = 34, Height = 34, Source = Icon }, 25, 16);
             Add(header, Text("EasyHub", 21, Ink, FontWeights.Bold, 125), 71, 18);
-            Add(header, new Border { Width = 1, Height = 22, Background = ColorBrush("#D9E3EF") }, 198, 23);
-            Add(header, Text("安装程序", 13, ColorBrush("#526989"), FontWeights.SemiBold, 85), 215, 26);
-            var minimize = Add(header, Action("—", 34, 34, "#FFFFFF", "#526989", 17), 815, 16);
-            var close = Add(header, Action("×", 34, 34, "#FFFFFF", "#526989", 22), 855, 16);
+            Add(header, new Border { Width = 1, Height = 22, Background = Line }, 198, 23);
+            Add(header, Text("安装程序", 13, Muted, FontWeights.SemiBold, 85), 215, 26);
+            var minimize = Add(header, Action("—", 34, 34, "#FFFFFF", "#62625D", 17), 815, 16);
+            var close = Add(header, Action("×", 34, 34, "#FFFFFF", "#62625D", 22), 855, 16);
             minimize.Click += (sender, args) => WindowState = WindowState.Minimized;
             close.Click += (sender, args) => { if (!installing) Close(); };
             header.MouseLeftButtonDown += (sender, args) =>
@@ -236,37 +243,45 @@ namespace EasyHubInstaller
 
         private void BuildIllustration()
         {
-            var left = Add(root, new Canvas { Width = 370, Height = 551, ClipToBounds = true }, 0, 67);
-            var gradient = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 1) };
-            gradient.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#102C55"), 0));
-            gradient.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#2361AC"), 1));
-            left.Background = gradient;
-            Add(left, new System.Windows.Shapes.Ellipse { Width = 370, Height = 370,
-                Stroke = ColorBrush("#315483"), StrokeThickness = 1 }, 166, -188);
-            Add(left, new System.Windows.Shapes.Ellipse { Width = 290, Height = 290,
-                Stroke = ColorBrush("#315483"), StrokeThickness = 1 }, 235, -115);
-            Add(left, Text("WELCOME TO EASYHUB", 11, ColorBrush("#91C7FF"), FontWeights.Bold, 300), 34, 54);
-            Add(left, Text("让创作，\n轻松开始。", 42, Brushes.White, FontWeights.Bold, 320), 34, 108);
-            Add(left, Text("把项目和灵感带到 GitHub，\n无需记住复杂的命令。", 14,
-                ColorBrush("#C9DEF9"), FontWeights.Normal, 306), 34, 237);
+            var left = Add(root, new Canvas { Width = 370, Height = 551, ClipToBounds = true, Background = ColorBrush("#F6F6F4") }, 0, 67);
+            Add(left, new Border { Width = 1, Height = 551, Background = Line }, 369, 0);
+            Add(left, Text("安装步骤", 12, Muted, FontWeights.SemiBold, 300), 34, 50);
+            var names = new[] { "选择安装位置", "安装", "完成" };
+            for (var index = 0; index < names.Length; index++)
+            {
+                var row = new Border { Width = 302, Height = 40, CornerRadius = new CornerRadius(8) };
+                var content = new Canvas { Width = 302, Height = 40 };
+                row.Child = content;
+                var mark = new Border { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), BorderThickness = new Thickness(1) };
+                mark.Child = new TextBlock { Text = (index + 1).ToString(), FontFamily = new FontFamily("Microsoft YaHei UI"), FontSize = 11,
+                    FontWeight = FontWeights.SemiBold, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                Add(content, mark, 12, 9);
+                var label = Text(names[index], 13, Muted, FontWeights.Normal, 240);
+                Add(content, label, 46, 10);
+                stepRows[index] = row;
+                stepMarks[index] = mark;
+                stepLabels[index] = label;
+                Add(left, row, 22, 78 + index * 46);
+            }
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+            Add(left, Text("EasyHub " + version.Major + "." + version.Minor + "." + version.Build, 11, Muted, FontWeights.Normal, 300), 34, 512);
+        }
 
-            var projectCard = Panel(295, 120, "#EAF3FF", 16);
-            projectCard.RenderTransform = new RotateTransform(-4, 148, 60);
-            Add(left, projectCard, 35, 342);
-            var card = new Canvas { Width = 295, Height = 120 };
-            projectCard.Child = card;
-            Add(card, new Border { Width = 295, Height = 1, Background = ColorBrush("#CEDFF0") }, 0, 24);
-            Add(card, Text("●  ●  ●", 8, ColorBrush("#BED3E9"), FontWeights.Normal, 80), 12, 5);
-            Add(card, new Image { Width = 44, Height = 44, Source = Icon }, 18, 48);
-            Add(card, Text("EasyHub", 17, Ink, FontWeights.Bold, 130), 74, 49);
-            Add(card, Text("你的项目空间", 11, ColorBrush("#758BAA"), FontWeights.Normal, 130), 74, 75);
-            var tick = Panel(27, 27, "#E0F8EA", 14);
-            tick.Child = new TextBlock { Text = "✓", FontSize = 21, FontWeight = FontWeights.Bold,
-                Foreground = ColorBrush("#18A568"), TextAlignment = TextAlignment.Center };
-            Add(card, tick, 244, 55);
-            Add(left, Text("01   ───   02   ───   03", 10, ColorBrush("#91C7FF"), FontWeights.Bold, 180), 34, 518);
-            Add(left, Text("选择位置  ·  安装  ·  开始创作", 10,
-                ColorBrush("#ABC9ED"), FontWeights.Normal, 180), 188, 518);
+        private void ShowStep(int current)
+        {
+            for (var index = 0; index < stepRows.Length; index++)
+            {
+                var active = index == current;
+                var finished = index < current;
+                var mark = (TextBlock)stepMarks[index].Child;
+                stepRows[index].Background = active ? ColorBrush("#EAF3FF") : Brushes.Transparent;
+                stepMarks[index].Background = active || finished ? StepBlue : Brushes.White;
+                stepMarks[index].BorderBrush = active || finished ? StepBlue : ColorBrush("#D4D4CF");
+                mark.Text = finished ? "✓" : (index + 1).ToString();
+                mark.Foreground = active || finished ? Brushes.White : Muted;
+                stepLabels[index].Foreground = active ? Ink : Muted;
+                stepLabels[index].FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
+            }
         }
 
         private void AddRightCanvas(Canvas canvas)
@@ -279,12 +294,10 @@ namespace EasyHubInstaller
         private void BuildForm()
         {
             AddRightCanvas(form);
-            Add(form, Text("01 / 03 · 准备安装", 11, Blue, FontWeights.Bold, 350), 54, 59);
-            Add(form, Text("安装 EasyHub", 32, Ink, FontWeights.Bold, 420), 54, 89);
-            Add(form, Text("选择保存位置，剩下的交给 EasyHub。", 14, Muted, FontWeights.Normal, 422), 54, 149);
-            Add(form, Text("安装位置", 13, ColorBrush("#2C4261"), FontWeights.Bold, 300), 54, 211);
-            var pathBox = Panel(422, 50, "#FBFDFF", 12);
-            pathBox.BorderBrush = ColorBrush("#D4E0EE");
+            Add(form, Text("安装 EasyHub", 28, Ink, FontWeights.Bold, 420), 54, 92);
+            Add(form, Text("安装位置", 13, ColorBrush("#3D3D39"), FontWeights.Bold, 300), 54, 211);
+            var pathBox = Panel(422, 50, "#FFFFFF", 10);
+            pathBox.BorderBrush = ColorBrush("#D4D4CF");
             pathBox.BorderThickness = new Thickness(1);
             Add(form, pathBox, 54, 238);
             pathInput.Width = 307;
@@ -293,7 +306,7 @@ namespace EasyHubInstaller
             pathInput.Background = Brushes.Transparent;
             pathInput.FontFamily = new FontFamily("Microsoft YaHei UI");
             pathInput.FontSize = 13;
-            pathInput.Foreground = ColorBrush("#1D3554");
+            pathInput.Foreground = Ink;
             pathInput.VerticalContentAlignment = VerticalAlignment.Center;
             Add(form, pathInput, 67, 245);
             var browse = Add(form, Action("选择文件夹", 91, 35, "#EAF3FF", "#246CCE", 12), 378, 245);
@@ -303,16 +316,16 @@ namespace EasyHubInstaller
                 ? "首次安装优先选择其他固定磁盘，安装时会自动创建 EasyHub 文件夹。"
                 : "已找到之前的安装位置，将继续安装到同一位置。";
             pathHint.FontSize = 11;
-            pathHint.Foreground = ColorBrush("#8B9AB0");
+            pathHint.Foreground = Muted;
             pathHint.Width = 422;
             Add(form, pathHint, 54, 298);
 
             shortcutBox.Width = 422;
             shortcutBox.Height = 72;
-            shortcutBox.CornerRadius = new CornerRadius(13);
+            shortcutBox.CornerRadius = new CornerRadius(10);
             shortcutBox.BorderThickness = new Thickness(1);
             shortcutBox.BorderBrush = ColorBrush("#A9C9F3");
-            shortcutBox.Background = ColorBrush("#FBFDFF");
+            shortcutBox.Background = Brushes.White;
             shortcutBox.Cursor = Cursors.Arrow;
             shortcutBox.Focusable = true;
             var shortcutContent = new Canvas { Width = 420, Height = 70 };
@@ -325,10 +338,8 @@ namespace EasyHubInstaller
             shortcutMark.TextAlignment = TextAlignment.Center;
             box.Child = shortcutMark;
             Add(shortcutContent, box, 17, 24);
-            Add(shortcutContent, Text("创建桌面快捷方式", 13,
-                ColorBrush("#233C5E"), FontWeights.Bold, 335), 52, 17);
-            Add(shortcutContent, Text("以后可以从桌面快速打开 EasyHub", 11,
-                ColorBrush("#8B9BB2"), FontWeights.Normal, 335), 52, 39);
+            Add(shortcutContent, Text("创建桌面快捷方式", 13, Ink, FontWeights.Bold, 335), 52, 17);
+            Add(shortcutContent, Text("以后可以从桌面快速打开 EasyHub", 11, Muted, FontWeights.Normal, 335), 52, 39);
             shortcutBox.MouseLeftButtonUp += (sender, args) => { shortcutChecked = !shortcutChecked; UpdateShortcut(box); };
             shortcutBox.KeyDown += (sender, args) =>
             {
@@ -348,23 +359,20 @@ namespace EasyHubInstaller
             Add(form, errorText, 54, 416);
             var install = Add(form, Action("开始安装   →", 422, 49, "#287AF0", "#FFFFFF", 14), 54, 444);
             install.Click += InstallClick;
-            Add(form, Text("安装不会更改你已经保存在 GitHub 的项目。", 11,
-                ColorBrush("#A0ACC0"), FontWeights.Normal, 422), 130, 509);
         }
 
         private void UpdateShortcut(Border box)
         {
             box.Background = shortcutChecked ? Blue : Brushes.White;
             box.BorderThickness = shortcutChecked ? new Thickness(0) : new Thickness(1);
-            box.BorderBrush = ColorBrush("#B4C4D7");
+            box.BorderBrush = ColorBrush("#D4D4CF");
             shortcutMark.Visibility = shortcutChecked ? Visibility.Visible : Visibility.Hidden;
-            shortcutBox.BorderBrush = shortcutChecked ? ColorBrush("#A9C9F3") : ColorBrush("#E0E9F3");
+            shortcutBox.BorderBrush = shortcutChecked ? ColorBrush("#A9C9F3") : Line;
         }
 
         private void BuildProgress()
         {
             AddRightCanvas(progress);
-            Add(progress, Text("02 / 03 · 正在安装", 11, Blue, FontWeights.Bold, 350), 54, 59);
             var iconBox = Panel(90, 90, "#E9F3FF", 24);
             iconBox.Child = new Image { Width = 63, Height = 63, Source = Icon };
             Add(progress, iconBox, 219, 160);
@@ -390,14 +398,12 @@ namespace EasyHubInstaller
             progressAnimation.KeyFrames.Add(new DiscreteDoubleKeyFrame(-0.6 * indicatorWidth, KeyTime.FromTimeSpan(TimeSpan.Zero)));
             progressAnimation.KeyFrames.Add(new SplineDoubleKeyFrame(2.45 * indicatorWidth,
                 KeyTime.FromTimeSpan(TimeSpan.FromSeconds(1.7)), new KeySpline(0.42, 0, 0.58, 1)));
-            Add(progress, Text("安装期间请保持窗口打开。", 11,
-                ColorBrush("#A0ACC0"), FontWeights.Normal, 300), 163, 438);
+            Add(progress, Text("安装期间请保持窗口打开。", 11, Muted, FontWeights.Normal, 300), 163, 438);
         }
 
         private void BuildDone()
         {
             AddRightCanvas(done);
-            Add(done, Text("03 / 03 · 安装完成", 11, Blue, FontWeights.Bold, 350), 54, 59);
             var iconBox = Panel(90, 90, "#E4F8EC", 24);
             iconBox.Child = new TextBlock { Text = "✓", FontSize = 52, FontWeight = FontWeights.Bold,
                 Foreground = ColorBrush("#13A56C"), TextAlignment = TextAlignment.Center,
@@ -407,7 +413,7 @@ namespace EasyHubInstaller
             Add(done, Text("EasyHub 已安装到这台电脑。", 14, Muted,
                 FontWeights.Normal, 422), 156, 333);
             installedPath.FontSize = 12;
-            installedPath.Foreground = ColorBrush("#627996");
+            installedPath.Foreground = Muted;
             installedPath.Width = 390;
             installedPath.TextAlignment = TextAlignment.Center;
             installedPath.TextWrapping = TextWrapping.Wrap;
@@ -423,7 +429,7 @@ namespace EasyHubInstaller
                 }
                 catch { MessageBox.Show("无法打开 EasyHub，请从安装文件夹重新启动。", "EasyHub"); }
             };
-            var later = Add(done, Action("稍后打开", 160, 35, "#FFFFFF", "#627996", 12), 184, 507);
+            var later = Add(done, Action("稍后打开", 160, 35, "#FFFFFF", "#62625D", 12), 184, 507);
             later.Click += (sender, args) => Close();
         }
 
@@ -468,6 +474,7 @@ namespace EasyHubInstaller
             ShowError("");
             form.Visibility = Visibility.Collapsed;
             progress.Visibility = Visibility.Visible;
+            ShowStep(1);
             progressTransform.BeginAnimation(TranslateTransform.XProperty, progressAnimation);
             try
             {
@@ -478,11 +485,13 @@ namespace EasyHubInstaller
                 installedPath.Text = destination;
                 progress.Visibility = Visibility.Collapsed;
                 done.Visibility = Visibility.Visible;
+                ShowStep(2);
             }
             catch
             {
                 progress.Visibility = Visibility.Collapsed;
                 form.Visibility = Visibility.Visible;
+                ShowStep(0);
                 ShowError("安装没有完成，请检查磁盘空间或安装位置后重试。");
             }
             finally
@@ -584,6 +593,7 @@ namespace EasyHubInstaller
             {
                 form.Visibility = Visibility.Collapsed;
                 progress.Visibility = Visibility.Visible;
+                ShowStep(1);
             }
             shell.Measure(new Size(900, 620));
             shell.Arrange(new Rect(0, 0, 900, 620));
