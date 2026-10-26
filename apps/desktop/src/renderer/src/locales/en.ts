@@ -1467,7 +1467,7 @@ export const en = {
   'projectsPage.noProjectsOnThisComputerYet': 'No projects on this computer yet',
   'projectsPage.downloadFromGithubOrAddAnExistingFolder': 'Download from GitHub or add an existing folder.',
   'projectsPage.addProject': 'Add Project',
-  'projectsPage.updated': 'updated',
+  'projectsPage.updatedAt': 'updated {time}',
   'projectsPage.onlyMe': 'Only Me',
   'projectsPage.everyone': 'Everyone',
   'projectsPage.browseReadOnly': 'Browse Read-only',

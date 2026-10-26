@@ -1292,7 +1292,7 @@ export const zh = {
   'projectsPage.noProjectsOnThisComputerYet': '这台电脑还没有项目',
   'projectsPage.downloadFromGithubOrAddAnExistingFolder': '可以从 GitHub 下载，或添加已有文件夹。',
   'projectsPage.addProject': '添加项目',
-  'projectsPage.updated': '更新',
+  'projectsPage.updatedAt': '{time}更新',
   'projectsPage.onlyMe': '只有我',
   'projectsPage.everyone': '所有人',
   'projectsPage.browseReadOnly': '只读浏览',

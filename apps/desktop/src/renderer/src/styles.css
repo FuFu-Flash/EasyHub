@@ -26,7 +26,7 @@
   width: min(460px, 36vw);
   max-width: 460px;
   min-width: 0;
-  margin-left: auto;
+  margin-left: calc(clamp(var(--eh-space-24), 2.5vw, var(--eh-space-40)) - var(--eh-space-16));
   -webkit-app-region: no-drag;
 }
 .topbar-search-container .topbar-search {
@@ -44,6 +44,9 @@
 .topbar > .window-controls,
 .topbar > .windows-window-controls {
   flex-shrink: 0;
+}
+.topbar > .topbar-actions {
+  margin-left: auto;
 }
 .topbar.topbar-windows {
   padding-right: 0;
@@ -2090,7 +2093,7 @@ svg {
   border-radius: var(--eh-radius-999);
 }
 .page-content {
-  margin: 0 auto;
+  margin: 0;
 }
 .eyebrow {
   margin-bottom: var(--eh-space-10);
@@ -6735,7 +6738,7 @@ select:focus-visible {
 .sidebar {
   width: 220px;
   flex-basis: 220px;
-  padding: 68px var(--eh-space-12) var(--eh-space-12);
+  padding: 80px var(--eh-space-12) var(--eh-space-12);
   background: var(--eh-color-surface-bg);
   border-right: 1px solid var(--eh-color-line);
 }
@@ -6899,8 +6902,8 @@ select:focus-visible {
   background: var(--eh-color-surface-bg);
 }
 .page-content {
-  width: min(100%, 1530px);
-  max-width: 1530px;
+  width: min(100%, 1240px);
+  max-width: 1240px;
   padding: var(--eh-space-28) 76px 38px clamp(var(--eh-space-24), 2.5vw, var(--eh-space-40));
 }
 /* Global project entry points follow long lists and fill the bottom of short pages. */
@@ -7545,8 +7548,8 @@ select:focus-visible {
     margin-bottom: 19px;
   }
   .topbar-brand {
-    min-width: 190px;
-    flex-basis: 190px;
+    min-width: 200px;
+    flex-basis: 200px;
   }
 }
 
@@ -8373,6 +8376,9 @@ select:focus-visible {
   gap: var(--eh-space-14);
   padding-left: var(--eh-space-16);
 }
+.app-shell[data-layout='compact'] .topbar > .topbar-search-container {
+  margin-left: 10px;
+}
 .app-shell[data-layout='compact'] .main-column {
   padding-top: 56px;
 }
@@ -8783,9 +8789,9 @@ select:focus-visible {
 
 @media (min-width: 851px) {
   .app-shell[data-layout='comfortable'] .sidebar {
-    width: 238px;
-    flex-basis: 238px;
-    padding: 100px var(--eh-space-16) var(--eh-space-16);
+    width: 220px;
+    flex-basis: 220px;
+    padding: 80px var(--eh-space-12) var(--eh-space-12);
   }
   .app-shell[data-layout='comfortable'] .page-content {
     padding: var(--eh-space-28) 76px 38px clamp(var(--eh-space-24), 2.5vw, var(--eh-space-40));
@@ -8796,7 +8802,7 @@ select:focus-visible {
   .app-shell[data-layout='compact'] .sidebar {
     width: 184px;
     flex-basis: 184px;
-    padding: 60px 9px var(--eh-space-10);
+    padding: 72px 9px var(--eh-space-10);
   }
   .app-shell[data-layout='compact'] .sidebar-nav button {
     padding-left: var(--eh-space-10);
@@ -8804,8 +8810,8 @@ select:focus-visible {
     font-size: var(--eh-text-12);
   }
   .app-shell[data-layout='compact'] .topbar-brand {
-    min-width: 162px;
-    flex-basis: 162px;
+    min-width: 168px;
+    flex-basis: 168px;
   }
 }
 

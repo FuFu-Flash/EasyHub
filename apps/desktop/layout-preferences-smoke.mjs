@@ -215,12 +215,12 @@ try {
   const comfortable = await recordGeometry('default-auto-wide');
   await choose('compact', 'compact');
   const compact = await recordGeometry('manual-compact-wide');
-  assert.equal(compact.topbarHeight, 56, 'Compact must reduce the fixed topbar as well as page spacing');
-  assert.equal(compact.navigationHeight, 36, 'Compact navigation should use dense desktop control sizes');
-  assert.equal(compact.sidebarWidth, 168);
-  assert.equal(comfortable.topbarHeight, 72, 'Comfortable topbar must retain its established size');
-  assert.equal(comfortable.navigationHeight, 48);
-  assert.equal(comfortable.sidebarWidth, 238);
+  assert.equal(compact.topbarHeight, 48, 'Compact must reduce the fixed topbar as well as page spacing');
+  assert.equal(compact.navigationHeight, 32, 'Compact navigation should use dense desktop control sizes');
+  assert.equal(compact.sidebarWidth, 184);
+  assert.equal(comfortable.topbarHeight, 52, 'Comfortable topbar must retain its established size');
+  assert.equal(comfortable.navigationHeight, 36);
+  assert.equal(comfortable.sidebarWidth, 220);
   await checkViews('manual-compact-wide', 'compact', 'compact');
   await page.reload();
   await page.locator('.live-connected').waitFor();

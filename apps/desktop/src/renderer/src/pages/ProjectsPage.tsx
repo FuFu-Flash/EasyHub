@@ -237,8 +237,8 @@ export function ProjectsPage() {
                     {repo.name}
                   </button>
                   <small>
-                    {repo.description || t('projectsPage.noDescriptionYet')} · {relativeDate(repo.updated_at, language)}
-                    {t('projectsPage.updated')}
+                    {repo.description || t('projectsPage.noDescriptionYet')} ·{' '}
+                    {t('projectsPage.updatedAt', { time: relativeDate(repo.updated_at, language) })}
                   </small>
                 </div>
                 <span className="cloud-private">
