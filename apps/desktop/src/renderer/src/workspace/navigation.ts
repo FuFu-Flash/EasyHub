@@ -73,6 +73,9 @@ export const pageIdentity = (page: Pick<Destination, 'view' | 'params'>): string
         .sort(([a], [b]) => a.localeCompare(b)),
     ),
   ]);
+/** Whether a page lists search results, so leaving a project for it can say "back to search results". */
+export const isSearchResults = (page: Pick<Destination, 'view' | 'params'> | null): boolean =>
+  page?.view === 'discover' && Boolean(page.params.query?.trim());
 export function sectionOf(page: Pick<Destination, 'view' | 'params'>): Section {
   if (page.params.section) return page.params.section;
   if (page.view === 'issue' || page.view === 'issues') return 'issues';

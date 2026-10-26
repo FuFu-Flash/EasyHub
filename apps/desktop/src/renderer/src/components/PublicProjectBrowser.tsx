@@ -152,6 +152,7 @@ export function PublicProjectBrowser({
   language,
   currentUser,
   onBack,
+  backToSearchResults = false,
   onOpenLink,
   onDownload,
   onForkReady,
@@ -167,6 +168,8 @@ export function PublicProjectBrowser({
   language: Language;
   currentUser: string;
   onBack: () => void;
+  /** The page behind this one lists search results. */
+  backToSearchResults?: boolean;
   onOpenLink: (url: string) => void;
   onDownload: (request: DownloadRequest) => void;
   onForkReady: (fork: GitHubRepo) => void;
@@ -630,9 +633,9 @@ export function PublicProjectBrowser({
     <div className="public-browser" data-testid="public-project-browser">
       <button className="back-link" onClick={() => goBack(onBack)}>
         <ArrowLeft size={17} />
-        {history.hasBack || outerBackBoundary === effectivePageKey
-          ? t('publicProjectBrowser.back')
-          : t('publicProjectBrowser.backToSearchResults')}
+        {backToSearchResults && !history.hasBack && outerBackBoundary !== effectivePageKey
+          ? t('publicProjectBrowser.backToSearchResults')
+          : t('publicProjectBrowser.back')}
       </button>
       <section className="detail-hero public-browser-hero has-source-history">
         <SourceHistoryButton language={language} onClick={() => changeTab('source-history')} />

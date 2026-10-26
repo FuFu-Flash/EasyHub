@@ -221,7 +221,8 @@ try {
   await browser.locator('.public-browser-tabs button.selected').filter({ hasText: /^问题/ }).waitFor();
   await browser.locator(':scope > .back-link').click();
   await browser.locator('.public-browser-tabs button.selected').filter({ hasText: '项目介绍' }).waitFor();
-  await browser.getByRole('button', { name: '返回搜索结果' }).click();
+  assert.equal(await browser.getByRole('button', { name: '返回搜索结果' }).count(), 0, 'A project opened from the Home search box has no search results to return to');
+  await browser.getByRole('button', { name: '返回', exact: true }).click();
   await page.locator('.sidebar-nav').getByRole('button', { name: '发现' }).click();
   await page.locator('.topbar-search input').fill('');
   await page.getByRole('heading', { name: '搜索历史' }).waitFor();
@@ -235,7 +236,7 @@ try {
   await page.getByText('other-author/other-repo').first().waitFor();
   assert.equal(await app.evaluate(() => globalThis.easyhubExternalOpenCount), 0);
   await page.getByRole('button', { name: '返回项目' }).click();
-  await page.getByRole('button', { name: '返回搜索结果' }).click();
+  await page.getByRole('button', { name: '返回', exact: true }).click();
   await page.getByRole('button', { name: '清除全部' }).click();
   assert.equal(await page.getByRole('heading', { name: '搜索历史' }).count(), 0);
   await page.getByRole('button', { name: '设置' }).first().click();
