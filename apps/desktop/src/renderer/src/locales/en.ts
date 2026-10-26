@@ -493,6 +493,8 @@ export const en = {
   'localChangeSelector.fileContentsUnchanged': 'File contents unchanged',
   'localChangeSelector.lineByLineChanges': 'Line-by-line changes',
   'localChangeSelector.mayContainPasswordsOrKeys': 'May contain passwords or keys',
+  'localChangeSelector.sensitiveSkipped': 'May contain passwords, left unchecked for you',
+  'localChangeSelector.sensitiveIncluded': 'May contain passwords, check before publishing',
   'localChangeSelector.savedLocalChangesAreWaitingToUploadYouCan':
     'Saved local changes are waiting to upload. You can retry publishing.',
   'localChangeSelector.thereAreNoUnpublishedChanges': 'There are no unpublished changes.',
@@ -1337,6 +1339,7 @@ export const en = {
   'localWorkspace.targetRepositoryPublicAnyoneCanReadPublishedFilesDo':
     'Target repository: public. Anyone can read published files. Do not upload passwords or keys.',
   'localWorkspace.whatChanged': 'What changed?',
+  'localWorkspace.whatChangedRequired': 'Required before publishing',
   'localWorkspace.forExampleFixWindowResizing': 'For example: Fix window resizing',
   'localWorkspace.retryPublishing': 'Retry publishing',
   'localWorkspace.publishSelectedFiles': 'Publish selected files',
@@ -1397,7 +1400,6 @@ export const en = {
   'homePage.projectStatus': 'Status',
   'homePage.projectUpdated': 'Updated',
   'homePage.projectIssues': 'Issues',
-  'homePage.projectActions': 'Actions',
   'issuePage.replySent': 'Reply sent.',
   'issuePage.issueMarkedAsResolved': 'Issue marked as resolved.',
   'issuePage.issueReopened': 'Issue reopened.',

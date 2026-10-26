@@ -102,7 +102,7 @@ try {
   await page.getByRole('button', { name: '正在发布…', exact: true }).waitFor();
   assert.equal(await app.evaluate(() => globalThis.releaseNavigationFixture.publishCalls.length), 1);
   await page.locator('.sidebar-nav').getByRole('button', { name: '首页', exact: true }).click();
-  await page.locator('.home-project-row').filter({ has: page.getByRole('button', { name: /repository-b/ }) }).getByRole('button', { name: '打开项目', exact: true }).click();
+  await page.locator('.home-project-row').filter({ has: page.getByRole('button', { name: /repository-b/ }) }).locator('.home-project-name').click();
   await page.locator('.detail-hero').getByRole('heading', { name: 'repository-b', exact: true }).waitFor();
   await page.getByRole('button', { name: '发布发行版', exact: true }).click();
   await page.getByRole('textbox', { name: '发行版名称', exact: true }).fill('Repository B independent release');

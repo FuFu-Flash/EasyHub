@@ -199,6 +199,16 @@ function WorkspaceShell() {
                 {t('liveWorkspace.settings')}
               </button>
             </nav>
+            {demo && (
+              <div className="demo-mode-notice" role="status">
+                <span>{t('liveWorkspace.demoModeChangesAreNotUploadedToGithubFiles')}</span>
+                {!demo.only && (
+                  <button className="text-link" onClick={demo.onLogin}>
+                    {t('liveWorkspace.signInToGithub')}
+                  </button>
+                )}
+              </div>
+            )}
             <div className="sidebar-bottom live-sidebar-bottom">
               <button
                 type="button"
@@ -360,16 +370,6 @@ function WorkspaceShell() {
                 </div>
               )}
             </header>
-            {demo && (
-              <div className="demo-mode-notice" role="status">
-                <span>{t('liveWorkspace.demoModeChangesAreNotUploadedToGithubFiles')}</span>
-                {!demo.only && (
-                  <button className="button button-quiet small-button" onClick={demo.onLogin}>
-                    {t('liveWorkspace.signInToGithub')}
-                  </button>
-                )}
-              </div>
-            )}
             <FeedbackNotice message={w.error} kind="error" onClose={() => w.setError('')} language={language} />
             <FeedbackNotice message={w.notice} onClose={() => w.setNotice('')} language={language} />
             <NavigationPages active={instance}>

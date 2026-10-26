@@ -34,6 +34,7 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
   const [error, setError] = useState('');
   const generation = useRef(0);
   const request = useRef(0);
+  const selectAll = useRef<HTMLInputElement>(null);
   const english = useLanguage() === 'en';
 
   useEffect(() => {
@@ -84,6 +85,11 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
     };
     // Text does not change the selected snapshot when the interface language changes.
   }, [id, refreshKey, revision, onSelection]);
+  useEffect(() => {
+    // A partly selected list shows the mixed state instead of an empty "select all".
+    if (selectAll.current)
+      selectAll.current.indeterminate = selected.length > 0 && selected.length < (preview?.files.length ?? 0);
+  }, [selected, preview]);
 
   function select(paths: string[]): void {
     if (!preview) return;
@@ -176,6 +182,7 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
       {preview && preview.files.length > 0 && (
         <label className="local-selection-all">
           <input
+            ref={selectAll}
             type="checkbox"
             checked={selected.length === preview.files.length}
             disabled={disabled || preview.needsReview || preview.pendingPublish}
@@ -209,6 +216,13 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
                   {file.previousPath ? `${file.previousPath} → ` : ''}
                   {file.path}
                 </span>
+                {file.sensitiveReasons?.length ? (
+                  <span className="local-sensitive-tag">
+                    {selected.includes(file.path)
+                      ? t('localChangeSelector.sensitiveIncluded')
+                      : t('localChangeSelector.sensitiveSkipped')}
+                  </span>
+                ) : null}
               </label>
               <button
                 type="button"

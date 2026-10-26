@@ -173,11 +173,6 @@ export function HomePage() {
         </td>
         <td className="home-project-updated">{relativeDate(repo.updated_at, language)}</td>
         <td className="home-project-issues">{pendingIssueCount(repo) ?? '…'}</td>
-        <td className="home-project-actions">
-          <button className="button button-quiet small-button" onClick={() => void openProject(repo)}>
-            {t('homePage.openProject')}
-          </button>
-        </td>
       </tr>
     );
   }
@@ -219,7 +214,6 @@ export function HomePage() {
                     <th scope="col" className="home-project-issues">
                       {t('homePage.projectIssues')}
                     </th>
-                    <th scope="col" aria-label={t('homePage.projectActions')} />
                   </tr>
                 </thead>
                 <tbody>{ownRepos.slice(0, 5).map(projectRow)}</tbody>
@@ -241,8 +235,10 @@ export function HomePage() {
               {recentUpdates.slice(0, 5).map(({ repo, commit: item }) => (
                 <li key={`${repo.id}:${item.sha}`}>
                   <button className="home-recent-row" onClick={() => void openVersionFor(repo, item)}>
-                    <strong>{repo.name}</strong>
-                    <em data-content-original>{item.commit.message.split('\n')[0]}</em>
+                    <span>
+                      <strong>{repo.name}</strong>
+                      <em data-content-original>{item.commit.message.split('\n')[0]}</em>
+                    </span>
                     <small>
                       {relativeDate(item.commit.author?.date ?? repo.pushed_at ?? repo.updated_at, language)}
                     </small>

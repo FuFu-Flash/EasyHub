@@ -814,37 +814,42 @@ export function LocalWorkspace({
                         ? t('localWorkspace.targetRepositoryPrivateVisibleToAuthorizedPeopleOnly')
                         : t('localWorkspace.targetRepositoryPublicAnyoneCanReadPublishedFilesDo')}
                     </p>
-                    <label className="field">
-                      <span>{t('localWorkspace.whatChanged')}</span>
-                      <input
-                        ref={publishInput}
-                        aria-label={t('localWorkspace.whatChanged')}
-                        required
-                        maxLength={200}
-                        value={updateMessage}
-                        onChange={(event) => setUpdateMessage(event.target.value)}
-                        placeholder={t('localWorkspace.forExampleFixWindowResizing')}
-                      />
-                    </label>
-                    <div className="local-actions">
-                      <button className="button button-quiet" type="button" onClick={() => setPublishId(null)}>
-                        {t('localWorkspace.cancel')}
-                      </button>
-                      <button
-                        className="button button-primary"
-                        disabled={
-                          busy ||
-                          status.needsReview ||
-                          !updateMessage.trim() ||
-                          !selections[item.id] ||
-                          (!selections[item.id]?.paths.length && !pending[item.id])
-                        }
-                        type="submit"
-                      >
-                        {status.pendingPublish
-                          ? t('localWorkspace.retryPublishing')
-                          : t('localWorkspace.publishSelectedFiles')}
-                      </button>
+                    <div className="local-publish-row">
+                      <label className="field">
+                        <span>
+                          {t('localWorkspace.whatChanged')}
+                          <small>{t('localWorkspace.whatChangedRequired')}</small>
+                        </span>
+                        <input
+                          ref={publishInput}
+                          aria-label={t('localWorkspace.whatChanged')}
+                          required
+                          maxLength={200}
+                          value={updateMessage}
+                          onChange={(event) => setUpdateMessage(event.target.value)}
+                          placeholder={t('localWorkspace.forExampleFixWindowResizing')}
+                        />
+                      </label>
+                      <div className="local-actions">
+                        <button className="button button-quiet" type="button" onClick={() => setPublishId(null)}>
+                          {t('localWorkspace.cancel')}
+                        </button>
+                        <button
+                          className="button button-primary"
+                          disabled={
+                            busy ||
+                            status.needsReview ||
+                            !updateMessage.trim() ||
+                            !selections[item.id] ||
+                            (!selections[item.id]?.paths.length && !pending[item.id])
+                          }
+                          type="submit"
+                        >
+                          {status.pendingPublish
+                            ? t('localWorkspace.retryPublishing')
+                            : t('localWorkspace.publishSelectedFiles')}
+                        </button>
+                      </div>
                     </div>
                   </form>
                 )}

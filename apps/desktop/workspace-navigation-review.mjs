@@ -43,7 +43,7 @@ try {
   assert.equal(await page.locator('.demo-workspace').count(), 0, 'Audit the signed-in workspace UI');
   const nav = label => page.locator('.sidebar-nav').getByRole('button',{name:new RegExp('^'+label,'i')});
   await page.evaluate(()=>window.holdNextReadme=true);
-  await page.locator('.home-project-row').filter({hasText:'MyTool'}).getByRole('button',{name:'打开项目',exact:true}).click();
+  await page.locator('.home-project-row').filter({hasText:'MyTool'}).locator('.home-project-name').click();
   await page.getByRole('button',{name:'取消',exact:true}).click();
   assert.equal(await page.locator('.detail-hero h1').innerText(),'MyTool');
   await page.evaluate(()=>window.holdNextReadme=false);

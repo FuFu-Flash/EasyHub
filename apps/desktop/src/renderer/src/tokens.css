@@ -9,16 +9,16 @@
   --eh-color-primary: #2369de;
   --eh-color-primary-hover: #1756bf;
   --eh-color-primary-soft: #eaf3ff;
-  --eh-color-ink: #19304b;
-  --eh-color-ink-soft: #314965;
-  --eh-color-muted: #657990;
-  --eh-color-faint: #8b9bb0;
+  --eh-color-ink: #1d1d1b;
+  --eh-color-ink-soft: #3d3d39;
+  --eh-color-muted: #62625d;
+  --eh-color-faint: #8a8a84;
   --eh-color-surface: #ffffff;
-  --eh-color-surface-subtle: #f8faff;
-  --eh-color-surface-bg: #f5f7fb;
-  --eh-color-surface-sunken: #edf2f8;
-  --eh-color-line: #e3eaf3;
-  --eh-color-line-strong: #d8e4f3;
+  --eh-color-surface-subtle: #fafaf8;
+  --eh-color-surface-bg: #f6f6f4;
+  --eh-color-surface-sunken: #ececea;
+  --eh-color-line: #e3e3df;
+  --eh-color-line-strong: #d4d4cf;
   --eh-color-line-primary: #90b8ff;
   --eh-color-danger: #c53347;
   --eh-color-danger-soft: #fff0f1;
@@ -26,16 +26,16 @@
   --eh-color-success: #208a4d;
   --eh-color-success-soft: #eaf8ef;
   --eh-color-success-line: #b8eaca;
-  --eh-color-warning: #966318;
-  --eh-color-warning-soft: #fff5e7;
-  --eh-color-warning-line: #f2deb9;
+  --eh-color-warning: #8f4a00;
+  --eh-color-warning-soft: #fdf3e3;
+  --eh-color-warning-line: #efd9b4;
   --eh-color-accent: #7655e8;
   --eh-color-accent-soft: #f0e8ff;
   --eh-color-hero: #193b66;
   --eh-color-hero-glow: #3b82d9;
   --eh-color-leaf: #72c546;
   --eh-color-amber: #dc8a13;
-  --eh-color-scrim: #142c50;
+  --eh-color-scrim: #1d2420;
 
   /* Type, shape and spacing scales. */
   --eh-text-12: 12px;

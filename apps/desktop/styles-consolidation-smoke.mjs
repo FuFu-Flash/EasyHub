@@ -81,7 +81,7 @@ try {
       await capture(['home','projects','discover','issues','pulls','settings'][i]);
     }
     await nav(labels[0]).click();
-    await page.locator('.home-project-row').filter({hasText:'MyTool'}).getByRole('button',{name:language==='zh'?'打开项目':'Open Project',exact:true}).click();
+    await page.locator('.home-project-row').filter({hasText:'MyTool'}).locator('.home-project-name').click();
     await page.locator('.readme-markdown').first().waitFor();
     await capture('project');
     await nav(labels[1]).click(); await nav(labels[1]).click();

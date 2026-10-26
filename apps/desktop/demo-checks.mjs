@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 const nav = (page, name) => page.locator('.sidebar-nav').getByRole('button', { name: new RegExp(`^${name}`) });
 async function home(page) { await nav(page, '首页').click(); await page.locator('.home-dashboard').waitFor(); }
-async function project(page, name = 'MyTool') { await home(page); await page.locator('.home-project-row').filter({ hasText: name }).getByRole('button', { name: '打开项目', exact: true }).click(); await page.locator('.detail-hero h1').filter({ hasText: name }).waitFor(); }
+async function project(page, name = 'MyTool') { await home(page); await page.locator('.home-project-row').filter({ hasText: name }).locator('.home-project-name').click(); await page.locator('.detail-hero h1').filter({ hasText: name }).waitFor(); }
 export async function runDemoChecks(page, { demoOnly = false } = {}) {
   await page.locator('.demo-workspace .home-dashboard').waitFor();
   assert.ok((await page.locator('.demo-mode-notice').innerText()).includes('未上传到 GitHub'));
