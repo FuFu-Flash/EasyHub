@@ -133,7 +133,6 @@ export function IssuesPage() {
       <>
         <div className="page-header">
           <div>
-            <div className="eyebrow">{t('issuesPage.improveTogether')}</div>
             <h1>{t('issuesPage.issues')}</h1>
             <p>{t('issuesPage.readFeedbackReplyToIdeasAndSolveProblems')}</p>
           </div>

@@ -83,7 +83,6 @@ export function ProjectsPage() {
     <>
       <div className="page-header">
         <div>
-          <div className="eyebrow">{t('projectsPage.yourWork')}</div>
           <h1>{t('projectsPage.myProjects')}</h1>
           <p>{t('projectsPage.allYourIdeasAndProgressInOnePlace')}</p>
         </div>

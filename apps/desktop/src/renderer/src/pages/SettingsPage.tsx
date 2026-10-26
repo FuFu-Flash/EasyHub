@@ -50,7 +50,6 @@ export function SettingsPage() {
     <>
       <div className="page-header">
         <div>
-          <div className="eyebrow">{t('settingsPage.personalize')}</div>
           <h1>{t('settingsPage.settings')}</h1>
           <p>{t('settingsPage.adjustEasyhubSAppearanceAndManageTheGithubConnection')}</p>
         </div>

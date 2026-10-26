@@ -173,7 +173,6 @@ export function TrendingDiscover({
     <div className="discover-page">
       <div className="page-header">
         <div>
-          <div className="eyebrow">{t('trendingDiscover.discoverProjects')}</div>
           <h1>{t('trendingDiscover.discoverSearch')}</h1>
           <p>{t('trendingDiscover.searchPublicProjectsAndGithubUsersOrExploreRecent')}</p>
         </div>

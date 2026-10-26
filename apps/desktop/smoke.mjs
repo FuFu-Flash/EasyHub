@@ -164,7 +164,7 @@ try {
   await page.locator('.sidebar-nav').getByRole('button', { name: '问题' }).click();
   await page.locator('.live-issue-group').first().getByText('CloudDemo').waitFor();
   assert.equal(await page.locator('.live-issue-group').first().locator('.live-pending-count').textContent(), '1 个待处理的问题');
-  assert.equal(await page.locator('.live-issue-group').first().locator('.live-pending-count').evaluate((element) => getComputedStyle(element).color), 'rgb(197, 51, 71)');
+  assert.equal(await page.locator('.live-issue-group').first().locator('.live-pending-count').evaluate((element) => getComputedStyle(element).color), 'rgb(61, 61, 57)');
   await openProjectsList('我的项目');
   await page.locator('.cloud-row').filter({ hasText: 'CloudDemo' }).getByRole('button', { name: 'CloudDemo' }).click();
   await page.getByRole('heading', { name: '项目介绍' }).waitFor();

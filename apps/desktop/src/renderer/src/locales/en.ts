@@ -1063,7 +1063,6 @@ export const en = {
   'starProjectButton.starProject': 'Star project',
   'starredProjects.couldNotLoadStarredProjects': 'Could not load starred projects.',
   'starredProjects.back': 'Back',
-  'starredProjects.yourStarredProjects': 'Your starred projects',
   'starredProjects.starredProjects': 'Starred projects',
   'starredProjects.yourGithubStarredProjectsAreHereAndAvailableOn':
     'Your GitHub starred projects are here and available on any computer.',
@@ -1092,7 +1091,6 @@ export const en = {
   'trendingDiscover.theAppConnectionIsUnavailablePleaseRestartEasyhub':
     'The app connection is unavailable. Please restart EasyHub.',
   'trendingDiscover.trendingProjectsCannotBeLoadedRightNow': 'Trending projects cannot be loaded right now.',
-  'trendingDiscover.discoverProjects': 'Discover projects',
   'trendingDiscover.discoverSearch': 'Discover / Search',
   'trendingDiscover.searchPublicProjectsAndGithubUsersOrExploreRecent':
     'Search public projects and GitHub users, or explore recent work.',
@@ -1130,7 +1128,6 @@ export const en = {
   'userProfile.contributionDataIsTemporarilyUnavailable': 'Contribution data is temporarily unavailable.',
   'userProfile.back': 'Back',
   'userProfile.sAvatar': '{p0}’s avatar',
-  'userProfile.githubProfile': 'GitHub Profile',
   'userProfile.noBioYet': 'No bio yet.',
   'userProfile.contributionChart': 'contribution chart',
   'userProfile.selectADayToSeeProjectsAndInteractions': 'Select a day to see projects and interactions.',
@@ -1415,7 +1412,6 @@ export const en = {
   'issuePage.markAsResolved': 'Mark as Resolved',
   'issuePage.reopen': 'Reopen',
   'issuePage.sendReply': 'Send Reply',
-  'issuesPage.improveTogether': 'IMPROVE TOGETHER',
   'issuesPage.issues': 'Issues',
   'issuesPage.readFeedbackReplyToIdeasAndSolveProblems': 'Read feedback, reply to ideas, and solve problems.',
   'issuesPage.issueStatus': 'Issue status',
@@ -1472,7 +1468,6 @@ export const en = {
   'projectPage.projectStatus': 'Project Status',
   'projectPage.lastUpdated': 'Last updated:',
   'projectPage.viewLocalChanges': 'View Local Changes',
-  'projectsPage.yourWork': 'YOUR WORK',
   'projectsPage.myProjects': 'My Projects',
   'projectsPage.allYourIdeasAndProgressInOnePlace': 'All your ideas and progress in one place.',
   'projectsPage.newProject': 'New Project',
@@ -1502,7 +1497,6 @@ export const en = {
   'projectsPage.downloadFromGithub': 'Download from GitHub',
   'projectsPage.addExistingFolder': 'Add Existing Folder',
   'pullsPage.back': 'Back',
-  'pullsPage.improveTogether': 'IMPROVE TOGETHER',
   'pullsPage.pullRequestReviews': 'Pull Request Reviews',
   'pullsPage.reviewProposedChangesAndDecideWhetherToMergeThem':
     'Review proposed changes and decide whether to merge them into your project.',
@@ -1511,7 +1505,6 @@ export const en = {
   'recentHistoryPage.recentUpdates': 'Recent Updates',
   'recentHistoryPage.updateNotesAndHistoryFromRecentProjects': 'Update notes and history from recent projects.',
   'recentHistoryPage.loadingRecentUpdates': 'Loading recent updates…',
-  'settingsPage.personalize': 'PERSONALIZE',
   'settingsPage.settings': 'Settings',
   'settingsPage.adjustEasyhubSAppearanceAndManageTheGithubConnection':
     'Adjust EasyHub’s appearance and manage the GitHub connection.',

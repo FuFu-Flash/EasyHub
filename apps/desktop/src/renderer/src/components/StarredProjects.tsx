@@ -51,7 +51,6 @@ export function StarredProjects({ onBack, onOpen }: { onBack: () => void; onOpen
       </button>
       <div className="page-header">
         <div>
-          <div className="eyebrow">{t('starredProjects.yourStarredProjects')}</div>
           <h1>{t('starredProjects.starredProjects')}</h1>
           <p>{t('starredProjects.yourGithubStarredProjectsAreHereAndAvailableOn')}</p>
         </div>

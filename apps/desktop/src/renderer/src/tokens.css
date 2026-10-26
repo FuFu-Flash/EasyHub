@@ -72,12 +72,12 @@
   --eh-leading-normal: 1.6;
 
   /* Elevation, focus, motion and stacking. */
-  --eh-shadow-card: 0 10px 30px color-mix(in srgb, var(--eh-color-ink) 4.31%, transparent);
+  --eh-shadow-card: 0 1px 2px color-mix(in srgb, var(--eh-color-ink) 4.31%, transparent);
   --eh-shadow-raised: 0 16px 30px color-mix(in srgb, var(--eh-color-ink) 8.63%, transparent);
   --eh-shadow-menu: 0 14px 34px color-mix(in srgb, var(--eh-color-scrim) 12.94%, transparent);
   --eh-shadow-popover: 0 20px 44px color-mix(in srgb, var(--eh-color-scrim) 16.08%, transparent);
   --eh-shadow-dialog: 0 25px 80px color-mix(in srgb, var(--eh-color-ink) 25.1%, transparent);
-  --eh-shadow-primary: 0 6px 13px color-mix(in srgb, var(--eh-color-primary) 16.08%, transparent);
+  --eh-shadow-primary: 0 1px 2px color-mix(in srgb, var(--eh-color-primary) 16.08%, transparent);
   --eh-shadow-small: 0 2px 8px color-mix(in srgb, var(--eh-color-ink) 12.94%, transparent);
   --eh-shadow-topbar: 0 1px 8px color-mix(in srgb, var(--eh-color-muted) 4.71%, transparent);
   --eh-focus-ring: var(--eh-color-line-primary);
