@@ -79,6 +79,7 @@ try {
       await nav(labels[i]).click();
       if (i===4) { const row=page.locator('.issue-project-header').first();await row.click(); const gap=await row.evaluate(el=>el.parentElement.getBoundingClientRect().width-el.getBoundingClientRect().width); assert.ok(gap<=2); }
       await capture(['home','projects','discover','issues','pulls','settings'][i]);
+      if (i===4) { const header=page.locator('.issue-project-header').first(); if (await header.getAttribute('aria-expanded')!=='true') await header.click(); await page.locator('.issue-project-group .issue-row').first().click(); await page.locator('.pull-requests-panel .pull-file-change').first().waitFor(); await capture('pull-detail'); }
     }
     await nav(labels[0]).click();
     await page.locator('.home-project-row').filter({hasText:'MyTool'}).locator('.home-project-name').click();
@@ -88,6 +89,10 @@ try {
     await page.locator('.toolbar .segmented').getByRole('button',{name:language==='zh'?/^这台电脑/:/^This computer/i}).click();
     await page.locator('.project-card').first().getByRole('button',{name:language==='zh'?'打开项目':'Open Project',exact:true}).click();
     await capture('local');
+    await nav(labels[2]).click(); if (!(await page.locator('.trending-card').count())) await nav(labels[2]).click();
+    await page.locator('.trending-card').first().click();
+    await page.getByTestId('public-project-browser').locator('.readme-markdown').first().waitFor();
+    await capture('public');
   }
   assert.deepEqual(errors,[]);
   const result={passed:true,captures,errors,scope:'signed-in UI; in-memory fixture; external network blocked; no real-account or paid calls'};
