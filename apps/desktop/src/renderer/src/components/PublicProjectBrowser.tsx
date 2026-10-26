@@ -539,6 +539,7 @@ export function PublicProjectBrowser({
           setFocusTag(undefined);
           changeTab('downloads');
         }}
+        onError={setError}
       />
       {error && (
         <div className="live-error" role="alert">

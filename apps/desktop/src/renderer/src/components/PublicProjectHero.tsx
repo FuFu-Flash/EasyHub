@@ -13,12 +13,14 @@ export function PublicProjectHero({
   onOpenSourceHistory,
   onPropose,
   onOpenDownloads,
+  onError,
 }: {
   repo: GitHubRepo;
   language: Language;
   onOpenSourceHistory: () => void;
   onPropose: () => void;
   onOpenDownloads: () => void;
+  onError: (text: string) => void;
 }) {
   const t = useTranslation(language);
   return (
@@ -48,7 +50,7 @@ export function PublicProjectHero({
         </div>
       </div>
       <div className="detail-actions">
-        <StarProjectButton repo={repo} />
+        <StarProjectButton repo={repo} onError={onError} />
         <button className="button button-quiet" onClick={onPropose}>
           <Plus size={17} />
           {t('publicProjectBrowser.reportAnIssueSuggestAChange')}

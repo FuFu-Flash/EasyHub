@@ -4,15 +4,22 @@ import { errorText } from '../errors';
 import { useEffect, useState } from 'react';
 import type { GitHubRepo } from '@easyhub/github';
 import { Star } from 'lucide-react';
-import { usePageFeedback } from '../workspace/pageFeedback';
 
-export function StarProjectButton({ repo, onChanged }: { repo: GitHubRepo; onChanged?: (starred: boolean) => void }) {
+/** `onError` shows a failed star change in the page's own notice area, not beside the button. */
+export function StarProjectButton({
+  repo,
+  onChanged,
+  onError,
+}: {
+  repo: GitHubRepo;
+  onChanged?: (starred: boolean) => void;
+  onError: (text: string) => void;
+}) {
   const t = useTranslation();
   const easyHub = useEasyHub();
   const [starred, setStarred] = useState(false);
   const [checking, setChecking] = useState(true);
   const [saving, setSaving] = useState(false);
-  const { setError } = usePageFeedback();
 
   useEffect(() => {
     let active = true;
@@ -40,7 +47,7 @@ export function StarProjectButton({ repo, onChanged }: { repo: GitHubRepo; onCha
       setStarred(next);
       onChanged?.(next);
     } catch (cause) {
-      setError(errorText(cause, t('starProjectButton.couldNotUpdateTheProjectTryAgainLater')));
+      onError(errorText(cause, t('starProjectButton.couldNotUpdateTheProjectTryAgainLater')));
     } finally {
       setSaving(false);
     }

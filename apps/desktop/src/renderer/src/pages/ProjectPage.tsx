@@ -197,7 +197,7 @@ export function ProjectPage() {
             </div>
           </div>
           <div className="detail-actions">
-            <StarProjectButton repo={selected} />
+            <StarProjectButton repo={selected} onError={setError} />
             <button className="button button-primary" disabled={selected.archived} onClick={() => setView('local')}>
               <FolderOpen size={17} />
               {t('projectPage.localProjectPublishSourceCode')}
