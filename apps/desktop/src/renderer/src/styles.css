@@ -6998,8 +6998,8 @@ select:focus-visible {
 }
 .segmented button.selected {
   color: var(--eh-color-ink);
-  background: transparent;
-  box-shadow: inset 0 -2px var(--eh-color-primary);
+  background: linear-gradient(var(--eh-color-primary), var(--eh-color-primary)) bottom / 100% 2px no-repeat;
+  box-shadow: none;
 }
 .segmented-animated {
   position: relative;
@@ -7015,8 +7015,8 @@ select:focus-visible {
   left: 0;
   top: 0;
   pointer-events: none;
-  background: transparent;
-  box-shadow: inset 0 -2px var(--eh-color-primary);
+  background: linear-gradient(var(--eh-color-primary), var(--eh-color-primary)) bottom / 100% 2px no-repeat;
+  box-shadow: none;
   opacity: 0;
 }
 .segmented-animated[data-segmented-ready='true'] > .segmented-indicator {
