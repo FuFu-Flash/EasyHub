@@ -2420,7 +2420,7 @@ svg {
   grid-row: 1/3;
   display: grid;
   place-items: center;
-  color: var(--eh-color-surface);
+  color: var(--eh-color-on-primary);
 }
 .choice > svg {
   grid-column: 2;
@@ -3341,7 +3341,7 @@ svg {
 }
 .windows-control-close:hover {
   background: var(--eh-color-danger);
-  color: var(--eh-color-surface);
+  color: var(--eh-color-on-primary);
 }
 .windows-control-button:focus-visible {
   outline: 2px solid var(--eh-color-line-primary);
@@ -4475,7 +4475,7 @@ body,
 }
 .danger-confirm {
   background: var(--eh-color-danger);
-  color: var(--eh-color-surface);
+  color: var(--eh-color-on-primary);
   border-color: var(--eh-color-danger);
 }
 .danger-confirm:hover:not(:disabled) {
@@ -5376,7 +5376,7 @@ body,
   background: var(--eh-color-surface);
   border: 1px solid var(--eh-color-line);
   border-radius: var(--eh-radius-12);
-  color: var(--eh-color-hero);
+  color: var(--eh-color-ink);
   text-align: left;
   cursor: pointer;
 }
@@ -5878,7 +5878,7 @@ body,
 .release-edit-panel > .primary-button {
   border: 0;
   background: var(--eh-color-primary);
-  color: var(--eh-color-surface);
+  color: var(--eh-color-on-primary);
   justify-self: start;
   padding: var(--eh-space-10) var(--eh-space-14);
   border-radius: var(--eh-radius-8);
@@ -6088,7 +6088,7 @@ body,
   height: 17px;
   border-radius: var(--eh-radius-8);
   background: var(--eh-color-danger);
-  color: var(--eh-color-surface);
+  color: var(--eh-color-on-primary);
   font-size: var(--eh-text-12);
   font-weight: var(--eh-weight-700);
 }
@@ -6545,7 +6545,7 @@ body,
 .fork-relationship strong,
 .fork-relationship .plain-heading {
   font-size: var(--eh-text-13);
-  color: var(--eh-color-hero);
+  color: var(--eh-color-ink);
   overflow-wrap: anywhere;
   text-align: left;
 }
@@ -6944,7 +6944,7 @@ select:focus-visible {
   font-weight: var(--eh-weight-600);
 }
 .button-primary {
-  color: var(--eh-color-surface);
+  color: var(--eh-color-on-primary);
   background: var(--eh-color-primary);
   border-color: var(--eh-color-primary);
   box-shadow: var(--eh-shadow-primary);
@@ -8305,6 +8305,23 @@ select:focus-visible {
 }
 .layout-preview-compact > span {
   gap: var(--eh-space-2);
+}
+.theme-option-preview {
+  display: flex;
+  width: 46px;
+  height: 34px;
+  overflow: hidden;
+  border: 1px solid var(--eh-color-line-strong);
+  border-radius: var(--eh-radius-4);
+}
+.theme-option-preview > span {
+  flex: 1;
+  background: linear-gradient(var(--eh-color-line-primary), var(--eh-color-line-primary)) 5px 5px / 9px 22px no-repeat,
+    linear-gradient(var(--eh-color-line-strong), var(--eh-color-line-strong)) 17px 6px / 18px 3px no-repeat,
+    var(--eh-color-surface);
+}
+.theme-preview-system > span + span {
+  background-position: -18px 5px, -6px 6px, 0 0;
 }
 .layout-preview-auto {
   background: linear-gradient(90deg, var(--eh-color-primary-soft) 50%, var(--eh-color-surface) 50%);

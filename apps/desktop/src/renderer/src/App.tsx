@@ -11,6 +11,10 @@ import { DemoWorkspace } from './DemoWorkspace';
 import { OfflineStart } from './components/OfflineStart';
 import { PairingCode } from './components/PairingCode';
 import appIcon from './assets/easyhub-icon.svg';
+import { startThemeSync } from './themePreferences';
+
+// Runs once when the app loads, before the first paint, so every screen starts in the saved theme.
+startThemeSync();
 
 const demoOnlyBuild = import.meta.env.VITE_EASYHUB_DEMO_ONLY === 'true';
 

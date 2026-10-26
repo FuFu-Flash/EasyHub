@@ -6,6 +6,7 @@ import { AiSettingsPanel } from '../components/AiSettingsPanel';
 import { AppUpdatePanel } from '../components/AppUpdatePanel';
 import { HostsRepairPanel } from '../components/HostsRepairPanel';
 import { LayoutSettingsPanel } from '../components/LayoutSettingsPanel';
+import { ThemeSettingsPanel } from '../components/ThemeSettingsPanel';
 import { StyledDropdown } from '../components/StyledDropdown';
 import { errorText as message } from '../errors';
 import { usePageFeedback } from '../workspace/pageFeedback';
@@ -27,6 +28,7 @@ export function SettingsPage() {
     demo,
     onLogout,
     layout,
+    theme,
     easyHub,
   } = w;
   const setWindowStyle = (value: 'windows' | 'reference') => w.set('windowStyle', value);
@@ -126,6 +128,7 @@ export function SettingsPage() {
             </div>
           </div>
         </section>
+        <ThemeSettingsPanel language={language} preference={theme.preference} onChange={theme.setPreference} />
         <LayoutSettingsPanel
           language={language}
           preference={layout.preference}
