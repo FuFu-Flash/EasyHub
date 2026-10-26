@@ -2,7 +2,7 @@
   "name": "easyhub",
   "private": true,
   "license": "Apache-2.0",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "format": "node scripts/run-desktop.mjs format",

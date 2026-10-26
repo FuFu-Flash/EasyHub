@@ -181,7 +181,7 @@ export function SettingsPage() {
           <div>
             <h2>{t('settingsPage.aboutEasyhub')}</h2>
             <p>{demo ? t('settingsPage.desktopEdition') : t('settingsPage.windowsDesktopConnectedToGithub')}</p>
-            <span className="settings-version">{t('settingsPage.version130')}</span>
+            <span className="settings-version">{t('settingsPage.version140')}</span>
             <AppUpdatePanel language={language} />
             <div className="license-details">
               <strong>Apache 2.0</strong>

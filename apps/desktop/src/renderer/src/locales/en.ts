@@ -1487,7 +1487,7 @@ export const en = {
   'settingsPage.aboutEasyhub': 'About EasyHub',
   'settingsPage.desktopEdition': 'Desktop edition',
   'settingsPage.windowsDesktopConnectedToGithub': 'Windows Desktop · Connected to GitHub',
-  'settingsPage.version130': 'Version 1.3.0',
+  'settingsPage.version140': 'Version 1.4.0',
   'settingsPage.thisApplicationIsLicensedUnderApacheLicense20':
     'This application is licensed under Apache License 2.0.',
   'settingsPage.viewLicense': 'View License',

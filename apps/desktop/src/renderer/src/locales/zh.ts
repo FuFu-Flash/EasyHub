@@ -1316,7 +1316,7 @@ export const zh = {
   'settingsPage.aboutEasyhub': '关于 EasyHub',
   'settingsPage.desktopEdition': '桌面版',
   'settingsPage.windowsDesktopConnectedToGithub': 'Windows 桌面版 · 直接连接 GitHub',
-  'settingsPage.version130': '版本 1.3.0',
+  'settingsPage.version140': '版本 1.4.0',
   'settingsPage.thisApplicationIsLicensedUnderApacheLicense20': '本应用采用 Apache License 2.0 许可协议。',
   'settingsPage.viewLicense': '查看许可协议',
   'shared.back': '返回',
