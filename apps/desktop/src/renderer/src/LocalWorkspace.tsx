@@ -552,7 +552,6 @@ export function LocalWorkspace({
                 </button>
               )}
             </div>
-            {effectiveMode === 'create' && <small className="muted">{t('localWorkspace.cloudOnlyHint')}</small>}
           </div>
           <div className="field">
             <span>{t('localWorkspace.whoCanSeeIt')}</span>

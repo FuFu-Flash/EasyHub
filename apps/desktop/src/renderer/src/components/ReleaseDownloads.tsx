@@ -214,7 +214,6 @@ export function ReleaseDownloads({
       {downloadBusy && <p className="muted">{t('releaseDownloads.downloadInProgressSeeNotificationsInTheTopRight')}</p>}
       <section className="panel release-download-card release-source-card">
         <h2>{t('releaseDownloads.currentProjectSource')}</h2>
-        <p className="muted">{t('releaseDownloads.downloadTheCompleteSourceOfTheCurrentDefaultBranch')}</p>
         <button
           type="button"
           className="release-asset"

@@ -374,7 +374,6 @@ export function ReleaseEditor({
               placeholder={t('releaseEditor.forExampleFixedWindowResizingAndAddedDarkMode')}
               rows={8}
             />
-            <p className="release-field-hint">{t('releaseEditor.simpleFormattingIsSupportedAddImagesOrLinksAbove')}</p>
           </section>
           <section className="panel release-editor-card">
             <div className="release-section-heading">

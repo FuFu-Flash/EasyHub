@@ -44,8 +44,6 @@ export const en = {
     'Choose an AI provider and enter your own API key to review proposed changes and program files.',
   'aiSettingsPanel.theDemoDoesNotStoreKeysUseTheFull':
     'The demo does not store keys. Use the full edition to connect your AI service.',
-  'aiSettingsPanel.yourKeyIsKeptInThisComputerSSecure':
-    'Your key is kept in this computer’s secure storage. Before each review, you can confirm the content and service address.',
   'aiSettingsPanel.aiProvider': 'AI provider',
   'aiSettingsPanel.previouslySavedProvider': 'Previously saved provider',
   'aiSettingsPanel.storedSecurely': 'Stored securely',
@@ -54,8 +52,6 @@ export const en = {
   'aiSettingsPanel.enterYourOwnApiKey': 'Enter your own API key',
   'aiSettingsPanel.changeModelOptional': 'Change model (optional)',
   'aiSettingsPanel.modelName': 'Model name',
-  'aiSettingsPanel.aDefaultModelIsSelectedForThisProviderChange':
-    'A default model is selected for this provider. Change it only if you need another model.',
   'aiSettingsPanel.yourPreviouslySavedProviderRemainsAvailableEnterANew':
     'Your previously saved provider remains available. Enter a new API key when switching providers.',
   'aiSettingsPanel.enterTheApiKeyForTheNewlySelectedProvider': 'Enter the API key for the newly selected provider.',
@@ -371,8 +367,6 @@ export const en = {
   'introductionEditor.introductionContent': 'Introduction content',
   'introductionEditor.myProjectDescribeYourProjectInAFewSentences':
     '# My Project\n\nDescribe your project in a few sentences…',
-  'introductionEditor.markdownAndHtmlAreSupportedSwitchToPreviewTo':
-    'Markdown and HTML are supported. Switch to preview to see the result.',
   'introductionEditor.iConfirmReplacingThisProjectSLocalIntroductionFile':
     'I confirm replacing this project’s local introduction file',
   'introductionEditor.cancel': 'Cancel',
@@ -385,9 +379,7 @@ export const en = {
   'layoutSettingsPanel.smallerControlsAndHeadingsMoreContent': 'Smaller controls and headings, more content',
   'layoutSettingsPanel.interfaceLayout': 'Interface layout',
   'layoutSettingsPanel.adjustInterfaceSizeAndSpacingChangesApplyImmediatelyAnd':
-    'Adjust interface size and spacing. Changes apply immediately and are saved on this computer.',
-  'layoutSettingsPanel.currentlyUsingTheCompactLayout': 'Currently using the compact layout.',
-  'layoutSettingsPanel.currentlyUsingTheComfortableLayout': 'Currently using the comfortable layout.',
+    'Adjust interface size and spacing.',
   'liveProjectDangerZone.authorizationExpiredTryAgain': 'Authorization expired. Try again.',
   'liveProjectDangerZone.authorizationSucceededClickDeleteProjectAgainToDeleteIt':
     'Authorization succeeded. Click “Delete project” again to delete it.',
@@ -480,8 +472,6 @@ export const en = {
   'localChangeSelector.loadingChanges': 'Loading changes…',
   'localChangeSelector.cancelReading': 'Cancel reading',
   'localChangeSelector.refreshChanges': 'Refresh changes',
-  'localChangeSelector.onlySelectedFilesArePublishedOtherChangesStayOn':
-    'Only selected files are published. Other changes stay on this computer.',
   'localChangeSelector.selectAll': 'Select all',
   'localChangeSelector.hideChanges': 'Hide changes',
   'localChangeSelector.viewChanges': 'View changes',
@@ -511,8 +501,6 @@ export const en = {
     'Another {p0} could not be verified and were not added.',
   'localDiscoveryPanel.theSearchReachedItsLimitTryASmallerLocation':
     'The search reached its limit. Try a smaller location.',
-  'localDiscoveryPanel.onlyYourSelectedLocationsAreCheckedProjectFilesAre':
-    'Only your selected locations are checked. Project files are not changed.',
   'localDiscoveryPanel.cancel': 'Cancel',
   'localDiscoveryPanel.searchAgain': 'Search Again',
   'pagedContinuation.cannotLoadMoreRightNowPleaseRetry': 'Could not load more. Please retry.',
@@ -659,8 +647,6 @@ export const en = {
   'pullChecksPanel.loadingCheckResults': 'Loading check results…',
   'pullChecksPanel.retryUnavailableChecks': 'Retry unavailable checks',
   'pullChecksPanel.loadMoreChecks': 'Load more checks',
-  'pullChecksPanel.theseAreTheResultsReportedForTheCurrentChanges':
-    'These are the results reported for the current changes. GitHub project rules still decide whether they can be merged.',
   'pullFileChanges.added': 'Added',
   'pullFileChanges.deleted': 'Deleted',
   'pullFileChanges.renamed': 'Renamed',
@@ -754,7 +740,6 @@ export const en = {
   'pullRequestsPanel.reject': 'Reject',
   'pullRequestsPanel.approveAndMerge': 'Approve and merge',
   'pullRequestsPanel.pullRequestReviews': 'Pull Request Reviews',
-  'pullRequestsPanel.seeChangesProposedForThisProject': 'See changes proposed for this project.',
   'pullRequestsPanel.createPullRequest': 'Create Pull Request',
   'pullRequestsPanel.all': 'All',
   'pullRequestsPanel.thisProjectHasNoPullRequestsYet': 'This project has no pull requests yet.',
@@ -839,8 +824,6 @@ export const en = {
   'releaseDownloads.downloadInProgressSeeNotificationsInTheTopRight':
     'Download in progress. See notifications in the top right.',
   'releaseDownloads.currentProjectSource': 'Current Project Source',
-  'releaseDownloads.downloadTheCompleteSourceOfTheCurrentDefaultBranch':
-    'Download the complete source of the current default branch. Choose installers or other files from the releases below.',
   'releaseDownloads.downloadSourceZip': 'Download Source ZIP',
   'releaseDownloads.loadingVersions': 'Loading versions…',
   'releaseDownloads.thereAreNoReleasesToEditYetPublishA':
@@ -899,8 +882,6 @@ export const en = {
   'releaseEditor.addLink': 'Add Link',
   'releaseEditor.forExampleFixedWindowResizingAndAddedDarkMode':
     'For example: Fixed window resizing and added dark mode. Download the installer to get started.',
-  'releaseEditor.simpleFormattingIsSupportedAddImagesOrLinksAbove':
-    'Simple formatting is supported. Add images or links above, then preview the result.',
   'releaseEditor.downloadFiles': 'Download Files',
   'releaseEditor.chooseOneOrMoreInstallersArchivesOrOtherFiles':
     'Choose one or more installers, archives or other files.',
@@ -955,8 +936,6 @@ export const en = {
   'releaseEditPanel.link': 'Link',
   'releaseEditPanel.editReleases': 'Edit Releases',
   'releaseEditPanel.closeEditor': 'Close editor',
-  'releaseEditPanel.theVersionTagStaysTheSameSoDownloadLinks':
-    'The version tag stays the same, so download links remain valid.',
   'releaseEditPanel.releaseTitle': 'Release Title',
   'releaseEditPanel.releaseDescription': 'Release Description',
   'releaseEditPanel.insertLink': 'Insert link',
@@ -1087,8 +1066,6 @@ export const en = {
   'trendingDiscover.projects': 'Projects',
   'trendingDiscover.users': 'Users',
   'trendingDiscover.easyhubPopular': 'EasyHub Popular',
-  'trendingDiscover.easyhubRanksPublicProjectsByStarsRecentActivityAnd':
-    'EasyHub ranks public projects by stars, recent activity and update time. This is not GitHub official Trending.',
   'trendingDiscover.refresh': 'Refresh',
   'trendingDiscover.popularPeriod': 'Popular period',
   'trendingDiscover.userSearchResults': 'User search results',
@@ -1110,8 +1087,6 @@ export const en = {
   'trendingDiscover.previousPage': 'Previous page',
   'trendingDiscover.page': 'Page {p0}',
   'trendingDiscover.nextPage': 'Next page',
-  'trendingDiscover.growthOnlyReflectsStarChangesObservedByEasyhubOn':
-    'Growth only reflects star changes observed by EasyHub on this computer. New entries show “Tracking growth”.',
   'userProfile.theAppConnectionIsUnavailablePleaseRestartEasyhub':
     'The app connection is unavailable. Please restart EasyHub.',
   'userProfile.contributionDataIsTemporarilyUnavailable': 'Contribution data is temporarily unavailable.',
@@ -1258,8 +1233,6 @@ export const en = {
   'localWorkspace.localProjects': 'Local Projects',
   'localWorkspace.localFolderOptional': 'Local Folder (optional)',
   'localWorkspace.clearFolder': 'Clear folder selection',
-  'localWorkspace.cloudOnlyHint':
-    'Without a folder, only a cloud project is created. No files from this computer are uploaded.',
   'localWorkspace.cloudProjectCreated': 'Project created. You can add files later.',
   'localWorkspace.cancel': 'Cancel',
   'localWorkspace.addExistingFolder': 'Add Existing Folder',
@@ -1493,7 +1466,7 @@ export const en = {
   'settingsPage.signOut': 'Sign Out',
   'settingsPage.windowControls': 'Window Controls',
   'settingsPage.chooseTheStyleOfTheWindowButtonsChangesTake':
-    'Choose the style of the window buttons. Changes take effect immediately and are saved on this computer.',
+    'Choose the style of the window buttons.',
   'settingsPage.windowControlStyle': 'Window control style',
   'settingsPage.windowsStyle': 'Windows Style',
   'settingsPage.topRightButtons': 'Top-right buttons',

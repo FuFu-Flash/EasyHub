@@ -1062,7 +1062,6 @@ export function PullRequestsPanel({
           <div className="panel-heading">
             <div>
               <h2>{t('pullRequestsPanel.pullRequestReviews')}</h2>
-              <p className="muted">{t('pullRequestsPanel.seeChangesProposedForThisProject')}</p>
             </div>
             {showCreateButton && (
               <button

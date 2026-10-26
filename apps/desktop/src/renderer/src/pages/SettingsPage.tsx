@@ -129,7 +129,6 @@ export function SettingsPage() {
         <LayoutSettingsPanel
           language={language}
           preference={layout.preference}
-          density={layout.density}
           onChange={layout.setPreference}
         />
         <AiSettingsPanel language={language} />

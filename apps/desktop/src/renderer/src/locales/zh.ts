@@ -39,8 +39,6 @@ export const zh = {
   'aiSettingsPanel.chooseAnAiProviderAndEnterYourOwnApi':
     '选择 AI 服务商，填写你自己的 API Key，即可审查合并请求和程序文件。',
   'aiSettingsPanel.theDemoDoesNotStoreKeysUseTheFull': '演示版中不保存密钥。请使用正式版连接你的 AI 服务。',
-  'aiSettingsPanel.yourKeyIsKeptInThisComputerSSecure':
-    '密钥保存在这台电脑的安全存储中。每次审查前，你都可以确认将发送的内容和服务地址。',
   'aiSettingsPanel.aiProvider': 'AI 服务商',
   'aiSettingsPanel.previouslySavedProvider': '之前保存的服务',
   'aiSettingsPanel.storedSecurely': '已安全保存',
@@ -49,8 +47,6 @@ export const zh = {
   'aiSettingsPanel.enterYourOwnApiKey': '输入你自己的 API Key',
   'aiSettingsPanel.changeModelOptional': '更换模型（可选）',
   'aiSettingsPanel.modelName': '模型名称',
-  'aiSettingsPanel.aDefaultModelIsSelectedForThisProviderChange':
-    '已为所选服务商填入默认模型。仅在需要使用其他模型时修改。',
   'aiSettingsPanel.yourPreviouslySavedProviderRemainsAvailableEnterANew':
     '之前保存的服务仍可使用。选择新的服务商时需要填写对应的 API Key。',
   'aiSettingsPanel.enterTheApiKeyForTheNewlySelectedProvider': '更换服务商后，请填写该服务商的 API Key。',
@@ -347,7 +343,6 @@ export const zh = {
   'introductionEditor.insert': '插入',
   'introductionEditor.introductionContent': '项目介绍内容',
   'introductionEditor.myProjectDescribeYourProjectInAFewSentences': '# 我的项目\n\n用几句话介绍你的项目……',
-  'introductionEditor.markdownAndHtmlAreSupportedSwitchToPreviewTo': '支持 Markdown 和 HTML，可切换预览查看效果。',
   'introductionEditor.iConfirmReplacingThisProjectSLocalIntroductionFile': '我确认替换这个项目的本地介绍文件',
   'introductionEditor.cancel': '取消',
   'introductionEditor.saveIntroduction': '保存介绍',
@@ -359,9 +354,7 @@ export const zh = {
   'layoutSettingsPanel.smallerControlsAndHeadingsMoreContent': '缩小控件与标题，查看更多内容',
   'layoutSettingsPanel.interfaceLayout': '界面布局',
   'layoutSettingsPanel.adjustInterfaceSizeAndSpacingChangesApplyImmediatelyAnd':
-    '调整界面大小与间距。更改立即生效，并保存在这台电脑上。',
-  'layoutSettingsPanel.currentlyUsingTheCompactLayout': '当前使用紧凑布局。',
-  'layoutSettingsPanel.currentlyUsingTheComfortableLayout': '当前使用舒适布局。',
+    '调整界面大小与间距。',
   'liveProjectDangerZone.authorizationExpiredTryAgain': '授权已过期，请重新尝试。',
   'liveProjectDangerZone.authorizationSucceededClickDeleteProjectAgainToDeleteIt':
     '授权成功。请再次点击“删除此项目”执行删除。',
@@ -442,7 +435,6 @@ export const zh = {
   'localChangeSelector.loadingChanges': '正在读取修改…',
   'localChangeSelector.cancelReading': '取消读取',
   'localChangeSelector.refreshChanges': '重新读取',
-  'localChangeSelector.onlySelectedFilesArePublishedOtherChangesStayOn': '只发布勾选的文件，未选修改继续保留在电脑上。',
   'localChangeSelector.selectAll': '全选',
   'localChangeSelector.hideChanges': '收起不同',
   'localChangeSelector.viewChanges': '查看不同',
@@ -468,7 +460,6 @@ export const zh = {
   'localDiscoveryPanel.wereAlreadyAdded': '个此前已添加。',
   'localDiscoveryPanel.anotherCouldNotBeVerifiedAndWereNotAdded': '另外 {p0} 个未能确认，未自动加入。',
   'localDiscoveryPanel.theSearchReachedItsLimitTryASmallerLocation': '查找范围较大，已达到本次检查上限。',
-  'localDiscoveryPanel.onlyYourSelectedLocationsAreCheckedProjectFilesAre': '只检查你选择的位置，不修改项目文件。',
   'localDiscoveryPanel.cancel': '取消',
   'localDiscoveryPanel.searchAgain': '重新查找',
   'pagedContinuation.cannotLoadMoreRightNowPleaseRetry': '暂时无法加载更多，请重试。',
@@ -603,8 +594,6 @@ export const zh = {
   'pullChecksPanel.loadingCheckResults': '正在获取检查结果…',
   'pullChecksPanel.retryUnavailableChecks': '重试未读取的检查',
   'pullChecksPanel.loadMoreChecks': '加载更多检查',
-  'pullChecksPanel.theseAreTheResultsReportedForTheCurrentChanges':
-    '这里只展示当前修改已报告的结果。是否可以合入，仍由 GitHub 的项目规则判断。',
   'pullFileChanges.added': '新增',
   'pullFileChanges.deleted': '删除',
   'pullFileChanges.renamed': '更名',
@@ -686,7 +675,6 @@ export const zh = {
   'pullRequestsPanel.reject': '拒绝',
   'pullRequestsPanel.approveAndMerge': '批准并合入',
   'pullRequestsPanel.pullRequestReviews': '合并请求审查',
-  'pullRequestsPanel.seeChangesProposedForThisProject': '查看大家提议合入项目的修改。',
   'pullRequestsPanel.createPullRequest': '提出合并请求',
   'pullRequestsPanel.all': '全部',
   'pullRequestsPanel.thisProjectHasNoPullRequestsYet': '这个项目还没有合并请求。',
@@ -760,8 +748,6 @@ export const zh = {
   'releaseDownloads.retry': '重试',
   'releaseDownloads.downloadInProgressSeeNotificationsInTheTopRight': '下载正在进行，可在右上角通知中查看进度。',
   'releaseDownloads.currentProjectSource': '当前项目源码',
-  'releaseDownloads.downloadTheCompleteSourceOfTheCurrentDefaultBranch':
-    '下载当前默认分支的完整源码。安装包或其他文件请从下方发行版中选择。',
   'releaseDownloads.downloadSourceZip': '下载源码 ZIP',
   'releaseDownloads.loadingVersions': '正在获取发行版…',
   'releaseDownloads.thereAreNoReleasesToEditYetPublishA': '这个项目还没有可编辑的发行版，请先发布发行版。',
@@ -818,8 +804,6 @@ export const zh = {
   'releaseEditor.addLink': '添加链接',
   'releaseEditor.forExampleFixedWindowResizingAndAddedDarkMode':
     '例如：修复了窗口缩放问题，新增深色模式。下载安装包后直接打开即可使用。',
-  'releaseEditor.simpleFormattingIsSupportedAddImagesOrLinksAbove':
-    '支持简单排版。使用上方按钮插入图片或链接，下一步可以预览效果。',
   'releaseEditor.downloadFiles': '下载文件',
   'releaseEditor.chooseOneOrMoreInstallersArchivesOrOtherFiles': '可选择一个或多个安装包、压缩包或其他文件。',
   'releaseEditor.chooseReleaseFiles': '选择发布文件',
@@ -869,7 +853,6 @@ export const zh = {
   'releaseEditPanel.link': '链接',
   'releaseEditPanel.editReleases': '编辑发行版',
   'releaseEditPanel.closeEditor': '关闭编辑',
-  'releaseEditPanel.theVersionTagStaysTheSameSoDownloadLinks': '版本号保持不变，下载链接继续有效。',
   'releaseEditPanel.releaseTitle': '发行版名称',
   'releaseEditPanel.releaseDescription': '发行版介绍',
   'releaseEditPanel.insertLink': '插入链接',
@@ -983,8 +966,6 @@ export const zh = {
   'trendingDiscover.projects': '项目搜索',
   'trendingDiscover.users': '用户搜索',
   'trendingDiscover.easyhubPopular': 'EasyHub 热门',
-  'trendingDiscover.easyhubRanksPublicProjectsByStarsRecentActivityAnd':
-    'EasyHub 根据 Star 数、近期活动和更新时间排列公开项目。不是 GitHub 官方 Trending。',
   'trendingDiscover.refresh': '刷新',
   'trendingDiscover.popularPeriod': '热门时间范围',
   'trendingDiscover.userSearchResults': '用户搜索结果',
@@ -1005,8 +986,6 @@ export const zh = {
   'trendingDiscover.previousPage': '上一页',
   'trendingDiscover.page': '第 {p0} 页',
   'trendingDiscover.nextPage': '下一页',
-  'trendingDiscover.growthOnlyReflectsStarChangesObservedByEasyhubOn':
-    '增长趋势只统计 EasyHub 在这台电脑上观察到的 Star 变化；首次收录会显示“增长观察中”。',
   'userProfile.theAppConnectionIsUnavailablePleaseRestartEasyhub': '应用连接不可用，请重新启动 EasyHub。',
   'userProfile.contributionDataIsTemporarilyUnavailable': '贡献数据暂时不可用。',
   'userProfile.back': '返回',
@@ -1104,7 +1083,6 @@ export const zh = {
   'localWorkspace.localProjects': '本地项目',
   'localWorkspace.localFolderOptional': '本地文件夹（可选）',
   'localWorkspace.clearFolder': '取消选择文件夹',
-  'localWorkspace.cloudOnlyHint': '不选文件夹时，只创建云端项目，不会上传电脑上的文件。',
   'localWorkspace.cloudProjectCreated': '项目已创建，可以稍后添加文件。',
   'localWorkspace.cancel': '取消',
   'localWorkspace.addExistingFolder': '添加现有文件夹',
@@ -1317,7 +1295,7 @@ export const zh = {
   'settingsPage.signOut': '退出登录',
   'settingsPage.windowControls': '窗口控件',
   'settingsPage.chooseTheStyleOfTheWindowButtonsChangesTake':
-    '选择窗口顶部按钮的外观。更改会立即生效，并保存在这台电脑上。',
+    '选择窗口顶部按钮的外观。',
   'settingsPage.windowControlStyle': '窗口控件样式',
   'settingsPage.windowsStyle': 'Windows 风格',
   'settingsPage.topRightButtons': '右上角按钮',

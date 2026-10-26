@@ -199,7 +199,6 @@ export function TrendingDiscover({
           <div className="trending-heading">
             <div>
               <h2>{t('trendingDiscover.easyhubPopular')}</h2>
-              <p>{t('trendingDiscover.easyhubRanksPublicProjectsByStarsRecentActivityAnd')}</p>
             </div>
             <button className="text-link" onClick={() => setRefresh((value) => value + 1)}>
               {t('trendingDiscover.refresh')}
@@ -357,9 +356,6 @@ export function TrendingDiscover({
             {t('trendingDiscover.nextPage')}
           </button>
         </nav>
-      )}
-      {scope === 'projects' && !hasQuery && (
-        <p className="trending-disclaimer">{t('trendingDiscover.growthOnlyReflectsStarChangesObservedByEasyhubOn')}</p>
       )}
     </div>
   );

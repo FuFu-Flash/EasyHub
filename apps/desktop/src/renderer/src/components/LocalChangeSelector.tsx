@@ -173,7 +173,6 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
           {t('localChangeSelector.refreshChanges')}
         </button>
       </div>
-      <p className="local-selection-hint">{t('localChangeSelector.onlySelectedFilesArePublishedOtherChangesStayOn')}</p>
       {error && (
         <p className="live-error" role="alert">
           <ErrorMessage error={error} />
