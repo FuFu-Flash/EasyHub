@@ -84,7 +84,6 @@ export function ProjectsPage() {
       <div className="page-header">
         <div>
           <h1>{t('projectsPage.myProjects')}</h1>
-          <p>{t('projectsPage.allYourIdeasAndProgressInOnePlace')}</p>
         </div>
         <button className="button button-primary" onClick={() => setView('new-project')}>
           <Plus size={18} />

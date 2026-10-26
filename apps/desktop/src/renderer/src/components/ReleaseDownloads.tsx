@@ -194,11 +194,6 @@ export function ReleaseDownloads({
               ? t('releaseDownloads.editReleases')
               : t('releaseDownloads.downloadReleasesOrSource')}
           </h1>
-          <p>
-            {editOnOpen && canEdit
-              ? t('releaseDownloads.chooseAPublishedReleaseToEditItsDescriptionOr')
-              : t('releaseDownloads.chooseReleaseFilesOrSourceCodeToSaveTo')}
-          </p>
         </div>
       </div>
       {error && (

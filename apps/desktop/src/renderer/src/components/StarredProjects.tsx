@@ -52,7 +52,6 @@ export function StarredProjects({ onBack, onOpen }: { onBack: () => void; onOpen
       <div className="page-header">
         <div>
           <h1>{t('starredProjects.starredProjects')}</h1>
-          <p>{t('starredProjects.yourGithubStarredProjectsAreHereAndAvailableOn')}</p>
         </div>
         <span className="starred-page-mark">
           <Star size={23} fill="currentColor" />

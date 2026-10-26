@@ -134,7 +134,6 @@ export function IssuesPage() {
         <div className="page-header">
           <div>
             <h1>{t('issuesPage.issues')}</h1>
-            <p>{t('issuesPage.readFeedbackReplyToIdeasAndSolveProblems')}</p>
           </div>
         </div>
         {activityError && (

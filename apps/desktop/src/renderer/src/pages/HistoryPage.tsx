@@ -70,7 +70,6 @@ export function HistoryPage() {
         <div>
           <div className="eyebrow">{selected.name}</div>
           <h1>{t('historyPage.changeHistory')}</h1>
-          <p>{t('historyPage.everyUpdateHasAHistory')}</p>
         </div>
       </div>
       <div className="history-list">

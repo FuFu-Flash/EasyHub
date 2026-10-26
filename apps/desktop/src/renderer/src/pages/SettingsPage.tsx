@@ -51,7 +51,6 @@ export function SettingsPage() {
       <div className="page-header">
         <div>
           <h1>{t('settingsPage.settings')}</h1>
-          <p>{t('settingsPage.adjustEasyhubSAppearanceAndManageTheGithubConnection')}</p>
         </div>
       </div>
       <div className="settings-stack">

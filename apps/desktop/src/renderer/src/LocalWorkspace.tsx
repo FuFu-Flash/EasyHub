@@ -469,11 +469,6 @@ export function LocalWorkspace({
               ? t('localWorkspace.newProject')
               : (selectedLink?.name ?? selectedRepo?.name ?? t('localWorkspace.localProjects'))}
           </h1>
-          <p>
-            {effectiveMode === 'create'
-              ? t('localWorkspace.createProjectHelp')
-              : t('localWorkspace.reviewLocalChangesAndPublishTheSource')}
-          </p>
         </div>
       </div>
       {error && (

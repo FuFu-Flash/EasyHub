@@ -174,7 +174,6 @@ export function TrendingDiscover({
       <div className="page-header">
         <div>
           <h1>{t('trendingDiscover.discoverSearch')}</h1>
-          <p>{t('trendingDiscover.searchPublicProjectsAndGithubUsersOrExploreRecent')}</p>
         </div>
       </div>
       <SegmentedControl className="discover-scopes" role="group" aria-label={t('trendingDiscover.searchType')}>

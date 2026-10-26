@@ -238,7 +238,6 @@ export function ReleaseEditor({
       <div className="release-page-heading">
         <div className="eyebrow">{project.name}</div>
         <h1>{t('releaseEditor.publishNewRelease')}</h1>
-        <p>{t('releaseEditor.prepareAVersionNumberDescriptionAndInstallerForDownloaders')}</p>
       </div>
       <div className="release-distinction">
         <Info size={20} />

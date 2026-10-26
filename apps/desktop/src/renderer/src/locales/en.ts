@@ -835,10 +835,6 @@ export const en = {
   'releaseDownloads.backToProject': 'Back to Project',
   'releaseDownloads.editReleases': 'Edit Releases',
   'releaseDownloads.downloadReleasesOrSource': 'Download Releases or Source',
-  'releaseDownloads.chooseAPublishedReleaseToEditItsDescriptionOr':
-    'Choose a published release to edit its description or files.',
-  'releaseDownloads.chooseReleaseFilesOrSourceCodeToSaveTo':
-    'Choose release files or source code to save to your computer.',
   'releaseDownloads.retry': 'Try again',
   'releaseDownloads.downloadInProgressSeeNotificationsInTheTopRight':
     'Download in progress. See notifications in the top right.',
@@ -873,8 +869,6 @@ export const en = {
   'releaseEditor.checkTheReleaseDetails': 'Check the release details',
   'releaseEditor.backToProject': 'Back to Project',
   'releaseEditor.publishNewRelease': 'Publish New Release',
-  'releaseEditor.prepareAVersionNumberDescriptionAndInstallerForDownloaders':
-    'Prepare a version number, description and installer for downloaders.',
   'releaseEditor.twoWaysToPublish': 'Two ways to publish',
   'releaseEditor.publishSourceCode': 'Publish source code',
   'releaseEditor.savesEverydayCodeChanges': ' saves everyday code changes; ',
@@ -1046,7 +1040,6 @@ export const en = {
   'sourceHistory.backToSourceHistory': 'Back to source history',
   'sourceHistory.back': 'Back',
   'sourceHistory.backToProject': 'Back to project',
-  'sourceHistory.browseUpdatesAndCodeChangesCommittedToGithub': 'Browse updates and code changes committed to GitHub.',
   'sourceHistory.selectBranch': 'Select branch',
   'sourceHistory.retryBranches': 'Retry branches',
   'sourceHistory.loadMoreBranches': 'Load more branches',
@@ -1064,8 +1057,6 @@ export const en = {
   'starredProjects.couldNotLoadStarredProjects': 'Could not load starred projects.',
   'starredProjects.back': 'Back',
   'starredProjects.starredProjects': 'Starred projects',
-  'starredProjects.yourGithubStarredProjectsAreHereAndAvailableOn':
-    'Your GitHub starred projects are here and available on any computer.',
   'starredProjects.retry': 'Retry',
   'starredProjects.noProjectDescriptionYet': 'No project description yet.',
   'starredProjects.languageNotSpecified': 'Language not specified',
@@ -1092,8 +1083,6 @@ export const en = {
     'The app connection is unavailable. Please restart EasyHub.',
   'trendingDiscover.trendingProjectsCannotBeLoadedRightNow': 'Trending projects cannot be loaded right now.',
   'trendingDiscover.discoverSearch': 'Discover / Search',
-  'trendingDiscover.searchPublicProjectsAndGithubUsersOrExploreRecent':
-    'Search public projects and GitHub users, or explore recent work.',
   'trendingDiscover.searchType': 'Search type',
   'trendingDiscover.projects': 'Projects',
   'trendingDiscover.users': 'Users',
@@ -1267,13 +1256,11 @@ export const en = {
   'localWorkspace.back': 'Back',
   'localWorkspace.newProject': 'New Project',
   'localWorkspace.localProjects': 'Local Projects',
-  'localWorkspace.createProjectHelp': 'Enter a project name to create it. You can also choose a local folder.',
   'localWorkspace.localFolderOptional': 'Local Folder (optional)',
   'localWorkspace.clearFolder': 'Clear folder selection',
   'localWorkspace.cloudOnlyHint':
     'Without a folder, only a cloud project is created. No files from this computer are uploaded.',
   'localWorkspace.cloudProjectCreated': 'Project created. You can add files later.',
-  'localWorkspace.reviewLocalChangesAndPublishTheSource': 'Review local changes and publish the source.',
   'localWorkspace.cancel': 'Cancel',
   'localWorkspace.addExistingFolder': 'Add Existing Folder',
   'localWorkspace.easyhubWillInspectTheFolderAndAddExistingGithub':
@@ -1359,7 +1346,6 @@ export const en = {
   'localWorkspace.confirmPublicationOfTheseFiles': 'Confirm publication of these files',
   'historyPage.backToProject': 'Back to Project',
   'historyPage.changeHistory': 'Change history',
-  'historyPage.everyUpdateHasAHistory': 'Every update has a history.',
   'historyPage.unknownAuthor': 'Unknown author',
   'historyPage.view': 'View',
   'historyPage.noChangeHistoryYet': 'No change history yet.',
@@ -1413,7 +1399,6 @@ export const en = {
   'issuePage.reopen': 'Reopen',
   'issuePage.sendReply': 'Send Reply',
   'issuesPage.issues': 'Issues',
-  'issuesPage.readFeedbackReplyToIdeasAndSolveProblems': 'Read feedback, reply to ideas, and solve problems.',
   'issuesPage.issueStatus': 'Issue status',
   'issuesPage.open': 'Open',
   'issuesPage.resolved': 'Resolved',
@@ -1469,7 +1454,6 @@ export const en = {
   'projectPage.lastUpdated': 'Last updated:',
   'projectPage.viewLocalChanges': 'View Local Changes',
   'projectsPage.myProjects': 'My Projects',
-  'projectsPage.allYourIdeasAndProgressInOnePlace': 'All your ideas and progress in one place.',
   'projectsPage.newProject': 'New Project',
   'projectsPage.searchScope': 'Search Scope',
   'projectsPage.thisComputer': 'This Computer',
@@ -1498,16 +1482,11 @@ export const en = {
   'projectsPage.addExistingFolder': 'Add Existing Folder',
   'pullsPage.back': 'Back',
   'pullsPage.pullRequestReviews': 'Pull Request Reviews',
-  'pullsPage.reviewProposedChangesAndDecideWhetherToMergeThem':
-    'Review proposed changes and decide whether to merge them into your project.',
   'recentHistoryPage.updatesForSomeProjectsCouldNotBeLoaded': 'Updates for some projects could not be loaded.',
   'recentHistoryPage.backToHome': 'Back to Home',
   'recentHistoryPage.recentUpdates': 'Recent Updates',
-  'recentHistoryPage.updateNotesAndHistoryFromRecentProjects': 'Update notes and history from recent projects.',
   'recentHistoryPage.loadingRecentUpdates': 'Loading recent updates…',
   'settingsPage.settings': 'Settings',
-  'settingsPage.adjustEasyhubSAppearanceAndManageTheGithubConnection':
-    'Adjust EasyHub’s appearance and manage the GitHub connection.',
   'settingsPage.accountConnection': 'Account & Connection',
   'settingsPage.youAreExploringTheWorkspaceWithADemoAccount':
     'Explore the shared workspace with a demo account. No GitHub account is connected.',
