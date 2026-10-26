@@ -899,6 +899,13 @@
 .detail-hero.has-source-history .detail-main {
   padding-right: 30px;
 }
+/* Three wide actions never fit beside the title, so they always get their own row. */
+.public-browser-hero.has-source-history .detail-main {
+  flex-basis: 100%;
+}
+.public-browser-hero.has-source-history .detail-actions {
+  padding-top: 0;
+}
 .source-history-page,
 .source-history-list,
 .source-history-detail {
@@ -7063,7 +7070,7 @@ select:focus-visible {
   flex-shrink: 0;
 }
 .detail-hero .detail-actions {
-  flex: 1 1 360px;
+  flex: 0 1 auto;
   min-width: 0;
   align-self: center;
 }
@@ -7332,12 +7339,6 @@ select:focus-visible {
 .home-shortcuts {
   padding-top: 17px;
 }
-.star-project-control {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--eh-space-4);
-}
 .star-project-button {
   color: var(--eh-color-ink-soft);
 }
@@ -7350,12 +7351,6 @@ select:focus-visible {
   color: var(--eh-color-warning);
   border-color: var(--eh-color-warning-line);
   background: var(--eh-color-warning-soft);
-}
-.star-project-error {
-  max-width: 190px;
-  color: var(--eh-color-danger);
-  font-size: var(--eh-text-12);
-  line-height: 1.35;
 }
 .starred-projects-page {
   max-width: 1190px;

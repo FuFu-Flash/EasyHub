@@ -320,7 +320,7 @@ function WorkspaceShell() {
                   {languageMenuOpen && (
                     <div className="language-menu" role="group" aria-label={t('liveWorkspace.languageOptions')}>
                       <button aria-pressed={language === 'zh'} onClick={() => chooseLanguage('zh')}>
-                        <span>{t('liveWorkspace.chinese')}</span>
+                        <span>中文</span>
                         {language === 'zh' && <Check size={16} />}
                       </button>
                       <button aria-pressed={language === 'en'} onClick={() => chooseLanguage('en')}>

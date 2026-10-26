@@ -1,10 +1,10 @@
 import { useTranslation } from '../localization';
 import { useEasyHub } from '../bridge';
-import { ErrorMessage } from './ErrorMessage';
 import { errorText } from '../errors';
 import { useEffect, useState } from 'react';
 import type { GitHubRepo } from '@easyhub/github';
 import { Star } from 'lucide-react';
+import { usePageFeedback } from '../workspace/pageFeedback';
 
 export function StarProjectButton({ repo, onChanged }: { repo: GitHubRepo; onChanged?: (starred: boolean) => void }) {
   const t = useTranslation();
@@ -12,20 +12,18 @@ export function StarProjectButton({ repo, onChanged }: { repo: GitHubRepo; onCha
   const [starred, setStarred] = useState(false);
   const [checking, setChecking] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const { setError } = usePageFeedback();
 
   useEffect(() => {
     let active = true;
     setChecking(true);
-    setError('');
     void easyHub!
       .github<boolean>('isStarred', repo.owner.login, repo.name)
       .then((value) => {
         if (active) setStarred(value);
       })
-      .catch(() => {
-        if (active) setError(t('starProjectButton.couldNotCheckStarredStatusTryAgainLater'));
-      })
+      // An unknown status leaves the button usable; only a failed action is reported.
+      .catch(() => undefined)
       .finally(() => {
         if (active) setChecking(false);
       });
@@ -37,7 +35,6 @@ export function StarProjectButton({ repo, onChanged }: { repo: GitHubRepo; onCha
   async function toggle(): Promise<void> {
     const next = !starred;
     setSaving(true);
-    setError('');
     try {
       await easyHub!.github('setStarred', repo.owner.login, repo.name, next);
       setStarred(next);
@@ -50,28 +47,21 @@ export function StarProjectButton({ repo, onChanged }: { repo: GitHubRepo; onCha
   }
 
   return (
-    <span className="star-project-control">
-      <button
-        type="button"
-        className={`button button-quiet star-project-button ${starred ? 'is-starred' : ''}`}
-        aria-pressed={starred}
-        disabled={checking || saving}
-        onClick={() => void toggle()}
-      >
-        <Star size={17} fill={starred ? 'currentColor' : 'none'} />
-        {checking
-          ? t('starProjectButton.loading')
-          : saving
-            ? t('starProjectButton.saving')
-            : starred
-              ? t('starProjectButton.starred')
-              : t('starProjectButton.starProject')}
-      </button>
-      {error && (
-        <small className="star-project-error" role="alert">
-          <ErrorMessage error={error} />
-        </small>
-      )}
-    </span>
+    <button
+      type="button"
+      className={`button button-quiet star-project-button ${starred ? 'is-starred' : ''}`}
+      aria-pressed={starred}
+      disabled={checking || saving}
+      onClick={() => void toggle()}
+    >
+      <Star size={17} fill={starred ? 'currentColor' : 'none'} />
+      {checking
+        ? t('starProjectButton.loading')
+        : saving
+          ? t('starProjectButton.saving')
+          : starred
+            ? t('starProjectButton.starred')
+            : t('starProjectButton.starProject')}
+    </button>
   );
 }
