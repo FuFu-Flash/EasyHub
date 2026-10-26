@@ -4700,6 +4700,10 @@ body,
   background: transparent;
   border: 0;
 }
+/* Private projects skip translation, so their text needs the same inset the translation wrapper gives. */
+.live-shell .public-issue-detail .message-box > .intro-markdown {
+  padding: 13px 15px;
+}
 .live-shell .message-box > .paragraph-translatable-content,
 .live-shell .public-issue-detail .message-box > .paragraph-translatable-content {
   padding: 13px 15px;
