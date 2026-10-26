@@ -290,6 +290,7 @@ describe('Windows current-user proxy ownership', () => {
     expect(await store.load()).toBeNull();
   });
 
+  // Spawns real PowerShell processes; a busy parallel test run can exceed the default 5s.
   it.skipIf(process.platform !== 'win32')('runs the crash guardian against an isolated native stub without touching OS settings', async () => {
     const root = await mkdtemp(join(tmpdir(), 'easyhub-proxy-guardian-'));
     roots.push(root);
@@ -404,5 +405,5 @@ public static class EasyHubWinInetProxy {
     });
     expect(await readFile(leasePath, 'utf8')).toBe(replacementLease);
     await expect(readFile(statePath)).rejects.toMatchObject({ code: 'ENOENT' });
-  });
+  }, 30_000);
 });
