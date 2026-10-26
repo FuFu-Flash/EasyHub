@@ -395,7 +395,11 @@ export class GitHubClient {
     const query = new URLSearchParams({ state: 'open', head: `${headOwner}:${headBranch}`, base, per_page: '1' });
     return this.request(`${repoPath(owner, repo)}/pulls?${query.toString()}`, { signal });
   }
-  commits(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubCommit[]> { return this.request(`${repoPath(owner, repo)}/commits?per_page=100`, { signal }); }
+  async commits(owner: string, repo: string, signal?: AbortSignal): Promise<GitHubCommit[]> {
+    // GitHub answers 409 for a repository without any commits yet.
+    try { return await this.request(`${repoPath(owner, repo)}/commits?per_page=100`, { signal }); }
+    catch (error) { if (error instanceof GitHubError && error.status === 409 && !signal?.aborted) return []; throw error; }
+  }
   async sourceHistory(owner: string, repo: string, query: GitHubSourceHistoryQuery, signal?: AbortSignal): Promise<GitHubPage<GitHubCommit>> {
     if (!Number.isSafeInteger(query.page) || query.page < 1 || query.page > 10000 || !validHistoryBranch(query.branch)
       || (query.path !== undefined && !validHistoryPath(query.path))) throw new Error('Invalid source history query');
