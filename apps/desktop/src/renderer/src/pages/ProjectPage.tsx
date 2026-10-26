@@ -316,7 +316,6 @@ export function ProjectPage() {
                 <h2>{t('projectPage.issues')}</h2>
                 <span className="count-bubble">{activityCounts[selected.id]?.issues ?? '…'}</span>
               </div>
-              <p>{t('projectPage.seeFeedbackAndMakeYourProjectBetterTogether')}</p>
               <button className="button button-quiet full-width" onClick={() => setView('issues')}>
                 {t('projectPage.viewIssues')} <ArrowRight size={16} />
               </button>
@@ -326,7 +325,6 @@ export function ProjectPage() {
                 <h2>{t('projectPage.pullRequestReviews')}</h2>
                 <span className="count-bubble">{activityCounts[selected.id]?.pullRequests ?? '…'}</span>
               </div>
-              <p>{t('projectPage.readTheProposedChangesAndFilesBeforeDecidingWhether')}</p>
               <button
                 className="button button-quiet full-width"
                 onClick={() => {

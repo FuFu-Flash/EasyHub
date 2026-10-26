@@ -47,7 +47,7 @@ try{
         const locator=page.locator(screen==='settings'?'.settings-stack':'.live-create-form');
         const measurement=await locator.evaluate(el=>{const content=document.querySelector('.page-content'),main=document.querySelector('.main-column'),r=el.getBoundingClientRect(),c=content.getBoundingClientRect(),s=getComputedStyle(content),controls=document.querySelector('.windows-window-controls').getBoundingClientRect();return{contentWidth:c.width,usable:c.width-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight),width:r.width,internalUnused:c.right-parseFloat(s.paddingRight)-r.right,left:r.left-c.left,right:main.getBoundingClientRect().right-r.right,overflow:main.scrollWidth-main.clientWidth,controlsTop:controls.top,controlsRight:controls.right,viewport:innerWidth};});
         assert.ok(measurement.internalUnused<=2,`${screen} must fill the available page width: ${JSON.stringify(measurement)}`);
-        assert.ok(Math.abs(measurement.left-measurement.right)<=4,`${screen} should have balanced outer gutters: ${JSON.stringify(measurement)}`);
+        assert.ok(measurement.left<=44&&measurement.right<=80,`${screen} should share the standard page gutters: ${JSON.stringify(measurement)}`);
         assert.ok(measurement.overflow<=2&&measurement.controlsTop===0&&Math.abs(width-measurement.controlsRight)<=1);
         assert.equal(await page.locator('.local-project-card').count(),0);
         assert.equal(await page.locator('.scroll-down-cue').count(),0,'Form pages use normal scrolling; a floating cue must not occupy the reclaimed right gutter');

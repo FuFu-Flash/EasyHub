@@ -302,7 +302,7 @@ try {
     for (const repo of fixtures.slice(0, 3)) {
       await openProject(repo);
       check(await measure(`${label}-owned-${repo.id}`), `${label}: owned ${repo.name}`);
-      if (language === 'en') assert.equal(await page.locator('.detail-actions').getByRole('button', { name: 'Local Project & Publish source code', exact: true }).count(), 1,
+      if (language === 'en') assert.equal(await page.locator('.detail-actions').getByRole('button', { name: 'Local Project & Publish Source Code', exact: true }).count(), 1,
         'English matrix must exercise the translated action labels');
       cases++;
     }

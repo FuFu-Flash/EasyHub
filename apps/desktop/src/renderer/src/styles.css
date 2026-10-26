@@ -1980,7 +1980,13 @@ svg {
   text-align: left;
 }
 .sidebar-nav {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.sidebar-nav > button:last-child {
+  margin-top: auto;
 }
 .sidebar-nav button {
   width: 100%;
@@ -2454,9 +2460,9 @@ svg {
   align-items: flex-start;
 }
 .detail-main > .project-logo {
-  width: 58px;
-  height: 58px;
-  font-size: var(--eh-text-24);
+  width: 48px;
+  height: 48px;
+  font-size: var(--eh-text-20);
 }
 .detail-name-row {
   display: flex;
@@ -5116,6 +5122,11 @@ body,
   }
   .detail-actions {
     flex-wrap: wrap;
+  }.detail-hero .detail-actions {
+    justify-content: flex-start;
+  }
+  .detail-hero.has-source-history .detail-actions {
+    padding-top: 0;
   }
 }
 
@@ -9024,12 +9035,6 @@ body {
 .app-shell .page-content,
 .app-shell[data-layout='compact'] .page-content {
   padding-right: max(var(--eh-space-64), env(safe-area-inset-right));
-}
-.app-shell .page-content.page-form-layout {
-  padding-inline: clamp(var(--eh-space-24), 2.5vw, var(--eh-space-40));
-}
-.app-shell[data-layout='compact'] .page-content.page-form-layout {
-  padding-inline: var(--eh-space-16);
 }
 /* Recovery screens keep shell controls and keyboard recovery available. */
 .page-recovery {
