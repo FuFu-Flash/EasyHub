@@ -2051,6 +2051,9 @@ svg {
 .topbar {
   display: flex;
   align-items: center;
+  app-region: drag;
+  -webkit-app-region: drag;
+  user-select: none;
 }
 .topbar-left,
 .topbar-right {
@@ -3036,6 +3039,7 @@ svg {
   }
   .project-grid {
     gap: var(--eh-space-12);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .project-card {
     padding: 17px;
@@ -3052,9 +3056,6 @@ svg {
 }
 
 @media (max-width: 1180px) {
-  .project-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .detail-grid {
     grid-template-columns: 1fr;
   }
@@ -3269,11 +3270,6 @@ svg {
   .topbar-search {
     margin-right: var(--eh-space-12);
   }
-}
-.topbar {
-  app-region: drag;
-  -webkit-app-region: drag;
-  user-select: none;
 }
 .topbar button,
 .topbar label,
@@ -4544,6 +4540,7 @@ body,
 }
 .live-page {
   margin: 0 auto;
+  max-width: 1530px;
 }
 .live-section {
   padding: 23px 25px;
@@ -4672,9 +4669,6 @@ body,
   color: var(--eh-color-ink-soft);
   font-weight: var(--eh-weight-700);
 }
-.live-page {
-  max-width: 1530px;
-}
 .live-shell .issue-project-count.live-pending-count {
   background: var(--eh-color-surface-sunken);
   color: var(--eh-color-ink-soft);
@@ -4698,6 +4692,7 @@ body,
   color: var(--eh-color-muted);
   font-size: var(--eh-text-13);
   line-height: 1.8;
+  overflow-wrap: anywhere;
 }
 .live-shell .message-box .intro-markdown p {
   padding: 0;
@@ -4738,9 +4733,6 @@ body,
 .live-shell .message-box .intro-markdown {
   min-width: 0;
   max-width: 100%;
-}
-.live-shell .message-box .intro-markdown {
-  overflow-wrap: anywhere;
 }
 .live-shell .message-box .intro-markdown pre {
   max-width: 100%;
@@ -6891,13 +6883,13 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
 }
-.page-with-footer > .v2-page-transition {
+.page-with-footer > .page-transition {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-width: 0;
 }
-.page-with-footer > .v2-page-transition > * {
+.page-with-footer > .page-transition > * {
   flex-shrink: 0;
 }
 .page-with-footer .home-shortcuts {
@@ -7994,10 +7986,10 @@ select:focus-visible {
   .app-shell {
     animation: easyhub-open 0.2s ease-out;
   }
-  .v2-page-transition {
+  .page-transition {
     animation: easyhub-page-enter 0.16s ease-out;
   }
-  .v2-page-transition > .page-header {
+  .page-transition > .page-header {
     animation: easyhub-heading-enter 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .profile-menu,

@@ -380,7 +380,7 @@ function WorkspaceShell() {
                 <main
                   className={`page-content live-page${page.view === 'home' || page.view === 'projects' ? ' page-with-footer' : ''}${formPage ? ' page-form-layout' : ''}`}
                 >
-                  <div className="v2-page-transition" key={page.view}>
+                  <div className="page-transition" key={page.view}>
                     {offline && (
                       <div className="live-offline" role="status" aria-live="polite">
                         <span>{t('liveWorkspace.githubIsTemporarilyUnavailableShowingYourLastSavedData')}</span>

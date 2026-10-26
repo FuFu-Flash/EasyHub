@@ -256,7 +256,7 @@ try {
   assert.equal(await page.locator('.search-result-grid.compact .trending-card.compact').count(), 2);
   await page.setViewportSize({ width: 1060, height: 700 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'Supported minimum window must not overflow');
-  assert.ok(await page.locator('.v2-page-transition').evaluate((element) => getComputedStyle(element).animationDuration
+  assert.ok(await page.locator('.page-transition').evaluate((element) => getComputedStyle(element).animationDuration
     .split(',').every((value) => parseFloat(value) <= 0.001)), 'Reduced motion should disable visible page animations');
   await page.screenshot({ path: join(outputDirectory, 'discover-minimum.png') });
 

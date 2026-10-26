@@ -57,7 +57,7 @@ try {
   await page.keyboard.press('ArrowRight');assert.equal(await tabs.getByRole('tab').last().getAttribute('aria-selected'),'true');
   await page.keyboard.press('Home');assert.equal(await tabs.getByRole('tab').first().getAttribute('tabindex'),'0');
   await page.keyboard.press('End');await page.keyboard.press('ArrowRight');assert.equal(await tabs.getByRole('tab').first().getAttribute('aria-selected'),'true');
-  await pullsNav.click();await page.getByRole('heading',{name:'合并请求审查',exact:true}).waitFor();assert.equal(await page.locator('main > .v2-page-transition > .back-link').count(),0);
+  await pullsNav.click();await page.getByRole('heading',{name:'合并请求审查',exact:true}).waitFor();assert.equal(await page.locator('main > .page-transition > .back-link').count(),0);
   await sidebar.getByRole('button',{name:'我的项目',exact:true}).click();await page.getByRole('button',{name:/我的云端项目/}).click();
   const linked=page.locator('.cloud-row').filter({hasText:'Fixture project'}).filter({hasText:'sample'});
   assert.ok(await linked.getByRole('button',{name:'打开',exact:true}).isVisible());assert.equal(await linked.getByRole('button',{name:'下载',exact:true}).count(),0);
