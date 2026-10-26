@@ -326,11 +326,12 @@ export function TrendingDiscover({
               <ArrowRight size={19} />
             </button>
           ))}
-          {visible.length === 0 && isSearch ? (
-            <SearchEmptyState onClear={() => setQuery('')} />
-          ) : (
-            <p className="live-empty">{t('trendingDiscover.noPopularProjectsMatchThisPeriodYet')}</p>
-          )}
+          {visible.length === 0 &&
+            (isSearch ? (
+              <SearchEmptyState onClear={() => setQuery('')} />
+            ) : (
+              <p className="live-empty">{t('trendingDiscover.noPopularProjectsMatchThisPeriodYet')}</p>
+            ))}
         </div>
       )}
       {scope === 'projects' && isSearch && (
