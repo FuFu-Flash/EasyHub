@@ -7344,7 +7344,7 @@ select:focus-visible {
   padding: 0 3px;
 }
 .home-shortcuts {
-  padding-top: 17px;
+  padding-top: var(--eh-space-48);
 }
 .star-project-control {
   display: inline-flex;
@@ -8598,7 +8598,7 @@ select:focus-visible {
   font-size: var(--eh-text-12);
 }
 .app-shell[data-layout='compact'] .home-shortcuts {
-  padding-top: var(--eh-space-10);
+  padding-top: var(--eh-space-40);
   padding-bottom: var(--eh-space-10);
 }
 .app-shell[data-layout='compact'] .settings-panel {
