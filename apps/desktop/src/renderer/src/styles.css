@@ -893,18 +893,10 @@
   outline: 2px solid var(--eh-color-line-primary);
   outline-offset: 2px;
 }
-.detail-hero.has-source-history .detail-actions {
-  padding-top: var(--eh-space-24);
-}
+/* Project actions never fit beside a long description, so they always get their own row under the title. */
 .detail-hero.has-source-history .detail-main {
   padding-right: 30px;
-}
-/* Three wide actions never fit beside the title, so they always get their own row. */
-.public-browser-hero.has-source-history .detail-main {
   flex-basis: 100%;
-}
-.public-browser-hero.has-source-history .detail-actions {
-  padding-top: 0;
 }
 .source-history-page,
 .source-history-list,
@@ -5102,9 +5094,6 @@ body,
     flex-wrap: wrap;
   }.detail-hero .detail-actions {
     justify-content: flex-start;
-  }
-  .detail-hero.has-source-history .detail-actions {
-    padding-top: 0;
   }
 }
 
