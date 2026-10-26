@@ -169,7 +169,7 @@ try {
   await page.mouse.up();
   assert.match(await page.evaluate(() => window.getSelection()?.toString() ?? ''), /next parag/);
   await page.screenshot({ path: 'out/readme-preview-smoke.png' });
-  await page.getByRole('button', { name: '合并请求审查', exact: true }).click();
+  await page.getByRole('button', { name: '去审查', exact: true }).click();
   const pulls = page.locator('.pull-requests-panel');
   await pulls.getByRole('button').filter({ hasText: 'Improve validation' }).click();
   await pulls.getByRole('button', { name: '批准并合入', exact: true }).waitFor();
@@ -369,7 +369,7 @@ try {
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目', exact: true }).click();
   await page.getByRole('button', { name: /我的云端项目/ }).click();
   await page.locator('.cloud-row').filter({ hasText: 'owned-repo' }).getByRole('button', { name: '查看', exact: true }).click();
-  await page.getByRole('button', { name: '合并请求审查', exact: true }).click();
+  await page.getByRole('button', { name: '去审查', exact: true }).click();
   if (await pulls.getByRole('heading', { name: 'Trojan test', exact: true }).count()) await page.getByRole('button', { name: '返回', exact: true }).click();
   await pulls.getByRole('button').filter({ hasText: 'Trojan test' }).waitFor();
   await page.locator('.sidebar-nav').getByRole('button', { name: '问题', exact: true }).click();

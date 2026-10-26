@@ -1250,6 +1250,7 @@ export const zh = {
   'projectPage.issues': '问题',
   'projectPage.viewIssues': '查看问题',
   'projectPage.pullRequestReviews': '合并请求审查',
+  'projectPage.reviewPullRequests': '去审查',
   'projectPage.projectStatus': '项目状态',
   'projectPage.lastUpdated': '上次更新：',
   'projectPage.viewLocalChanges': '查看本地修改',

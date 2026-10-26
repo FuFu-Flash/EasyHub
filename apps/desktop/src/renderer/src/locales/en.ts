@@ -377,7 +377,7 @@ export const en = {
   'layoutSettingsPanel.moreRoomBetweenContent': 'More room between content',
   'layoutSettingsPanel.compact': 'Compact',
   'layoutSettingsPanel.smallerControlsAndHeadingsMoreContent': 'Smaller controls and headings, more content',
-  'layoutSettingsPanel.interfaceLayout': 'Interface layout',
+  'layoutSettingsPanel.interfaceLayout': 'Interface Layout',
   'layoutSettingsPanel.adjustInterfaceSizeAndSpacingChangesApplyImmediatelyAnd':
     'Adjust interface size and spacing.',
   'liveProjectDangerZone.authorizationExpiredTryAgain': 'Authorization expired. Try again.',
@@ -1420,6 +1420,7 @@ export const en = {
   'projectPage.issues': 'Issues',
   'projectPage.viewIssues': 'View Issues',
   'projectPage.pullRequestReviews': 'Pull Request Reviews',
+  'projectPage.reviewPullRequests': 'Review',
   'projectPage.projectStatus': 'Project Status',
   'projectPage.lastUpdated': 'Last updated:',
   'projectPage.viewLocalChanges': 'View Local Changes',

@@ -227,7 +227,10 @@ function WorkspaceShell() {
                   className={`sidebar-demo live-connected${offline ? ' is-offline' : ''}`}
                 >
                   <span />
-                  {offline ? t('liveWorkspace.githubIsOffline') : t('liveWorkspace.connectedToGithub')} · {user.login}
+                  <small className="sidebar-connection">
+                    <small>{offline ? t('liveWorkspace.githubIsOffline') : t('liveWorkspace.connectedToGithub')}</small>
+                    <strong>{user.login}</strong>
+                  </small>
                 </span>
               )}
             </div>

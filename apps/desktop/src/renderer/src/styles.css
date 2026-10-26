@@ -2077,7 +2077,7 @@ svg {
 }
 .icon-button:hover {
   background: var(--eh-color-primary-soft);
-  color: var(--eh-color-accent);
+  color: var(--eh-color-primary);
 }
 .topbar-avatar {
   border-radius: var(--eh-radius-999);
@@ -2206,7 +2206,7 @@ svg {
   text-align: left;
 }
 .plain-heading:hover {
-  color: var(--eh-color-accent);
+  color: var(--eh-color-primary);
 }
 .card-description {
   font-size: var(--eh-text-12);
@@ -2786,7 +2786,7 @@ svg {
   gap: var(--eh-space-8);
   border: 1px solid var(--eh-color-line);
   background: var(--eh-color-surface-bg);
-  color: var(--eh-color-accent);
+  color: var(--eh-color-primary);
   padding: 7px var(--eh-space-10);
   border-radius: var(--eh-radius-8);
   font-size: var(--eh-text-12);
@@ -2802,7 +2802,7 @@ svg {
   height: 64px;
   border-radius: var(--eh-radius-12);
   background: var(--eh-color-primary-soft);
-  color: var(--eh-color-accent);
+  color: var(--eh-color-primary);
   margin: 0 auto 18px;
 }
 .empty-state h3 {
@@ -9079,7 +9079,7 @@ body {
 }
 .local-folder-error summary {
   font-size: var(--eh-text-13);
-  color: var(--eh-color-accent);
+  color: var(--eh-color-primary);
 }
 .local-folder-error .local-actions {
   margin-top: var(--eh-space-12);
@@ -9192,7 +9192,7 @@ body {
   font-weight: var(--eh-weight-600);
 }
 .home-task-copy small,
-.home-task-note {
+.home-dashboard .home-task-note {
   color: var(--eh-color-muted);
   font-size: var(--eh-text-12);
 }
@@ -9349,4 +9349,21 @@ body {
 /* Pages with the bottom shortcuts end close to the window edge, so the shortcuts sit at the same height on every page. */
 .app-shell .page-content.page-with-footer {
   padding-bottom: var(--eh-space-14);
+}
+
+/* The sidebar connection shows status and account on two lines so long names stay readable. */
+.sidebar-connection {
+  display: grid;
+  min-width: 0;
+  line-height: var(--eh-leading-tight);
+}
+.sidebar-connection > small,
+.sidebar-connection > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--eh-text-12);
+}
+.sidebar-connection > strong {
+  color: var(--eh-color-ink-soft);
+  font-weight: var(--eh-weight-500);
 }

@@ -208,7 +208,7 @@ try {
   assert.equal(await page.locator('.detail-primary').getByText('这个项目还没有介绍。', { exact: true }).count(), 0);
   const reviewSide = page.locator('.detail-side .side-panel').filter({ has: page.getByRole('heading', { name: '合并请求审查', exact: true }) });
   assert.equal(await reviewSide.locator('.count-bubble').innerText(), '1');
-  await reviewSide.getByRole('button', { name: '合并请求审查', exact: false }).click();
+  await reviewSide.getByRole('button', { name: '去审查', exact: true }).click();
   await page.locator('.pull-requests-panel').getByText('Fixture improvement', { exact: true }).waitFor();
   assert.equal(await page.getByText('部分反馈或修改记录暂时无法加载，请刷新重试。', { exact: true }).count(), 0, 'A project loading error must clear when leaving the project page');
   assert.equal(await page.getByRole('tab', { name: '合并请求审查 1', exact: true }).getAttribute('aria-selected'), 'true');

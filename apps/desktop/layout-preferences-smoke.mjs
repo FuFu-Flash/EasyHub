@@ -97,7 +97,7 @@ try {
   const layoutPanel = page.locator('.layout-settings-panel');
   let language = 'zh';
   const names = () => language === 'en'
-    ? { home: 'Home', settings: 'Settings', projects: 'My Projects', issues: 'Issues', group: 'Interface layout', auto: 'Automatic', comfortable: 'Comfortable', compact: 'Compact' }
+    ? { home: 'Home', settings: 'Settings', projects: 'My Projects', issues: 'Issues', group: 'Interface Layout', auto: 'Automatic', comfortable: 'Comfortable', compact: 'Compact' }
     : { home: '首页', settings: '设置', projects: '我的项目', issues: '问题', group: '界面布局', auto: '自动适配', comfortable: '舒适', compact: '紧凑' };
   const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const waitLayout = async (preference, density) => {

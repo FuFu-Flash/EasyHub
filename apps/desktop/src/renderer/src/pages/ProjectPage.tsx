@@ -331,7 +331,7 @@ export function ProjectPage() {
                   setView('pulls');
                 }}
               >
-                {t('projectPage.pullRequestReviews')} <ArrowRight size={16} />
+                {t('projectPage.reviewPullRequests')} <ArrowRight size={16} />
               </button>
             </section>
             <section className="panel side-panel">
