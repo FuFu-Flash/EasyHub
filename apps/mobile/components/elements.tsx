@@ -23,9 +23,9 @@ export function DirectionLabel({ title, name = 'forward', color = palette.blue, 
 export function BackLink({ title, heading, onPress = () => router.back(), marginBottom = 22 }: { title: string; heading?: string; onPress?: () => void; marginBottom?: number }) {
   const gap = Math.max(0, marginBottom - 20);
   const arrow = <View style={{ transform: [{ scaleX: -1 }] }}><MaterialArrow name="chevron" color={palette.ink} size={32} /></View>;
-  if (heading) return <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: -12, marginTop: -10, marginBottom: gap }}>
+  if (heading) return <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: -12, marginTop: -10, marginBottom: gap + 6 }}>
     <Pressable accessibilityRole="button" accessibilityLabel={title} hitSlop={8} onPress={onPress} style={{ width: 48, height: 48, justifyContent: 'center', alignItems: 'center' }}>{arrow}</Pressable>
-    <Text accessibilityRole="header" numberOfLines={1} style={{ flex: 1, minWidth: 0, color: palette.ink, fontSize: 22, fontWeight: '800' }}>{heading}</Text>
+    <Text accessibilityRole="header" numberOfLines={2} style={{ flex: 1, minWidth: 0, color: palette.ink, fontSize: 22, lineHeight: 28, fontWeight: '800' }}>{heading}</Text>
   </View>;
   return <Pressable accessibilityRole="button" accessibilityLabel={title} hitSlop={8} onPress={onPress} style={{ alignSelf: 'flex-start', width: 48, height: 48, marginLeft: -12, marginTop: -10, justifyContent: 'center', alignItems: 'center', marginBottom: gap }}>{arrow}</Pressable>;
 }
@@ -48,6 +48,13 @@ export function ErrorText({ message, onRetry }: { message: string; onRetry?: () 
   const t = useTranslation();
   return <Card><Text style={{ color: themed('#bf3947'), marginBottom: onRetry ? 12 : 0 }}>{message}</Text>{onRetry && <Action title={t("DiscussionSearch.retry")} onPress={onRetry} secondary />}</Card>;
 }
+/** Small capsule filters for switching the state of a list (open/closed); the selected one is soft blue, not a call to action. */
+export function FilterPills({ options, marginBottom = 14 }: { options: { label: string; selected: boolean; onPress: () => void }[]; marginBottom?: number }) {
+  return <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom }}>
+    {options.map((option) => <Pressable key={option.label} onPress={option.onPress} accessibilityRole="radio" accessibilityState={{ checked: option.selected }} style={{ minHeight: 40, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: option.selected ? themed('#a8cbff') : palette.border, backgroundColor: option.selected ? themed('#e7f0ff') : 'transparent', justifyContent: 'center' }}><Text style={{ color: option.selected ? palette.blue : palette.muted, fontWeight: '700' }}>{option.label}</Text></Pressable>)}
+  </View>;
+}
+
 export function Heading({ title, subtitle, compact }: { title?: string; subtitle?: string; compact?: boolean }) {
   return <View style={{ marginBottom: title ? (compact ? 16 : 22) : 16 }}>
     {!!title && <Text accessibilityRole="header" style={{ fontSize: compact ? 22 : 28, lineHeight: compact ? 29 : undefined, fontWeight: '800', color: palette.ink }}>{title}</Text>}

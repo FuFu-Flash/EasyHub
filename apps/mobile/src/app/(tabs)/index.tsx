@@ -75,7 +75,7 @@ function HomeProject({ repo, issueCount }: { repo: GitHubRepo; issueCount: numbe
   </View>;
 }
 
-function HomeTaskRow({ group }: { group: HomeTaskGroup }) {
+function HomeTaskRow({ group, first }: { group: HomeTaskGroup; first: boolean }) {
   const t = useTranslation();
   const { repo, issues, pulls } = group;
   const go = (section: 'issues' | 'pulls') => router.push({ pathname: '/project/[owner]/[repo]', params: { owner: repo.owner.login, repo: repo.name, section } });
@@ -83,7 +83,7 @@ function HomeTaskRow({ group }: { group: HomeTaskGroup }) {
     ...(issues > 0 ? [{ section: 'issues' as const, summary: t("home.attentionOpenIssues", { count: issues }), action: t("home.viewIssues") }] : []),
     ...(pulls > 0 ? [{ section: 'pulls' as const, summary: t("home.attentionPullRequests", { count: pulls }), action: t("home.reviewPullRequests") }] : []),
   ];
-  return <View style={styles.taskRow}>
+  return <View style={[styles.taskRow, first && styles.taskRowFirst]}>
     <View style={styles.taskHeader}><ProjectIcon repo={repo} /><Text style={[styles.projectName, { flex: 1 }]} numberOfLines={2}>{repo.name}</Text></View>
     {actions.map((item) => <View key={item.section} style={styles.taskLine}>
       <Text style={styles.taskSummary}>{item.summary}</Text>
@@ -156,7 +156,7 @@ export default function Home() {
       <Text accessibilityRole="header" style={styles.pageTitle}>{t("home.title")}</Text>
       <View style={styles.tasksPanel}>
         <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>{t("home.needsYourAttention")}</Text>{tasks.length > 0 && <Text accessibilityLabel={t("home.attentionTotal", { count: tasks.length })} style={styles.taskTotal}>{tasks.length}</Text>}</View>
-        {shownTasks.map((group) => <HomeTaskRow key={group.repo.id} group={group} />)}
+        {shownTasks.map((group, index) => <HomeTaskRow key={group.repo.id} group={group} first={index === 0} />)}
         {tasks.length > HOME_TASK_PREVIEW && <Pressable onPress={() => setTasksExpanded(!tasksExpanded)} accessibilityRole="button" accessibilityState={{ expanded: tasksExpanded }} style={styles.moreTasks}><Text style={styles.viewAll}>{tasksExpanded ? t("home.showFewerProjects") : t("home.showMoreProjects", { count: tasks.length - HOME_TASK_PREVIEW })}</Text></Pressable>}
         {!loading && !error && tasks.length === 0 && <Text style={styles.empty}>{t("home.nothingNeedsYourAttention")}</Text>}
       </View>
@@ -193,10 +193,11 @@ const styles = themedStyles(() => StyleSheet.create({
   tasksPanel: { borderRadius: 20, borderWidth: 1, borderColor: themed('#e3ecf8'), padding: 11, backgroundColor: themed('#fff'), marginBottom: 14 },
   taskTotal: { minWidth: 24, paddingHorizontal: 7, borderRadius: 12, overflow: 'hidden', textAlign: 'center', color: onAccent, backgroundColor: themed('#2674e7'), fontSize: 12, lineHeight: 24, fontWeight: '800' },
   taskHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  taskLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8, paddingLeft: 58 },
+  taskLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8 },
   taskSummary: { flex: 1, minWidth: 0, color: palette.muted, fontSize: 13, lineHeight: 18 },
   moreTasks: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  taskRow: { borderWidth: 1, borderColor: themed('#e2eaf5'), borderRadius: 13, padding: 10, marginTop: 8, backgroundColor: themed('#fff'), },
+  taskRow: { borderTopWidth: 1, borderTopColor: themed('#e2eaf5'), paddingVertical: 14, paddingHorizontal: 4 },
+  taskRowFirst: { borderTopWidth: 0, paddingTop: 4 },
   openButtonPrimary: { backgroundColor: themed('#2674e7'), borderColor: themed('#2674e7') },
   openTextPrimary: { color: onAccent },
   intro: { paddingTop: 22, paddingBottom: 18 },
@@ -255,7 +256,7 @@ const styles = themedStyles(() => StyleSheet.create({
   savedDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: themed('#18b35e'), flexShrink: 0 },
   savedText: { color: themed('#18a45a'), fontSize: 11, fontWeight: '700' },
   projectTime: { color: themed('#8797ac'), fontSize: 10, minWidth: 0, maxWidth: '100%', flexShrink: 1 },
-  openButton: { paddingHorizontal: 9, paddingVertical: 8, minWidth: 46, minHeight: 44, maxWidth: '100%', borderWidth: 1, borderColor: themed('#dce6f2'), borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: themed('#f7faff') },
+  openButton: { paddingHorizontal: 9, paddingVertical: 8, minWidth: 88, minHeight: 44, maxWidth: '100%', borderWidth: 1, borderColor: themed('#dce6f2'), borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: themed('#f7faff') },
   openText: { color: themed('#1e2b40'), fontSize: 11, fontWeight: '700', textAlign: 'center', flexShrink: 1 },
   moreButton: { paddingHorizontal: 10, paddingVertical: 5, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   moreText: { fontSize: 23, color: themed('#7688a0') },

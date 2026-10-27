@@ -29,7 +29,7 @@ import { ForkContributionPanel } from '@/components/ForkContributionPanel';
 import { ProjectSettingsPanel } from '@/components/ProjectSettingsPanel';
 import { StarProjectButton } from '@/components/StarProjectButton';
 import { initialSourceHistoryViewState, SourceHistoryPanel } from '@/components/SourceHistoryPanel';
-import { Action, BackLink, Card, ErrorText, Heading, Loading, Page, palette } from '@/components/elements';
+import { Action, BackLink, Card, ErrorText, FilterPills, Heading, Loading, Page, palette } from '@/components/elements';
 import { themed } from '@/features/theme/theme';
 
 type Section = 'intro' | 'issues' | 'history' | 'releases' | 'pulls' | 'contribute' | 'settings';
@@ -249,7 +249,7 @@ function ProjectDetails({ owner, repo, section: initialSection, mode, focusTag, 
     <BackLink title={t("analysis.back")} heading={project?.name || repo || t("project.project")} marginBottom={22} />
     <Text style={{ color: palette.muted, lineHeight: 21, marginBottom: 14 }}>{translatedDescription || project?.description || t("project.noDescriptionYet")}</Text>
     {project && <Text style={{ color: mode === 'public' ? palette.muted : palette.green, marginBottom: 17 }}>{mode === 'public' ? `${project.private ? t("project.authorizedPrivateProject") : t("discover.publicProject")} · ${project.owner.login} · ${t("project.readOnly")}` : `● ${t("elements.savedToGitHub")} · ${project.private ? t("login.privateProject") : t("elements.public")}`}</Text>}
-    {mode === 'public' && project && <View style={{ gap: 9, marginBottom: 16 }}>{!project.private && <Action title={bookmarked ? t("project.savedTapToRemove") : t("project.saveProject")} secondary onPress={() => void toggleBookmark()} />}<StarProjectButton ref={starRefresh} owner={owner} repo={repo} /></View>}
+    {mode === 'public' && project && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginBottom: 12 }}>{!project.private && <View style={{ flexGrow: 1, flexBasis: 150, minWidth: 0 }}><Action title={bookmarked ? t("project.savedTapToRemove") : t("project.saveProject")} secondary onPress={() => void toggleBookmark()} /></View>}<View style={{ flexGrow: 1, flexBasis: 150, minWidth: 0 }}><StarProjectButton ref={starRefresh} owner={owner} repo={repo} /></View></View>}
     {section === 'intro' && project && <View style={{ marginBottom: 16 }}><Action title={t("project.downloadReleasesOrSource")} secondary onPress={() => setSection('releases')} /></View>}
     <View style={{ marginBottom: 19 }}>
     <ScrollView ref={sectionTabs} horizontal showsHorizontalScrollIndicator={false} scrollEventThrottle={32} onScroll={(event) => { const x = event.nativeEvent.contentOffset.x; setTabsScroll((current) => ({ ...current, x })); }} onLayout={(event) => { const width = event.nativeEvent.layout.width; tabsViewport.current = width; setTabsScroll((current) => ({ ...current, width })); revealSection(section); }} onContentSizeChange={(width) => { setTabsScroll((current) => ({ ...current, content: width })); revealSection(section); }} style={{ flexGrow: 0 }} contentContainerStyle={{ alignItems: 'center', gap: 8, paddingRight: 22 }}>
@@ -268,7 +268,7 @@ function ProjectDetails({ owner, repo, section: initialSection, mode, focusTag, 
       <ProjectSettingsPanel active={section === 'settings'} ref={settingsRefresh} repo={project} publicMode={mode === 'public'} onUpdate={setProject} onRemoved={() => router.replace('/(tabs)/projects')} />
     </View>}
     {section === 'issues' && <>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}><Action title={t("DiscussionSearch.open")} secondary={issueFilter !== 'open'} onPress={() => setIssueFilter('open')} /><Action title={t("issues.closed")} secondary={issueFilter !== 'closed'} onPress={() => setIssueFilter('closed')} /></View>
+      <FilterPills marginBottom={12} options={[{ label: t("DiscussionSearch.open"), selected: issueFilter === 'open', onPress: () => setIssueFilter('open') }, { label: t("issues.closed"), selected: issueFilter === 'closed', onPress: () => setIssueFilter('closed') }]} />
       <Action title={t("project.newIssue")} onPress={() => router.push({ pathname: '/project/[owner]/[repo]/new-issue', params: { owner, repo } })} /><View style={{ height: 15 }} />
       <DiscussionSearch ref={searchRefresh} owner={owner} repo={repo} kind="issue" state={issueFilter} mode={mode} isPublic={project?.private === false}>
       {(project || !loading) && <>

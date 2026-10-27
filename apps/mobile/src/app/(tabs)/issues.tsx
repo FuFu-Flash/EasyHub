@@ -11,7 +11,7 @@ import { loadOpenIssues, type OpenIssueGroup } from '@/features/github/openIssue
 import type { GitHubActivityCount, GitHubClient, GitHubIssue, GitHubRepo } from '@easyhub/github';
 import { PullReviewGroups } from '@/components/PullReviewGroups';
 import { DiscussionSearch } from '@/components/DiscussionSearch';
-import { Action, Card, DirectionLabel, ErrorText, Heading, Loading, Page, palette } from '@/components/elements';
+import { Action, Card, DirectionLabel, ErrorText, FilterPills, Heading, Loading, Page, palette } from '@/components/elements';
 import { MaterialArrow } from '@/components/MaterialArrow';
 import { usePullRefresh, type RefreshHandle } from '@/features/github/usePullRefresh';
 import { themed, onAccent } from '@/features/theme/theme';
@@ -78,21 +78,19 @@ export default function Issues() {
         { label: t("home.codeReviews800d378a"), selected: activityTab === 'pulls', onPress: () => setActivityTab('pulls'), flex: 1.9 },
       ]).map((option) => <Pressable key={option.label} onPress={option.onPress} accessibilityRole="button" accessibilityState={{ selected: option.selected }} style={{ flex: option.flex, minWidth: 0, height: 41, paddingHorizontal: 3, borderRadius: 11, borderWidth: 1, borderColor: option.selected ? palette.blue : palette.border, backgroundColor: option.selected ? palette.blue : themed('#fff'), justifyContent: 'center', alignItems: 'center' }}><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ color: option.selected ? onAccent : palette.ink, fontSize: 12, fontWeight: '800', textAlign: 'center' }}>{option.label}</Text></Pressable>)}
     </View>
-    <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-      {(activityTab === 'pulls' ? [
-        { label: t("PullRequestsPanel.open"), selected: pullFilter === 'open', onPress: () => setPullFilter('open') },
-        { label: t("issues.handled"), selected: pullFilter === 'closed', onPress: () => setPullFilter('closed') },
-      ] : [
-        { label: t("DiscussionSearch.open"), selected: issueFilter === 'open', onPress: () => setIssueFilter('open') },
-        { label: t("issues.closed"), selected: issueFilter === 'closed', onPress: () => setIssueFilter('closed') },
-      ]).map((option) => <Pressable key={option.label} onPress={option.onPress} accessibilityRole="radio" accessibilityState={{ checked: option.selected }} style={{ minHeight: 40, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: option.selected ? themed('#a8cbff') : palette.border, backgroundColor: option.selected ? themed('#e7f0ff') : 'transparent', justifyContent: 'center' }}><Text style={{ color: option.selected ? palette.blue : palette.muted, fontWeight: '700' }}>{option.label}</Text></Pressable>)}
-    </View>
+    <FilterPills options={activityTab === 'pulls' ? [
+      { label: t("PullRequestsPanel.open"), selected: pullFilter === 'open', onPress: () => setPullFilter('open') },
+      { label: t("issues.handled"), selected: pullFilter === 'closed', onPress: () => setPullFilter('closed') },
+    ] : [
+      { label: t("DiscussionSearch.open"), selected: issueFilter === 'open', onPress: () => setIssueFilter('open') },
+      { label: t("issues.closed"), selected: issueFilter === 'closed', onPress: () => setIssueFilter('closed') },
+    ]} />
     <DiscussionSearch ref={searchRefresh} key={`${user?.login || ''}:${activityTab}`} repositories={currentRepos} kind={activityTab === 'pulls' ? 'pr' : 'issue'} state={activityTab === 'pulls' ? pullFilter : issueFilter}>
     {busy && !refreshing && <Loading />}{!!error && <ErrorText message={activityTab === 'pulls' ? t("PullReviewGroups.couldNotLoadChangeRequestsPleaseTryAgain") : error} onRetry={refresh} />}
     {activityTab === 'pulls' && <PullReviewGroups ref={groupsRefresh} key={user?.login || ''} repos={currentRepos} counts={currentCounts} filter={pullFilter} />}
     {activityTab === 'issues' && <>
     {failed > 0 && !busy && <Text style={{ color: themed('#a75728'), marginBottom: 12 }}>{t("issues.someProjectsCouldNotBeCheckedPullDownToRetry")}</Text>}
-    {currentGroups.map(({ repo, issues, count }) => <Card key={repo.id}>
+    {currentGroups.map(({ repo, issues, count }) => <Card key={repo.id} style={{ paddingVertical: 8, paddingHorizontal: 16 }}>
       <Pressable onPress={() => setExpanded((current) => current.includes(repo.id) ? current.filter((id) => id !== repo.id) : [...current, repo.id])} accessibilityRole="button" accessibilityState={{ expanded: expanded.includes(repo.id) }} style={{ minHeight: 48, justifyContent: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ fontSize: 17, fontWeight: '800', color: palette.ink }}>{repo.name}</Text></View><View style={{ backgroundColor: themed('#fff0f1'), borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 }}><Text style={{ color: themed('#bd3548'), fontWeight: '800' }}>{count}</Text></View><MaterialArrow name={expanded.includes(repo.id) ? 'expandLess' : 'expandMore'} color={themed(themed('#7488a3'))} /></View>
       </Pressable>

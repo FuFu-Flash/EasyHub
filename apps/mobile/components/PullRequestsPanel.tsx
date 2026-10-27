@@ -7,7 +7,7 @@ import { useSession } from '@/features/auth/session';
 
 import { useTranslatedContent } from '@/features/translation/useTranslatedContent';
 import { DiscussionSearch } from '@/components/DiscussionSearch';
-import { Action, Card, ErrorText, Loading, palette } from '@/components/elements';
+import { Action, Card, ErrorText, FilterPills, Loading, palette } from '@/components/elements';
 import { usePagedList } from '@/features/github/usePagedList';
 import type { RefreshHandle } from '@/features/github/usePullRefresh';
 
@@ -38,10 +38,7 @@ export function PullRequestsPanel({ owner, repo, mode, isPublic = false, ref }: 
     ? t("PullRequestsPanel.couldNotLoadPullRequestsPleaseTryAgain")
     : t("PullRequestsPanel.couldNotLoadMorePullRequests");
   return <View>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-      <Action title={t("PullRequestsPanel.open")} secondary={state !== 'open'} onPress={() => setState('open')} />
-      <Action title={t("DiscussionSearch.closed")} secondary={state !== 'closed'} onPress={() => setState('closed')} />
-    </View>
+    <FilterPills options={[{ label: t("PullRequestsPanel.open"), selected: state === 'open', onPress: () => setState('open') }, { label: t("DiscussionSearch.closed"), selected: state === 'closed', onPress: () => setState('closed') }]} />
     <DiscussionSearch ref={search} owner={owner} repo={repo} kind="pr" state={state} mode={mode} isPublic={isPublic}>
     {!!error && <ErrorText message={error} onRetry={() => { void list.more(); }} />}
     {items.map((item) => <Pressable key={item.id} accessibilityRole="button" onPress={() => router.push({ pathname: '/project/[owner]/[repo]/pull/[number]', params: { owner, repo, number: String(item.number), ...(mode ? { mode } : {}) } })}>
