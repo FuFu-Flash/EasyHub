@@ -1,5 +1,6 @@
 import { useSessionReadFocusEffect } from '@/features/auth/useSessionReadFocusEffect';
 import { useTranslation } from '@/features/localization/react';
+import { releaseSummary } from '@/features/github/releaseSummary';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { AppAlert as Alert } from '@/components/AppAlert';
@@ -40,10 +41,6 @@ function IssueTitle({ issue, project }: { issue: GitHubIssue; project: GitHubRep
   const value = useTranslatedContent(issue.title, [project?.owner.login || '', project?.name || '', issue.user?.login || ''], project?.private === false).value;
   return <Text style={{ color: palette.ink, fontWeight: '700', fontSize: 16 }}>{value}</Text>;
 }
-function releaseSummary(markdown: string | null | undefined): string {
-  return (markdown || '').replace(/!?(\[([^\]]+)\])\([^)]+\)/gu, '$2')
-    .replace(/^[\s>*#-]+/gmu, '').replace(/[*_`]/gu, '').replace(/\s+/gu, ' ').trim().slice(0, 220);
-}
 export default function ProjectDetail() {
   const params = useLocalSearchParams<ProjectParameters>();
   return <ProjectDetails key={`${params.owner}/${params.repo}/${params.mode || ''}/${params.section || ''}/${params.issueState || ''}/${params.historyBranch || ''}/${params.historyPath || ''}`} {...params} />;
@@ -57,9 +54,15 @@ function ProjectDetails({ owner, repo, section: initialSection, mode, focusTag, 
   const pageScroll = useRef<ScrollView>(null);
   const sectionTabs = useRef<ScrollView>(null);
   const tabOffsets = useRef<Partial<Record<Section, number>>>({});
+  const tabWidths = useRef<Partial<Record<Section, number>>>({});
+  const tabsViewport = useRef(0);
+  const [tabsScroll, setTabsScroll] = useState({ x: 0, content: 0, width: 0 });
+  // Keep the chosen tab centred so its neighbours stay visible on both sides.
   const revealSection = useCallback((selected: Section) => {
     const x = tabOffsets.current[selected];
-    if (x !== undefined) sectionTabs.current?.scrollTo({ x: Math.max(0, x - 12), animated: false });
+    if (x === undefined) return;
+    const centred = x - Math.max(12, (tabsViewport.current - (tabWidths.current[selected] ?? 0)) / 2);
+    sectionTabs.current?.scrollTo({ x: Math.max(0, centred), animated: false });
   }, []);
   const setSection = useCallback((next: Section) => {
     if (next === 'contribute' || next === 'settings') setVisitedPanels((current) => current[next] ? current : { ...current, [next]: true });
@@ -248,9 +251,13 @@ function ProjectDetails({ owner, repo, section: initialSection, mode, focusTag, 
     {project && <Text style={{ color: mode === 'public' ? palette.muted : palette.green, marginBottom: 17 }}>{mode === 'public' ? `${project.private ? t("project.authorizedPrivateProject") : t("discover.publicProject")} · ${project.owner.login} · ${t("project.readOnly")}` : `● ${t("elements.savedToGitHub")} · ${project.private ? t("login.privateProject") : t("elements.public")}`}</Text>}
     {mode === 'public' && project && <View style={{ gap: 9, marginBottom: 16 }}>{!project.private && <Action title={bookmarked ? t("project.savedTapToRemove") : t("project.saveProject")} secondary onPress={() => void toggleBookmark()} />}<StarProjectButton ref={starRefresh} owner={owner} repo={repo} /></View>}
     {section === 'intro' && project && <View style={{ marginBottom: 16 }}><Action title={t("project.downloadReleasesOrSource")} secondary onPress={() => setSection('releases')} /></View>}
-    <ScrollView ref={sectionTabs} horizontal showsHorizontalScrollIndicator={false} onLayout={() => revealSection(section)} onContentSizeChange={() => revealSection(section)} style={{ flexGrow: 0, marginBottom: 19 }} contentContainerStyle={{ alignItems: 'center', gap: 8, paddingRight: 22 }}>
-      {([['intro', t("project.about")], ['issues', `${t("issues.issues")}${openIssueCount === null ? '' : ` ${openIssueCount}`}`], ['pulls', `${t("project.pullRequestReview")}${pullCount === null ? '' : ` ${pullCount}`}`], ['history', t("common.changeHistory")], ['releases', t("project.viewReleases")], ['contribute', t("project.forkAndContribute")], ...(mode !== 'public' && project?.permissions?.admin ? [['settings', t("ProjectSettingsPanel.projectSettings")]] : [])] as [Section, string][]).map(([id, label]) => <Pressable key={id} onLayout={event => { tabOffsets.current[id] = event.nativeEvent.layout.x; if (id === section) revealSection(section); }} onPress={() => setSection(id)} style={{ backgroundColor: section === id ? themed('#e6f0ff') : themed('#fff'), borderColor: section === id ? themed('#b8d4ff') : palette.border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 }}><Text style={{ color: section === id ? palette.blue : palette.muted, fontWeight: '700' }}>{label}</Text></Pressable>)}
+    <View style={{ marginBottom: 19 }}>
+    <ScrollView ref={sectionTabs} horizontal showsHorizontalScrollIndicator={false} scrollEventThrottle={32} onScroll={(event) => { const x = event.nativeEvent.contentOffset.x; setTabsScroll((current) => ({ ...current, x })); }} onLayout={(event) => { const width = event.nativeEvent.layout.width; tabsViewport.current = width; setTabsScroll((current) => ({ ...current, width })); revealSection(section); }} onContentSizeChange={(width) => { setTabsScroll((current) => ({ ...current, content: width })); revealSection(section); }} style={{ flexGrow: 0 }} contentContainerStyle={{ alignItems: 'center', gap: 8, paddingRight: 22 }}>
+      {([['intro', t("project.about")], ['issues', `${t("issues.issues")}${openIssueCount === null ? '' : ` ${openIssueCount}`}`], ['pulls', `${t("project.pullRequestReview")}${pullCount === null ? '' : ` ${pullCount}`}`], ['history', t("common.changeHistory")], ['releases', t("project.viewReleases")], ['contribute', t("project.forkAndContribute")], ...(mode !== 'public' && project?.permissions?.admin ? [['settings', t("ProjectSettingsPanel.projectSettings")]] : [])] as [Section, string][]).map(([id, label]) => <Pressable key={id} onLayout={event => { tabOffsets.current[id] = event.nativeEvent.layout.x; tabWidths.current[id] = event.nativeEvent.layout.width; if (id === section) revealSection(section); }} onPress={() => setSection(id)} style={{ backgroundColor: section === id ? themed('#e6f0ff') : themed('#fff'), borderColor: section === id ? themed('#b8d4ff') : palette.border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 }}><Text style={{ color: section === id ? palette.blue : palette.muted, fontWeight: '700' }}>{label}</Text></Pressable>)}
     </ScrollView>
+    {tabsScroll.x > 4 && <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 26, justifyContent: 'center', alignItems: 'flex-start', backgroundColor: `${palette.background}e6` }}><Text style={{ color: palette.muted, fontSize: 22, fontWeight: '700' }}>‹</Text></View>}
+    {tabsScroll.content - tabsScroll.width - tabsScroll.x > 4 && <View pointerEvents="none" style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 26, justifyContent: 'center', alignItems: 'flex-end', backgroundColor: `${palette.background}e6` }}><Text style={{ color: palette.muted, fontSize: 22, fontWeight: '700' }}>›</Text></View>}
+    </View>
     {loading && !project && section !== 'history' && section !== 'releases' && <Loading />}{!!error && <ErrorText message={error} onRetry={refresh} />}
     {!loading && !error && readErrors[section as keyof typeof readErrors] && <ErrorText message={t("project.thisSectionCouldNotBeLoadedPleaseRetry")} onRetry={refresh} />}
     {(project || !loading) && section === 'intro' && (!readErrors.intro || !!readme) && <Card>{readmeHtml && (translatedReadme.value === readme || translatedHtml.source === translatedReadme.value) ? <ReadmeView html={translatedReadme.value === readme ? readmeHtml : translatedHtml.html} onOpenLink={openReadmeLink} /> : readme ? <Markdown style={{ body: { color: palette.ink, fontSize: 15, lineHeight: 24 }, heading1: { fontSize: 25, fontWeight: '800', color: palette.ink }, heading2: { fontSize: 21, fontWeight: '800', color: palette.ink }, link: { color: palette.blue }, image: { maxWidth: 300 } }} onLinkPress={(url) => { if (!openReadmeLink(url)) return true; return false; }}>{translatedReadme.value}</Markdown> : <Text style={{ color: palette.muted }}>{t("project.noIntroductionYet")}</Text>}{translatedReadme.busy && <Text style={{ color: palette.muted }}>{t("TranslatableMarkdown.translatingSections")}</Text>}</Card>}
