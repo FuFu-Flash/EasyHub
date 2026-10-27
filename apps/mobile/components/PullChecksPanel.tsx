@@ -9,8 +9,11 @@ import { themed } from '@/features/theme/theme';
 
 export interface PullChecksHandle extends RefreshHandle { headSha: string; cancel(): void }
 
+export interface PullChecksSummaryInfo { outcome: 'partial' | 'none' | 'failed' | 'pending' | 'passed' | 'other'; failed: number; pending: number }
+
 export interface PullChecksPanelProps {
   ref?: Ref<PullChecksHandle>;
+  onSummary?: (info: PullChecksSummaryInfo | null) => void;
   client: PullChecksClient;
   owner: string;
   repo: string;
@@ -23,7 +26,7 @@ export function PullChecksPanel(props: PullChecksPanelProps) {
   return <RevisionChecks key={`${props.owner}/${props.repo}:${props.headSha}`} {...props} />;
 }
 
-function RevisionChecks({ client, owner, repo, headSha, language, ref }: PullChecksPanelProps) {
+function RevisionChecks({ client, owner, repo, headSha, language, ref, onSummary }: PullChecksPanelProps) {
   const [sources, setSources] = useState(emptyCheckSources);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -66,6 +69,11 @@ function RevisionChecks({ client, owner, repo, headSha, language, ref }: PullChe
 
   const summary = summarizeChecks(sources, busy || error);
   const unavailable = sources.runs.error || sources.statuses.error;
+  const { outcome: summaryOutcome } = summary, failedCount = summary.counts.failed, pendingCount = summary.counts.pending;
+  useEffect(() => {
+    onSummary?.(busy || unavailable ? null : { outcome: summaryOutcome as PullChecksSummaryInfo['outcome'], failed: failedCount, pending: pendingCount });
+  }, [onSummary, busy, unavailable, summaryOutcome, failedCount, pendingCount]);
+  useEffect(() => () => onSummary?.(null), [onSummary]);
   const labels: Record<CheckOutcome, string> = {
     passed: t("PullChecksPanel.passed"), failed: t("PullChecksPanel.failed"), pending: t("PullChecksPanel.pendingOrRunning"),
     skipped: t("PullChecksPanel.skipped"), neutral: t("PullChecksPanel.neutral"), unknown: t("PullChecksPanel.unknown"),

@@ -8,7 +8,7 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { AppAlert as Alert } from '@/components/AppAlert';
 import { AiReviewButton } from '@/components/AiReviewButton';
-import { PullChecksPanel, type PullChecksHandle } from '@/components/PullChecksPanel';
+import { PullChecksPanel, type PullChecksHandle, type PullChecksSummaryInfo } from '@/components/PullChecksPanel';
 import { PullBinaryEvidence } from '@/components/PullBinaryEvidence';
 import { ProgramReviewPrompt } from '@/components/ProgramReviewPrompt';
 import type { BinaryAnalysisResult } from '@easyhub/types';
@@ -44,6 +44,17 @@ function analysisRequestId() {
     return (letter === 'x' ? value : (value & 3) | 8).toString(16);
   });
 }
+function ReviewSummary({ files, checks }: { files: number; checks: PullChecksSummaryInfo | null }) {
+  const t = useTranslation();
+  const text = !checks ? t("number.checkingResultsSummary")
+    : checks.failed > 0 ? t("number.checksFailedSummary", { count: checks.failed })
+      : checks.pending > 0 ? t("number.checksPendingSummary", { count: checks.pending })
+        : checks.outcome === 'passed' ? t("number.checksPassedSummary")
+          : checks.outcome === 'none' ? t("number.checksNoneSummary") : t("number.checksUnclearSummary");
+  const bad = !!checks && checks.failed > 0;
+  return <Text accessibilityLiveRegion="polite" style={{ color: bad ? themed('#bf3947') : palette.ink, fontWeight: '700', marginBottom: 13, lineHeight: 21 }}>{t("number.changedFilesSummary", { count: files })} · {text}</Text>;
+}
+
 export default function PullRequestDetail() {
   const params = useLocalSearchParams<PullParameters>();
   return <PullDetails key={`${params.owner}/${params.repo}/${params.number}`} {...params} />;
@@ -96,6 +107,7 @@ function PullDetails({ owner, repo, number }: PullParameters) {
   const snapshot = useRef<GitHubPullRequest | null>(null);
   const focused = useRef(false);
   const [showChecks, setShowChecks] = useState(false);
+  const [checksInfo, setChecksInfo] = useState<PullChecksSummaryInfo | null>(null);
   const checks = useRef<PullChecksHandle | null>(null);
   const checksReady = useRef<{ headSha: string; resolve(): void } | null>(null);
   const readTask = useRef<{ revision: number; promise: Promise<void> } | null>(null);
@@ -425,8 +437,8 @@ function PullDetails({ owner, repo, number }: PullParameters) {
       <Text style={{ color: pull.merged_at ? palette.blue : pull.state === 'open' ? palette.green : palette.muted, fontWeight: '800', marginBottom: 7 }}>{pull.draft ? t("PullRequestsPanel.draft") : pull.merged_at ? t("PullRequestsPanel.accepted") : pull.state === 'open' ? t("number.awaitingReview") : t("DiscussionSearch.closed")}</Text>
       <Heading title={translatedTitle} subtitle={`#${pull.number} · ${pull.user?.login || t("PullRequestsPanel.githubUser")} · ${formatDate(pull.created_at, language)}`} />
       <ProgramReviewPrompt files={files} />
-      {canManage && pull.state === 'open' && <Card><Text style={{ color: palette.ink, fontSize: 18, fontWeight: '800' }}>{t("number.reviewTheseChanges")}</Text><Text style={{ color: palette.muted, marginTop: 7, marginBottom: 13 }}>{pull.draft ? t("number.theAuthorIsStillPreparingTheseChangesItCanBeMerged") : t("number.approvalMergesTheChangesRejectionClosesTheRequest")}</Text><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}><Action title={t("number.reject")} secondary disabled={busy || loading || !!error} onPress={() => setDecision('reject')} /><Action title={t("number.approveAndMerge")} disabled={busy || loading || !!error || pull.draft || (pull.changed_files ?? files.length) > files.length} onPress={() => setDecision('accept')} /></View></Card>}
-      {decision && <Card><Text style={{ color: palette.ink, fontWeight: '800', fontSize: 17 }}>{decision === 'accept' ? t("number.approveAndMergeTheseChanges") : t("number.rejectAndCloseThisRequest")}</Text><Text style={{ color: palette.muted, marginTop: 7 }}>{pull.title}</Text>{decision === 'reject' && <TextInput placeholderTextColor={palette.muted} value={decisionReason} onChangeText={setDecisionReason} multiline placeholder={t("number.reasonForRejectionOptional")} style={{ color: palette.ink, borderWidth: 1, borderColor: palette.border, borderRadius: 10, minHeight: 78, padding: 10, marginTop: 12, textAlignVertical: 'top' }} />}<View style={{ marginTop: 13, gap: 8 }}><Action title={busy ? t("AiReviewSettings.working") : t("number.confirm")} disabled={busy || loading || !!error} onPress={confirmDecision} /><Action title={t("AiReviewSettings.cancel")} secondary disabled={busy || loading || !!error} onPress={() => setDecision(null)} /></View></Card>}
+      {canManage && pull.state === 'open' && <Card><Text style={{ color: palette.ink, fontSize: 18, fontWeight: '800' }}>{t("number.reviewTheseChanges")}</Text><Text style={{ color: palette.muted, marginTop: 7, marginBottom: 13 }}>{pull.draft ? t("number.theAuthorIsStillPreparingTheseChangesItCanBeMerged") : t("number.approvalMergesTheChangesRejectionClosesTheRequest")}</Text><ReviewSummary files={pull.changed_files ?? files.length} checks={checksInfo} /><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}><Action title={t("number.reject")} secondary disabled={busy || loading || !!error} onPress={() => setDecision('reject')} /><Action title={t("number.approveAndMerge")} disabled={busy || loading || !!error || pull.draft || (pull.changed_files ?? files.length) > files.length} onPress={() => setDecision('accept')} /></View></Card>}
+      {decision && <Card><Text style={{ color: palette.ink, fontWeight: '800', fontSize: 17 }}>{decision === 'accept' ? t("number.approveAndMergeTheseChanges") : t("number.rejectAndCloseThisRequest")}</Text><Text style={{ color: palette.muted, marginTop: 7 }}>{pull.title}</Text>{decision === 'accept' && !!checksInfo && (checksInfo.failed > 0 || checksInfo.pending > 0) && <Text accessibilityRole="alert" style={{ color: checksInfo.failed > 0 ? themed('#bf3947') : palette.muted, marginTop: 9, lineHeight: 21 }}>{checksInfo.failed > 0 ? t("number.mergeWithFailedChecks", { count: checksInfo.failed }) : t("number.mergeWithPendingChecks", { count: checksInfo.pending })}</Text>}{decision === 'reject' && <TextInput placeholderTextColor={palette.muted} value={decisionReason} onChangeText={setDecisionReason} multiline placeholder={t("number.reasonForRejectionOptional")} style={{ color: palette.ink, borderWidth: 1, borderColor: palette.border, borderRadius: 10, minHeight: 78, padding: 10, marginTop: 12, textAlignVertical: 'top' }} />}<View style={{ marginTop: 13, gap: 8 }}><Action title={busy ? t("AiReviewSettings.working") : t("number.confirm")} disabled={busy || loading || !!error} onPress={confirmDecision} /><Action title={t("AiReviewSettings.cancel")} secondary disabled={busy || loading || !!error} onPress={() => setDecision(null)} /></View></Card>}
       <Card><View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         <Text style={{ color: palette.muted, lineHeight: 21, flexShrink: 1, maxWidth: '100%' }}>{t("ForkContributionPanel.target")}: {pull.base.ref}</Text>
         <MaterialArrow name="back" color={palette.muted} size={24} />
@@ -435,7 +447,7 @@ function PullDetails({ owner, repo, number }: PullParameters) {
         <Text style={{ color: palette.ink, fontWeight: '800', marginBottom: 8 }}>{t("number.description")}</Text>
         <TranslatableMarkdown text={pull.body || t("number.noDescriptionProvided")} isPublic={isPublic} protectedNames={names} />
       </Card>
-      {showChecks && !!pull.head.sha && <PullChecksPanel ref={onChecksReady} client={client} owner={owner} repo={repo} headSha={pull.head.sha} language={language} />}
+      {showChecks && !!pull.head.sha && <PullChecksPanel ref={onChecksReady} onSummary={setChecksInfo} client={client} owner={owner} repo={repo} headSha={pull.head.sha} language={language} />}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10, marginBottom: 12 }}>
         <Text style={{ color: palette.ink, fontSize: 18, fontWeight: '800', flexShrink: 1 }}>{t("number.changedFiles")} · {pull.changed_files ?? files.length}</Text>
         <AiReviewButton title={t("BinaryAnalysisSettings.aiReview")} disabled={loading || !!error || busy || !!aiProgress || !!binaryProgress || !pull.head.sha || pull.state !== 'open'} onPress={() => { void prepareAiReview(); }} />
