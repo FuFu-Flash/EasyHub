@@ -32,8 +32,8 @@ export default function NewIssue() {
     finally { setBusy(false); }
   };
   return <Page>
-    <BackLink title={t("analysis.back")} marginBottom={25} />
-    <Heading title={t("newissue.newIssue")} subtitle={`${owner}/${repo}`} />
+    <BackLink title={t("analysis.back")} heading={t("newissue.newIssue")} marginBottom={22} />
+    <Heading subtitle={`${owner}/${repo}`} />
     <Text style={{ color: palette.ink, fontWeight: '700', marginBottom: 8 }}>{t("newissue.issueTitle")}</Text>
     <TextInput placeholderTextColor={palette.muted} value={title} onChangeText={setTitle} placeholder={t("newissue.brieflyDescribeWhatHappened")} style={{ color: palette.ink, padding: 14, backgroundColor: themed('#fff'), borderWidth: 1, borderColor: palette.border, borderRadius: 12, marginBottom: 18 }} />
     <Text style={{ color: palette.ink, fontWeight: '700', marginBottom: 8 }}>{t("newissue.details")}</Text>

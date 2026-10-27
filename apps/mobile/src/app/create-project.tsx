@@ -41,7 +41,7 @@ export default function CreateProject() {
     } catch { if (current()) setError(t("createproject.couldNotCreateTheProjectCheckWhetherTheNameIsAlready")); }
     finally { setBusy(false); }
   };
-  return <Page><BackLink title={t("analysis.back")} marginBottom={25} /><Heading title={t("home.newProject")} subtitle={t("createproject.giveYourNewIdeaANameAndShareYourWorkAnytime")} />
+  return <Page><BackLink title={t("analysis.back")} heading={t("home.newProject")} marginBottom={22} /><Heading subtitle={t("createproject.giveYourNewIdeaANameAndShareYourWorkAnytime")} />
     <Card>
       <Text style={{ fontWeight: '800', color: palette.ink, marginBottom: 8 }}>{t("createproject.projectName")} <Text style={{ color: themed('#d66c7e') }}>*</Text></Text>
       <TextInput placeholderTextColor={palette.muted} accessibilityLabel={t("createproject.projectName")} value={name} onChangeText={setName} autoCapitalize="none" autoCorrect={false} placeholder={t("createproject.forExampleMyTool")} maxLength={100} style={{ backgroundColor: themed('#fff'), color: palette.ink, borderWidth: 1, borderColor: palette.border, padding: 15, borderRadius: 12, marginBottom: 18 }} />

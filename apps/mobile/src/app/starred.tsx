@@ -23,7 +23,7 @@ export default function Starred() {
   const { refresh, refreshing } = usePullRefresh([reload]);
   const error = failedPage !== null ? t("starred.couldNotLoadStarredProjectsPleaseTryAgain") : '';
   if (!ready) return <Loading />;
-  return <Page refresh={client ? refresh : undefined} refreshing={refreshing}><BackLink title={t("analysis.back")} marginBottom={20} /><Heading title={t("starred.starredProjects")} subtitle={t("starred.yourGitHubStarredProjectsAppearOnAllDevices")} />
+  return <Page refresh={client ? refresh : undefined} refreshing={refreshing}><BackLink title={t("analysis.back")} heading={t("starred.starredProjects")} marginBottom={22} /><Heading subtitle={t("starred.yourGitHubStarredProjectsAppearOnAllDevices")} />
     {!client && <Action title={t("discover.signInWithGitHub")} onPress={() => router.push('/login')} />}
     {!!error && <ErrorText message={error} onRetry={() => { void more(); }} />}
     {repos.map((repo) => <Pressable key={repo.id} onPress={() => router.push({ pathname: '/project/[owner]/[repo]', params: { owner: repo.owner.login, repo: repo.name, mode: 'public' } })}><Card><Text style={{ color: palette.ink, fontSize: 17, fontWeight: '800' }}>{repo.full_name}</Text>{repo.private && <Text style={{ color: palette.muted, marginTop: 5 }}>{t("project.authorizedPrivateProject")}</Text>}<Text style={{ color: palette.muted, marginTop: 7 }}>{repo.description || t("discover.noDescriptionYet")}</Text><Text style={{ color: palette.muted, marginTop: 7 }}>★ {repo.stargazers_count ?? 0}</Text></Card></Pressable>)}

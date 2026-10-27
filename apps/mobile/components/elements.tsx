@@ -19,11 +19,15 @@ export function DirectionLabel({ title, name = 'forward', color = palette.blue, 
   </View>;
 }
 
-/** Android-style back control: just the chevron, with the destination as its accessible name. */
-export function BackLink({ title, onPress = () => router.back(), marginBottom = 22 }: { title: string; onPress?: () => void; marginBottom?: number }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={title} hitSlop={8} onPress={onPress} style={{ alignSelf: 'flex-start', width: 48, height: 48, marginLeft: -12, justifyContent: 'center', alignItems: 'center', marginBottom }}>
-    <View style={{ transform: [{ scaleX: -1 }] }}><MaterialArrow name="chevron" color={palette.ink} size={32} /></View>
-  </Pressable>;
+/** Android-style back control: the chevron, optionally followed by the page title on the same line like a top app bar. */
+export function BackLink({ title, heading, onPress = () => router.back(), marginBottom = 22 }: { title: string; heading?: string; onPress?: () => void; marginBottom?: number }) {
+  const gap = Math.max(0, marginBottom - 20);
+  const arrow = <View style={{ transform: [{ scaleX: -1 }] }}><MaterialArrow name="chevron" color={palette.ink} size={32} /></View>;
+  if (heading) return <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: -12, marginTop: -10, marginBottom: gap }}>
+    <Pressable accessibilityRole="button" accessibilityLabel={title} hitSlop={8} onPress={onPress} style={{ width: 48, height: 48, justifyContent: 'center', alignItems: 'center' }}>{arrow}</Pressable>
+    <Text accessibilityRole="header" numberOfLines={1} style={{ flex: 1, minWidth: 0, color: palette.ink, fontSize: 22, fontWeight: '800' }}>{heading}</Text>
+  </View>;
+  return <Pressable accessibilityRole="button" accessibilityLabel={title} hitSlop={8} onPress={onPress} style={{ alignSelf: 'flex-start', width: 48, height: 48, marginLeft: -12, marginTop: -10, justifyContent: 'center', alignItems: 'center', marginBottom: gap }}>{arrow}</Pressable>;
 }
 
 export function Page({ children, refresh, refreshing = false, scrollRef }: { children: ReactNode; refresh?: () => void; refreshing?: boolean; scrollRef?: Ref<ScrollView> }) {
@@ -44,8 +48,11 @@ export function ErrorText({ message, onRetry }: { message: string; onRetry?: () 
   const t = useTranslation();
   return <Card><Text style={{ color: themed('#bf3947'), marginBottom: onRetry ? 12 : 0 }}>{message}</Text>{onRetry && <Action title={t("DiscussionSearch.retry")} onPress={onRetry} secondary />}</Card>;
 }
-export function Heading({ title, subtitle }: { title: string; subtitle?: string }) {
-  return <View style={{ marginBottom: 22 }}><Text style={{ fontSize: 28, fontWeight: '800', color: palette.ink }}>{title}</Text>{subtitle && <Text style={{ color: palette.muted, marginTop: 7, lineHeight: 21 }}>{subtitle}</Text>}</View>;
+export function Heading({ title, subtitle, compact }: { title?: string; subtitle?: string; compact?: boolean }) {
+  return <View style={{ marginBottom: title ? (compact ? 16 : 22) : 16 }}>
+    {!!title && <Text accessibilityRole="header" style={{ fontSize: compact ? 22 : 28, lineHeight: compact ? 29 : undefined, fontWeight: '800', color: palette.ink }}>{title}</Text>}
+    {!!subtitle && <Text style={{ color: palette.muted, marginTop: title ? 7 : 0, lineHeight: 21 }}>{subtitle}</Text>}
+  </View>;
 }
 
 export function RepositoryRow({ repo }: { repo: GitHubRepo }) {

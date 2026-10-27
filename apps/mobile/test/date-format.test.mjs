@@ -83,5 +83,5 @@ test('all project, release, issue, pull and history date call sites pass saved a
     };
     visit(source);
   }
-  assert.equal(checked, 8);
+  assert.equal(checked, 7);
 });

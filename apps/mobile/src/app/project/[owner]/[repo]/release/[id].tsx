@@ -125,7 +125,7 @@ function ReleaseDetails({ owner, repo, id }: { owner: string; repo: string; id: 
     {loading && !release && <Loading />}
     {!!loadError && <ErrorText message={loadError} onRetry={refresh} />}
     {release && <>
-      <Heading title={release.name || release.tag_name} subtitle={`${release.tag_name} · ${release.prerelease ? t("id.prerelease") : t("id.stable")}${release.draft ? ` · ${t("PullRequestsPanel.draft")}` : ''}${release.published_at ? ` · ${formatDate(release.published_at, language)}` : ''}`} />
+      <Heading compact title={release.name || release.tag_name} subtitle={`${release.tag_name} · ${release.prerelease ? t("id.prerelease") : t("id.stable")}${release.draft ? ` · ${t("PullRequestsPanel.draft")}` : ''}${release.published_at ? ` · ${formatDate(release.published_at, language)}` : ''}`} />
       {!!release.body && <Card>
         <Action title={expanded ? t("id.collapseNotes") : t("id.readFullReleaseNotes")} secondary onPress={() => setExpanded((value) => !value)} />
         {expanded && <View style={{ marginTop: 12 }}><TranslatableMarkdown text={release.body} isPublic={isPublic} protectedNames={[repo, release.tag_name, release.name || '', ...release.assets.map((asset) => asset.name)]} style={{ body: { color: palette.ink, lineHeight: 23 }, link: { color: palette.blue } }} /></View>}

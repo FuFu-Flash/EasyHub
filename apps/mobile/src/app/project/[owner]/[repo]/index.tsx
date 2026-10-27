@@ -246,8 +246,8 @@ function ProjectDetails({ owner, repo, section: initialSection, mode, focusTag, 
   if (!ready) return <Loading />;
   if (!client) return <Page><Heading title={t("project.pleaseSignIn")} subtitle={t("project.signInToViewThisProject")} /><Action title={t("discover.signInWithGitHub")} onPress={() => router.push('/login')} /></Page>;
   return <Page scrollRef={pageScroll} refresh={refresh} refreshing={refreshing}>
-    <BackLink title={t("analysis.back")} marginBottom={20} />
-    <Heading title={project?.name || repo || t("project.project")} subtitle={translatedDescription || project?.description || t("project.noDescriptionYet")} />
+    <BackLink title={t("analysis.back")} heading={project?.name || repo || t("project.project")} marginBottom={22} />
+    <Text style={{ color: palette.muted, lineHeight: 21, marginBottom: 14 }}>{translatedDescription || project?.description || t("project.noDescriptionYet")}</Text>
     {project && <Text style={{ color: mode === 'public' ? palette.muted : palette.green, marginBottom: 17 }}>{mode === 'public' ? `${project.private ? t("project.authorizedPrivateProject") : t("discover.publicProject")} · ${project.owner.login} · ${t("project.readOnly")}` : `● ${t("elements.savedToGitHub")} · ${project.private ? t("login.privateProject") : t("elements.public")}`}</Text>}
     {mode === 'public' && project && <View style={{ gap: 9, marginBottom: 16 }}>{!project.private && <Action title={bookmarked ? t("project.savedTapToRemove") : t("project.saveProject")} secondary onPress={() => void toggleBookmark()} />}<StarProjectButton ref={starRefresh} owner={owner} repo={repo} /></View>}
     {section === 'intro' && project && <View style={{ marginBottom: 16 }}><Action title={t("project.downloadReleasesOrSource")} secondary onPress={() => setSection('releases')} /></View>}
