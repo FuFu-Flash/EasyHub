@@ -962,6 +962,36 @@ export const en = {
   "settings.themeLightDescription": "A bright background that is easier to read in daylight",
   "settings.themeDark": "Dark",
   "settings.themeDarkDescription": "A dark background that is easier on the eyes at night",
+  "number.changedFilesSummary": {
+    "count": "count",
+    "one": "{count} file changed",
+    "other": "{count} files changed"
+  },
+  "number.checkingResultsSummary": "Reading check results…",
+  "number.checksFailedSummary": {
+    "count": "count",
+    "one": "{count} check failed",
+    "other": "{count} checks failed"
+  },
+  "number.checksPendingSummary": {
+    "count": "count",
+    "one": "{count} check still running",
+    "other": "{count} checks still running"
+  },
+  "number.checksPassedSummary": "All checks passed",
+  "number.checksNoneSummary": "No check results",
+  "number.checksUnclearSummary": "Check results are incomplete",
+  "number.mergeWithFailedChecks": {
+    "count": "count",
+    "one": "{count} check failed. Merging will bring these problems into your project.",
+    "other": "{count} checks failed. Merging will bring these problems into your project."
+  },
+  "number.mergeWithPendingChecks": {
+    "count": "count",
+    "one": "{count} check is still running, so the result may change.",
+    "other": "{count} checks are still running, so the result may change."
+  },
+  "number.jumpToReply": "Jump to reply",
   "home.title": "Home",
   "home.needsYourAttention": "Needs your attention",
   "home.nothingNeedsYourAttention": "Nothing needs your attention right now.",
@@ -977,10 +1007,16 @@ export const en = {
   },
   "home.attentionTotal": {
     "count": "count",
-    "one": "{count} item needs attention",
-    "other": "{count} items need attention"
+    "one": "{count} project needs attention",
+    "other": "{count} projects need attention"
   },
   "home.reviewPullRequests": "Review",
+  "home.showMoreProjects": {
+    "count": "count",
+    "one": "{count} more project",
+    "other": "{count} more projects"
+  },
+  "home.showFewerProjects": "Show less",
   "home.taskMeta": "{name} · updated {time}",
   "home.taskAction": "{action}: {name}",
   "home.viewAllProjects": {
