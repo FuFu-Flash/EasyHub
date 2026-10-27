@@ -1702,6 +1702,24 @@
 .binary-release-asset > .release-asset {
   min-width: 0;
 }
+@media (min-width: 701px) {
+  /* The review button lives inside the row, left of the download arrow, so every file row has the same width. */
+  .binary-release-asset {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .binary-release-asset > .release-asset > span {
+    margin-right: 130px;
+  }
+  .binary-release-asset > .button {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 47px;
+    height: max-content;
+    margin: auto 0;
+  }
+}
 .binary-analysis-progress {
   margin: 17px 0;
 }
@@ -2363,6 +2381,22 @@ svg {
 }
 .cloud-row strong {
   font-size: var(--eh-text-14);
+}
+.cloud-list .cloud-row,
+.saved-public-section .cloud-row {
+  border-radius: 0;
+  box-shadow: none;
+}
+.cloud-row .cloud-private {
+  min-width: 72px;
+  justify-content: flex-end;
+}
+.cloud-row > .button {
+  min-width: 64px;
+  justify-content: center;
+}
+.cloud-row > .button + .button {
+  min-width: 108px;
 }
 .cloud-private {
   display: flex;
@@ -4629,6 +4663,9 @@ body,
   min-width: 0;
   padding: 25px;
 }
+.live-create-form {
+  max-width: 680px;
+}
 .live-form .field {
   margin-bottom: 17px;
 }
@@ -5883,10 +5920,16 @@ body,
   background: var(--eh-color-surface);
   color: var(--eh-color-ink);
   font: inherit;
+  font-weight: var(--eh-weight-400);
   box-sizing: border-box;
 }
 .release-edit-panel textarea {
   resize: vertical;
+}
+.release-edit-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--eh-space-8);
 }
 .release-edit-actions {
   display: flex;

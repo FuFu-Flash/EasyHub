@@ -6,6 +6,7 @@ import {
   CloudDownload,
   Folder,
   FolderOpen,
+  Globe2,
   LockKeyhole,
   Plus,
 } from 'lucide-react';
@@ -250,7 +251,10 @@ export function ProjectsPage() {
                       {t('projectsPage.onlyMe')}
                     </>
                   ) : (
-                    t('projectsPage.everyone')
+                    <>
+                      <Globe2 size={14} />
+                      {t('projectsPage.everyone')}
+                    </>
                   )}
                 </span>
                 <button className="button button-quiet" onClick={browse}>

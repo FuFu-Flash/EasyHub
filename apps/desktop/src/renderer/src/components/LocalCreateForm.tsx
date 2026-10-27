@@ -37,11 +37,8 @@ export function LocalCreateForm({
   const t = useTranslation(language);
   return (
     <form className="panel live-form live-create-form" onSubmit={onSubmit}>
-      <h2>
-        {inspection?.state === 'existing'
-          ? t('localWorkspace.createANewProjectFromThisFolder')
-          : t('localWorkspace.createProject')}
-      </h2>
+      {/* The page title already says "New Project"; only the folder case adds information. */}
+      {inspection?.state === 'existing' && <h2>{t('localWorkspace.createANewProjectFromThisFolder')}</h2>}
       <label className="field">
         <span>{t('localWorkspace.projectName')}</span>
         <input
