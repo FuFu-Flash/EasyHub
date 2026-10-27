@@ -1,7 +1,7 @@
 import { useSessionReadFocusEffect } from '@/features/auth/useSessionReadFocusEffect';
 import { useTranslation } from '@/features/localization/react';
 import { useCallback, useRef, useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { AppAlert as Alert } from '@/components/AppAlert';
 import { router, useLocalSearchParams } from 'expo-router';
 import type { GitHubComment, GitHubIssue, GitHubRepo } from '@easyhub/github';
@@ -39,6 +39,7 @@ function IssueDetails({ owner, repo, number }: IssueParameters) {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const page = useRef<ScrollView>(null);
   const request = useRef<AbortController | null>(null);
   const readTask = useRef<Promise<void> | null>(null);
   const openedCommentPages = useRef(1);
@@ -114,12 +115,13 @@ function IssueDetails({ owner, repo, number }: IssueParameters) {
   };
   if (!ready) return <Loading />;
   if (!client) return <Page><Heading title={t("project.pleaseSignIn")} subtitle={t("number.signInToViewThisIssue")} /><Action title={t("discover.signInWithGitHub")} onPress={() => router.push('/login')} /></Page>;
-  return <Page refresh={refresh} refreshing={refreshing}>
+  return <Page scrollRef={page} refresh={refresh} refreshing={refreshing}>
     <BackLink title={t("number.backToIssues")} marginBottom={25} />
     {loading && !issue && <Loading />}{!!error && <ErrorText message={error} onRetry={refresh} />}
     {issue && <>
       <Text style={{ color: issue.state === 'open' ? palette.green : palette.muted, fontWeight: '700' }}>{issue.state === 'open' ? t("DiscussionSearch.open") : t("project.resolved")}</Text>
       <Heading title={translatedTitle || issue.title} subtitle={`${issue.user?.login || t("PullRequestsPanel.githubUser")} · ${formatDateTime(issue.created_at, language)}`} />
+      {!!user && comments.length >= 3 && <Pressable onPress={() => page.current?.scrollToEnd({ animated: true })} accessibilityRole="button" style={{ alignSelf: 'flex-start', minHeight: 48, justifyContent: 'center', marginBottom: 6 }}><Text style={{ color: palette.blue, fontWeight: '700' }}>{t("number.jumpToReply")} ↓</Text></Pressable>}
       {[{ id: issue.id, body: issue.body || '', user: issue.user?.login || t("PullRequestsPanel.githubUser"), date: issue.created_at }, ...comments.map((item) => ({ id: item.id, body: item.body, user: item.user?.login || t("PullRequestsPanel.githubUser"), date: item.created_at }))].map((message) => <View key={message.id} style={{ flexDirection: 'row', gap: 9, marginBottom: 13 }}>
         <View style={{ width: 36, height: 36, backgroundColor: themed('#e4f0ff'), borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: palette.blue, fontWeight: '800' }}>{message.user[0]?.toUpperCase()}</Text></View>
         <Card style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: palette.ink }}>{message.user} <Text style={{ color: palette.muted, fontWeight: '400' }}>· {formatDateTime(message.date, language)}</Text></Text><View style={{ marginTop: 14 }}><TranslatableMarkdown text={message.body || t("number.noDescription")} isPublic={isPublic} protectedNames={names} /></View></Card>
