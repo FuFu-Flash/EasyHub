@@ -541,7 +541,7 @@ export function BinaryAnalysisPanel({
             </div>
           )}
           <div className="binary-file-entry">
-            {selectedSource ? (
+            {selectedSource && (
               <div className="binary-selected-file">
                 <FileSearch size={19} />
                 <span>
@@ -555,10 +555,6 @@ export function BinaryAnalysisPanel({
                   </small>
                 </span>
               </div>
-            ) : (
-              <p className="ai-settings-note">
-                {t('binaryAnalysisPanel.selectAProgramFileAfterConfirmationItsContentIs')}
-              </p>
             )}
             <div className="binary-file-actions">
               {!source && (

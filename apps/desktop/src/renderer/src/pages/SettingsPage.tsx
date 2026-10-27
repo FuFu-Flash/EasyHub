@@ -91,7 +91,6 @@ export function SettingsPage() {
           </div>
           <div className="settings-panel-content">
             <h2>{t('settingsPage.windowControls')}</h2>
-            <p>{t('settingsPage.chooseTheStyleOfTheWindowButtonsChangesTake')}</p>
             <WindowControlStyleOptions value={windowStyle} onChange={setWindowStyle} />
           </div>
         </section>
@@ -126,9 +125,6 @@ export function SettingsPage() {
             <label className="translation-names-label" htmlFor="translation-names">
               {t('settingsPage.namesToKeepUnchanged')}
             </label>
-            <p className="translation-names-help">
-              {t('settingsPage.theCurrentProjectAuthorsAndGithubProjectsLinkedIn')}
-            </p>
             <textarea
               id="translation-names"
               aria-label={t('settingsPage.namesToKeepUnchanged')}
