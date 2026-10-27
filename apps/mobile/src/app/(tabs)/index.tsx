@@ -18,7 +18,7 @@ import { EarthIcon } from '@/components/EarthIcon';
 import { useActivityNotices } from '@/features/github/useActivityNotices';
 import { usePullRefresh } from '@/features/github/usePullRefresh';
 import { homeTasks, type HomeTask } from '@/features/github/homeTasks';
-import { themed, onAccent, themedStyles } from '@/features/theme/theme';
+import { themed, onAccent, themedStyles, scrim } from '@/features/theme/theme';
 
 const appIcon = require('../../../assets/images/icon.png');
 const minecraftIcon = require('../../../assets/images/minecraft-grass-block.png');
@@ -270,7 +270,7 @@ const styles = themedStyles(() => StyleSheet.create({
   recentName: { color: themed('#172238'), fontSize: 14, fontWeight: '800' },
   recentDescription: { color: themed('#8290a3'), fontSize: 11, marginTop: 3 },
   recentTime: { color: themed('#8290a3'), fontSize: 11, maxWidth: 65, textAlign: 'right' },
-  notificationOverlay: { flex: 1, backgroundColor: '#152d4c55', justifyContent: 'center', alignItems: 'center', padding: 22 },
+  notificationOverlay: { flex: 1, backgroundColor: scrim(), justifyContent: 'center', alignItems: 'center', padding: 22 },
   notificationPanel: { width: '100%', maxWidth: 500, backgroundColor: themed('#f5f8fe'), borderRadius: 19, padding: 17 },
   notificationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, flexShrink: 0, gap: 10 },
   notificationHeaderCompact: { flexDirection: 'column', alignItems: 'stretch', gap: 4 },

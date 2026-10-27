@@ -4,7 +4,7 @@ import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { palette } from './elements';
 import { usePreferences } from '@/features/preferences/provider';
 import { usePathname } from 'expo-router';
-import { themed, onAccent } from '@/features/theme/theme';
+import { themed, onAccent, scrim } from '@/features/theme/theme';
 
 type Button = { text?: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' };
 type Dialog = { title: string; message?: string; buttons: Button[] };
@@ -26,7 +26,7 @@ export function AppAlertProvider({ children }: { children: ReactNode }) {
   useEffect(() => { queueMicrotask(() => setDialog(null)); }, [language, pathname]);
   const dismiss = () => setDialog(null);
   return <>{children}<Modal visible={!!dialog} transparent animationType="fade" statusBarTranslucent onRequestClose={dismiss}>
-    <View style={{ flex: 1, backgroundColor: 'rgba(18, 34, 58, 0.46)', justifyContent: 'center', padding: 22 }}>
+    <View style={{ flex: 1, backgroundColor: scrim(), justifyContent: 'center', padding: 22 }}>
       <Pressable onPress={dismiss} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }} accessibilityLabel={t("AppAlert.closeDialog")} />
       <View style={{ backgroundColor: themed('#fff'), borderRadius: 22, borderWidth: 1, borderColor: palette.border, padding: 22, maxHeight: '78%' }}>
         <Text style={{ color: palette.ink, fontSize: 21, fontWeight: '800' }}>{dialog?.title}</Text>

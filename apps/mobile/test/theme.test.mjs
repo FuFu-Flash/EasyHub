@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyTheme, palette, parseThemePreference, resolveTheme, themed, themedStyles } from '../features/theme/theme.ts';
+import { applyTheme, darkTokens, lightTokens, palette, tokenFor, parseThemePreference, resolveTheme, themed, themedStyles } from '../features/theme/theme.ts';
 import { defaultPreferences, parsePreferences } from '../features/preferences/model.ts';
 
 const luminance = (hex) => {
@@ -27,16 +27,32 @@ test('saved preferences keep the chosen theme and older files without one follow
   assert.equal(parsePreferences(JSON.stringify({ theme: 'sepia' })).theme, 'system');
 });
 
-test('applying a theme swaps the shared colours and leaves light colours untouched', () => {
+test('applying a theme swaps the shared colours to the desktop palette', () => {
   applyTheme('light');
-  assert.equal(themed('#e7f0ff'), '#e7f0ff');
-  assert.equal(palette.background, '#f5f8fd');
+  assert.deepEqual({ ...palette }, { ink: '#1d1d1b', muted: '#62625d', blue: '#2369de', border: '#e3e3df', green: '#208a4d', background: '#f6f6f4' });
+  assert.equal(themed('#fff'), '#ffffff');
+  assert.equal(themed('#ffffff22'), '#ffffff22');
   applyTheme('dark');
-  assert.notEqual(palette.background, '#f5f8fd');
-  assert.notEqual(themed('#e7f0ff'), '#e7f0ff');
+  assert.deepEqual({ ...palette }, { ink: '#ecece9', muted: '#a5a59f', blue: '#3f84ee', border: '#31312f', green: '#4cc27a', background: '#161615' });
+  assert.equal(themed('#fff'), '#1e1e1c');
   assert.equal(themed('#ffffff22'), '#ffffff22');
   applyTheme('light');
-  assert.equal(palette.ink, '#18263e');
+});
+
+test('the dark palette keeps every name the light palette has, with the desktop values', () => {
+  assert.deepEqual(Object.keys(darkTokens), Object.keys(lightTokens));
+  assert.equal(Object.keys(lightTokens).length, 30);
+  for (const value of [...Object.values(lightTokens), ...Object.values(darkTokens)]) assert.match(value, /^#[0-9a-f]{6}$/u);
+  assert.equal(darkTokens.surface, '#1e1e1c');
+  assert.equal(darkTokens.danger, '#e5534b');
+  assert.equal(lightTokens.primary, '#2369de');
+});
+
+test('legacy colours resolve to the palette role they played', () => {
+  const roles = { '#fff': 'surface', '#f5f8fd': 'surfaceBg', '#e7f0ff': 'primarySoft', '#e3ecf8': 'line', '#c9d4e4': 'lineStrong', '#a8cbff': 'linePrimary',
+    '#18263e': 'ink', '#52637c': 'inkSoft', '#60718b': 'muted', '#8797ac': 'faint', '#2477ed': 'primary', '#bf3947': 'danger', '#fff0f1': 'dangerSoft',
+    '#e9b7bf': 'dangerLine', '#18b35e': 'success', '#e8f7ef': 'successSoft', '#996616': 'warning', '#f1f4f9': 'surfaceSunken' };
+  for (const [hex, role] of Object.entries(roles)) assert.equal(tokenFor(hex), role, hex);
 });
 
 test('dark colours keep text readable and cards above the page background', () => {
@@ -45,6 +61,7 @@ test('dark colours keep text readable and cards above the page background', () =
   assert.ok(luminance(card) > luminance(page), 'cards sit above the page');
   assert.ok(contrast(palette.ink, card) >= 7, 'main text on a card');
   assert.ok(contrast(palette.muted, card) >= 4.5, 'secondary text on a card');
+  assert.ok(contrast(themed('#8797ac'), card) >= 3, 'faint text on a card');
   assert.ok(contrast(palette.blue, page) >= 4.5, 'links on the page');
   assert.ok(contrast(themed('#bf3947'), card) >= 4.5, 'error text on a card');
   assert.ok(contrast('#ffffff', palette.blue) >= 3, 'white text on a solid accent button');
@@ -55,11 +72,11 @@ test('themed style sheets are rebuilt after a theme change', () => {
   let builds = 0;
   const styles = themedStyles(() => { builds += 1; return { box: { backgroundColor: themed('#e7f0ff') } }; });
   applyTheme('light');
-  assert.equal(styles.box.backgroundColor, '#e7f0ff');
-  assert.equal(styles.box.backgroundColor, '#e7f0ff');
+  assert.equal(styles.box.backgroundColor, '#eaf3ff');
+  assert.equal(styles.box.backgroundColor, '#eaf3ff');
   assert.equal(builds, 1);
   applyTheme('dark');
-  assert.notEqual(styles.box.backgroundColor, '#e7f0ff');
+  assert.equal(styles.box.backgroundColor, '#1b2a42');
   assert.equal(builds, 2);
   applyTheme('light');
 });

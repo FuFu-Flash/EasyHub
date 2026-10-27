@@ -12,7 +12,7 @@ import { AI_PROVIDERS, type AiSettings } from '@/features/ai/review';
 import { explainCommit } from '@/features/ai/commitExplanation';
 import { Action, Card, ErrorText, Loading, palette } from './elements';
 import { AiReviewButton } from './AiReviewButton';
-import { themed } from '@/features/theme/theme';
+import { themed, scrim } from '@/features/theme/theme';
 import { markdownStyle } from './markdownStyle';
 
 export function CommitExplanation({ owner, repo, sha, disabled, privateProject }: { owner: string; repo: string; sha: string; disabled: boolean; privateProject: boolean }) {
@@ -81,7 +81,7 @@ export function CommitExplanation({ owner, repo, sha, disabled, privateProject }
     {running && <View style={{ gap: 10, marginTop: 12 }}><Loading /><Text style={{ color: palette.muted }}>{t("CommitExplanation.explainingTheseChanges")}</Text><Action title={t("CommitExplanation.cancelExplanation")} secondary onPress={cancel} /></View>}
     {result && <View style={{ marginTop: 14 }}><Text style={{ color: palette.ink, fontWeight: '800', fontSize: 18 }}>{t("CommitExplanation.changeExplanation")}</Text><Markdown style={markdownStyle()} onLinkPress={() => false} rules={{ image: () => null }}>{result.explanation}</Markdown>{result.partial && <Text style={{ color: palette.muted, lineHeight: 21 }}>{t("CommitExplanation.thisExplanationCoversOnlySuppliedChangesSomeContentWasTooLarge")}</Text>}</View>}
     <Modal visible={!!consent} transparent animationType="fade" onRequestClose={() => setConsent(null)}>
-      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(18, 34, 58, 0.46)', padding: 22 }}><View accessibilityViewIsModal style={{ maxHeight: '85%', backgroundColor: themed('#fff'), borderRadius: 20, padding: 22 }}>
+      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: scrim(), padding: 22 }}><View accessibilityViewIsModal style={{ maxHeight: '85%', backgroundColor: themed('#fff'), borderRadius: 20, padding: 22 }}>
         <ScrollView style={{ flexGrow: 0 }}><Text style={{ color: palette.ink, fontSize: 22, fontWeight: '800' }}>{t("CommitExplanation.useAIToExplainTheseChanges")}</Text>
           <Text style={{ color: palette.muted, lineHeight: 22, marginTop: 12 }}>{t("CommitExplanation.thisCommitSMessageFilenamesAndCodeDiffsWillBeSent")}</Text>
           <Text selectable style={{ color: palette.ink, lineHeight: 23, marginTop: 14 }}>{provider?.name} · {consent?.model}{'\n'}{provider?.baseUrl}{'\n\n'}{owner}/{repo}{'\n'}{sha}</Text>
