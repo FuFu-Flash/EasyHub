@@ -1,6 +1,6 @@
 # Android 与桌面功能对齐
 
-2026-10-15：按桌面新增的工作区、本地化与术语规范继续同步，新增分支/文件修改记录和提交 AI 说明、阅读窗口保留、组件提醒与异常退出缓存清理；随后跟进 `38312b7` 的离线恢复、短暂成功反馈、待审查分组和应用语言日期规范；2026-10-27 再对照 Windows 1.4.1 同步首页任务列表，深色模式尚未同步，详见 [Android 工作区规范](android-workspace.md)。设计与验证约定见 [Android 工作区规范](android-workspace.md) 和 [Android 本地化规范](android-localization.md)。
+2026-10-15：按桌面新增的工作区、本地化与术语规范继续同步，新增分支/文件修改记录和提交 AI 说明、阅读窗口保留、组件提醒与异常退出缓存清理；随后跟进 `38312b7` 的离线恢复、短暂成功反馈、待审查分组和应用语言日期规范；2026-10-27 再对照 Windows 1.4.1 同步首页任务列表，深色/浅色模式也已同步，详见 [Android 工作区规范](android-workspace.md)。设计与验证约定见 [Android 工作区规范](android-workspace.md) 和 [Android 本地化规范](android-localization.md)。
 
 Android 1.1.0 下载：[arm64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)。最新验收见 [下拉刷新记录](android-pull-refresh.md) 和 [验收证据包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-verification.zip)。
 
