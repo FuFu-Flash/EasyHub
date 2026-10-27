@@ -68,6 +68,7 @@ try {
       if (action === 'repos') return args[0] === 1 ? repos : [];
       if (action === 'trending') return { items: [], page: 1, hasNextPage: false };
       if (action === 'searchPublicReposPage') return { items: repos.slice(0, 1), totalCount: 31, hasNextPage: true };
+      if (action === 'trending') return { items: [], page: 1, hasNextPage: false };
       if (action === 'activityCounts') return { 4201: { issues: 1, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 }, 4202: { issues: 0, closedIssues: 0, pullRequests: 0, closedPullRequests: 0 } };
       if (action === 'readme') return '# Layout fixture\n\nProject introductions and controls remain usable as the window changes size.';
       if (action === 'issuesPage') return { items: args[1] === repos[0].name ? [issue] : [], nextPage: null };

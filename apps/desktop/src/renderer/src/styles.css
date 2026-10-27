@@ -3277,6 +3277,13 @@ svg {
   app-region: no-drag;
   -webkit-app-region: no-drag;
 }
+.native-window-controls {
+  display: block;
+  flex: 0 0 70px;
+  width: 70px;
+  height: 27px;
+  -webkit-app-region: no-drag;
+}
 .window-dot {
   display: grid;
   place-items: center;

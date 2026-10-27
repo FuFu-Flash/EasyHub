@@ -60,6 +60,7 @@ try {
       });
     };
     for (const channel of channels) mock(channel, () => {
+      if (['easyhub:menu-state', 'easyhub:window-set-style'].includes(channel)) return;
       fixture.forbidden.push(channel);
       throw new Error('Write or unknown history fixture IPC blocked: ' + channel);
     });
