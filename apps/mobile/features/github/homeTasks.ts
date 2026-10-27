@@ -1,25 +1,23 @@
 import type { GitHubActivityCount, GitHubRepo } from '@easyhub/github';
 
-export type HomeTaskKind = 'issues' | 'pulls';
-
-export interface HomeTask {
-  kind: HomeTaskKind;
+export interface HomeTaskGroup {
   repo: GitHubRepo;
-  count: number;
+  issues: number;
+  pulls: number;
 }
 
-const order: Record<HomeTaskKind, number> = { issues: 0, pulls: 1 };
+export const HOME_TASK_PREVIEW = 3;
 
-/** Lists what needs the user's attention, using the same per-project counts as the notifications and the Issues tab. */
-export function homeTasks(repos: readonly GitHubRepo[], activityCounts: Record<number, GitHubActivityCount>): HomeTask[] {
-  const tasks: HomeTask[] = [];
+/** One entry per project with open issues or pull requests to review, busiest first; counts match the notifications and the Issues tab. */
+export function homeTaskGroups(repos: readonly GitHubRepo[], activityCounts: Record<number, GitHubActivityCount>): HomeTaskGroup[] {
+  const groups: HomeTaskGroup[] = [];
   for (const repo of repos) {
     const counts = activityCounts[repo.id];
-    if (counts?.issues > 0) tasks.push({ kind: 'issues', repo, count: counts.issues });
-    if (counts?.pullRequests > 0) tasks.push({ kind: 'pulls', repo, count: counts.pullRequests });
+    const issues = counts?.issues ?? 0, pulls = counts?.pullRequests ?? 0;
+    if (issues > 0 || pulls > 0) groups.push({ repo, issues, pulls });
   }
-  return tasks
-    .map((task, index) => ({ task, index }))
-    .sort((a, b) => order[a.task.kind] - order[b.task.kind] || b.task.count - a.task.count || a.index - b.index)
-    .map(({ task }) => task);
+  return groups
+    .map((group, index) => ({ group, index }))
+    .sort((a, b) => (b.group.issues + b.group.pulls) - (a.group.issues + a.group.pulls) || a.index - b.index)
+    .map(({ group }) => group);
 }

@@ -17,7 +17,7 @@ import { loadOpenIssues } from '@/features/github/openIssues';
 import { EarthIcon } from '@/components/EarthIcon';
 import { useActivityNotices } from '@/features/github/useActivityNotices';
 import { usePullRefresh } from '@/features/github/usePullRefresh';
-import { homeTasks, type HomeTask } from '@/features/github/homeTasks';
+import { HOME_TASK_PREVIEW, homeTaskGroups, type HomeTaskGroup } from '@/features/github/homeTasks';
 import { themed, onAccent, themedStyles, scrim } from '@/features/theme/theme';
 
 const appIcon = require('../../../assets/images/icon.png');
@@ -70,33 +70,30 @@ function HomeProject({ repo, issueCount }: { repo: GitHubRepo; issueCount: numbe
       </View>
     </Pressable>
     <View style={[styles.projectActions, compact && styles.projectActionsStacked]}>
-      <Pressable onPress={open} accessibilityRole="button" style={styles.openButton}><Text style={styles.openText}>{t("home.open")}</Text></Pressable>
       <Pressable onPress={showMore} accessibilityRole="button" accessibilityLabel={t("home.moreActions")} style={styles.moreButton}><Text style={styles.moreText}>⋮</Text></Pressable>
     </View>
   </View>;
 }
 
-function HomeTaskRow({ task, primary }: { task: HomeTask; primary: boolean }) {
-  const { language } = usePreferences();
+function HomeTaskRow({ group }: { group: HomeTaskGroup }) {
   const t = useTranslation();
-  const { repo, count } = task;
-  const [title, action] = task.kind === 'issues' ? [t("home.attentionOpenIssues", { count }), t("home.viewIssues")] : [t("home.attentionPullRequests", { count }), t("home.reviewPullRequests")];
-  const act = () => router.push(task.kind === 'issues'
-    ? { pathname: '/project/[owner]/[repo]', params: { owner: repo.owner.login, repo: repo.name, section: 'issues' } }
-    : { pathname: '/(tabs)/issues', params: { activity: 'pulls' } });
+  const { repo, issues, pulls } = group;
+  const go = (section: 'issues' | 'pulls') => router.push({ pathname: '/project/[owner]/[repo]', params: { owner: repo.owner.login, repo: repo.name, section } });
+  const actions = [
+    ...(issues > 0 ? [{ section: 'issues' as const, summary: t("home.attentionOpenIssues", { count: issues }), action: t("home.viewIssues") }] : []),
+    ...(pulls > 0 ? [{ section: 'pulls' as const, summary: t("home.attentionPullRequests", { count: pulls }), action: t("home.reviewPullRequests") }] : []),
+  ];
   return <View style={styles.taskRow}>
-    <ProjectIcon repo={repo} />
-    <View style={styles.projectCopy}>
-      <Text style={styles.projectName} numberOfLines={2}>{title}</Text>
-      <Text style={styles.projectDescription} numberOfLines={1}>{t("home.taskMeta", { name: repo.name, time: relativeTime(repo.updated_at, language) })}</Text>
-    </View>
-    <Pressable onPress={act} accessibilityRole="button" accessibilityLabel={t("home.taskAction", { action, name: repo.name })} style={[styles.openButton, primary && styles.openButtonPrimary]}><Text style={[styles.openText, primary && styles.openTextPrimary]}>{action}</Text></Pressable>
+    <View style={styles.taskHeader}><ProjectIcon repo={repo} /><Text style={[styles.projectName, { flex: 1 }]} numberOfLines={2}>{repo.name}</Text></View>
+    {actions.map((item) => <View key={item.section} style={styles.taskLine}>
+      <Text style={styles.taskSummary}>{item.summary}</Text>
+      <Pressable onPress={() => go(item.section)} accessibilityRole="button" accessibilityLabel={t("home.taskAction", { action: item.action, name: repo.name })} style={styles.openButton}><Text style={styles.openText}>{item.action}</Text></Pressable>
+    </View>)}
   </View>;
 }
 
 export default function Home() {
   const { ready, user, client, recovery } = useSession();
-  const { language } = usePreferences();
   const t = useTranslation();
   const { width, height, fontScale } = useWindowDimensions();
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
@@ -111,7 +108,9 @@ export default function Home() {
     ...(activityCounts[repo.id]?.pullRequests ? [{ id: `pulls-${repo.id}`, revision: `${activityCounts[repo.id].pullRequests}:${activityCounts[repo.id].closedPullRequests}`, repo, activity: 'pulls' as const, title: t("home.pullRequestNotice", { name: repo.name, count: activityCounts[repo.id].pullRequests }) }] : []),
   ]);
   const { unread } = useActivityNotices(notices, notificationsOpen, user?.login || '');
-  const tasks = homeTasks(repos, activityCounts);
+  const tasks = homeTaskGroups(repos, activityCounts);
+  const [tasksExpanded, setTasksExpanded] = useState(false);
+  const shownTasks = tasksExpanded ? tasks : tasks.slice(0, HOME_TASK_PREVIEW);
   const stackedStats = width < 360 || fontScale > 1.15;
 
   const load = useCallback(async (force = false) => {
@@ -157,7 +156,8 @@ export default function Home() {
       <Text accessibilityRole="header" style={styles.pageTitle}>{t("home.title")}</Text>
       <View style={styles.tasksPanel}>
         <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>{t("home.needsYourAttention")}</Text>{tasks.length > 0 && <Text accessibilityLabel={t("home.attentionTotal", { count: tasks.length })} style={styles.taskTotal}>{tasks.length}</Text>}</View>
-        {tasks.map((task, index) => <HomeTaskRow key={`${task.kind}:${task.repo.id}`} task={task} primary={index === 0} />)}
+        {shownTasks.map((group) => <HomeTaskRow key={group.repo.id} group={group} />)}
+        {tasks.length > HOME_TASK_PREVIEW && <Pressable onPress={() => setTasksExpanded(!tasksExpanded)} accessibilityRole="button" accessibilityState={{ expanded: tasksExpanded }} style={styles.moreTasks}><Text style={styles.viewAll}>{tasksExpanded ? t("home.showFewerProjects") : t("home.showMoreProjects", { count: tasks.length - HOME_TASK_PREVIEW })}</Text></Pressable>}
         {!loading && !error && tasks.length === 0 && <Text style={styles.empty}>{t("home.nothingNeedsYourAttention")}</Text>}
       </View>
 
@@ -169,14 +169,6 @@ export default function Home() {
         <Pressable onPress={() => router.push('/create-project')} accessibilityRole="button" style={styles.createButton}><Text style={styles.createButtonText}>＋  {t("home.newProject")}</Text></Pressable>
       </View>
 
-      {repos.length > 0 && <View style={styles.recentPanel}>
-        <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>{t("home.recentUpdates")}</Text><Pressable onPress={() => router.push('/(tabs)/projects')} accessibilityRole="button" style={styles.viewAllButton}><DirectionLabel title={t("home.viewAll")} name="chevron" color={themed(themed('#2578e8'))} textStyle={styles.viewAll} /></Pressable></View>
-        {repos.slice(0, 4).map((repo) => <Pressable key={repo.id} onPress={() => router.push({ pathname: '/project/[owner]/[repo]', params: { owner: repo.owner.login, repo: repo.name, section: 'history' } })} accessibilityRole="button" style={styles.recentRow}>
-          <ProjectIcon repo={repo} />
-          <View style={styles.recentCopy}><Text style={styles.recentName} numberOfLines={1}>{repo.name}</Text><Text style={styles.recentDescription} numberOfLines={1}>{repo.description || t("home.viewTheLatestProjectContent")}</Text></View>
-          <Text style={styles.recentTime}>{relativeTime(repo.updated_at, language)}</Text>
-        </Pressable>)}
-      </View>}
     </ScrollView>
     <Modal visible={notificationsOpen} transparent animationType="fade" onRequestClose={() => setNotificationsOpen(false)}><SafeAreaView style={styles.notificationOverlay}><View style={[styles.notificationPanel, { maxHeight: height * 0.8 }]}><View style={[styles.notificationHeader, stackedStats && styles.notificationHeaderCompact]}><Text style={[styles.notificationTitle, stackedStats && styles.notificationTitleCompact]}>{t("home.notifications")}</Text><Pressable accessibilityRole="button" accessibilityLabel={t("home.closeNotifications")} hitSlop={8} style={[styles.notificationClose, stackedStats && styles.notificationCloseCompact]} onPress={() => setNotificationsOpen(false)}><Text style={{ fontSize: 24, color: palette.muted }}>×</Text></Pressable></View>
       <ScrollView style={styles.notificationScroll} contentContainerStyle={{ paddingBottom: 4 }}>{notices.map((notice) => <Pressable key={notice.id} accessibilityRole="button" style={{ minHeight: 48 }} onPress={() => { setNotificationsOpen(false); router.push({ pathname: '/project/[owner]/[repo]', params: { owner: notice.repo.owner.login, repo: notice.repo.name, section: notice.activity } }); }}><Card><Text style={{ color: palette.ink, fontWeight: '700' }}>{notice.title}</Text><View style={{ marginTop: 6 }}><DirectionLabel title={notice.activity === 'pulls' ? t("home.codeReviews800d378a") : t("home.viewIssues")} name="forward" color={palette.blue} /></View></Card></Pressable>)}
@@ -200,7 +192,11 @@ const styles = themedStyles(() => StyleSheet.create({
   pageTitle: { color: themed('#18314d'), fontSize: 26, lineHeight: 34, fontWeight: '800', paddingTop: 20, paddingBottom: 14 },
   tasksPanel: { borderRadius: 20, borderWidth: 1, borderColor: themed('#e3ecf8'), padding: 11, backgroundColor: themed('#fff'), marginBottom: 14 },
   taskTotal: { minWidth: 24, paddingHorizontal: 7, borderRadius: 12, overflow: 'hidden', textAlign: 'center', color: onAccent, backgroundColor: themed('#2674e7'), fontSize: 12, lineHeight: 24, fontWeight: '800' },
-  taskRow: { borderWidth: 1, borderColor: themed('#e2eaf5'), borderRadius: 13, padding: 10, marginTop: 8, minHeight: 68, backgroundColor: themed('#fff'), flexDirection: 'row', alignItems: 'center', gap: 10 },
+  taskHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  taskLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8, paddingLeft: 58 },
+  taskSummary: { flex: 1, minWidth: 0, color: palette.muted, fontSize: 13, lineHeight: 18 },
+  moreTasks: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  taskRow: { borderWidth: 1, borderColor: themed('#e2eaf5'), borderRadius: 13, padding: 10, marginTop: 8, backgroundColor: themed('#fff'), },
   openButtonPrimary: { backgroundColor: themed('#2674e7'), borderColor: themed('#2674e7') },
   openTextPrimary: { color: onAccent },
   intro: { paddingTop: 22, paddingBottom: 18 },
@@ -237,7 +233,6 @@ const styles = themedStyles(() => StyleSheet.create({
   overviewDivider: { height: 52, width: 1, backgroundColor: themed('#e9eef6'), marginHorizontal: 10 },
   overviewDividerStacked: { width: '100%', height: 1, marginHorizontal: 0, marginVertical: 8 },
   projectsPanel: { borderRadius: 20, borderWidth: 1, borderColor: themed('#e3ecf8'), padding: 11, backgroundColor: themed('#fff') },
-  recentPanel: { borderRadius: 20, borderWidth: 1, borderColor: themed('#e3ecf8'), padding: 11, backgroundColor: themed('#fff'), marginTop: 14 },
   sectionHeading: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 8, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, paddingVertical: 9 },
   sectionTitle: { color: themed('#172238'), fontSize: 19, fontWeight: '800', flexShrink: 1 },
   viewAll: { color: themed('#2578e8'), fontSize: 13 },
@@ -265,11 +260,6 @@ const styles = themedStyles(() => StyleSheet.create({
   moreButton: { paddingHorizontal: 10, paddingVertical: 5, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   moreText: { fontSize: 23, color: themed('#7688a0') },
   empty: { color: themed('#7b8ba3'), padding: 15 },
-  recentRow: { minHeight: 68, paddingVertical: 9, paddingHorizontal: 4, borderTopWidth: 1, borderTopColor: themed('#edf2f8'), flexDirection: 'row', alignItems: 'center', gap: 10 },
-  recentCopy: { flex: 1, minWidth: 0 },
-  recentName: { color: themed('#172238'), fontSize: 14, fontWeight: '800' },
-  recentDescription: { color: themed('#8290a3'), fontSize: 11, marginTop: 3 },
-  recentTime: { color: themed('#8290a3'), fontSize: 11, maxWidth: 65, textAlign: 'right' },
   notificationOverlay: { flex: 1, backgroundColor: scrim(), justifyContent: 'center', alignItems: 'center', padding: 22 },
   notificationPanel: { width: '100%', maxWidth: 500, backgroundColor: themed('#f5f8fe'), borderRadius: 19, padding: 17 },
   notificationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, flexShrink: 0, gap: 10 },
