@@ -9,6 +9,7 @@ import { useDownloadCenter } from '../components/useDownloadCenter';
 import { errorText } from '../errors';
 import { readLanguage, type Language } from '../i18n';
 import { useLayoutPreference } from '../layoutPreferences';
+import { readWindowStyle } from '../windowStyle';
 import { useThemePreference } from '../themePreferences';
 import { publicBookmarksKey, readPublicBookmarks } from '../publicBookmarks';
 import { historyKey, readSearchHistory, rememberSearch, type SearchEntry, type SearchScope } from '../searchHistory';
@@ -83,7 +84,7 @@ function useController(props: WorkspaceProps) {
       checkingLocal: false,
       loading: false,
       language: readLanguage(),
-      windowStyle: localStorage.getItem('easyhub:window-control-style') === 'reference' ? 'reference' : 'windows',
+      windowStyle: readWindowStyle(),
       automaticTranslation: localStorage.getItem('easyhub:auto-translate') === 'true',
       translationTarget: localStorage.getItem('easyhub:translation-target') === 'en' ? 'en' : 'zh-CN',
       translationNamesText: storage.getItem(`easyhub:translation-names:${props.user.login}`) ?? '',

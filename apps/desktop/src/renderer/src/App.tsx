@@ -1,7 +1,7 @@
 import { useTranslation } from './localization';
 import { useEffect, useRef, useState } from 'react';
 import type { GitHubUser } from '@easyhub/github';
-import { Minus, ShieldCheck, Square, X } from 'lucide-react';
+import { ShieldCheck, X } from 'lucide-react';
 import { ErrorMessage } from './components/ErrorMessage';
 import { errorText } from './errors';
 import { needsWelcome, readWelcomeChoice, saveWelcomeChoice, type WelcomeChoice } from './onboarding';
@@ -9,6 +9,8 @@ import { useDialogFocus } from './components/useDialogFocus';
 import { LiveWorkspace } from './LiveWorkspace';
 import { DemoWorkspace } from './DemoWorkspace';
 import { OfflineStart } from './components/OfflineStart';
+import { WindowControls } from './components/WindowControls';
+import { readWindowStyle } from './windowStyle';
 import { PairingCode } from './components/PairingCode';
 import appIcon from './assets/easyhub-icon.svg';
 import { startThemeSync } from './themePreferences';
@@ -28,6 +30,7 @@ interface LoginFlow {
 
 export default function App() {
   const t = useTranslation();
+  const windowStyle = readWindowStyle();
   const [user, setUser] = useState<GitHubUser | null>(null);
   const [authState, setAuthState] = useState('checking');
   const [welcomeChoice, setWelcomeChoice] = useState<WelcomeChoice | null>(readWelcomeChoice);
@@ -173,28 +176,8 @@ export default function App() {
     <>
       {needsWelcome(authState, welcomeChoice) ? (
         <div className="welcome-page">
-          <header className="welcome-controls">
-            <button
-              className="icon-button"
-              aria-label={t('app.minimizeWindow')}
-              onClick={() => void window.easyHub?.minimizeWindow()}
-            >
-              <Minus size={18} />
-            </button>
-            <button
-              className="icon-button"
-              aria-label={t('app.maximizeOrRestoreWindow')}
-              onClick={() => void window.easyHub?.toggleMaximizeWindow()}
-            >
-              <Square size={16} />
-            </button>
-            <button
-              className="icon-button"
-              aria-label={t('app.closeWindow')}
-              onClick={() => void window.easyHub?.closeWindow()}
-            >
-              <X size={18} />
-            </button>
+          <header className={`welcome-controls welcome-controls-${windowStyle}`}>
+            <WindowControls style={windowStyle} />
           </header>
           <section>
             <img src={appIcon} alt="EasyHub" />

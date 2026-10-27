@@ -10,16 +10,13 @@ import {
   Home,
   Languages,
   MessageCircle,
-  Minus,
   RotateCw,
   Settings2,
-  Square,
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { canReviewRepository, sumActivity } from './activityCounts';
 import appIcon from './assets/easyhub-icon.svg';
-import { useEasyHub } from './bridge';
 import { RecoveryHomeContext } from './components/AppErrorBoundary';
 import type { ActivityNotice } from './components/DownloadNotifications';
 import { DownloadNotifications } from './components/DownloadNotifications';
@@ -28,6 +25,7 @@ import { FeedbackNotice } from './components/FeedbackNotice';
 import { NavigationPages } from './components/NavigationPages';
 import { ProfileMenu } from './components/ProfileMenu';
 import { TopbarSearch } from './components/TopbarSearch';
+import { WindowControls } from './components/WindowControls';
 import { LanguageContext } from './i18n';
 import { navigateNested } from './nestedNavigation';
 import { WorkspacePage } from './pages/WorkspacePage';
@@ -51,8 +49,7 @@ export function LiveWorkspace(props: WorkspaceProps) {
 }
 
 function WorkspaceShell() {
-  const w = useWorkspace(),
-    easyHub = useEasyHub();
+  const w = useWorkspace();
   const {
     navigation,
     user,
@@ -237,25 +234,7 @@ function WorkspaceShell() {
           </aside>
           <div className="main-column" ref={scrollArea}>
             <header className={`topbar topbar-${windowStyle}`}>
-              {windowStyle === 'reference' && (
-                <div className="window-controls" aria-label={t('liveWorkspace.windowControls')}>
-                  <button
-                    className="window-dot window-close"
-                    aria-label={t('liveWorkspace.closeWindow')}
-                    onClick={() => void easyHub?.closeWindow()}
-                  />
-                  <button
-                    className="window-dot window-minimize"
-                    aria-label={t('liveWorkspace.minimizeWindow')}
-                    onClick={() => void easyHub?.minimizeWindow()}
-                  />
-                  <button
-                    className="window-dot window-maximize"
-                    aria-label={t('liveWorkspace.maximizeOrRestoreWindow')}
-                    onClick={() => void easyHub?.toggleMaximizeWindow()}
-                  />
-                </div>
-              )}
+              {windowStyle === 'reference' && <WindowControls style="reference" />}
               <button className="topbar-brand" onClick={() => navigation.sidebar('home')}>
                 <img src={appIcon} alt="" />
                 <span>EasyHub</span>
@@ -344,34 +323,7 @@ function WorkspaceShell() {
                   onStarred={() => navigation.navigate('starred', { visit: Date.now(), section: 'profile' })}
                 />
               </div>
-              {windowStyle === 'windows' && (
-                <div className="windows-window-controls" aria-label={t('liveWorkspace.windowControls')}>
-                  <button
-                    className="windows-control-button"
-                    aria-label={t('liveWorkspace.minimizeWindow')}
-                    title={t('liveWorkspace.minimize')}
-                    onClick={() => void easyHub?.minimizeWindow()}
-                  >
-                    <Minus size={17} strokeWidth={1.6} />
-                  </button>
-                  <button
-                    className="windows-control-button"
-                    aria-label={t('liveWorkspace.maximizeOrRestoreWindow')}
-                    title={t('liveWorkspace.maximizeOrRestore')}
-                    onClick={() => void easyHub?.toggleMaximizeWindow()}
-                  >
-                    <Square size={13} strokeWidth={1.7} />
-                  </button>
-                  <button
-                    className="windows-control-button windows-control-close"
-                    aria-label={t('liveWorkspace.closeWindow')}
-                    title={t('liveWorkspace.close')}
-                    onClick={() => void easyHub?.closeWindow()}
-                  >
-                    <X size={17} strokeWidth={1.6} />
-                  </button>
-                </div>
-              )}
+              {windowStyle === 'windows' && <WindowControls style="windows" />}
             </header>
             <FeedbackNotice message={w.error} kind="error" onClose={() => w.setError('')} language={language} />
             <FeedbackNotice message={w.notice} onClose={() => w.setNotice('')} language={language} />
