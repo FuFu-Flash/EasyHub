@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { access, mkdir, mkdtemp, readFile, rename, rm, symlink } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -32,6 +32,49 @@ function run(executable, args) {
   const result = spawnSync(executable, args, { cwd: desktopDir, stdio: 'inherit', env: environment });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`构建命令失败：${executable}（${result.status ?? result.signal ?? 'unknown'}）。`);
+}
+
+// The installer window: a branded background plus Finder icon positions, written straight
+// into the image's .DS_Store by dmgbuild (no Finder automation). Its three pure-Python
+// dependencies are hash-locked and kept in a cache outside the project.
+const dmgDirectory = join(desktopDir, 'build/macos/dmg');
+async function buildStyledImage({ application, scratch, output, version }) {
+  const toolEnvironment = { ...process.env, PYTHONPATH: '', NODE_OPTIONS: '' };
+  const tools = join(homedir(), '.cache/easyhub-build-tools/dmgbuild-1.6.5');
+  const python = join(tools, 'bin/python');
+  const check = () => spawnSync(python, ['-c',
+    "from importlib.metadata import version; assert [version(p) for p in ('dmgbuild', 'ds-store', 'mac-alias')] == ['1.6.5', '1.3.1', '2.2.2']"],
+  { env: toolEnvironment }).status === 0;
+  if (!check()) {
+    const python3 = process.env.EASYHUB_DMG_PYTHON ?? '/usr/bin/python3';
+    const bootstrap = (executable, args) => {
+      const result = spawnSync(executable, args, { stdio: 'inherit', env: toolEnvironment });
+      if (result.status !== 0) throw new Error('无法准备安装镜像工具（dmgbuild）；请联网后重试，或设置 EASYHUB_DMG_PYTHON。');
+    };
+    bootstrap(python3, ['-m', 'venv', tools]);
+    bootstrap(python, ['-m', 'pip', 'install', '--disable-pip-version-check', '--only-binary=:all:',
+      '--no-deps', '--require-hashes', '-r', join(dmgDirectory, 'requirements.txt')]);
+  }
+  const art = join(scratch, 'dmg-art');
+  await mkdir(art);
+  run('/usr/bin/swift', [join(dmgDirectory, 'background.swift'), art, join(desktopDir, 'resources/easyhub-mac.png')]);
+  const background = join(art, 'background.tiff');
+  run('/usr/bin/tiffutil', ['-cathidpicheck', join(art, 'background.png'), join(art, 'background@2x.png'), '-out', background]);
+  const settings = join(art, 'settings.json');
+  await writeFile(settings, JSON.stringify({
+    format: 'ULMO', filesystem: 'HFS+', background,
+    icon: join(desktopDir, 'resources/easyhub.icns'), icon_size: 96, text_size: 13,
+    // 410pt of artwork plus the 28pt title bar; no toolbar, sidebar, path or status bar.
+    window_rect: [[400, 260], [640, 438]],
+    show_toolbar: false, show_status_bar: false, show_pathbar: false, show_sidebar: false,
+    default_view: 'icon-view', include_icon_view_settings: true,
+    files: [application], symlinks: { Applications: '/Applications' },
+    icon_locations: { 'EasyHub.app': [170, 212], Applications: [470, 212] },
+  }, null, 2));
+  const built = spawnSync(python, ['-c',
+    "import json, sys; from dmgbuild import build_dmg; build_dmg(sys.argv[2], sys.argv[3], settings=json.load(open(sys.argv[1])))",
+    settings, output, `EasyHub ${version}`], { stdio: 'inherit', env: toolEnvironment });
+  if (built.status !== 0) throw new Error('生成安装镜像失败。');
 }
 
 await Promise.all([
@@ -73,15 +116,15 @@ try {
   run('/usr/bin/codesign', ['--verify', '--deep', '--strict', signedApplication]);
   // Keep the signed bundle inside the disk image / ZIP. Copying an .app back
   // into a File Provider directory can immediately reattach invalid metadata.
-  const imageDirectory = join(packageDirectory, 'image');
-  await mkdir(imageDirectory);
-  run('/usr/bin/ditto', [signedApplication, join(imageDirectory, 'EasyHub.app')]);
-  await symlink('/Applications', join(imageDirectory, 'Applications'));
-  run('/usr/bin/codesign', ['--verify', '--deep', '--strict', join(imageDirectory, 'EasyHub.app')]);
   const image = join(packageDirectory, 'EasyHub-macOS.dmg');
   const archive = join(packageDirectory, 'EasyHub-macOS.zip');
-  run('/usr/bin/hdiutil', ['create', '-volname', 'EasyHub', '-srcfolder', imageDirectory, '-format', 'ULMO', image]);
+  await buildStyledImage({ application: signedApplication, scratch: packageDirectory, output: image, version: metadata.version });
   run('/usr/bin/hdiutil', ['verify', image]);
+  const mountPoint = join(packageDirectory, 'mounted');
+  await mkdir(mountPoint);
+  run('/usr/bin/hdiutil', ['attach', image, '-readonly', '-nobrowse', '-noautoopen', '-mountpoint', mountPoint]);
+  try { run('/usr/bin/codesign', ['--verify', '--deep', '--strict', join(mountPoint, 'EasyHub.app')]); }
+  finally { run('/usr/bin/hdiutil', ['detach', mountPoint]); }
   run('/usr/bin/ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', signedApplication, archive]);
   await mkdir(releaseDirectory, { recursive: true });
   await rename(image, join(releaseDirectory, 'EasyHub-macOS.dmg'));
