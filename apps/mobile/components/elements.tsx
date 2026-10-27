@@ -19,10 +19,10 @@ export function DirectionLabel({ title, name = 'forward', color = palette.blue, 
   </View>;
 }
 
+/** Android-style back control: just the chevron, with the destination as its accessible name. */
 export function BackLink({ title, onPress = () => router.back(), marginBottom = 22 }: { title: string; onPress?: () => void; marginBottom?: number }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={{ alignSelf: 'flex-start', maxWidth: '100%', minWidth: 48, minHeight: 48, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom }}>
-    <MaterialArrow name="back" color={palette.blue} />
-    <Text style={{ color: palette.blue, fontSize: 14, lineHeight: 20, flexShrink: 1, minWidth: 0 }}>{title}</Text>
+  return <Pressable accessibilityRole="button" accessibilityLabel={title} hitSlop={8} onPress={onPress} style={{ alignSelf: 'flex-start', width: 48, height: 48, marginLeft: -12, justifyContent: 'center', alignItems: 'center', marginBottom }}>
+    <View style={{ transform: [{ scaleX: -1 }] }}><MaterialArrow name="chevron" color={palette.ink} size={32} /></View>
   </Pressable>;
 }
 
