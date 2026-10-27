@@ -4,7 +4,7 @@ import { parsePreferences, defaultPreferences, normalizeTranslationNames } from 
 
 test('mobile preferences restore English and translation without accepting malformed values', () => {
   assert.deepEqual(parsePreferences('{broken'), defaultPreferences);
-  assert.deepEqual(parsePreferences(JSON.stringify({ language: 'en', translationEnabled: true })), { language: 'en', translationEnabled: true, translationNames: [] });
+  assert.deepEqual(parsePreferences(JSON.stringify({ language: 'en', translationEnabled: true })), { language: 'en', theme: 'system', translationEnabled: true, translationNames: [] });
   assert.deepEqual(parsePreferences(JSON.stringify({ language: 'fr', translationEnabled: 'yes' })), defaultPreferences);
 });
 

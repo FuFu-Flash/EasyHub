@@ -1,11 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { File, Paths } from 'expo-file-system';
 import { defaultPreferences, normalizeTranslationNames, parsePreferences, type AppLanguage, type AppPreferences } from './model';
+import type { ThemePreference } from '../theme/theme';
 import { LanguageContext } from '../localization/react';
 
 interface PreferencesContextValue extends AppPreferences {
   ready: boolean;
   setLanguage(language: AppLanguage): void;
+  setTheme(theme: ThemePreference): void;
   setTranslationEnabled(enabled: boolean): void;
   setTranslationNames(names: string[]): void;
 }
@@ -33,9 +35,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     } catch { /* The current session can still use its selected preferences. */ }
   }, [preferences, ready]);
   const setLanguage = useCallback((language: AppLanguage) => setPreferences((current) => ({ ...current, language })), []);
+  const setTheme = useCallback((theme: ThemePreference) => setPreferences((current) => ({ ...current, theme })), []);
   const setTranslationEnabled = useCallback((translationEnabled: boolean) => setPreferences((current) => ({ ...current, translationEnabled })), []);
   const setTranslationNames = useCallback((names: string[]) => setPreferences((current) => ({ ...current, translationNames: normalizeTranslationNames(names) })), []);
-  return <LanguageContext.Provider value={preferences.language}><Context.Provider value={{ ...preferences, ready, setLanguage, setTranslationEnabled, setTranslationNames }}>{children}</Context.Provider></LanguageContext.Provider>;
+  return <LanguageContext.Provider value={preferences.language}><Context.Provider value={{ ...preferences, ready, setLanguage, setTheme, setTranslationEnabled, setTranslationNames }}>{children}</Context.Provider></LanguageContext.Provider>;
 }
 
 export function usePreferences(): PreferencesContextValue {

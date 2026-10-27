@@ -1,7 +1,9 @@
-export type AppLanguage = 'zh' | 'en';
-export interface AppPreferences { language: AppLanguage; translationEnabled: boolean; translationNames: string[] }
+import { parseThemePreference, type ThemePreference } from '../theme/theme.ts';
 
-export const defaultPreferences: AppPreferences = { language: 'zh', translationEnabled: false, translationNames: [] };
+export type AppLanguage = 'zh' | 'en';
+export interface AppPreferences { language: AppLanguage; theme: ThemePreference; translationEnabled: boolean; translationNames: string[] }
+
+export const defaultPreferences: AppPreferences = { language: 'zh', theme: 'system', translationEnabled: false, translationNames: [] };
 
 export function normalizeTranslationNames(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -16,6 +18,7 @@ export function parsePreferences(raw: string): AppPreferences {
     const value = data as Record<string, unknown>;
     return {
       language: value.language === 'en' ? 'en' : 'zh',
+      theme: parseThemePreference(value.theme),
       translationEnabled: value.translationEnabled === true,
       translationNames: normalizeTranslationNames(value.translationNames),
     };
