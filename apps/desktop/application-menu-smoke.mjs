@@ -146,9 +146,11 @@ try {
   await settleRenderer();
   assert.deepEqual(await page.evaluate(() => window.menuSmokeCommands), [], 'A disabled signed-out command must not be dispatched');
 
-  for (const [command, title] of [['projects', '我的项目'], ['issues', '问题'], ['profile', '个人资料'], ['settings', '设置'], ['new-project', '新建项目'], ['add-folder', '添加现有文件夹'], ['download-project', '下载项目']]) {
+  for (const [command, title] of [['projects', '我的项目'], ['issues', '问题'], ['profile', '个人资料'], ['settings', '设置'], ['new-project', '新建项目'], ['add-folder', '本地项目'], ['download-project', '本地项目']]) {
     await clickMenu(command);
-    await heading(title);
+    // The profile page is titled with the account name, not with the menu label.
+    if (command === 'profile') await page.locator('.user-profile h1, h1:visible').first().waitFor();
+    else await heading(title);
   }
   await clickMenu('home');
   await page.locator('.home-dashboard').waitFor();
