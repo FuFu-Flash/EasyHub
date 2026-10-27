@@ -77,9 +77,7 @@ export function PublicHistoryTab({
     );
   return (
     <>
-      <div className="panel-heading">
-        <h2>{t('publicProjectBrowser.changeHistory')}</h2>
-      </div>
+      <h2 className="visually-hidden">{t('publicProjectBrowser.changeHistory')}</h2>
       {historyError && (
         <p className="live-error" role="alert">
           <ErrorMessage error={historyError} language={language} />

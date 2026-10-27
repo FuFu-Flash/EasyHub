@@ -880,7 +880,7 @@
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: var(--eh-space-2);
+  gap: var(--eh-space-4);
 }
 .detail-hero-tools > button {
   display: inline-flex;
@@ -923,10 +923,10 @@
 }
 /* Keep the title clear of the corner tools; the description sits below them. */
 .detail-hero.has-source-history .detail-name-row {
-  padding-right: 130px;
+  padding-right: 134px;
 }
 .detail-hero.has-project-settings .detail-name-row {
-  padding-right: 170px;
+  padding-right: 176px;
 }
 .project-settings-modal {
   width: min(620px, 100%);
@@ -2580,6 +2580,20 @@ svg {
   justify-content: space-between;
   margin-bottom: 18px;
 }
+.panel-heading-end {
+  justify-content: flex-end;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
 .panel-heading h2 {
   margin: 0;
   font-size: var(--eh-text-16);
@@ -2687,7 +2701,7 @@ svg {
 }
 .narrow-page {
   max-width: 780px;
-  margin: var(--eh-space-10) auto;
+  margin: var(--eh-space-10) 0;
 }
 .narrow-page h1 {
   margin: 0 0 5px;
@@ -3808,7 +3822,7 @@ body,
 }
 .release-page {
   max-width: 1030px;
-  margin: 0 auto 60px;
+  margin: 0 0 60px;
 }
 .release-page-heading {
   margin: var(--eh-space-4) 0 19px;
@@ -5779,7 +5793,9 @@ body,
   gap: 18px;
   align-content: start;
   max-width: 1140px;
-  margin: 0 auto;
+  margin: 0;
+  padding: 0;
+  border-top: 0;
 }
 .release-downloads > .back-link {
   justify-self: start;
@@ -7410,16 +7426,6 @@ select:focus-visible {
 .starred-projects-page {
   max-width: 1190px;
   min-width: 0;
-}
-.starred-page-mark {
-  width: 51px;
-  height: 51px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border-radius: var(--eh-radius-12);
-  background: var(--eh-color-warning-soft);
-  color: var(--eh-color-warning);
 }
 .starred-projects-grid {
   display: grid;

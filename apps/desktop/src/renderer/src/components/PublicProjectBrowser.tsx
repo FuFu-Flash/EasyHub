@@ -597,9 +597,7 @@ export function PublicProjectBrowser({
           )}
           {tab === 'intro' && (
             <>
-              <div className="panel-heading">
-                <h2>{t('publicProjectBrowser.projectIntroduction')}</h2>
-              </div>
+              <h2 className="visually-hidden">{t('publicProjectBrowser.projectIntroduction')}</h2>
               {readme ? (
                 <TranslatableContent
                   text={readme}

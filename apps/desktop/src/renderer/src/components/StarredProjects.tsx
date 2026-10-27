@@ -53,9 +53,6 @@ export function StarredProjects({ onBack, onOpen }: { onBack: () => void; onOpen
         <div>
           <h1>{t('starredProjects.starredProjects')}</h1>
         </div>
-        <span className="starred-page-mark">
-          <Star size={23} fill="currentColor" />
-        </span>
       </div>
       {error && (
         <div className="starred-projects-error" role="alert">

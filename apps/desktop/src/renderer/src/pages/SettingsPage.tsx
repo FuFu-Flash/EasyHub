@@ -173,7 +173,7 @@ export function SettingsPage() {
           <div className="settings-icon amber">
             <Info size={22} />
           </div>
-          <div>
+          <div className="settings-panel-content">
             <h2>{t('settingsPage.aboutEasyhub')}</h2>
             <p>{demo ? t('settingsPage.desktopEdition') : t('settingsPage.windowsDesktopConnectedToGithub')}</p>
             <span className="settings-version">{t('settingsPage.version142')}</span>

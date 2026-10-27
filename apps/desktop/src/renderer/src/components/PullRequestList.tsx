@@ -46,17 +46,15 @@ export function PullRequestList({
   const t = useTranslation(language);
   return (
     <>
-      <div className="panel-heading">
-        <div>
-          <h2>{t('pullRequestsPanel.pullRequestReviews')}</h2>
-        </div>
-        {showCreateButton && (
+      <h2 className="visually-hidden">{t('pullRequestsPanel.pullRequestReviews')}</h2>
+      {showCreateButton && (
+        <div className="panel-heading panel-heading-end">
           <button className="button button-primary" onClick={onCreate}>
             <Plus size={16} />
             {t('pullRequestsPanel.createPullRequest')}
           </button>
-        )}
-      </div>
+        </div>
+      )}
       {error && (
         <p className="live-error" role="alert">
           <ErrorMessage error={error} language={language} />

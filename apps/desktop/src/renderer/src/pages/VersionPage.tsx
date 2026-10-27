@@ -1,6 +1,6 @@
 import { useTranslation } from '../localization';
 import type { GitHubCommit } from '@easyhub/github';
-import { ArrowDownToLine, ArrowLeft, Folder } from 'lucide-react';
+import { ArrowDownToLine, ArrowLeft, FileText } from 'lucide-react';
 import { formatDateTime } from '../format';
 
 import { usePageRoute } from '../workspace/NavigationContext';
@@ -67,7 +67,7 @@ export function VersionPage() {
               {commit.files.map((file) => (
                 <div className="file-row" key={file.filename}>
                   <span className="file-kind">
-                    <Folder size={16} />
+                    <FileText size={16} />
                   </span>
                   <span>{file.filename}</span>
                 </div>

@@ -40,9 +40,7 @@ export function PublicIssuesTab({
   const t = useTranslation(language);
   return (
     <>
-      <div className="panel-heading">
-        <h2>{t('publicProjectBrowser.issues')}</h2>
-      </div>
+      <h2 className="visually-hidden">{t('publicProjectBrowser.issues')}</h2>
       <DiscussionSearch
         filters={
           <SegmentedControl className="public-issue-filter">
