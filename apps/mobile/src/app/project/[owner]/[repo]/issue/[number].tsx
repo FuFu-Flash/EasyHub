@@ -17,6 +17,7 @@ import { invalidateOpenIssues } from '@/features/github/openIssues';
 import { Action, BackLink, Card, ErrorText, Heading, Loading, Page, palette } from '@/components/elements';
 import { readListWindow } from '@/features/workspace/readingWindow';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
+import { themed } from '@/features/theme/theme';
 
 type IssueParameters = { owner: string; repo: string; number: string; mode?: string };
 export default function IssueDetail() {
@@ -120,12 +121,12 @@ function IssueDetails({ owner, repo, number }: IssueParameters) {
       <Text style={{ color: issue.state === 'open' ? palette.green : palette.muted, fontWeight: '700' }}>{issue.state === 'open' ? t("DiscussionSearch.open") : t("project.resolved")}</Text>
       <Heading title={translatedTitle || issue.title} subtitle={`${issue.user?.login || t("PullRequestsPanel.githubUser")} · ${formatDateTime(issue.created_at, language)}`} />
       {[{ id: issue.id, body: issue.body || '', user: issue.user?.login || t("PullRequestsPanel.githubUser"), date: issue.created_at }, ...comments.map((item) => ({ id: item.id, body: item.body, user: item.user?.login || t("PullRequestsPanel.githubUser"), date: item.created_at }))].map((message) => <View key={message.id} style={{ flexDirection: 'row', gap: 9, marginBottom: 13 }}>
-        <View style={{ width: 36, height: 36, backgroundColor: '#e4f0ff', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: palette.blue, fontWeight: '800' }}>{message.user[0]?.toUpperCase()}</Text></View>
+        <View style={{ width: 36, height: 36, backgroundColor: themed('#e4f0ff'), borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: palette.blue, fontWeight: '800' }}>{message.user[0]?.toUpperCase()}</Text></View>
         <Card style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: palette.ink }}>{message.user} <Text style={{ color: palette.muted, fontWeight: '400' }}>· {formatDateTime(message.date, language)}</Text></Text><View style={{ marginTop: 14 }}><TranslatableMarkdown text={message.body || t("number.noDescription")} isPublic={isPublic} protectedNames={names} /></View></Card>
       </View>)}
       {!!commentError && <ErrorText message={commentError} onRetry={() => { void loadMoreComments(); }} />}
       {nextCommentPage !== null && <View style={{ marginBottom: 15 }}><Action title={loadingMore ? t("number.loadingReplies") : commentError ? t("number.retryReplies") : t("number.loadMoreReplies")} secondary disabled={loading || loadingMore} onPress={() => { void loadMoreComments(); }} /></View>}
-      {user && <Card><Text style={{ fontWeight: '800', color: palette.ink, marginBottom: 11 }}>{t("number.writeAReply")}</Text><TextInput value={reply} onChangeText={setReply} multiline placeholder={t("number.shareYourThoughtsOrProgress")} style={{ backgroundColor: palette.background, borderWidth: 1, borderColor: palette.border, borderRadius: 11, minHeight: 110, padding: 13, textAlignVertical: 'top', marginBottom: 13 }} /><Action title={busy ? t("number.sending") : t("number.sendReply")} disabled={busy || loading || !!error || !reply.trim()} onPress={() => { void send(); }} />
+      {user && <Card><Text style={{ fontWeight: '800', color: palette.ink, marginBottom: 11 }}>{t("number.writeAReply")}</Text><TextInput placeholderTextColor={palette.muted} value={reply} onChangeText={setReply} multiline placeholder={t("number.shareYourThoughtsOrProgress")} style={{ color: palette.ink, backgroundColor: palette.background, borderWidth: 1, borderColor: palette.border, borderRadius: 11, minHeight: 110, padding: 13, textAlignVertical: 'top', marginBottom: 13 }} /><Action title={busy ? t("number.sending") : t("number.sendReply")} disabled={busy || loading || !!error || !reply.trim()} onPress={() => { void send(); }} />
         {!repository?.archived && (repository?.permissions?.push || user.login.toLowerCase() === owner.toLowerCase() || user.login.toLowerCase() === issue.user?.login.toLowerCase()) && <View style={{ marginTop: 10 }}><Action title={issue.state === 'open' ? t("number.markResolved") : t("number.reopen")} secondary disabled={busy || loading || !!error} onPress={() => { void changeState(); }} /></View>}
       </Card>}
     </>}

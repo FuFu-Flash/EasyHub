@@ -10,6 +10,7 @@ import { MaterialArrow } from '@/components/MaterialArrow';
 
 import { AppUpdateError, checkAndroidAppUpdate, type AppUpdateErrorCode, type AppUpdateResult } from './appUpdate';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
+import { themed } from '@/features/theme/theme';
 
 export function AppUpdatePanel() {
   const t = useTranslation();
@@ -76,6 +77,6 @@ export function AppUpdatePanel() {
       <Text style={{ color: palette.blue, fontWeight: '700', minWidth: 0, flexShrink: 1 }}>{t("AppUpdatePanel.viewUpdateAndDownload")}</Text>
       <MaterialArrow name="external" color={palette.blue} />
     </Pressable>}
-    {error && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ color: '#bf3947', lineHeight: 21, marginTop: 12 }}>{message}</Text>}
+    {error && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ color: themed('#bf3947'), lineHeight: 21, marginTop: 12 }}>{message}</Text>}
   </Card>;
 }

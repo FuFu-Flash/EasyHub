@@ -10,6 +10,7 @@ import { pullReviewGroupExpanded, pullReviewGroupKey, refreshPullReviewGroups, t
 import type { RefreshHandle } from '@/features/github/usePullRefresh';
 import { Action, Card, palette } from '@/components/elements';
 import { MaterialArrow } from './MaterialArrow';
+import { themed } from '@/features/theme/theme';
 
 const pullKey = (item: GitHubPullRequest) => item.id;
 
@@ -37,10 +38,10 @@ function PullReviewGroup({ repo, filter, count, visible, expanded, onToggle, ref
   return <Card>
     <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={onToggle} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 }}>
       <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ color: palette.ink, fontSize: 17, fontWeight: '800' }}>{name}</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 3 }}>{filter === 'open' ? t("PullReviewGroups.changesAwaitingReview") : t("PullReviewGroups.handledChangeRequests")}</Text></View>
-      <View style={{ backgroundColor: '#fff0f1', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 }}><Text style={{ color: '#bd3548', fontWeight: '800' }}>{count ?? '…'}</Text></View><MaterialArrow name={expanded ? 'expandLess' : 'expandMore'} />
+      <View style={{ backgroundColor: themed('#fff0f1'), borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 }}><Text style={{ color: themed('#bd3548'), fontWeight: '800' }}>{count ?? '…'}</Text></View><MaterialArrow name={expanded ? 'expandLess' : 'expandMore'} />
     </Pressable>
     {expanded && <View>
-      {list.failedPage !== null && <View style={{ marginTop: 12, gap: 8 }}><Text style={{ color: '#bf3947' }}>{t("PullReviewGroups.couldNotLoadChangeRequestsPleaseTryAgain")}</Text><Action title={t("DiscussionSearch.retry")} secondary disabled={list.busy} onPress={() => { void list.more(); }} /></View>}
+      {list.failedPage !== null && <View style={{ marginTop: 12, gap: 8 }}><Text style={{ color: themed('#bf3947') }}>{t("PullReviewGroups.couldNotLoadChangeRequestsPleaseTryAgain")}</Text><Action title={t("DiscussionSearch.retry")} secondary disabled={list.busy} onPress={() => { void list.more(); }} /></View>}
       {list.items.map((item) => <Pressable key={item.id} accessibilityRole="button" onPress={() => router.push({ pathname: '/project/[owner]/[repo]/pull/[number]', params: { owner, repo: name, number: String(item.number) } })} style={{ borderTopWidth: 1, borderTopColor: palette.border, marginTop: 12, paddingTop: 12 }}><Text style={{ color: palette.ink, fontWeight: '700' }}>{item.title}</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 5 }}>{item.user?.login || t("PullRequestsPanel.githubUser")} · {item.draft ? t("PullRequestsPanel.draft") : item.merged_at ? t("PullRequestsPanel.accepted") : item.state === 'open' ? t("PullRequestsPanel.awaitingReview") : t("DiscussionSearch.closed")}</Text></Pressable>)}
       {list.busy && <Text style={{ color: palette.muted, marginTop: 12 }}>{t("PullReviewGroups.loadingChangeRequests")}</Text>}
       {list.loaded && !list.busy && list.failedPage === null && !list.items.length && <Text style={{ color: palette.muted, marginTop: 12 }}>{filter === 'open' ? t("PullRequestsPanel.noChangesAwaitingReview") : t("PullRequestsPanel.noHandledChangeRequestsYet")}</Text>}

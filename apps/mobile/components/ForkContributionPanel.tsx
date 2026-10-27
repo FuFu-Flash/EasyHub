@@ -11,8 +11,9 @@ import { Action, Card, ErrorText, Loading, palette } from './elements';
 import { MaterialArrow } from './MaterialArrow';
 import type { RefreshHandle } from '@/features/github/usePullRefresh';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
+import { themed } from '@/features/theme/theme';
 
-const fieldStyle = { borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: 13, color: palette.ink, backgroundColor: '#fff' } as const;
+const fieldStyle = { borderWidth: 1, borderRadius: 12, padding: 13, get borderColor() { return palette.border; }, get color() { return palette.ink; }, get backgroundColor() { return themed('#fff'); } };
 
 interface ForkContributionProps {
   ref?: Ref<RefreshHandle>;
@@ -175,9 +176,9 @@ function ForkContributionContent({ repo, publicMode = false, active = true, onOp
       {checking && <Loading />}
       {ownFork && <View style={{ gap: 12 }}>
         <Text style={{ color: palette.ink, fontWeight: '700' }}>{t("ForkContributionPanel.sourceBranch")}</Text>
-        <TextInput accessibilityLabel={t("ForkContributionPanel.sourceBranch")} value={headBranch} onChangeText={(value) => changeBranch('head', value)} autoCapitalize="none" autoCorrect={false} maxLength={255} editable={!busy && !checking} style={fieldStyle} />
+        <TextInput placeholderTextColor={palette.muted} accessibilityLabel={t("ForkContributionPanel.sourceBranch")} value={headBranch} onChangeText={(value) => changeBranch('head', value)} autoCapitalize="none" autoCorrect={false} maxLength={255} editable={!busy && !checking} style={fieldStyle} />
         <Text style={{ color: palette.ink, fontWeight: '700' }}>{t("ForkContributionPanel.targetBranch")}</Text>
-        <TextInput accessibilityLabel={t("ForkContributionPanel.targetBranch")} value={baseBranch} onChangeText={(value) => changeBranch('base', value)} autoCapitalize="none" autoCorrect={false} maxLength={255} editable={!busy && !checking} style={fieldStyle} />
+        <TextInput placeholderTextColor={palette.muted} accessibilityLabel={t("ForkContributionPanel.targetBranch")} value={baseBranch} onChangeText={(value) => changeBranch('base', value)} autoCapitalize="none" autoCorrect={false} maxLength={255} editable={!busy && !checking} style={fieldStyle} />
         <Text style={{ color: palette.muted, lineHeight: 22 }}>{validBranches
           ? t("ForkContributionPanel.enterBranchNamesAlreadyOnGitHubThenCompareTheChangesBetween")
           : t("ForkContributionPanel.enterValidSourceAndTargetBranchNames")}</Text>
@@ -193,9 +194,9 @@ function ForkContributionContent({ repo, publicMode = false, active = true, onOp
           <Action title={t("ForkContributionPanel.viewOnGitHub")} secondary onPress={() => { void Linking.openURL(activeRequest.html_url); }} />
         </> : comparison.ahead_by === 0 ? <Text style={{ color: palette.muted, lineHeight: 22 }}>{t("ForkContributionPanel.thereAreNoChangesToSubmitUpdateYourForkOnGitHub")}</Text> : <>
           <Text style={{ color: palette.ink, fontWeight: '700' }}>{t("ForkContributionPanel.contributionTitle")}</Text>
-          <TextInput accessibilityLabel={t("ForkContributionPanel.contributionTitle")} placeholder={t("ForkContributionPanel.describeYourChangesInOneSentence")} value={title} onChangeText={setTitle} maxLength={256} editable={!busy} style={fieldStyle} />
+          <TextInput placeholderTextColor={palette.muted} accessibilityLabel={t("ForkContributionPanel.contributionTitle")} placeholder={t("ForkContributionPanel.describeYourChangesInOneSentence")} value={title} onChangeText={setTitle} maxLength={256} editable={!busy} style={fieldStyle} />
           <Text style={{ color: palette.ink, fontWeight: '700' }}>{t("ForkContributionPanel.description")}</Text>
-          <TextInput accessibilityLabel={t("ForkContributionPanel.contributionDescription")} placeholder={t("ForkContributionPanel.explainWhyYouMadeTheseChanges")} value={body} onChangeText={setBody} maxLength={65536} multiline editable={!busy} style={[fieldStyle, { minHeight: 120, textAlignVertical: 'top' }]} />
+          <TextInput placeholderTextColor={palette.muted} accessibilityLabel={t("ForkContributionPanel.contributionDescription")} placeholder={t("ForkContributionPanel.explainWhyYouMadeTheseChanges")} value={body} onChangeText={setBody} maxLength={65536} multiline editable={!busy} style={[fieldStyle, { minHeight: 120, textAlignVertical: 'top' }]} />
           <Action title={busy ? t("ForkContributionPanel.submitting") : t("ForkContributionPanel.submitContribution")} disabled={busy || checking || !!error || !title.trim()} onPress={() => { void submit(); }} />
         </>}
       </View>}
@@ -205,7 +206,7 @@ function ForkContributionContent({ repo, publicMode = false, active = true, onOp
           <Action title={busy ? t("ForkContributionPanel.checking") : t("ForkContributionPanel.checkForkReadiness")} disabled={busy || checking} onPress={() => { void create(); }} />
         </> : <>
           <Text style={{ color: palette.ink, fontWeight: '700' }}>{t("ForkContributionPanel.forkName")}</Text>
-          <TextInput accessibilityLabel={t("ForkContributionPanel.forkName")} value={name} onChangeText={setName} autoCapitalize="none" autoCorrect={false} maxLength={100} editable={!busy} style={fieldStyle} />
+          <TextInput placeholderTextColor={palette.muted} accessibilityLabel={t("ForkContributionPanel.forkName")} value={name} onChangeText={setName} autoCapitalize="none" autoCorrect={false} maxLength={100} editable={!busy} style={fieldStyle} />
           <Text style={{ color: palette.muted }}>{user?.login}/{name} · {t("ForkContributionPanel.copiesOnlyTheDefaultBranch")}</Text>
           <Action title={busy ? t("ForkContributionPanel.creatingFork") : t("ForkContributionPanel.createFork")} disabled={busy || checking || !!error || !isValidRepositoryName(name)} onPress={() => { void create(); }} />
         </>}

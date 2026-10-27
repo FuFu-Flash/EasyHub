@@ -10,6 +10,7 @@ import { useTranslatedContent } from '@/features/translation/useTranslatedConten
 import { Action, Card, ErrorText, Loading, palette } from '@/components/elements';
 import type { RefreshHandle } from '@/features/github/usePullRefresh';
 import { readListWindow } from '@/features/workspace/readingWindow';
+import { themed } from '@/features/theme/theme';
 
 function ResultTitle({ item, owner, repo, isPublic }: { item: GitHubIssue; owner: string; repo: string; isPublic: boolean }) {
   const title = useTranslatedContent(item.title, [owner, repo, item.user?.login || ''], isPublic).value;
@@ -106,9 +107,9 @@ export function DiscussionSearch({ ref, ...props }: DiscussionSearchProps) {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>{scopes.map((item) => <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected: selected?.id === item.id }} onPress={() => {
           if (selected?.id === item.id) return;
           request.current?.abort(); setItems([]); setBusy(false); setError(''); setSelectedId(item.id);
-        }} style={{ maxWidth: 260, borderRadius: 10, padding: 11, borderWidth: 1, borderColor: selected?.id === item.id ? palette.blue : palette.border, backgroundColor: selected?.id === item.id ? '#e7f0ff' : palette.background }}><Text numberOfLines={2} style={{ color: selected?.id === item.id ? palette.blue : palette.ink, fontWeight: '700' }}>{item.label}</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>{item.isPublic ? t("DiscussionSearch.public") : t("DiscussionSearch.privateOrUnconfirmed")}</Text></Pressable>)}</ScrollView>
+        }} style={{ maxWidth: 260, borderRadius: 10, padding: 11, borderWidth: 1, borderColor: selected?.id === item.id ? palette.blue : palette.border, backgroundColor: selected?.id === item.id ? themed('#e7f0ff') : palette.background }}><Text numberOfLines={2} style={{ color: selected?.id === item.id ? palette.blue : palette.ink, fontWeight: '700' }}>{item.label}</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>{item.isPublic ? t("DiscussionSearch.public") : t("DiscussionSearch.privateOrUnconfirmed")}</Text></Pressable>)}</ScrollView>
       </>}
-      <TextInput accessibilityLabel={t("DiscussionSearch.searchTitleOrNumber")} value={text} maxLength={200} onChangeText={(value) => { setText(value); if (!value.trim()) setQuery(''); }} onSubmitEditing={submit} returnKeyType="search" autoCapitalize="none" autoCorrect={false} placeholder={t("DiscussionSearch.searchTitleOrNumber47dbc59b")} style={{ color: palette.ink, backgroundColor: palette.background, borderWidth: 1, borderColor: palette.border, borderRadius: 11, padding: 13, marginBottom: 12, fontSize: 16 }} />
+      <TextInput placeholderTextColor={palette.muted} accessibilityLabel={t("DiscussionSearch.searchTitleOrNumber")} value={text} maxLength={200} onChangeText={(value) => { setText(value); if (!value.trim()) setQuery(''); }} onSubmitEditing={submit} returnKeyType="search" autoCapitalize="none" autoCorrect={false} placeholder={t("DiscussionSearch.searchTitleOrNumber47dbc59b")} style={{ color: palette.ink, backgroundColor: palette.background, borderWidth: 1, borderColor: palette.border, borderRadius: 11, padding: 13, marginBottom: 12, fontSize: 16 }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}><Action title={t("DiscussionSearch.search")} disabled={busy || !text.trim() || !owner || !repo} onPress={submit} /><Action title={t("DiscussionSearch.closeSearch")} secondary onPress={() => { request.current?.abort(); setExpanded(false); setText(''); setQuery(''); }} /></View>
     </Card>}
     {query ? <>

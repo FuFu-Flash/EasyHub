@@ -10,6 +10,7 @@ import { useSession } from '@/features/auth/session';
 
 import { awaitDeviceAuthorization, requestDeviceCode } from '@/features/auth/deviceFlow';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
+import { themed } from '@/features/theme/theme';
 
 export default function Login() {
   const { signIn } = useSession();
@@ -40,7 +41,7 @@ export default function Login() {
   return <Page><BackLink title={t("analysis.back")} marginBottom={28} /><Heading title={t("discover.signInWithGitHub")} subtitle={t("login.easyhubOpensGitHubForAuthorizationYouCanThenViewAndManage")} />
     <Card><Text style={{ color: palette.ink, fontSize: 18, fontWeight: '700' }}>{t("login.connectYourAccountSecurely")}</Text><Text style={{ color: palette.muted, lineHeight: 23, marginTop: 10 }}>{t("login.easyhubDoesNotCreateASeparateAccountSignInDetailsStay")}</Text></Card>
       {code && <Card><Text style={{ color: palette.muted }}>{t("login.copyTheCodeAndPasteItOnGitHub")}</Text><Text selectable style={{ color: palette.ink, fontSize: 30, fontWeight: '800', letterSpacing: 3, marginVertical: 14 }}>{code.user_code}</Text><Action title={t("login.copyCodeAndOpenGitHub")} secondary onPress={() => { void Clipboard.setStringAsync(code.user_code).then(() => WebBrowser.openBrowserAsync(code.verification_uri)); }} /><Text style={{ color: palette.muted, marginTop: 14 }}>{t("login.returnToEasyHubAfterAuthorizationSignInCompletesAutomatically")}</Text></Card>}
-    {!!error && <Text style={{ color: '#bf3947', marginBottom: 14 }}>{error}</Text>}
+    {!!error && <Text style={{ color: themed('#bf3947'), marginBottom: 14 }}>{error}</Text>}
     <Action title={busy ? t("login.waitingForAuthorization") : t("login.startSignIn")} disabled={busy} onPress={() => { void begin(); }} />
     {busy && <View style={{ marginTop: 12 }}><Action title={t("login.cancelSignIn")} secondary onPress={() => { cancel.current?.abort(); setBusy(false); setCode(null); }} /></View>}
   </Page>;

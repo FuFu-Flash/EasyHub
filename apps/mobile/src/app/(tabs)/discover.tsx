@@ -17,6 +17,7 @@ import { parseProjectAddress } from '@/features/github/projectAddress';
 import { Action, Card, DirectionLabel, ErrorText, Heading, Loading, Page, palette } from '@/components/elements';
 import { usePullRefresh } from '@/features/github/usePullRefresh';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
+import { themed } from '@/features/theme/theme';
 
 type DisplayMode = 'compact' | 'detailed';
 const periods: { id: TrendingPeriod; title: StaticMessageKey }[] = [
@@ -36,8 +37,8 @@ async function readUserProjects(client: GitHubClient, users: GitHubSearchUser[],
 }
 
 function Choice({ title, selected, onPress }: { title: string; selected: boolean; onPress: () => void }) {
-  return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={{ maxWidth: '100%', minWidth: 0, flexShrink: 1, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 11, backgroundColor: selected ? '#e7f0ff' : '#fff', borderWidth: 1, borderColor: selected ? '#a8cbff' : palette.border }}>
-    <Text style={{ color: selected ? '#166ee7' : '#52637c', fontWeight: '700', textAlign: 'center' }}>{title}</Text>
+  return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={{ maxWidth: '100%', minWidth: 0, flexShrink: 1, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 11, backgroundColor: selected ? themed('#e7f0ff') : themed('#fff'), borderWidth: 1, borderColor: selected ? themed('#a8cbff') : palette.border }}>
+    <Text style={{ color: selected ? themed('#166ee7') : themed('#52637c'), fontWeight: '700', textAlign: 'center' }}>{title}</Text>
   </Pressable>;
 }
 
@@ -47,10 +48,10 @@ function OpenRepo({ repo, compact, rank, trend, width }: { repo: GitHubRepo; com
     <Card style={{ minHeight: compact ? 126 : 178, marginBottom: 0 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         {typeof rank === 'number' && <Text style={{ fontSize: 13, color: palette.blue, fontWeight: '800' }}>#{rank}</Text>}
-        {repo.owner.avatar_url ? <Image source={{ uri: repo.owner.avatar_url }} style={{ width: 34, height: 34, borderRadius: 10 }} /> : <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#e8f2ff', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: palette.blue, fontWeight: '800' }}>{repo.owner.login[0]?.toUpperCase()}</Text></View>}
+        {repo.owner.avatar_url ? <Image source={{ uri: repo.owner.avatar_url }} style={{ width: 34, height: 34, borderRadius: 10 }} /> : <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: themed('#e8f2ff'), alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: palette.blue, fontWeight: '800' }}>{repo.owner.login[0]?.toUpperCase()}</Text></View>}
         <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ fontWeight: '800', color: palette.ink, fontSize: 16 }}>{repo.name}</Text><Text numberOfLines={1} style={{ color: palette.muted, fontSize: 12 }}>{repo.owner.login}</Text></View>
       </View>
-      {!compact && <Text numberOfLines={3} style={{ color: '#52647e', marginTop: 12, lineHeight: 20 }}>{repo.description || t("discover.noDescriptionYet")}</Text>}
+      {!compact && <Text numberOfLines={3} style={{ color: themed('#52647e'), marginTop: 12, lineHeight: 20 }}>{repo.description || t("discover.noDescriptionYet")}</Text>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 13 }}>
         {!compact && <Text style={{ color: palette.muted, fontSize: 12 }}>{repo.language || t("discover.languageNotListed")}</Text>}
         <Text style={{ color: palette.muted, fontSize: 12 }}>★ {(repo.stargazers_count ?? 0).toLocaleString()}</Text>
@@ -225,7 +226,7 @@ export default function Discover() {
     <Text style={{ color: palette.blue, fontWeight: '700', marginBottom: 5 }}>{t("discover.exploreMoreCreations")}</Text>
     <Heading title={t("discover.discoverSearch")} subtitle={t("discover.searchPublicProjectsAndGitHubUsersOrSeeWhatPeopleAre")} />
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}><Choice title={t("discover.projects")} selected={scope === 'projects'} onPress={() => { setScope('projects'); setSearchPage(1); }} /><Choice title={t("discover.users")} selected={scope === 'users'} onPress={() => { setScope('users'); setSearchPage(1); }} /></View>
-    <TextInput accessibilityLabel={scope === 'users' ? t("discover.searchUsers") : t("discover.searchPublicProjectsOrPasteAnAddress")} value={query} onChangeText={(value) => { setQuery(value); setSearchPage(1); }} onSubmitEditing={() => { if (address) void openAddress(); }} autoCorrect={false} autoCapitalize="none" returnKeyType="search" placeholder={scope === 'users' ? t("discover.searchGitHubUsers") : t("discover.searchPublicProjectsOrPasteAGitHubAddress")} style={{ backgroundColor: '#fff', borderColor: '#cbdcf5', borderWidth: 1, borderRadius: 13, paddingHorizontal: 16, paddingVertical: 14, color: palette.ink, fontSize: 16, marginBottom: 20 }} />
+    <TextInput placeholderTextColor={palette.muted} accessibilityLabel={scope === 'users' ? t("discover.searchUsers") : t("discover.searchPublicProjectsOrPasteAnAddress")} value={query} onChangeText={(value) => { setQuery(value); setSearchPage(1); }} onSubmitEditing={() => { if (address) void openAddress(); }} autoCorrect={false} autoCapitalize="none" returnKeyType="search" placeholder={scope === 'users' ? t("discover.searchGitHubUsers") : t("discover.searchPublicProjectsOrPasteAGitHubAddress")} style={{ backgroundColor: themed('#fff'), borderColor: themed('#cbdcf5'), borderWidth: 1, borderRadius: 13, paddingHorizontal: 16, paddingVertical: 14, color: palette.ink, fontSize: 16, marginBottom: 20 }} />
     {address && <Card><Text style={{ color: palette.ink, fontWeight: '800', marginBottom: 12 }}>{address.owner}/{address.name}</Text><Action title={t("discover.openThisProject")} disabled={busy} onPress={() => { void openAddress(); }} /></Card>}
     {!search && history.length > 0 && <Card><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', marginBottom: 10 }}><Text style={{ color: palette.ink, fontWeight: '800', fontSize: 17 }}>{t("discover.searchHistory")}</Text><Pressable onPress={() => setHistory([])}><Text style={{ color: palette.blue }}>{t("discover.clearAll")}</Text></Pressable></View>{history.map((entry) => <Pressable key={`${entry.scope}:${entry.query}`} onPress={() => { setScope(entry.scope); setQuery(entry.query); setSearchPage(1); }} style={{ paddingVertical: 9, flexDirection: 'row', gap: 9 }}><Text style={{ color: palette.muted }}>◷</Text><Text numberOfLines={1} style={{ color: palette.ink, flex: 1 }}>{entry.query}</Text><Text style={{ color: palette.muted, fontSize: 12 }}>{entry.scope === 'users' ? t("discover.user") : t("discover.publicProject")}</Text></Pressable>)}</Card>}
     {scope === 'projects' && !search && <><View style={{ marginTop: 9, marginBottom: 12 }}><Text style={{ color: palette.ink, fontSize: 21, fontWeight: '800' }}>{t("discover.easyhubPopular")}</Text><Text style={{ color: palette.muted, marginTop: 6, lineHeight: 20 }}>{t("discover.publicProjectsRankedByStarsRecentActivityAndUpdateTimeThis")}</Text></View><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 16 }}>{periods.map((item) => <Choice key={item.id} title={t(item.title)} selected={period === item.id} onPress={() => { setPeriod(item.id); setPage(1); }} />)}</View></>}

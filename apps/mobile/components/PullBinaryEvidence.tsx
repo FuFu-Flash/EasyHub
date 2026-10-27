@@ -5,6 +5,7 @@ import type { BinaryAnalysisResult } from '@easyhub/types';
 import { Action, palette } from './elements';
 
 import { formatBytes } from '@/features/github/downloadProgress';
+import { themed } from '@/features/theme/theme';
 
 /** Evidence stays next to the changed PR file it describes. */
 export function PullBinaryEvidence({ analysis, headSha }: { analysis: BinaryAnalysisResult; headSha: string }) {
@@ -25,7 +26,7 @@ export function PullBinaryEvidence({ analysis, headSha }: { analysis: BinaryAnal
           <Text selectable style={{ color: palette.muted, marginTop: 5, lineHeight: 19 }}>{item.address}</Text>
           <Text style={{ color: palette.blue, marginTop: 8 }}>{expanded === index ? t("PullBinaryEvidence.collapseCode") : t("PullBinaryEvidence.viewRecoveredCode")}</Text>
         </Pressable>
-        {expanded === index && <ScrollView horizontal style={{ marginTop: 10, backgroundColor: '#f3f6fb', borderRadius: 8 }}><Text selectable style={{ color: palette.ink, fontFamily: 'monospace', fontSize: 12, lineHeight: 19, padding: 12 }}>{item.code}</Text></ScrollView>}
+        {expanded === index && <ScrollView horizontal style={{ marginTop: 10, backgroundColor: themed('#f3f6fb'), borderRadius: 8 }}><Text selectable style={{ color: palette.ink, fontFamily: 'monospace', fontSize: 12, lineHeight: 19, padding: 12 }}>{item.code}</Text></ScrollView>}
       </View>)}
       <Text style={{ color: palette.ink, fontWeight: '800', marginTop: 8 }}>{t("PullBinaryEvidence.imports")}</Text>
       {analysis.imports.map((item, index) => <Text selectable key={`i-${index}`} style={{ color: palette.muted, lineHeight: 20 }}>{item}</Text>)}

@@ -20,6 +20,7 @@ import { useProgramReviewNotice } from '@/features/analysis/useProgramReviewNoti
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
 import { FeedbackNotice } from './FeedbackNotice';
 import { useSuccessNotice } from '@/features/workspace/useSuccessNotice';
+import { themed, onAccent } from '@/features/theme/theme';
 
 type Operation = 'choose' | 'prepare' | 'extracting' | 'reviewing' | 'install' | 'remove' | 'cancel';
 type OperationLock = { id: number; kind: Operation };
@@ -38,8 +39,8 @@ function requestId(): string {
 function ReviewAction({ title, onPress, disabled, secondary }: { title: string; onPress: () => void; disabled?: boolean; secondary?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled: !!disabled }} disabled={disabled} onPress={onPress}
     style={{ minHeight: 48, minWidth: 0, maxWidth: '100%', borderRadius: 12, borderWidth: 1, borderColor: secondary ? palette.border : 'transparent',
-      backgroundColor: secondary ? '#fff' : disabled ? '#9dc2f6' : palette.blue, paddingHorizontal: 15, paddingVertical: 12, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ color: secondary ? disabled ? palette.muted : palette.ink : '#fff', fontWeight: '700', fontSize: 15, textAlign: 'center', flexShrink: 1 }}>{title}</Text>
+      backgroundColor: secondary ? themed('#fff') : disabled ? themed('#9dc2f6') : palette.blue, paddingHorizontal: 15, paddingVertical: 12, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ color: secondary ? disabled ? palette.muted : palette.ink : onAccent, fontWeight: '700', fontSize: 15, textAlign: 'center', flexShrink: 1 }}>{title}</Text>
   </Pressable>;
 }
 
@@ -67,7 +68,7 @@ function ProgramEvidence({ analysis }: { analysis: BinaryAnalysisResult }) {
     {analysis.functions.length > 0 && <View style={{ marginTop: 10 }}>
       <Text style={{ color: palette.ink, fontWeight: '800', marginTop: 10 }}>{t("BinaryAnalysisSettings.functionExcerpts")}</Text>
       {analysis.functions.map((item, index) => <EvidenceSection key={`${analysis.id}:${index}`} title={`${item.name}\n${item.address}`}>
-        <ScrollView horizontal style={{ backgroundColor: '#f3f6fb', borderRadius: 8 }}>
+        <ScrollView horizontal style={{ backgroundColor: themed('#f3f6fb'), borderRadius: 8 }}>
           <Text selectable style={{ color: palette.ink, fontFamily: 'monospace', fontSize: 12, lineHeight: 19, padding: 12 }}>{item.code}</Text>
         </ScrollView>
       </EvidenceSection>)}
@@ -317,7 +318,7 @@ export function BinaryAnalysisSettings({ onOpenComponents }: { onOpenComponents?
       </Pressable>
       <Text style={{ color: palette.muted, lineHeight: 22 }}>{t("BinaryAnalysisSettings.usesTheSameAIProviderAsChangeRequestsAfterConfirmationProgram")}</Text>
       {isProgramReviewUiTest && <Text style={{ color: palette.muted, fontSize: 12, lineHeight: 19, marginTop: 8 }}>{t("BinaryAnalysisSettings.uiTestingAIUsesALocalSimulatedResponse")}</Text>}
-      <View style={{ marginTop: 16, padding: 12, borderRadius: 12, backgroundColor: '#f3f6fb' }}>
+      <View style={{ marginTop: 16, padding: 12, borderRadius: 12, backgroundColor: themed('#f3f6fb') }}>
         <Pressable accessibilityRole="button" accessibilityState={{ expanded: componentsExpanded }} onPress={() => setComponentsExpanded((value) => !value)}
           style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: palette.ink, fontWeight: '800' }}>{t("BinaryAnalysisSettings.manageReviewComponents")}</Text>
@@ -361,12 +362,12 @@ export function BinaryAnalysisSettings({ onOpenComponents }: { onOpenComponents?
         </View>
         <ReviewAction secondary title={busy === 'cancel' ? t("BinaryAnalysisSettings.canceling") : t("AiReviewSettings.cancel")} disabled={busy === 'cancel'} onPress={cancel} />
       </View>}
-      {!!error && <Text accessibilityRole="alert" style={{ color: '#bf3947', lineHeight: 22, marginTop: 15 }}>{error}</Text>}
+      {!!error && <Text accessibilityRole="alert" style={{ color: themed('#bf3947'), lineHeight: 22, marginTop: 15 }}>{error}</Text>}
       {review && review.analysisId === analysis?.id && <View style={{ marginTop: 19, paddingTop: 17, borderTopWidth: 1, borderTopColor: palette.border }}>
         <Text style={{ color: palette.ink, fontWeight: '800', fontSize: 18 }}>{t("BinaryAnalysisSettings.aiReviewResults")}</Text>
         <Text selectable style={{ color: palette.ink, lineHeight: 23, marginTop: 11 }}>{review.summary}</Text>
         {review.findings.map((finding, index) => <View key={index} style={{ marginTop: 16, gap: 8 }}>
-          <Text style={{ color: finding.severity === 'high' ? '#bf3947' : palette.ink, fontWeight: '800', lineHeight: 22 }}>{finding.severity === 'high' ? t("BinaryAnalysisSettings.highPriority") : finding.severity === 'medium' ? t("BinaryAnalysisSettings.worthChecking") : t("BinaryAnalysisSettings.suggestion")}</Text>
+          <Text style={{ color: finding.severity === 'high' ? themed('#bf3947') : palette.ink, fontWeight: '800', lineHeight: 22 }}>{finding.severity === 'high' ? t("BinaryAnalysisSettings.highPriority") : finding.severity === 'medium' ? t("BinaryAnalysisSettings.worthChecking") : t("BinaryAnalysisSettings.suggestion")}</Text>
           {!!finding.address && <Text selectable style={{ color: palette.muted, fontFamily: 'monospace', lineHeight: 20 }}>{finding.address}</Text>}
           <Text selectable style={{ color: palette.ink, lineHeight: 22 }}>{finding.description}</Text>
           {!!finding.suggestion && <Text selectable style={{ color: palette.muted, lineHeight: 22 }}>{finding.suggestion}</Text>}

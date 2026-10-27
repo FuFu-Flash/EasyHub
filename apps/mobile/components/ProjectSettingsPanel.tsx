@@ -12,8 +12,9 @@ import { applyRepositorySetting, assertDeletionAccount, canManageRepository, loa
 import { AppAlert } from './AppAlert';
 import { Action, Card, Loading, palette } from './elements';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
+import { themed } from '@/features/theme/theme';
 
-const fieldStyle = { borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: 13, color: palette.ink, backgroundColor: '#fff' } as const;
+const fieldStyle = { borderWidth: 1, borderRadius: 12, padding: 13, get borderColor() { return palette.border; }, get color() { return palette.ink; }, get backgroundColor() { return themed('#fff'); } };
 
 export function ProjectSettingsPanel({ repo, publicMode = false, active = true, onUpdate, onRemoved, ref }: {
   ref?: Ref<RefreshHandle>;
@@ -189,30 +190,30 @@ export function ProjectSettingsPanel({ repo, publicMode = false, active = true, 
       <Text style={{ color: palette.muted, marginTop: 10, lineHeight: 22 }}>{repo.full_name} · {t("ProjectSettingsPanel.theseActionsChangeProjectAccessOrManagement")}</Text>
     </Card>
     {!action && rows.map((row) => <Card key={row.id}>
-      <Text style={{ color: row.id === 'delete' ? '#bf3947' : palette.ink, fontWeight: '800', fontSize: 17 }}>{row.title}</Text>
+      <Text style={{ color: row.id === 'delete' ? themed('#bf3947') : palette.ink, fontWeight: '800', fontSize: 17 }}>{row.title}</Text>
       <Text style={{ color: palette.muted, lineHeight: 22, marginVertical: 12 }}>{row.description}</Text>
       <Action title={row.button} secondary disabled={row.disabled || busy} onPress={settingHandlers[row.id]} />
     </Card>)}
-    {action && selected && <Card style={{ borderColor: '#e9b7bf' }}>
+    {action && selected && <Card style={{ borderColor: themed('#e9b7bf') }}>
       <Text style={{ color: palette.ink, fontWeight: '800', fontSize: 20 }}>{selected.title}</Text>
       <Text style={{ color: palette.muted, lineHeight: 22, marginVertical: 14 }}>{action === 'visibility' ? repo.private ? t("ProjectSettingsPanel.everyoneWillBeAbleToSeeThisProjectAndItsContents") : t("ProjectSettingsPanel.onlyAuthorizedPeopleWillBeAbleToSeeThisProject") : action === 'delete' ? t("ProjectSettingsPanel.theProjectHistoryAndIssuesWillBePermanentlyDeletedFromGitHub") : selected.description}</Text>
       {action === 'protection' && <View style={{ marginBottom: 14 }}>
-        {loadingProtection ? <Loading /> : protection?.externalRules ? <Text style={{ color: '#bf3947', lineHeight: 22 }}>{t("ProjectSettingsPanel.otherRulesProtectThisBranchManageThoseRulesOnGitHub")}</Text> : protection ? <Text style={{ color: palette.muted, lineHeight: 22 }}>{protection.enabled ? t("ProjectSettingsPanel.defaultBranchIsProtectedRemovingProtectionRevokesItsCurrentLegacyRule", { p0: protection.branch }) : t("ProjectSettingsPanel.defaultBranchIsUnprotectedEnablingProtectionRequiresOneApprovalBeforeMerging", { p0: protection.branch })}</Text> : null}
+        {loadingProtection ? <Loading /> : protection?.externalRules ? <Text style={{ color: themed('#bf3947'), lineHeight: 22 }}>{t("ProjectSettingsPanel.otherRulesProtectThisBranchManageThoseRulesOnGitHub")}</Text> : protection ? <Text style={{ color: palette.muted, lineHeight: 22 }}>{protection.enabled ? t("ProjectSettingsPanel.defaultBranchIsProtectedRemovingProtectionRevokesItsCurrentLegacyRule", { p0: protection.branch }) : t("ProjectSettingsPanel.defaultBranchIsUnprotectedEnablingProtectionRequiresOneApprovalBeforeMerging", { p0: protection.branch })}</Text> : null}
       </View>}
       {action === 'transfer' && <View style={{ gap: 8, marginBottom: 15 }}>
         <Text style={{ color: palette.ink, fontWeight: '700' }}>{t("ProjectSettingsPanel.newOwner")}</Text>
-        <TextInput accessibilityLabel={t("ProjectSettingsPanel.newOwner")} value={targetOwner} onChangeText={setTargetOwner} maxLength={39} autoCorrect={false} autoCapitalize="none" editable={!busy} placeholder={t("ProjectSettingsPanel.githubUsernameOrOrganization")} style={fieldStyle} />
+        <TextInput placeholderTextColor={palette.muted} accessibilityLabel={t("ProjectSettingsPanel.newOwner")} value={targetOwner} onChangeText={setTargetOwner} maxLength={39} autoCorrect={false} autoCapitalize="none" editable={!busy} placeholder={t("ProjectSettingsPanel.githubUsernameOrOrganization")} style={fieldStyle} />
       </View>}
       {authorized && <Text style={{ color: palette.green, lineHeight: 22, marginBottom: 14 }}>{t("ProjectSettingsPanel.deletionAuthorizedEnterTheFullProjectNameAgainAndConfirmDeletion")}</Text>}
       <Text style={{ color: palette.ink, fontWeight: '700', marginBottom: 8 }}>{t("ProjectSettingsPanel.typeTheProjectNameToConfirm")}: {expected}</Text>
-      <TextInput accessibilityLabel={t("ProjectSettingsPanel.confirmProjectName")} value={confirmation} onChangeText={setConfirmation} autoCorrect={false} autoCapitalize="none" editable={!busy && !authorizing} style={fieldStyle} />
+      <TextInput placeholderTextColor={palette.muted} accessibilityLabel={t("ProjectSettingsPanel.confirmProjectName")} value={confirmation} onChangeText={setConfirmation} autoCorrect={false} autoCapitalize="none" editable={!busy && !authorizing} style={fieldStyle} />
       {flow && <View style={{ gap: 12, marginTop: 16 }}>
         <Text selectable style={{ color: palette.ink, fontSize: 20, fontWeight: '800' }}>{flow.user_code}</Text>
         <Text style={{ color: palette.muted, lineHeight: 22 }}>{t("ProjectSettingsPanel.enterThisCodeOnGitHubToAuthorizeDeletionYouMustConfirm")}</Text>
         <Action title={t("ProjectSettingsPanel.openGitHubAuthorization")} secondary onPress={() => { void Linking.openURL(flow.verification_uri); }} />
       </View>}
       {authorizing && <Text style={{ color: palette.muted, marginTop: 14 }}>{t("ProjectSettingsPanel.waitingForGitHubAuthorization")}</Text>}
-      {!!error && <Text accessibilityRole="alert" style={{ color: '#bf3947', lineHeight: 22, marginTop: 15 }}>{error}</Text>}
+      {!!error && <Text accessibilityRole="alert" style={{ color: themed('#bf3947'), lineHeight: 22, marginTop: 15 }}>{error}</Text>}
       <View style={{ gap: 10, marginTop: 18 }}>
         <Action title={busy ? t("AiReviewSettings.working") : action === 'delete' && !authorized ? t("ProjectSettingsPanel.authorizeDeletion") : actionButton} disabled={busy || authorizing || confirmation !== expected || (action === 'transfer' && !targetOwner.trim()) || (action === 'protection' && (loadingProtection || !!error || !protection || protection.externalRules))} onPress={() => { void apply(); }} />
         {action === 'protection' && !!error && <Action title={t("ProjectSettingsPanel.reloadProtectionRules")} secondary disabled={busy || loadingProtection} onPress={() => { void refreshProtection(); }} />}

@@ -20,6 +20,7 @@ import { formatBytes } from '@/features/github/downloadProgress';
 import { AI_PROVIDERS, reviewBinaryEvidence } from '@/features/ai/review';
 import { loadAiSettings } from '@/features/ai/settings';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
+import { themed } from '@/features/theme/theme';
 
 type RemoteSource = Exclude<AnalysisSource, { kind: 'local' }>;
 function requestId() {
@@ -197,14 +198,14 @@ function AnalysisPage({ source }: { source: RemoteSource | null }) {
           <Text style={{ color: palette.ink, fontWeight: '800', lineHeight: 23 }}>{item.name}</Text><Text selectable style={{ color: palette.muted, marginTop: 5 }}>{item.address}</Text>
           <Text style={{ color: palette.blue, marginTop: 10 }}>{expanded === item.address ? t("PullBinaryEvidence.collapseCode") : t("PullBinaryEvidence.viewRecoveredCode")}</Text>
         </Pressable>
-        {expanded === item.address && <ScrollView horizontal style={{ marginTop: 12, backgroundColor: '#f3f6fb', borderRadius: 8 }}><Text selectable style={{ fontFamily: 'monospace', color: palette.ink, padding: 12, fontSize: 12, lineHeight: 19 }}>{item.code}</Text></ScrollView>}
+        {expanded === item.address && <ScrollView horizontal style={{ marginTop: 12, backgroundColor: themed('#f3f6fb'), borderRadius: 8 }}><Text selectable style={{ fontFamily: 'monospace', color: palette.ink, padding: 12, fontSize: 12, lineHeight: 19 }}>{item.code}</Text></ScrollView>}
       </Card>)}
       <Card><Action secondary title={showEvidence ? t("analysis.hideImportsAndStrings") : t("analysis.viewImportsAndStrings")} onPress={() => setShowEvidence((value) => !value)} />
         {showEvidence && <><Text style={{ color: palette.ink, fontWeight: '800', marginTop: 15 }}>{t("PullBinaryEvidence.imports")}</Text>{result.imports.map((item, index) => <Text selectable key={`i${index}`} style={{ color: palette.muted, marginTop: 7 }}>{item}</Text>)}<Text style={{ color: palette.ink, fontWeight: '800', marginTop: 15 }}>{t("PullBinaryEvidence.strings")}</Text>{result.strings.map((item, index) => <Text selectable key={`s${index}`} style={{ color: palette.muted, marginTop: 7 }}>{item}</Text>)}</>}
       </Card>
     </>}
     {aiResult?.analysisId === result?.id && aiResult && <Card><Text style={{ color: palette.ink, fontWeight: '800', fontSize: 18 }}>{t("analysis.aiReviewResult")}</Text><Text style={{ color: palette.ink, marginTop: 12, lineHeight: 23 }}>{aiResult.summary}</Text>
-      {aiResult.findings.map((item, index) => <View key={index} style={{ marginTop: 14 }}><Text style={{ color: item.severity === 'high' ? '#bf3947' : palette.ink, fontWeight: '800' }}>{item.severity}{item.address ? ` · ${item.address}` : ''}</Text><Text style={{ color: palette.ink, marginTop: 8, lineHeight: 22 }}>{item.description}</Text><Text style={{ color: palette.muted, marginTop: 7, lineHeight: 22 }}>{item.suggestion}</Text></View>)}
+      {aiResult.findings.map((item, index) => <View key={index} style={{ marginTop: 14 }}><Text style={{ color: item.severity === 'high' ? themed('#bf3947') : palette.ink, fontWeight: '800' }}>{item.severity}{item.address ? ` · ${item.address}` : ''}</Text><Text style={{ color: palette.ink, marginTop: 8, lineHeight: 22 }}>{item.description}</Text><Text style={{ color: palette.muted, marginTop: 7, lineHeight: 22 }}>{item.suggestion}</Text></View>)}
       {aiResult.limitations.map((item, index) => <Text key={index} style={{ color: palette.muted, marginTop: 10, lineHeight: 22 }}>• {item}</Text>)}
     </Card>}
   </Page></SafeAreaView>;

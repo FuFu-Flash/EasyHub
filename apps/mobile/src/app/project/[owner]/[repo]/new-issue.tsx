@@ -8,6 +8,7 @@ import { useSession } from '@/features/auth/session';
 import { invalidateOpenIssues } from '@/features/github/openIssues';
 import { Action, BackLink, Heading, Page, palette } from '@/components/elements';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
+import { themed } from '@/features/theme/theme';
 
 export default function NewIssue() {
   const { owner, repo } = useLocalSearchParams<{ owner: string; repo: string }>();
@@ -34,9 +35,9 @@ export default function NewIssue() {
     <BackLink title={t("analysis.back")} marginBottom={25} />
     <Heading title={t("newissue.newIssue")} subtitle={`${owner}/${repo}`} />
     <Text style={{ color: palette.ink, fontWeight: '700', marginBottom: 8 }}>{t("newissue.issueTitle")}</Text>
-    <TextInput value={title} onChangeText={setTitle} placeholder={t("newissue.brieflyDescribeWhatHappened")} style={{ padding: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: palette.border, borderRadius: 12, marginBottom: 18 }} />
+    <TextInput placeholderTextColor={palette.muted} value={title} onChangeText={setTitle} placeholder={t("newissue.brieflyDescribeWhatHappened")} style={{ color: palette.ink, padding: 14, backgroundColor: themed('#fff'), borderWidth: 1, borderColor: palette.border, borderRadius: 12, marginBottom: 18 }} />
     <Text style={{ color: palette.ink, fontWeight: '700', marginBottom: 8 }}>{t("newissue.details")}</Text>
-    <TextInput value={body} onChangeText={setBody} multiline placeholder={t("newissue.addStepsToReproduceExpectedBehaviorOrOtherDetails")} style={{ padding: 14, minHeight: 170, textAlignVertical: 'top', backgroundColor: '#fff', borderWidth: 1, borderColor: palette.border, borderRadius: 12, marginBottom: 20 }} />
+    <TextInput placeholderTextColor={palette.muted} value={body} onChangeText={setBody} multiline placeholder={t("newissue.addStepsToReproduceExpectedBehaviorOrOtherDetails")} style={{ color: palette.ink, padding: 14, minHeight: 170, textAlignVertical: 'top', backgroundColor: themed('#fff'), borderWidth: 1, borderColor: palette.border, borderRadius: 12, marginBottom: 20 }} />
     <View><Action title={busy ? t("ForkContributionPanel.submitting") : t("newissue.submitIssue")} disabled={busy} onPress={() => { void submit(); }} /></View>
   </Page>;
 }

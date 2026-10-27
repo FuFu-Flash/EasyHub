@@ -12,6 +12,8 @@ import { AI_PROVIDERS, type AiSettings } from '@/features/ai/review';
 import { explainCommit } from '@/features/ai/commitExplanation';
 import { Action, Card, ErrorText, Loading, palette } from './elements';
 import { AiReviewButton } from './AiReviewButton';
+import { themed } from '@/features/theme/theme';
+import { markdownStyle } from './markdownStyle';
 
 export function CommitExplanation({ owner, repo, sha, disabled, privateProject }: { owner: string; repo: string; sha: string; disabled: boolean; privateProject: boolean }) {
   const { client } = useSession();
@@ -77,13 +79,13 @@ export function CommitExplanation({ owner, repo, sha, disabled, privateProject }
     {preparing && <Loading />}
     {!!feedback.value && <View style={{ marginTop: 12 }}><ErrorText message={feedback.value} /><Action title={t("CommitExplanation.openAISettings")} secondary onPress={() => router.push('/(tabs)/settings')} /></View>}
     {running && <View style={{ gap: 10, marginTop: 12 }}><Loading /><Text style={{ color: palette.muted }}>{t("CommitExplanation.explainingTheseChanges")}</Text><Action title={t("CommitExplanation.cancelExplanation")} secondary onPress={cancel} /></View>}
-    {result && <View style={{ marginTop: 14 }}><Text style={{ color: palette.ink, fontWeight: '800', fontSize: 18 }}>{t("CommitExplanation.changeExplanation")}</Text><Markdown style={{ body: { color: palette.ink, fontSize: 14, lineHeight: 22 } }} onLinkPress={() => false} rules={{ image: () => null }}>{result.explanation}</Markdown>{result.partial && <Text style={{ color: palette.muted, lineHeight: 21 }}>{t("CommitExplanation.thisExplanationCoversOnlySuppliedChangesSomeContentWasTooLarge")}</Text>}</View>}
+    {result && <View style={{ marginTop: 14 }}><Text style={{ color: palette.ink, fontWeight: '800', fontSize: 18 }}>{t("CommitExplanation.changeExplanation")}</Text><Markdown style={markdownStyle()} onLinkPress={() => false} rules={{ image: () => null }}>{result.explanation}</Markdown>{result.partial && <Text style={{ color: palette.muted, lineHeight: 21 }}>{t("CommitExplanation.thisExplanationCoversOnlySuppliedChangesSomeContentWasTooLarge")}</Text>}</View>}
     <Modal visible={!!consent} transparent animationType="fade" onRequestClose={() => setConsent(null)}>
-      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(18, 34, 58, 0.46)', padding: 22 }}><View accessibilityViewIsModal style={{ maxHeight: '85%', backgroundColor: '#fff', borderRadius: 20, padding: 22 }}>
+      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(18, 34, 58, 0.46)', padding: 22 }}><View accessibilityViewIsModal style={{ maxHeight: '85%', backgroundColor: themed('#fff'), borderRadius: 20, padding: 22 }}>
         <ScrollView style={{ flexGrow: 0 }}><Text style={{ color: palette.ink, fontSize: 22, fontWeight: '800' }}>{t("CommitExplanation.useAIToExplainTheseChanges")}</Text>
           <Text style={{ color: palette.muted, lineHeight: 22, marginTop: 12 }}>{t("CommitExplanation.thisCommitSMessageFilenamesAndCodeDiffsWillBeSent")}</Text>
           <Text selectable style={{ color: palette.ink, lineHeight: 23, marginTop: 14 }}>{provider?.name} · {consent?.model}{'\n'}{provider?.baseUrl}{'\n\n'}{owner}/{repo}{'\n'}{sha}</Text>
-          {privateProject && <Text style={{ color: '#996616', lineHeight: 22, marginTop: 12 }}>{t("CommitExplanation.thisIsAPrivateProjectConfirmThatYouWantToShare")}</Text>}
+          {privateProject && <Text style={{ color: themed('#996616'), lineHeight: 22, marginTop: 12 }}>{t("CommitExplanation.thisIsAPrivateProjectConfirmThatYouWantToShare")}</Text>}
           <Text style={{ color: palette.muted, lineHeight: 22, marginVertical: 14 }}>{t("CommitExplanation.yourProviderMayChargeForThisRequestTheExplanationCoversOnly")}</Text>
         </ScrollView><View style={{ gap: 9 }}><Action title={t("CommitExplanation.startExplanation")} onPress={() => { void start(); }} /><Action title={t("AiReviewSettings.cancel")} secondary onPress={() => setConsent(null)} /></View>
       </View></View>

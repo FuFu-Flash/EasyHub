@@ -9,6 +9,7 @@ import type { PagedListState } from '@/features/github/pagedList';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
 import { Action, Card, DirectionLabel, ErrorText, Loading, palette } from './elements';
 import { MaterialArrow } from './MaterialArrow';
+import { themed } from '@/features/theme/theme';
 
 type List<T> = PagedListState<T> & { more(): Promise<void> };
 
@@ -49,8 +50,8 @@ export function SourceHistoryPanel({ branch, path, branches, history, viewState,
         <MaterialArrow name={choosingBranch ? 'expandLess' : 'expandMore'} color={palette.blue} />
       </Pressable>
       {choosingBranch && <View style={{ gap: 8, marginBottom: 14 }}>
-        <TextInput accessibilityLabel={t("SourceHistoryPanel.findABranch")} placeholder={t("SourceHistoryPanel.findABranch")} value={branchQuery} onChangeText={value => updateView({ branchQuery: value, visibleBranches: 20 })} autoCapitalize="none" style={{ minHeight: 48, borderWidth: 1, borderColor: palette.border, borderRadius: 10, paddingHorizontal: 12, color: palette.ink }} />
-        {branchNames.slice(0, visibleBranches).map(name => <Pressable key={name} accessibilityRole="button" accessibilityState={{ selected: name === branch }} onPress={() => { onFilter(name, path); updateView({ choosingBranch: false }); }} style={{ minHeight: 48, justifyContent: 'center', borderRadius: 10, backgroundColor: name === branch ? '#e7f0ff' : '#f6f8fc', padding: 12 }}><Text style={{ color: name === branch ? palette.blue : palette.ink }}>{name}</Text></Pressable>)}
+        <TextInput placeholderTextColor={palette.muted} accessibilityLabel={t("SourceHistoryPanel.findABranch")} placeholder={t("SourceHistoryPanel.findABranch")} value={branchQuery} onChangeText={value => updateView({ branchQuery: value, visibleBranches: 20 })} autoCapitalize="none" style={{ minHeight: 48, borderWidth: 1, borderColor: palette.border, borderRadius: 10, paddingHorizontal: 12, color: palette.ink }} />
+        {branchNames.slice(0, visibleBranches).map(name => <Pressable key={name} accessibilityRole="button" accessibilityState={{ selected: name === branch }} onPress={() => { onFilter(name, path); updateView({ choosingBranch: false }); }} style={{ minHeight: 48, justifyContent: 'center', borderRadius: 10, backgroundColor: name === branch ? themed('#e7f0ff') : themed('#f6f8fc'), padding: 12 }}><Text style={{ color: name === branch ? palette.blue : palette.ink }}>{name}</Text></Pressable>)}
         {visibleBranches < branchNames.length && <Action title={t("SourceHistoryPanel.showMoreBranches")} secondary onPress={() => onViewStateChange(current => ({ ...current, visibleBranches: current.visibleBranches + 20 }))} />}
         {branches.busy && <Loading />}
         {branches.failedPage !== null && <ErrorText message={t("SourceHistoryPanel.couldNotLoadBranchesPleaseRetry")} onRetry={() => { void branches.more(); }} />}
@@ -58,10 +59,10 @@ export function SourceHistoryPanel({ branch, path, branches, history, viewState,
         {!branches.busy && !branchNames.length && <Text style={{ color: palette.muted }}>{t("SourceHistoryPanel.noLoadedBranchMatchesThisSearch")}</Text>}
       </View>}
       <Text style={{ color: palette.ink, marginBottom: 8 }}>{t("SourceHistoryPanel.fileOrDirectoryPath")}</Text>
-      <TextInput accessibilityLabel={t("SourceHistoryPanel.fileOrDirectoryPath")} value={draftPath} onChangeText={value => { updateView({ pathDraft: { source: path, value } }); setPathError(false); }} onSubmitEditing={applyPath} placeholder={t("SourceHistoryPanel.leaveBlankForAllFiles")} autoCapitalize="none" autoCorrect={false} maxLength={4096} style={{ minHeight: 48, borderWidth: 1, borderColor: palette.border, borderRadius: 10, paddingHorizontal: 12, color: palette.ink, marginBottom: 10 }} />
+      <TextInput placeholderTextColor={palette.muted} accessibilityLabel={t("SourceHistoryPanel.fileOrDirectoryPath")} value={draftPath} onChangeText={value => { updateView({ pathDraft: { source: path, value } }); setPathError(false); }} onSubmitEditing={applyPath} placeholder={t("SourceHistoryPanel.leaveBlankForAllFiles")} autoCapitalize="none" autoCorrect={false} maxLength={4096} style={{ minHeight: 48, borderWidth: 1, borderColor: palette.border, borderRadius: 10, paddingHorizontal: 12, color: palette.ink, marginBottom: 10 }} />
       <Action title={t("SourceHistoryPanel.viewFileHistory")} secondary onPress={applyPath} />
       {!!path && <View style={{ marginTop: 10 }}><Action title={t("SourceHistoryPanel.showHistoryForAllFiles")} secondary onPress={() => onFilter(branch, '')} /></View>}
-      {pathError && <Text style={{ color: '#bf3947', marginTop: 10 }}>{t("SourceHistoryPanel.enterARelativeProjectPathWithoutEmptyOrParentDirectorySegments")}</Text>}
+      {pathError && <Text style={{ color: themed('#bf3947'), marginTop: 10 }}>{t("SourceHistoryPanel.enterARelativeProjectPathWithoutEmptyOrParentDirectorySegments")}</Text>}
     </Card>
     {history.items.map(commit => <Pressable key={commit.sha} accessibilityRole="button" onPress={() => onOpen(commit.sha)}>
       <Card><View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -91,8 +92,8 @@ export function CommitFileChanges({ file, onFileHistory }: { file: GitHubPullFil
       {!!file.previous_filename && <Text selectable style={{ color: palette.muted }}>{t("SourceHistoryPanel.previousFilename")} · {file.previous_filename}</Text>}
       {patch ? <>
         {patch.incomplete && <Text style={{ color: palette.muted, lineHeight: 21 }}>{t("SourceHistoryPanel.someChangesAreOmittedViewTheCompleteDiffOnGitHub")}</Text>}
-        <ScrollView horizontal nestedScrollEnabled={false} accessibilityLabel={t("SourceHistoryPanel.fileChanges")} style={{ flexGrow: 0, backgroundColor: '#f6f8fc', borderRadius: 8 }}><View style={{ paddingVertical: 8 }}>
-          {patch.lines.slice(0, visible).map((line, index) => <Text selectable key={index} style={{ fontFamily: 'monospace', fontSize: 12, lineHeight: 20, paddingHorizontal: 10, color: line.kind === 'add' ? '#176b43' : line.kind === 'remove' ? '#a5283d' : palette.ink, backgroundColor: line.kind === 'add' ? '#e8f7ef' : line.kind === 'remove' ? '#fff0f2' : 'transparent' }}>{String(line.before ?? '').padStart(5)} {String(line.after ?? '').padStart(5)} {line.kind === 'add' ? '+' : line.kind === 'remove' ? '−' : ' '} {line.text}</Text>)}
+        <ScrollView horizontal nestedScrollEnabled={false} accessibilityLabel={t("SourceHistoryPanel.fileChanges")} style={{ flexGrow: 0, backgroundColor: themed('#f6f8fc'), borderRadius: 8 }}><View style={{ paddingVertical: 8 }}>
+          {patch.lines.slice(0, visible).map((line, index) => <Text selectable key={index} style={{ fontFamily: 'monospace', fontSize: 12, lineHeight: 20, paddingHorizontal: 10, color: line.kind === 'add' ? themed('#176b43') : line.kind === 'remove' ? themed('#a5283d') : palette.ink, backgroundColor: line.kind === 'add' ? themed('#e8f7ef') : line.kind === 'remove' ? themed('#fff0f2') : 'transparent' }}>{String(line.before ?? '').padStart(5)} {String(line.after ?? '').padStart(5)} {line.kind === 'add' ? '+' : line.kind === 'remove' ? '−' : ' '} {line.text}</Text>)}
         </View></ScrollView>
         {visible < patch.lines.length && <Action title={t("SourceHistoryPanel.showMoreChangedLines")} secondary onPress={() => setVisible(count => count + 200)} />}
       </> : <Text style={{ color: palette.muted, lineHeight: 21 }}>{isEmptyAddedPullFile(file) ? t("SourceHistoryPanel.thisIsANewEmptyFile") : t("SourceHistoryPanel.githubDidNotProvideATextDiffTheFileMayBe")}</Text>}

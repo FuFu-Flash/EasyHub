@@ -15,6 +15,7 @@ import { createDownloadTracker, formatBytes, formatRemainingTime, releaseSourceD
 import { loadReleaseDetails } from '@/features/github/releaseDetails';
 import { analyzableFile, MAX_ANALYSIS_BYTES } from '@/features/analysis/source';
 import { usePageFeedback } from '@/features/workspace/usePageFeedback';
+import { themed } from '@/features/theme/theme';
 
 interface DownloadTarget { key: string; path: string; fileName: string }
 
@@ -111,7 +112,7 @@ function ReleaseDetails({ owner, repo, id }: { owner: string; repo: string; id: 
           {progress.etaSeconds !== null && progress.etaSeconds > 0 && <Text style={{ color: palette.muted }}>{t("project.timeLeft")} {formatRemainingTime(progress.etaSeconds)}</Text>}
         </View>}
       </>}
-      {!!downloadError && <Text accessibilityRole="alert" style={{ color: '#bf3947' }}>{downloadError}</Text>}
+      {!!downloadError && <Text accessibilityRole="alert" style={{ color: themed('#bf3947') }}>{downloadError}</Text>}
       {!!notice && <Text accessibilityLiveRegion="polite" style={{ color: palette.muted }}>{notice}</Text>}
       {retryTarget?.key === key && !downloading && <Action title={t("project.downloadAgain")} secondary onPress={() => { void download(retryTarget); }} />}
     </View>;

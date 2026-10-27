@@ -4,6 +4,7 @@ import { useTranslation } from '@/features/localization/react';
 import { createNoticeTimer } from '@/features/workspace/noticeTimer';
 import type { SuccessNotice } from '@/features/workspace/useSuccessNotice';
 import { palette } from './elements';
+import { themed } from '@/features/theme/theme';
 
 export function FeedbackNotice({ notice, onDismiss }: { notice: SuccessNotice; onDismiss: (id: number) => void }) {
   const t = useTranslation();
@@ -47,7 +48,7 @@ export function FeedbackNotice({ notice, onDismiss }: { notice: SuccessNotice; o
     onTouchEnd={() => timer.current?.release('touch')} onTouchCancel={() => timer.current?.release('touch')}
     onPointerEnter={(event) => { if (event.nativeEvent.pointerType === 'mouse') timer.current?.pause('hover'); }}
     onPointerLeave={(event) => { if (event.nativeEvent.pointerType === 'mouse') timer.current?.release('hover'); }}
-    style={{ marginTop: 12, paddingLeft: 12, borderRadius: 10, borderWidth: 1, borderColor: '#bed0ef', backgroundColor: '#edf4ff', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+    style={{ marginTop: 12, paddingLeft: 12, borderRadius: 10, borderWidth: 1, borderColor: themed('#bed0ef'), backgroundColor: themed('#edf4ff'), flexDirection: 'row', alignItems: 'center', gap: 6 }}>
     <Text style={{ flex: 1, minWidth: 0, color: palette.ink, lineHeight: 22, paddingVertical: 10 }}>{notice.message}</Text>
     <Pressable accessibilityRole="button" accessibilityLabel={t('common.dismissFeedback')}
       onPress={() => onDismiss(notice.id)} onFocus={() => timer.current?.pause('focus')} onBlur={() => timer.current?.release('focus')}

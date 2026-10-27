@@ -6,6 +6,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useReducedMotion } from '@/features/motion/useReducedMotion';
+import { themed, themedStyles } from '@/features/theme/theme';
 
 type TabName = 'index' | 'projects' | 'discover' | 'issues' | 'settings';
 
@@ -46,12 +47,12 @@ export default function TabLayout() {
   const reducedMotion = useReducedMotion();
 
   return <Tabs
-    screenOptions={{ headerShown: false, animation: 'fade', transitionSpec: reducedMotion ? noTabMotion : tabFade, sceneStyle: { backgroundColor: '#f5f8fd' }, lazy: true, freezeOnBlur: false }}
+    screenOptions={{ headerShown: false, animation: 'fade', transitionSpec: reducedMotion ? noTabMotion : tabFade, sceneStyle: { backgroundColor: themed('#f5f8fd') }, lazy: true, freezeOnBlur: false }}
     tabBar={({ state, navigation }) => <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
       {state.routes.map((route, index) => {
         const name = route.name as TabName;
         const selected = state.index === index;
-        const color = selected ? '#166ee7' : '#52637c';
+        const color = selected ? themed('#166ee7') : themed('#52637c');
         return <Pressable
           key={route.key}
           accessibilityRole="tab"
@@ -77,15 +78,15 @@ export default function TabLayout() {
   </Tabs>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   bar: {
     flexDirection: 'row',
     gap: 6,
     paddingHorizontal: 10,
     paddingTop: 9,
     borderTopWidth: 1,
-    borderTopColor: '#e1e9f4',
-    backgroundColor: '#fff',
+    borderTopColor: themed('#e1e9f4'),
+    backgroundColor: themed('#fff'),
   },
   tab: {
     flex: 1,
@@ -95,5 +96,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  selectedTab: { backgroundColor: '#e7f0ff' },
-});
+  selectedTab: { backgroundColor: themed('#e7f0ff') },
+}));

@@ -14,6 +14,7 @@ import { DiscussionSearch } from '@/components/DiscussionSearch';
 import { Action, Card, DirectionLabel, ErrorText, Heading, Loading, Page, palette } from '@/components/elements';
 import { MaterialArrow } from '@/components/MaterialArrow';
 import { usePullRefresh, type RefreshHandle } from '@/features/github/usePullRefresh';
+import { themed, onAccent } from '@/features/theme/theme';
 
 function IssueTitle({ issue, repo }: { issue: GitHubIssue; repo: GitHubRepo }) {
   const title = useTranslatedContent(issue.title, [repo.owner.login, repo.name, issue.user?.login || ''], repo.private === false).value;
@@ -82,22 +83,22 @@ export default function Issues() {
           { label: t("DiscussionSearch.open"), selected: issueFilter === 'open', onPress: () => setIssueFilter('open'), flex: 1.1 },
           { label: t("issues.closed"), selected: issueFilter === 'closed', onPress: () => setIssueFilter('closed'), flex: 1.1 },
         ]),
-      ]).map((option) => <Pressable key={option.label} onPress={option.onPress} accessibilityRole="button" accessibilityState={{ selected: option.selected }} style={{ flex: option.flex, minWidth: 0, height: 41, paddingHorizontal: 3, borderRadius: 11, borderWidth: 1, borderColor: option.selected ? palette.blue : palette.border, backgroundColor: option.selected ? palette.blue : '#fff', justifyContent: 'center', alignItems: 'center' }}><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ color: option.selected ? '#fff' : palette.ink, fontSize: 12, fontWeight: '800', textAlign: 'center' }}>{option.label}</Text></Pressable>)}
+      ]).map((option) => <Pressable key={option.label} onPress={option.onPress} accessibilityRole="button" accessibilityState={{ selected: option.selected }} style={{ flex: option.flex, minWidth: 0, height: 41, paddingHorizontal: 3, borderRadius: 11, borderWidth: 1, borderColor: option.selected ? palette.blue : palette.border, backgroundColor: option.selected ? palette.blue : themed('#fff'), justifyContent: 'center', alignItems: 'center' }}><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ color: option.selected ? onAccent : palette.ink, fontSize: 12, fontWeight: '800', textAlign: 'center' }}>{option.label}</Text></Pressable>)}
     </View>
     <DiscussionSearch ref={searchRefresh} key={`${user?.login || ''}:${activityTab}`} repositories={currentRepos} kind={activityTab === 'pulls' ? 'pr' : 'issue'} state={activityTab === 'pulls' ? pullFilter : issueFilter}>
     {busy && !refreshing && <Loading />}{!!error && <ErrorText message={activityTab === 'pulls' ? t("PullReviewGroups.couldNotLoadChangeRequestsPleaseTryAgain") : error} onRetry={refresh} />}
     {activityTab === 'pulls' && <PullReviewGroups ref={groupsRefresh} key={user?.login || ''} repos={currentRepos} counts={currentCounts} filter={pullFilter} />}
     {activityTab === 'issues' && <>
-    {failed > 0 && !busy && <Text style={{ color: '#a75728', marginBottom: 12 }}>{t("issues.someProjectsCouldNotBeCheckedPullDownToRetry")}</Text>}
+    {failed > 0 && !busy && <Text style={{ color: themed('#a75728'), marginBottom: 12 }}>{t("issues.someProjectsCouldNotBeCheckedPullDownToRetry")}</Text>}
     {currentGroups.map(({ repo, issues, count }) => <Card key={repo.id}>
       <Pressable onPress={() => setExpanded((current) => current.includes(repo.id) ? current.filter((id) => id !== repo.id) : [...current, repo.id])} accessibilityRole="button" accessibilityState={{ expanded: expanded.includes(repo.id) }} style={{ minHeight: 48, justifyContent: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ fontSize: 17, fontWeight: '800', color: palette.ink }}>{repo.name}</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 3 }}>{issueFilter === 'open' ? t("issues.openIssues") : t("issues.closedIssues")}</Text></View><View style={{ backgroundColor: '#fff0f1', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 }}><Text style={{ color: '#bd3548', fontWeight: '800' }}>{count}</Text></View><MaterialArrow name={expanded.includes(repo.id) ? 'expandLess' : 'expandMore'} color="#7488a3" /></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ fontSize: 17, fontWeight: '800', color: palette.ink }}>{repo.name}</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 3 }}>{issueFilter === 'open' ? t("issues.openIssues") : t("issues.closedIssues")}</Text></View><View style={{ backgroundColor: themed('#fff0f1'), borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 }}><Text style={{ color: themed('#bd3548'), fontWeight: '800' }}>{count}</Text></View><MaterialArrow name={expanded.includes(repo.id) ? 'expandLess' : 'expandMore'} color={themed(themed('#7488a3'))} /></View>
       </Pressable>
       {expanded.includes(repo.id) && issues.map((issue) => <Pressable key={issue.id} onPress={() => router.push({ pathname: '/project/[owner]/[repo]/issue/[number]', params: { owner: repo.owner.login, repo: repo.name, number: String(issue.number) } })} style={{ borderTopWidth: 1, borderTopColor: palette.border, marginTop: 12, paddingTop: 12 }}><IssueTitle issue={issue} repo={repo} /><Text style={{ color: palette.muted, marginTop: 4 }}>{issue.user?.login || t("PullRequestsPanel.githubUser")}</Text></Pressable>)}
       <Pressable onPress={() => router.push({ pathname: '/project/[owner]/[repo]', params: { owner: repo.owner.login, repo: repo.name, section: 'issues', issueState: issueFilter } })} accessibilityRole="button" style={{ marginTop: 14, minHeight: 48, minWidth: 48, justifyContent: 'center' }}><DirectionLabel title={t("issues.viewAllIssues")} name="forward" color={palette.blue} /></Pressable>
     </Card>)}
     {!busy && !error && failed === 0 && currentGroups.length === 0 && <Card style={{ alignItems: 'center', paddingVertical: 34 }}>
-      <View style={{ width: 56, height: 56, borderRadius: 19, backgroundColor: '#e7f8ef', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><Text style={{ color: '#159b5a', fontSize: 29, fontWeight: '800' }}>✓</Text></View>
+      <View style={{ width: 56, height: 56, borderRadius: 19, backgroundColor: themed('#e7f8ef'), alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><Text style={{ color: themed('#159b5a'), fontSize: 29, fontWeight: '800' }}>✓</Text></View>
       <Text style={{ color: palette.ink, fontSize: 18, fontWeight: '800' }}>{issueFilter === 'open' ? t("issues.allCaughtUp") : t("issues.noClosedIssuesYet")}</Text>
       <Text style={{ color: palette.muted, lineHeight: 21, textAlign: 'center', marginTop: 7, marginBottom: 20 }}>{t("issues.newFeedbackWillAppearHereGroupedByProject")}</Text>
       <Action title={t("issues.viewMyProjects")} secondary onPress={() => router.push('/(tabs)/projects')} />
