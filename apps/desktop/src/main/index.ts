@@ -156,7 +156,7 @@ function createWindow(): void {
     frame: process.platform === 'darwin',
     ...(process.platform === 'darwin' ? {
       titleBarStyle: 'hidden' as const,
-      trafficLightPosition: windowToolbarDensity === 'compact' ? { x: 16, y: 21 } : { x: 25, y: 29 },
+      trafficLightPosition: windowToolbarDensity === 'compact' ? { x: 16, y: 17 } : { x: 20, y: 19 },
     } : {}),
     roundedCorners: true,
     thickFrame: true,
@@ -306,7 +306,7 @@ if (primaryInstance) app.whenReady().then(async () => {
     if (process.platform === 'darwin') {
       mainWindow!.setWindowButtonVisibility(style === 'reference');
       // Match the renderer's 56/72px toolbar and 16/25px leading inset.
-      mainWindow!.setWindowButtonPosition(density === 'compact' ? { x: 16, y: 21 } : { x: 25, y: 29 });
+      mainWindow!.setWindowButtonPosition(density === 'compact' ? { x: 16, y: 17 } : { x: 20, y: 19 });
     }
   });
 
