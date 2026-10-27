@@ -83,9 +83,7 @@ export function ProjectsPage() {
     <>
       <div className="page-header">
         <div>
-          <div className="eyebrow">{t('projectsPage.yourWork')}</div>
           <h1>{t('projectsPage.myProjects')}</h1>
-          <p>{t('projectsPage.allYourIdeasAndProgressInOnePlace')}</p>
         </div>
         <button className="button button-primary" onClick={() => setView('new-project')}>
           <Plus size={18} />
@@ -239,8 +237,8 @@ export function ProjectsPage() {
                     {repo.name}
                   </button>
                   <small>
-                    {repo.description || t('projectsPage.noDescriptionYet')} · {relativeDate(repo.updated_at, language)}
-                    {t('projectsPage.updated')}
+                    {repo.description || t('projectsPage.noDescriptionYet')} ·{' '}
+                    {t('projectsPage.updatedAt', { time: relativeDate(repo.updated_at, language) })}
                   </small>
                 </div>
                 <span className="cloud-private">

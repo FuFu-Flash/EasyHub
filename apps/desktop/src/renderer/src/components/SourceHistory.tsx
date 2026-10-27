@@ -415,7 +415,6 @@ export function SourceHistory({
             {repo.full_name}
           </div>
           <h1>{t('sourceHistory.sourceHistory')}</h1>
-          <p>{t('sourceHistory.browseUpdatesAndCodeChangesCommittedToGithub')}</p>
         </div>
       </div>
       <NavigationPages active={selected ? `commit:${selected.sha}` : 'list'}>

@@ -56,7 +56,6 @@ export function RecentHistoryPage() {
       <div className="page-header">
         <div>
           <h1>{t('recentHistoryPage.recentUpdates')}</h1>
-          <p>{t('recentHistoryPage.updateNotesAndHistoryFromRecentProjects')}</p>
         </div>
       </div>
       <div className="history-list">

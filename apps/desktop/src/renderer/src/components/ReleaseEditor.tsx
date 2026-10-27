@@ -238,7 +238,6 @@ export function ReleaseEditor({
       <div className="release-page-heading">
         <div className="eyebrow">{project.name}</div>
         <h1>{t('releaseEditor.publishNewRelease')}</h1>
-        <p>{t('releaseEditor.prepareAVersionNumberDescriptionAndInstallerForDownloaders')}</p>
       </div>
       <div className="release-distinction">
         <Info size={20} />
@@ -375,7 +374,6 @@ export function ReleaseEditor({
               placeholder={t('releaseEditor.forExampleFixedWindowResizingAndAddedDarkMode')}
               rows={8}
             />
-            <p className="release-field-hint">{t('releaseEditor.simpleFormattingIsSupportedAddImagesOrLinksAbove')}</p>
           </section>
           <section className="panel release-editor-card">
             <div className="release-section-heading">

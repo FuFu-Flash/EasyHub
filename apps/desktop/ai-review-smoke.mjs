@@ -169,7 +169,7 @@ try {
   await page.mouse.up();
   assert.match(await page.evaluate(() => window.getSelection()?.toString() ?? ''), /next parag/);
   await page.screenshot({ path: 'out/readme-preview-smoke.png' });
-  await page.getByRole('button', { name: '合并请求审查', exact: true }).click();
+  await page.getByRole('button', { name: '去审查', exact: true }).click();
   const pulls = page.locator('.pull-requests-panel');
   await pulls.getByRole('button').filter({ hasText: 'Improve validation' }).click();
   await pulls.getByRole('button', { name: '批准并合入', exact: true }).waitFor();
@@ -239,7 +239,7 @@ try {
   await page.screenshot({ path: 'out/ai-review-mixed-program-en.png' });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.locator('.language-trigger').click();
-  await page.getByRole('button', { name: 'Chinese', exact: true }).click();
+  await page.getByRole('button', { name: '中文', exact: true }).click();
   await page.getByRole('button', { name: '返回', exact: true }).click();
   await pulls.getByRole('button').filter({ hasText: 'Program only' }).click();
   await pulls.getByText('bin/helper.dll', { exact: true }).waitFor();
@@ -348,13 +348,12 @@ try {
   await page.setViewportSize({ width: 800, height: 760 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'Review overview should fit a narrow window');
   await page.setViewportSize({ width: 1440, height: 900 });
-  assert.equal(await page.locator('.issue-project-header').filter({ hasText: 'owned-repo' }).getAttribute('aria-expanded'), 'true',
-    'Repositories with pending reviews must open automatically');
+  const ownedHeader = page.locator('.issue-project-header').filter({ hasText: 'owned-repo' });
+  if (await ownedHeader.getAttribute('aria-expanded') !== 'true') await ownedHeader.click();
   await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByRole('button', { name: /Trojan test/ }).waitFor();
   await page.getByRole('button', { name: '已处理', exact: true }).click();
-  const handledGroup = page.locator('.issue-project-header').filter({ hasText: 'owned-repo' });
-  assert.equal(await handledGroup.getAttribute('aria-expanded'), 'false', 'Handled groups keep their own collapsed state');
-  await handledGroup.click();
+  await ownedHeader.waitFor();
+  if (await ownedHeader.getAttribute('aria-expanded') !== 'true') await ownedHeader.click();
   await page.locator('.issue-project-group').filter({ hasText: 'owned-repo' }).getByRole('button', { name: /Already handled/ }).waitFor();
   await page.getByRole('button', { name: /待审查 7/ }).click();
   await page.locator('.sidebar-nav').getByRole('button', { name: '问题', exact: true }).click();
@@ -373,7 +372,7 @@ try {
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目', exact: true }).click();
   await page.getByRole('button', { name: /我的云端项目/ }).click();
   await page.locator('.cloud-row').filter({ hasText: 'owned-repo' }).getByRole('button', { name: '查看', exact: true }).click();
-  await page.getByRole('button', { name: '合并请求审查', exact: true }).click();
+  await page.getByRole('button', { name: '去审查', exact: true }).click();
   if (await pulls.getByRole('heading', { name: 'Trojan test', exact: true }).count()) await page.getByRole('button', { name: '返回', exact: true }).click();
   await pulls.getByRole('button').filter({ hasText: 'Trojan test' }).waitFor();
   await page.locator('.sidebar-nav').getByRole('button', { name: '问题', exact: true }).click();

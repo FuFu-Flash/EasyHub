@@ -13,7 +13,7 @@ export function smokeExecutable(desktopDirectory, allowedFlags = []) {
   if (explicit.length > 1) throw new Error('Only one --executable argument is allowed.');
   const defaults = {
     darwin: '/tmp/easyhub-desktop-release/mac-arm64/EasyHub.app/Contents/MacOS/EasyHub',
-    win32: join(desktopDirectory, 'release', 'win-unpacked', 'EasyHub.exe'),
+    win32: join(desktopDirectory, 'release', 'windows', 'win-unpacked', 'EasyHub.exe'),
     linux: join(desktopDirectory, 'release', 'linux-unpacked', 'easyhub'),
   };
   const executable = explicit[0]?.slice('--executable='.length) ?? (arguments_.includes('--packaged')

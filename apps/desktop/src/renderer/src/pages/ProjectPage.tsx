@@ -197,7 +197,7 @@ export function ProjectPage() {
             </div>
           </div>
           <div className="detail-actions">
-            <StarProjectButton repo={selected} />
+            <StarProjectButton repo={selected} onError={setError} />
             <button className="button button-primary" disabled={selected.archived} onClick={() => setView('local')}>
               <FolderOpen size={17} />
               {t('projectPage.localProjectPublishSourceCode')}
@@ -316,7 +316,6 @@ export function ProjectPage() {
                 <h2>{t('projectPage.issues')}</h2>
                 <span className="count-bubble">{activityCounts[selected.id]?.issues ?? '…'}</span>
               </div>
-              <p>{t('projectPage.seeFeedbackAndMakeYourProjectBetterTogether')}</p>
               <button className="button button-quiet full-width" onClick={() => setView('issues')}>
                 {t('projectPage.viewIssues')} <ArrowRight size={16} />
               </button>
@@ -326,14 +325,13 @@ export function ProjectPage() {
                 <h2>{t('projectPage.pullRequestReviews')}</h2>
                 <span className="count-bubble">{activityCounts[selected.id]?.pullRequests ?? '…'}</span>
               </div>
-              <p>{t('projectPage.readTheProposedChangesAndFilesBeforeDecidingWhether')}</p>
               <button
                 className="button button-quiet full-width"
                 onClick={() => {
                   setView('pulls');
                 }}
               >
-                {t('projectPage.pullRequestReviews')} <ArrowRight size={16} />
+                {t('projectPage.reviewPullRequests')} <ArrowRight size={16} />
               </button>
             </section>
             <section className="panel side-panel">

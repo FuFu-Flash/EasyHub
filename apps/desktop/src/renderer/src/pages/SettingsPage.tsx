@@ -7,6 +7,7 @@ import { AiSettingsPanel } from '../components/AiSettingsPanel';
 import { AppUpdatePanel } from '../components/AppUpdatePanel';
 import { HostsRepairPanel } from '../components/HostsRepairPanel';
 import { LayoutSettingsPanel } from '../components/LayoutSettingsPanel';
+import { ThemeSettingsPanel } from '../components/ThemeSettingsPanel';
 import { StyledDropdown } from '../components/StyledDropdown';
 import { errorText as message } from '../errors';
 import { usePageFeedback } from '../workspace/pageFeedback';
@@ -28,6 +29,7 @@ export function SettingsPage() {
     demo,
     onLogout,
     layout,
+    theme,
     easyHub,
   } = w;
   const setWindowStyle = (value: 'windows' | 'reference') => w.set('windowStyle', value);
@@ -51,9 +53,7 @@ export function SettingsPage() {
     <>
       <div className="page-header">
         <div>
-          <div className="eyebrow">{t('settingsPage.personalize')}</div>
           <h1>{t('settingsPage.settings')}</h1>
-          <p>{t('settingsPage.adjustEasyhubSAppearanceAndManageTheGithubConnection')}</p>
         </div>
       </div>
       <div className="settings-stack">
@@ -96,10 +96,10 @@ export function SettingsPage() {
             <WindowControlStyleOptions value={windowStyle} onChange={setWindowStyle} />
           </div>
         </section>
+        <ThemeSettingsPanel language={language} preference={theme.preference} onChange={theme.setPreference} />
         <LayoutSettingsPanel
           language={language}
           preference={layout.preference}
-          density={layout.density}
           onChange={layout.setPreference}
         />
         <AiSettingsPanel language={language} />
@@ -160,7 +160,7 @@ export function SettingsPage() {
                       : 'settingsPage.windowsDesktopConnectedToGithub',
                   )}
             </p>
-            <span className="settings-version">{t('settingsPage.version130')}</span>
+            <span className="settings-version">{t('settingsPage.version140')}</span>
             <AppUpdatePanel language={language} />
             <div className="license-details">
               <strong>Apache 2.0</strong>

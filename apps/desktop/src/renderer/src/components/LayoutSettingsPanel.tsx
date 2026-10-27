@@ -2,17 +2,15 @@ import { useTranslation } from '../localization';
 import { useId } from 'react';
 import { Check, LayoutDashboard } from 'lucide-react';
 import type { Language } from '../i18n';
-import type { LayoutDensity, LayoutPreference } from '../layoutPreferences';
+import type { LayoutPreference } from '../layoutPreferences';
 
 export function LayoutSettingsPanel({
   language,
   preference,
-  density,
   onChange,
 }: {
   language: Language;
   preference: LayoutPreference;
-  density: LayoutDensity;
   onChange: (preference: LayoutPreference) => void;
 }) {
   const t = useTranslation(language);
@@ -70,11 +68,6 @@ export function LayoutSettingsPanel({
             </button>
           ))}
         </div>
-        <p className="layout-current" role="status">
-          {density === 'compact'
-            ? t('layoutSettingsPanel.currentlyUsingTheCompactLayout')
-            : t('layoutSettingsPanel.currentlyUsingTheComfortableLayout')}
-        </p>
       </div>
     </section>
   );

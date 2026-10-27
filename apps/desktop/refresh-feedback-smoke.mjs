@@ -8,7 +8,7 @@ import electronPath from 'electron';
 // Real authenticated renderer; every IPC is explicitly mocked, network is blocked,
 // and no account credentials, production profile or repository files are touched.
 const desktop = dirname(fileURLToPath(import.meta.url));
-const product = process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
+const product = process.argv.includes('--packaged') ? join(desktop, 'release', 'windows', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'refresh-feedback-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
@@ -430,7 +430,7 @@ try {
 
   await hold([]);
   await page.locator('.topbar-brand').click();
-  await page.locator('.home-project-actions').first().getByRole('button', { name: '打开项目', exact: true }).click();
+  await page.locator('.home-project-name').first().click();
   await page.locator('.readme-markdown h2').first().waitFor();
   await ready();
   await page.getByRole('heading', { name: '修改记录', exact: true }).locator('..').getByRole('button', { name: '查看全部', exact: true }).click();

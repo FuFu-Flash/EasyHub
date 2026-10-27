@@ -57,7 +57,7 @@ try {
   await page.keyboard.press('ArrowRight');assert.equal(await tabs.getByRole('tab').last().getAttribute('aria-selected'),'true');
   await page.keyboard.press('Home');assert.equal(await tabs.getByRole('tab').first().getAttribute('tabindex'),'0');
   await page.keyboard.press('End');await page.keyboard.press('ArrowRight');assert.equal(await tabs.getByRole('tab').first().getAttribute('aria-selected'),'true');
-  await pullsNav.click();await page.getByRole('heading',{name:'合并请求审查',exact:true}).waitFor();assert.equal(await page.locator('main > .v2-page-transition > .back-link').count(),0);
+  await pullsNav.click();await page.getByRole('heading',{name:'合并请求审查',exact:true}).waitFor();assert.equal(await page.locator('main > .page-transition > .back-link').count(),0);
   await sidebar.getByRole('button',{name:'我的项目',exact:true}).click();await page.getByRole('button',{name:/我的云端项目/}).click();
   const linked=page.locator('.cloud-row').filter({hasText:'Fixture project'}).filter({hasText:'sample'});
   assert.ok(await linked.getByRole('button',{name:'打开',exact:true}).isVisible());assert.equal(await linked.getByRole('button',{name:'下载',exact:true}).count(),0);
@@ -98,8 +98,9 @@ try {
     });untranslated.push(...leaks.map(text=>({label,text})));await page.screenshot({animations:'disabled',timeout:10000,path:join(output,`en-1000-${label}.png`)});
   }
   await page.locator('.language-trigger').click();
-  assert.ok(await page.getByRole('button',{name:'Chinese',exact:true}).isVisible());
-  assert.ok(!/[\u3400-\u9fff]/u.test(await page.locator('.language-menu').innerText()));
+  assert.ok(await page.getByRole('button',{name:'中文',exact:true}).isVisible());
+  // Each language is listed under its own name, so a reader can always find their way back.
+  assert.ok(await page.getByRole('button',{name:'English',exact:true}).isVisible());
   await page.getByRole('button',{name:'English',exact:true}).click();
   assert.equal(await page.locator('.window-style-option').first().locator('small').innerText(),'Top-right buttons');
   await writeFile(join(output,'language-leaks.json'),JSON.stringify(untranslated,null,2));assert.deepEqual(untranslated,[],'Untranslated interface text');

@@ -4,7 +4,7 @@ import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
 
 const packaged = process.argv.includes('--packaged');
-const app = await electron.launch({ executablePath: packaged ? join(process.cwd(), 'release/win-unpacked/EasyHub.exe') : electronPath, args: packaged ? [] : ['.'], cwd: process.cwd() });
+const app = await electron.launch({ executablePath: packaged ? join(process.cwd(), 'release/windows/win-unpacked/EasyHub.exe') : electronPath, args: packaged ? [] : ['.'], cwd: process.cwd() });
 try {
   await app.evaluate(({ ipcMain }) => {
     let repo = { id: 901, name: 'owned-repo', full_name: 'test-owner/owned-repo', description: 'A sample project', private: false, archived: false, permissions: { admin: true, push: true, pull: true }, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'test-owner' }, open_issues_count: 0 };

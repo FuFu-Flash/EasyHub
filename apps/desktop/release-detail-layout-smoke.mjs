@@ -13,7 +13,7 @@ const profileDirectory = join(runDirectory, 'profile');
 await mkdir(profileDirectory);
 const executableArgument = process.argv.find((value) => value.startsWith('--executable='));
 const executable = executableArgument?.slice('--executable='.length)
-  ?? (process.argv.includes('--packaged') ? join(desktopDirectory, 'release', 'win-unpacked', 'EasyHub.exe') : null);
+  ?? (process.argv.includes('--packaged') ? join(desktopDirectory, 'release', 'windows', 'win-unpacked', 'EasyHub.exe') : null);
 if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
 const launcher = join(runDirectory, 'launch.cjs');
 if (!executable) await writeFile(launcher, `

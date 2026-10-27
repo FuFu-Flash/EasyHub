@@ -202,6 +202,16 @@ function WorkspaceShell() {
                 {t('liveWorkspace.settings')}
               </button>
             </nav>
+            {demo && (
+              <div className="demo-mode-notice" role="status">
+                <span>{t('liveWorkspace.demoModeChangesAreNotUploadedToGithubFiles')}</span>
+                {!demo.only && (
+                  <button className="text-link" onClick={demo.onLogin}>
+                    {t('liveWorkspace.signInToGithub')}
+                  </button>
+                )}
+              </div>
+            )}
             <div className="sidebar-bottom live-sidebar-bottom">
               <button
                 type="button"
@@ -220,7 +230,10 @@ function WorkspaceShell() {
                   className={`sidebar-demo live-connected${offline ? ' is-offline' : ''}`}
                 >
                   <span />
-                  {offline ? t('liveWorkspace.githubIsOffline') : t('liveWorkspace.connectedToGithub')} · {user.login}
+                  <small className="sidebar-connection">
+                    <small>{offline ? t('liveWorkspace.githubIsOffline') : t('liveWorkspace.connectedToGithub')}</small>
+                    <strong>{user.login}</strong>
+                  </small>
                 </span>
               )}
             </div>
@@ -298,7 +311,7 @@ function WorkspaceShell() {
                   {languageMenuOpen && (
                     <div className="language-menu" role="group" aria-label={t('liveWorkspace.languageOptions')}>
                       <button aria-pressed={language === 'zh'} onClick={() => chooseLanguage('zh')}>
-                        <span>{t('liveWorkspace.chinese')}</span>
+                        <span>中文</span>
                         {language === 'zh' && <Check size={16} />}
                       </button>
                       <button aria-pressed={language === 'en'} onClick={() => chooseLanguage('en')}>
@@ -351,16 +364,6 @@ function WorkspaceShell() {
                 </div>
               )}
             </header>
-            {demo && (
-              <div className="demo-mode-notice" role="status">
-                <span>{t('liveWorkspace.demoModeChangesAreNotUploadedToGithubFiles')}</span>
-                {!demo.only && (
-                  <button className="button button-quiet small-button" onClick={demo.onLogin}>
-                    {t('liveWorkspace.signInToGithub')}
-                  </button>
-                )}
-              </div>
-            )}
             <FeedbackNotice message={w.error} kind="error" onClose={() => w.setError('')} language={language} />
             <FeedbackNotice message={w.notice} onClose={() => w.setNotice('')} language={language} />
             <NavigationPages active={instance}>
@@ -368,7 +371,7 @@ function WorkspaceShell() {
                 <main
                   className={`page-content live-page${page.view === 'home' || page.view === 'projects' ? ' page-with-footer' : ''}${formPage ? ' page-form-layout' : ''}`}
                 >
-                  <div className="v2-page-transition" key={page.view}>
+                  <div className="page-transition" key={page.view}>
                     {offline && (
                       <div className="live-offline" role="status" aria-live="polite">
                         <span>{t('liveWorkspace.githubIsTemporarilyUnavailableShowingYourLastSavedData')}</span>

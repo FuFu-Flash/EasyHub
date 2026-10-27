@@ -18,7 +18,7 @@ export async function runDemoSmoke({ history = false } = {}) {
  try{
   const bootstrap=join(profile,'bootstrap.cjs');
   if(built){
-   const product=packaged?join(desktop,'release/win-unpacked/resources/app.asar'):desktop;
+   const product=packaged?join(desktop,'release/windows/win-unpacked/resources/app.asar'):desktop;
    await writeFile(bootstrap,`const{app,ipcMain}=require('electron');app.setPath('userData',${JSON.stringify(join(profile,'data'))});process.env.EASYHUB_PROXY_APP_ONLY_TEST='1';process.env.ELECTRON_RENDERER_URL='data:text/html,Demo fixture';global.nativeDomainCalls=[];const register=ipcMain.handle.bind(ipcMain);ipcMain.handle=(channel,handler)=>register(channel,channel.startsWith('easyhub:')?()=>{if(channel==='easyhub:auth-status')return{state:'signed-out',user:null,clientId:null};if(['easyhub:window-minimize','easyhub:window-toggle-maximize','easyhub:window-close','easyhub:open-license'].includes(channel))return;global.nativeDomainCalls.push(channel);throw Error('Native demo operation: '+channel)}:handler);require(${JSON.stringify(join(product,'out/main/index.js'))});`);
    const env={...process.env,NODE_OPTIONS:''};delete env.ELECTRON_RUN_AS_NODE;app=await electron.launch({executablePath:electronPath,args:[bootstrap],env,cwd:desktop});
    await app.evaluate(({session})=>session.defaultSession.webRequest.onBeforeRequest({urls:['http://*/*','https://*/*']},(_d,c)=>c({cancel:true})));

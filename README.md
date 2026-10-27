@@ -5,7 +5,7 @@
   </tr>
   <tr>
     <td><a href="docs/images/terminal-errors.png"><img src="docs/images/terminal-errors.png" alt="黑色终端中的 Git 命令与报错示意" width="640"></a></td>
-    <td><a href="docs/images/easyhub-client.png"><img src="docs/images/easyhub-client.png" alt="EasyHub 客户端主页：项目概览、我的项目与最近更新" width="640"></a></td>
+    <td><a href="docs/images/easyhub-client.png"><img src="docs/images/easyhub-client.png" alt="EasyHub 客户端首页：等你处理、我的项目与最近更新" width="640"></a></td>
   </tr>
   <tr>
     <td align="center">终端报错示意</td>

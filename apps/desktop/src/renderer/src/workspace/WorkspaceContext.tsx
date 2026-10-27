@@ -11,6 +11,7 @@ import { useDownloadCenter } from '../components/useDownloadCenter';
 import { errorText } from '../errors';
 import { readLanguage, type Language } from '../i18n';
 import { useLayoutPreference } from '../layoutPreferences';
+import { useThemePreference } from '../themePreferences';
 import { publicBookmarksKey, readPublicBookmarks } from '../publicBookmarks';
 import { historyKey, readSearchHistory, rememberSearch, type SearchEntry, type SearchScope } from '../searchHistory';
 import { useWorkspaceNavigation } from './NavigationContext';
@@ -267,6 +268,7 @@ function useController(props: WorkspaceProps) {
     [state.translationNamesText],
   );
   const layout = useLayoutPreference();
+  const theme = useThemePreference();
   const recordSearch = useCallback(
     (query: string, scope: SearchScope) => {
       if (!query.trim() || ((scope === 'public' || scope === 'users') && query.trim().length < 2)) return;
@@ -287,6 +289,7 @@ function useController(props: WorkspaceProps) {
     cache: cache.current,
     downloads,
     layout,
+    theme,
     translationNames,
     set,
     loadRepos,

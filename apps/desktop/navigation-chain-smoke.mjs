@@ -12,7 +12,7 @@ const desktop = dirname(fileURLToPath(import.meta.url));
 const packaged = process.argv.includes('--packaged');
 const chainCase = process.argv.find(value => value.startsWith('--case='))?.slice(7) ?? 'issue-release';
 const programmaticScroll = process.argv.includes('--programmatic-scroll');
-const product = packaged ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
+const product = packaged ? join(desktop, 'release', 'windows', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'navigation-chain-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));

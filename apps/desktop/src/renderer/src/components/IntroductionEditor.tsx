@@ -235,7 +235,6 @@ export function IntroductionEditor({
           )}
         </div>
         <div className="intro-editor-footer">
-          <p className="muted">{t('introductionEditor.markdownAndHtmlAreSupportedSwitchToPreviewTo')}</p>
           {live && (
             <label className="intro-overwrite-confirm">
               <input

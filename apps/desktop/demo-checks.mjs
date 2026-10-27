@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 const nav = (page, name) => page.locator('.sidebar-nav').getByRole('button', { name: new RegExp(`^${name}`) });
 async function home(page) { await nav(page, '首页').click(); await page.locator('.home-dashboard').waitFor(); }
-async function project(page, name = 'MyTool') { await home(page); await page.locator('.home-project-row').filter({ hasText: name }).getByRole('button', { name: '打开项目', exact: true }).click(); await page.locator('.detail-hero h1').filter({ hasText: name }).waitFor(); }
+async function project(page, name = 'MyTool') { await home(page); await page.locator('.home-project-row').filter({ hasText: name }).locator('.home-project-name').click(); await page.locator('.detail-hero h1').filter({ hasText: name }).waitFor(); }
 export async function runDemoChecks(page, { demoOnly = false } = {}) {
   await page.locator('.demo-workspace .home-dashboard').waitFor();
   assert.ok((await page.locator('.demo-mode-notice').innerText()).includes('未上传到 GitHub'));
@@ -11,7 +11,7 @@ export async function runDemoChecks(page, { demoOnly = false } = {}) {
   await page.getByRole('button', { name: '账户菜单', exact: true }).click(); await page.getByText('演示账户', { exact: true }).waitFor(); await page.keyboard.press('Escape');
 
   // Home must route through the real file review and confirmation flow.
-  await page.getByRole('button', { name: '查看并发布', exact: true }).click();
+  await page.getByRole('button', { name: /^查看并发布/ }).click();
   const env = page.getByRole('checkbox', { name: '发布 .env', exact: true }); await env.waitFor(); assert.equal(await env.isChecked(), false);
   await page.getByRole('checkbox', { name: '全选', exact: true }).check(); await page.getByRole('checkbox', { name: '全选', exact: true }).uncheck(); await env.check();
   await page.getByRole('textbox', { name: '这次改了什么？', exact: true }).fill('演示选择发布一个文件');
@@ -55,7 +55,7 @@ export async function runDemoChecks(page, { demoOnly = false } = {}) {
   assert.equal(await completedDownload.innerText(), '项目已经下载完成。');
 
   // A reload creates a new bridge, not a durable account or virtual repository cache.
-  await page.reload(); await page.locator('.demo-workspace .home-dashboard').waitFor(); await page.getByRole('button', { name: '查看并发布', exact: true }).click(); await page.getByRole('checkbox', { name: '发布 .env', exact: true }).waitFor();
+  await page.reload(); await page.locator('.demo-workspace .home-dashboard').waitFor(); await page.getByRole('button', { name: /^查看并发布/ }).click(); await page.getByRole('checkbox', { name: '发布 .env', exact: true }).waitFor();
   assert.equal(await page.getByRole('checkbox', { name: '发布 .env', exact: true }).isChecked(), false);
   await home(page);
   return { sharedUi: true, selectionAndSensitiveConfirmation: true, partialFileSelection: true, issuesAndReplies: true, pullReview: true, releasePublishAndEdit: true, virtualDownloads: true, reloadReset: true };

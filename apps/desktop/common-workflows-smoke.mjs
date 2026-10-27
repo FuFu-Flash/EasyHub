@@ -94,9 +94,9 @@ try {
   await page.locator('.live-connected').waitFor();
   await page.setViewportSize({ width: 1060, height: 700 });
   await page.locator('.sidebar nav').getByRole('button', { name: '发现', exact: true }).click();
-  const search = page.locator('.discover-search input');
+  const search = page.locator('.topbar-search input');
   const pager = page.locator('.search-pagination');
-  await search.fill('project');
+  await search.fill('project'); await search.press('Enter');
   await page.locator('.trending-card').filter({ hasText: 'project-1' }).first().waitFor();
   assert.equal(await page.locator('.trending-card').count(), 30);
   await pager.getByRole('button', { name: '下一页', exact: true }).click();
@@ -110,7 +110,7 @@ try {
   await pager.getByRole('button', { name: '下一页', exact: true }).click();
   await page.locator('.trending-card strong').filter({ hasText: /^project-61$/ }).waitFor();
   assert.equal(await pager.getByRole('button', { name: '下一页', exact: true }).isDisabled(), true);
-  await search.fill('changed-query');
+  await search.fill('changed-query'); await search.press('Enter');
   await page.locator('.trending-card strong').filter({ hasText: /^project-1$/ }).waitFor();
   assert.match(await pager.innerText(), /第 1 页/);
   await page.getByRole('button', { name: '用户搜索', exact: true }).click();

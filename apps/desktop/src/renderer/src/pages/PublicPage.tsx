@@ -3,6 +3,7 @@ import { PublicProjectBrowser } from '../components/PublicProjectBrowser';
 import { TranslationPreferencesContext } from '../components/TranslatableContent';
 
 import { usePageRoute } from '../workspace/NavigationContext';
+import { isSearchResults } from '../workspace/navigation';
 import { useWorkspace } from '../workspace/WorkspaceContext';
 import { usePageActions } from '../workspace/pageActions';
 import { useRepository } from '../workspace/pageData';
@@ -45,6 +46,7 @@ export function PublicPage() {
         language={language}
         currentUser={user.login}
         onBack={() => navigation.back('discover')}
+        backToSearchResults={isSearchResults(navigation.previous)}
         scrollArea={scrollArea}
         onOpenLink={(url) => void openReadmeLink(url, publicSelected)}
         onDownload={(request) => void downloads.start(request)}

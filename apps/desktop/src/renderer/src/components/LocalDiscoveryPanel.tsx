@@ -136,9 +136,7 @@ export function LocalDiscoveryPanel({ onAdded }: Props) {
               : ''}
             {result.limited ? t('localDiscoveryPanel.theSearchReachedItsLimitTryASmallerLocation') : ''}
           </span>
-        ) : (
-          <span className="muted">{t('localDiscoveryPanel.onlyYourSelectedLocationsAreCheckedProjectFilesAre')}</span>
-        )}
+        ) : null}
         {busy ? (
           <button className="text-link" onClick={() => void api?.localCancel()}>
             {t('localDiscoveryPanel.cancel')}

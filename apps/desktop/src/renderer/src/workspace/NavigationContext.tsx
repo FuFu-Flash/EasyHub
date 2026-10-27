@@ -69,6 +69,7 @@ function useNavigationController(scrollArea: RefObject<HTMLDivElement | null>) {
     section: sectionOf(page),
     scrollArea,
     hasBack: state.index > 0,
+    previous: state.index > 0 ? state.entries[state.index - 1]! : null,
     hasForward: state.index < state.entries.length - 1,
     navigate: (view: View, params: PageParams = {}, replace = false) =>
       dispatch({ type: 'visit', page: { view, params, scrollTop: 0 }, replace, scrollTop: position() }),

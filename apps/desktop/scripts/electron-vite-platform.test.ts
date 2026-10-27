@@ -47,7 +47,8 @@ describe('desktop release build platform isolation', () => {
     const target = platform === 'darwin' ? 'macos' : 'windows';
     expect(config.main?.build?.outDir).toBe(`out/${target}/main`);
     expect(config.preload?.build?.outDir).toBe(`out/${target}/preload`);
-    expect(config.renderer?.build?.outDir).toMatch(new RegExp(`/out/${target}/renderer$`));
+    // The renderer output is an absolute path, so Windows hosts report it with backslashes.
+    expect(config.renderer?.build?.outDir?.replaceAll('\\', '/')).toMatch(new RegExp(`/out/${target}/renderer$`));
     expect(config.main?.build?.minify).toBe('esbuild');
     expect(config.preload?.build?.minify).toBe('esbuild');
     expect(config.main?.plugins).toHaveLength(2);

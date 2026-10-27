@@ -17,7 +17,7 @@ await new Promise((resolve) => imageServer.listen(0, '127.0.0.1', resolve));
 const imageUrl = `http://127.0.0.1:${imageServer.address().port}/intro.png`;
 const selectedFolder = await mkdtemp(join(tmpdir(), 'easyhub-ui-smoke-'));
 const profile = await mkdtemp(join(tmpdir(), 'easyhub-ui-profile-'));
-const packagedExecutable = join(process.cwd(), 'release/win-unpacked/EasyHub.exe');
+const packagedExecutable = join(process.cwd(), 'release/windows/win-unpacked/EasyHub.exe');
 const app = await electron.launch({
   executablePath: packaged ? packagedExecutable : electronPath,
   args: [...(packaged ? [] : ['.']), `--user-data-dir=${profile}`],
@@ -50,7 +50,7 @@ try {
   assert.equal(await page.evaluate(() => typeof window.easyHub?.authStatus), 'function');
   assert.equal('clientId' in (await page.evaluate(() => window.easyHub?.authStatus())), true);
   await page.getByRole('button', { name: '先看看演示', exact: true }).click();
-  const iconPath = packaged ? join(process.cwd(), 'release/win-unpacked/resources/easyhub.ico') : join(process.cwd(), 'resources/easyhub.ico');
+  const iconPath = packaged ? join(process.cwd(), 'release/windows/win-unpacked/resources/easyhub.ico') : join(process.cwd(), 'resources/easyhub.ico');
   assert.equal(await app.evaluate(({ nativeImage }, path) => nativeImage.createFromPath(path).isEmpty(), iconPath), false);
   await runDemoChecks(page);
   await page.evaluate(() => localStorage.setItem('easyhub:language', 'en'));
@@ -117,9 +117,9 @@ try {
   await page.evaluate(() => window.localStorage.setItem('easyhub:language', 'zh'));
   await page.reload();
   await page.locator('.live-connected').waitFor();
-  await page.locator('.v2-feature-card').waitFor();
+  await page.locator('.home-task-list').waitFor();
   await page.locator('.home-dashboard').waitFor();
-  await page.locator('.v2-feature-card').getByText('1 个文件有修改，查看后再发布。').waitFor();
+  await page.locator('.home-task-row').getByText('有 1 个文件还没发布', { exact: true }).waitFor();
   await page.getByRole('button', { name: '账户菜单' }).click();
   await page.getByRole('menuitem', { name: '我收藏的项目' }).click();
   await page.getByRole('heading', { name: '还没有收藏的项目' }).waitFor();
@@ -164,7 +164,7 @@ try {
   await page.locator('.sidebar-nav').getByRole('button', { name: '问题' }).click();
   await page.locator('.live-issue-group').first().getByText('CloudDemo').waitFor();
   assert.equal(await page.locator('.live-issue-group').first().locator('.live-pending-count').textContent(), '1 个待处理的问题');
-  assert.equal(await page.locator('.live-issue-group').first().locator('.live-pending-count').evaluate((element) => getComputedStyle(element).color), 'rgb(197, 51, 71)');
+  assert.equal(await page.locator('.live-issue-group').first().locator('.live-pending-count').evaluate((element) => getComputedStyle(element).color), 'rgb(61, 61, 57)');
   await openProjectsList('我的项目');
   await page.locator('.cloud-row').filter({ hasText: 'CloudDemo' }).getByRole('button', { name: 'CloudDemo' }).click();
   await page.getByRole('heading', { name: '项目介绍' }).waitFor();

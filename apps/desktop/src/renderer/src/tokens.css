@@ -1,5 +1,7 @@
 /* Desktop design tokens. See docs/desktop-styles.md for the contract. */
-:root {
+:root,
+[data-theme='light'] {
+  color-scheme: light;
   --eh-font-sans:
     -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', 'Noto Sans SC',
     'PingFang SC', 'Hiragino Sans GB', sans-serif;
@@ -9,16 +11,16 @@
   --eh-color-primary: #2369de;
   --eh-color-primary-hover: #1756bf;
   --eh-color-primary-soft: #eaf3ff;
-  --eh-color-ink: #19304b;
-  --eh-color-ink-soft: #314965;
-  --eh-color-muted: #657990;
-  --eh-color-faint: #8b9bb0;
+  --eh-color-ink: #1d1d1b;
+  --eh-color-ink-soft: #3d3d39;
+  --eh-color-muted: #62625d;
+  --eh-color-faint: #8a8a84;
   --eh-color-surface: #ffffff;
-  --eh-color-surface-subtle: #f8faff;
-  --eh-color-surface-bg: #f5f7fb;
-  --eh-color-surface-sunken: #edf2f8;
-  --eh-color-line: #e3eaf3;
-  --eh-color-line-strong: #d8e4f3;
+  --eh-color-surface-subtle: #fafaf8;
+  --eh-color-surface-bg: #f6f6f4;
+  --eh-color-surface-sunken: #ececea;
+  --eh-color-line: #e3e3df;
+  --eh-color-line-strong: #d4d4cf;
   --eh-color-line-primary: #90b8ff;
   --eh-color-danger: #c53347;
   --eh-color-danger-soft: #fff0f1;
@@ -26,16 +28,16 @@
   --eh-color-success: #208a4d;
   --eh-color-success-soft: #eaf8ef;
   --eh-color-success-line: #b8eaca;
-  --eh-color-warning: #966318;
-  --eh-color-warning-soft: #fff5e7;
-  --eh-color-warning-line: #f2deb9;
+  --eh-color-warning: #8f4a00;
+  --eh-color-warning-soft: #fdf3e3;
+  --eh-color-warning-line: #efd9b4;
   --eh-color-accent: #7655e8;
   --eh-color-accent-soft: #f0e8ff;
-  --eh-color-hero: #193b66;
+  --eh-color-on-primary: #ffffff;
   --eh-color-hero-glow: #3b82d9;
   --eh-color-leaf: #72c546;
   --eh-color-amber: #dc8a13;
-  --eh-color-scrim: #142c50;
+  --eh-color-scrim: #1d2420;
 
   /* Type, shape and spacing scales. */
   --eh-text-12: 12px;
@@ -72,12 +74,12 @@
   --eh-leading-normal: 1.6;
 
   /* Elevation, focus, motion and stacking. */
-  --eh-shadow-card: 0 10px 30px color-mix(in srgb, var(--eh-color-ink) 4.31%, transparent);
+  --eh-shadow-card: 0 1px 2px color-mix(in srgb, var(--eh-color-ink) 4.31%, transparent);
   --eh-shadow-raised: 0 16px 30px color-mix(in srgb, var(--eh-color-ink) 8.63%, transparent);
   --eh-shadow-menu: 0 14px 34px color-mix(in srgb, var(--eh-color-scrim) 12.94%, transparent);
   --eh-shadow-popover: 0 20px 44px color-mix(in srgb, var(--eh-color-scrim) 16.08%, transparent);
   --eh-shadow-dialog: 0 25px 80px color-mix(in srgb, var(--eh-color-ink) 25.1%, transparent);
-  --eh-shadow-primary: 0 6px 13px color-mix(in srgb, var(--eh-color-primary) 16.08%, transparent);
+  --eh-shadow-primary: 0 1px 2px color-mix(in srgb, var(--eh-color-primary) 16.08%, transparent);
   --eh-shadow-small: 0 2px 8px color-mix(in srgb, var(--eh-color-ink) 12.94%, transparent);
   --eh-shadow-topbar: 0 1px 8px color-mix(in srgb, var(--eh-color-muted) 4.71%, transparent);
   --eh-focus-ring: var(--eh-color-line-primary);
@@ -89,4 +91,50 @@
   --eh-z-topbar: 30;
   --eh-z-popover: 35;
   --eh-z-dropdown: 75;
+}
+
+/* Dark appearance: the same 30 names with dark values. Values derived from colors
+   (shadows, focus ring) are declared again so dark areas never inherit light ones. */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --eh-color-primary: #3f84ee;
+  --eh-color-primary-hover: #5a97f2;
+  --eh-color-primary-soft: #1b2a42;
+  --eh-color-ink: #ecece9;
+  --eh-color-ink-soft: #d6d6d1;
+  --eh-color-muted: #a5a59f;
+  --eh-color-faint: #7e7e78;
+  --eh-color-surface: #1e1e1c;
+  --eh-color-surface-subtle: #242422;
+  --eh-color-surface-bg: #161615;
+  --eh-color-surface-sunken: #2c2c2a;
+  --eh-color-line: #31312f;
+  --eh-color-line-strong: #43433f;
+  --eh-color-line-primary: #3a64a8;
+  --eh-color-danger: #e5534b;
+  --eh-color-danger-soft: #3a1c1c;
+  --eh-color-danger-line: #6e2c2a;
+  --eh-color-success: #4cc27a;
+  --eh-color-success-soft: #15301f;
+  --eh-color-success-line: #2a5e3d;
+  --eh-color-warning: #e3a34f;
+  --eh-color-warning-soft: #33260f;
+  --eh-color-warning-line: #5f4620;
+  --eh-color-accent: #a28bff;
+  --eh-color-accent-soft: #2a2142;
+  --eh-color-on-primary: #ffffff;
+  --eh-color-hero-glow: #6aa3f5;
+  --eh-color-leaf: #72c546;
+  --eh-color-amber: #e8a33a;
+  --eh-color-scrim: #000000;
+
+  --eh-shadow-card: 0 1px 2px color-mix(in srgb, var(--eh-color-scrim) 30%, transparent);
+  --eh-shadow-raised: 0 16px 30px color-mix(in srgb, var(--eh-color-scrim) 40%, transparent);
+  --eh-shadow-menu: 0 14px 34px color-mix(in srgb, var(--eh-color-scrim) 45%, transparent);
+  --eh-shadow-popover: 0 20px 44px color-mix(in srgb, var(--eh-color-scrim) 50%, transparent);
+  --eh-shadow-dialog: 0 25px 80px color-mix(in srgb, var(--eh-color-scrim) 60%, transparent);
+  --eh-shadow-primary: 0 1px 2px color-mix(in srgb, var(--eh-color-scrim) 30%, transparent);
+  --eh-shadow-small: 0 2px 8px color-mix(in srgb, var(--eh-color-scrim) 40%, transparent);
+  --eh-shadow-topbar: 0 1px 8px color-mix(in srgb, var(--eh-color-scrim) 30%, transparent);
+  --eh-focus-ring: var(--eh-color-line-primary);
 }

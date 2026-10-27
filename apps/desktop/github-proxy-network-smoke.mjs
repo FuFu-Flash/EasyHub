@@ -8,7 +8,7 @@ import electronPath from 'electron';
 
 const desktop = dirname(fileURLToPath(import.meta.url));
 const packaged = process.argv.includes('--packaged');
-const mainDirectory = packaged ? join(desktop, 'release/win-unpacked/resources/app.asar/out/main') : join(desktop, 'out/main');
+const mainDirectory = packaged ? join(desktop, 'release/windows/win-unpacked/resources/app.asar/out/main') : join(desktop, 'out/main');
 const root = await mkdtemp(join(tmpdir(), 'easyhub-github-proxy-network-'));
 const profile = join(root, 'profile');
 await mkdir(profile);

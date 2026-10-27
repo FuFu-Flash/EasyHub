@@ -11,7 +11,7 @@ import { installDownloadFixture } from './download-fixture.mjs';
 const desktop = dirname(fileURLToPath(import.meta.url));
 const packaged = process.argv.includes('--packaged');
 const onlyPendingCase = process.argv.find(value => value.startsWith('--pending-case='))?.slice(15);
-const product = packaged ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar') : desktop;
+const product = packaged ? join(desktop, 'release', 'windows', 'win-unpacked', 'resources', 'app.asar') : desktop;
 const output = join(desktop, 'out', 'navigation-detail-smoke');
 await mkdir(output, { recursive: true });
 const run = await mkdtemp(join(output, 'isolated-'));
@@ -149,7 +149,7 @@ try {
   await assertVerticalMarkdown('.issue-detail');
   const ownPosition = await scroll(640);
   await nav('首页').click();
-  await page.locator('.home-project-row').filter({ hasText: 'project-b' }).getByRole('button', { name: '打开项目', exact: true }).click();
+  await page.locator('.home-project-row').filter({ hasText: 'project-b' }).locator('.home-project-name').click();
   await page.locator('.detail-hero h1').filter({ hasText: 'project-b' }).waitFor();
   await page.locator('.readme-markdown').filter({ hasText: 'README for project-b' }).waitFor();
   await nav('问题').click();
@@ -201,7 +201,7 @@ try {
   if (onlyPendingCase !== 'comments') {
   await nav('首页').click();
   await app.evaluate(() => { const fixture = globalThis.navigationDetailFixture; fixture.readmeRevision = 2; fixture.delayNextReadme = true; fixture.releaseReadme = null; });
-  await page.locator('.home-project-row').filter({ hasText: 'project-a' }).getByRole('button', { name: '打开项目', exact: true }).click();
+  await page.locator('.home-project-row').filter({ hasText: 'project-a' }).locator('.home-project-name').click();
   await page.locator('.detail-hero h1').filter({ hasText: 'project-a' }).waitFor();
   await app.evaluate(async () => { while (!globalThis.navigationDetailFixture.releaseReadme) await new Promise(resolve => setTimeout(resolve, 10)); });
   await nav('设置').click();
@@ -221,7 +221,7 @@ try {
   await nav('首页').click();
   await page.locator('.home-dashboard').waitFor();
   const homePosition = await scroll(120);
-  await page.locator('.home-project-row').filter({ hasText: 'project-a' }).getByRole('button', { name: '打开项目', exact: true }).click();
+  await page.locator('.home-project-row').filter({ hasText: 'project-a' }).locator('.home-project-name').click();
   await page.locator('.detail-hero h1').filter({ hasText: 'project-a' }).waitFor();
   await page.getByRole('button', { name: '查看问题', exact: true }).click();
   await page.locator('.filter-project').filter({ hasText: 'project-a' }).waitFor();

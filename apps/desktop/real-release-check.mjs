@@ -17,7 +17,7 @@ const attachment = Buffer.from('EasyHub live release upload check\n', 'utf8');
 await writeFile(imagePath, image);
 await writeFile(attachmentPath, attachment);
 const packaged = process.argv.includes('--packaged');
-const app = await electron.launch({ executablePath: packaged ? join(process.cwd(), 'release/win-unpacked/EasyHub.exe') : electronPath,
+const app = await electron.launch({ executablePath: packaged ? join(process.cwd(), 'release/windows/win-unpacked/EasyHub.exe') : electronPath,
   args: packaged ? [] : ['.'], cwd: process.cwd() });
 try {
   const page = await app.firstWindow();

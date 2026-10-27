@@ -20,7 +20,7 @@ const bridgeChannels = [...new Set([...preload.matchAll(/ipcRenderer\.invoke\(([
 assert.ok(bridgeChannels.length >= 40, 'The fixture must discover the full EasyHub IPC bridge.');
 const executableArgument = process.argv.find(value => value.startsWith('--executable='));
 const executable = executableArgument?.slice('--executable='.length)
-  ?? (process.argv.includes('--packaged') ? join(desktopDirectory, 'release', 'win-unpacked', 'EasyHub.exe') : null);
+  ?? (process.argv.includes('--packaged') ? join(desktopDirectory, 'release', 'windows', 'win-unpacked', 'EasyHub.exe') : null);
 if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
 const launcher = join(runDirectory, 'launch.cjs');
 if (!executable) await writeFile(launcher, `
@@ -303,7 +303,7 @@ try {
     for (const repo of fixtures.slice(0, 3)) {
       await openProject(repo);
       check(await measure(`${label}-owned-${repo.id}`), `${label}: owned ${repo.name}`);
-      if (language === 'en') assert.equal(await page.locator('.detail-actions').getByRole('button', { name: 'Local Project & Publish source code', exact: true }).count(), 1,
+      if (language === 'en') assert.equal(await page.locator('.detail-actions').getByRole('button', { name: 'Local Project & Publish Source Code', exact: true }).count(), 1,
         'English matrix must exercise the translated action labels');
       cases++;
     }

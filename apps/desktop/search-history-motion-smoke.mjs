@@ -21,7 +21,7 @@ const channels = [...new Set([...preload.matchAll(/ipcRenderer\.invoke\(([^,\r\n
 assert.ok(channels.length > 40);
 const executableArgument = process.argv.find(value => value.startsWith('--executable='));
 const executable = executableArgument?.slice('--executable='.length)
-  ?? (process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'EasyHub.exe') : null);
+  ?? (process.argv.includes('--packaged') ? join(desktop, 'release', 'windows', 'win-unpacked', 'EasyHub.exe') : null);
 if (executableArgument) assert.ok(isAbsolute(executable), '--executable must be an absolute path.');
 const baseline = process.argv.includes('--baseline');
 const launcher = join(directory, 'launch.cjs');
@@ -60,7 +60,6 @@ try {
       });
     };
     for (const channel of channels) mock(channel, () => {
-      if (['easyhub:menu-state', 'easyhub:window-set-style'].includes(channel)) return;
       fixture.forbidden.push(channel);
       throw new Error('Write or unknown history fixture IPC blocked: ' + channel);
     });
@@ -206,7 +205,7 @@ try {
       return { indicator: r(indicator), selected: r(selected), text: selected.textContent.trim(),
         durations: getComputedStyle(indicator).transitionDuration,
         animations: indicator.getAnimations().filter(animation => animation.playState === 'running').length,
-        pressed: [...element.querySelectorAll(':scope > button')].filter(button => (button.getAttribute('aria-pressed') === 'true' || button.getAttribute('aria-selected') === 'true')).length,
+        pressed: [...element.querySelectorAll(':scope > button')].filter(button => button.getAttribute('aria-pressed') === 'true' || button.getAttribute('aria-selected') === 'true').length,
         markerIgnored: indicator.getAttribute('aria-hidden') === 'true' && getComputedStyle(indicator).pointerEvents === 'none' };
     });
     const finish = async group => {
@@ -299,7 +298,7 @@ try {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await slide(issues, 1, 'Issue filter');
     await page.locator('.sidebar-nav').getByRole('button', { name: /^合并请求/ }).click();
-    const reviews = page.locator('.toolbar .segmented').first();
+    const reviews = page.locator('.toolbar .segmented').filter({ hasText: '待审查' }).first();
     await reviews.locator(':scope > button').first().getByText('待审查', { exact: false }).waitFor();
     await slide(reviews, 1, 'Review filter');
     assert.deepEqual(errors, []);

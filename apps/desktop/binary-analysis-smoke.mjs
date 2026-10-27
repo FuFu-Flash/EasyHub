@@ -265,13 +265,15 @@ try {
   await page.locator('.language-trigger').click();
   await page.getByRole('button', { name: '中文', exact: true }).click();
   async function openProject() {
-    await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目', exact: true }).click();
+    const projects = page.locator('.sidebar-nav').getByRole('button', { name: '我的项目', exact: true });
+    await projects.click();
+    // Returning to the section first restores the project left open; a second click shows the list.
+    if (!(await page.locator('h1').filter({ hasText: '我的项目' }).count())) await projects.click();
     await page.getByRole('button', { name: /我的云端项目/ }).click();
     await page.locator('.cloud-row').filter({ hasText: 'binary-project' }).getByRole('button', { name: '查看', exact: true }).click();
   }
   await openProject();
-  await page.getByRole('button', { name: '查看问题', exact: true }).click();
-  await page.getByRole('tab', { name: /^合并请求审查/ }).click();
+  await page.getByRole('button', { name: '去审查', exact: true }).click();
   const pulls = page.locator('.pull-requests-panel');
   await pulls.getByRole('button').filter({ hasText: 'Update program file' }).click();
   await pulls.getByText('bin/helper.dll', { exact: true }).waitFor();

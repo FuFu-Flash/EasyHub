@@ -233,7 +233,6 @@ export function ReleaseEditPanel({
           <X size={18} />
         </button>
       </div>
-      <p className="muted">{t('releaseEditPanel.theVersionTagStaysTheSameSoDownloadLinks')}</p>
       <label>
         {t('releaseEditPanel.releaseTitle')}
         <input value={title} maxLength={120} onChange={(event) => setTitle(event.target.value)} disabled={busy} />
