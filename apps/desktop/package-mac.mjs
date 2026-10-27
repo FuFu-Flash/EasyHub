@@ -37,7 +37,7 @@ function run(executable, args) {
 await Promise.all([
   access(join(sourceRoot, 'LICENSE'), constants.R_OK),
   access(join(sourceRoot, 'UPSTREAM.txt'), constants.R_OK),
-  access(join(desktopDir, 'resources/easyhub.png'), constants.R_OK),
+  access(join(desktopDir, 'resources/easyhub-mac.png'), constants.R_OK),
   access(join(desktopDir, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'), constants.X_OK),
 ]);
 await mkdir(join(desktopDir, 'resources'), { recursive: true });
@@ -45,12 +45,13 @@ const iconDirectory = await mkdtemp(join(tmpdir(), 'easyhub-desktop-icon-'));
 try {
   const iconSet = join(iconDirectory, 'EasyHub.iconset');
   await mkdir(iconSet);
-  // Use the upstream application's artwork, including the renderer's original brand.
+  // The upstream artwork with the transparent margin macOS app icons need; the full-bleed
+  // easyhub.png would look a size larger than other Dock icons.
   for (const size of [16, 32, 128, 256, 512]) {
     for (const scale of [1, 2]) {
       const name = `icon_${size}x${size}${scale === 2 ? '@2x' : ''}.png`;
       run('/usr/bin/sips', ['-z', String(size * scale), String(size * scale),
-        join(desktopDir, 'resources/easyhub.png'), '--out', join(iconSet, name)]);
+        join(desktopDir, 'resources/easyhub-mac.png'), '--out', join(iconSet, name)]);
     }
   }
   run('/usr/bin/iconutil', ['-c', 'icns', iconSet, '-o', join(desktopDir, 'resources/easyhub.icns')]);
