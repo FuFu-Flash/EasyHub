@@ -233,7 +233,6 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
             <span />
           </button>
         </div>
-        <p className="github-proxy-explain">{t('hostsRepairPanel.reuseAnExistingSystemProxyTurningThisOffOr')}</p>
         <div className="github-proxy-connection">
           <span
             className={`github-proxy-status ${!checking && status?.state === 'ready' && status.system?.mode !== 'unavailable' && status.system?.mode !== 'external' ? 'is-ready' : ''}`}

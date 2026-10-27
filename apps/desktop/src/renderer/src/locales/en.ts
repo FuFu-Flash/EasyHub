@@ -1537,7 +1537,7 @@ export const en = {
   'settingsPage.referenceTopLeft': 'Reference · top left',
   'settingsPage.contentTranslation': 'Content Translation',
   'settingsPage.useTheTranslationSwitchInTheTopBarTo':
-    'Use the translation switch in the top bar to view translated text. Turn it off to view the original. A third-party service translates public text, and translations are saved on this computer.',
+    'Use the translation switch in the top bar to view translated text. Turn it off to view the original.',
   'settingsPage.targetLanguage': 'Target Language',
   'settingsPage.translationTargetLanguage': 'Translation Target Language',
   'settingsPage.simplifiedChinese': 'Simplified Chinese',

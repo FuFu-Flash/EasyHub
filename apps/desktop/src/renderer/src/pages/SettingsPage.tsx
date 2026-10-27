@@ -23,7 +23,6 @@ export function SettingsPage() {
     user,
     language,
     translationTarget,
-    translationNames,
     translationNamesText,
     windowStyle,
     demo,
@@ -139,9 +138,6 @@ export function SettingsPage() {
               onChange={(event) => setTranslationNamesText(event.target.value)}
               placeholder={t('settingsPage.enterOneNameToKeepPerLine')}
             />
-            <small className="muted">
-              {t('settingsPage.saved')} {translationNames.length} {t('settingsPage.namesSavedOnThisComputerOnly')}
-            </small>
           </div>
         </section>
         <HostsRepairPanel language={language} />
@@ -164,7 +160,6 @@ export function SettingsPage() {
             <AppUpdatePanel language={language} />
             <div className="license-details">
               <strong>Apache 2.0</strong>
-              <span>{t('settingsPage.thisApplicationIsLicensedUnderApacheLicense20')}</span>
               <button className="text-link" onClick={() => void easyHub?.openLicense()}>
                 {t('settingsPage.viewLicense')} <ArrowRight size={15} />
               </button>
