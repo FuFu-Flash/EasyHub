@@ -33,12 +33,12 @@ EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看
 
 ## 下载与安装
 
-**当前版本：桌面版（Windows）1.3.0 · 桌面版（macOS）1.2.2 · Android 版 1.1.0。**
+**当前版本：桌面版（Windows）1.4.1 · 桌面版（macOS）1.2.2 · Android 版 1.1.0。**
 
 | 平台 | 版本 | 适合谁 | 下载 |
 | --- | --- | --- | --- |
-| 桌面版（Windows） | 安装版 | 长期使用，可选择安装位置和桌面快捷方式 | **[下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.3.0/EasyHub-1.3.0-setup.exe)** |
-| 桌面版（Windows） | 便携版 | 不想安装，下载后直接运行 | **[下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.3.0/EasyHub-1.3.0-portable.exe)** |
+| 桌面版（Windows） | 安装版 | 长期使用，可选择安装位置和桌面快捷方式 | **[下载安装版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.4.1/EasyHub-1.4.1-setup.exe)** |
+| 桌面版（Windows） | 便携版 | 不想安装，下载后直接运行 | **[下载便携版](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.4.1/EasyHub-1.4.1-portable.exe)** |
 | 桌面版（macOS） | DMG 镜像 / ZIP | Apple 芯片 Mac，macOS 12 或以上 | **[下载 DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [下载 ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
 | Android | 1.1.0 ARM64 安装包 | 适合大多数较新的 Android 手机，安装包更小 | **[下载 ARM64 包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 | Android | 1.1.0 通用安装包 | ARM32、ARM64、x86、x86_64 设备与模拟器 | **[下载通用包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |

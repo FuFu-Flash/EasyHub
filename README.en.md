@@ -33,12 +33,12 @@ You do not need to install Git or create a separate EasyHub account. Sign in wit
 
 ## Download and install
 
-**Current versions: Desktop (Windows) 1.3.0 · Desktop (macOS) 1.2.2 · Android 1.1.0.**
+**Current versions: Desktop (Windows) 1.4.1 · Desktop (macOS) 1.2.2 · Android 1.1.0.**
 
 | Platform | Edition | Best for | Download |
 | --- | --- | --- | --- |
-| Desktop (Windows) | Installer | Regular use, with installation location and desktop shortcut options | **[Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.3.0/EasyHub-1.3.0-setup.exe)** |
-| Desktop (Windows) | Portable | Run directly without installing | **[Download portable](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.3.0/EasyHub-1.3.0-portable.exe)** |
+| Desktop (Windows) | Installer | Regular use, with installation location and desktop shortcut options | **[Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.4.1/EasyHub-1.4.1-setup.exe)** |
+| Desktop (Windows) | Portable | Run directly without installing | **[Download portable](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.4.1/EasyHub-1.4.1-portable.exe)** |
 | Desktop (macOS) | DMG / ZIP | Apple Silicon Macs running macOS 12 or later | **[Download DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.dmg)** · [Download ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.2.2/EasyHub-macOS.zip) · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.2.2) |
 | Android | 1.1.0 ARM64 APK | Most newer Android phones; smaller package | **[Download ARM64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
 | Android | 1.1.0 universal APK | ARM32, ARM64, x86, and x86_64 devices and emulators | **[Download universal APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
