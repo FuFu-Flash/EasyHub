@@ -25,7 +25,10 @@ export function PublicProjectHero({
   const t = useTranslation(language);
   return (
     <section className="detail-hero public-browser-hero has-source-history">
-      <SourceHistoryButton language={language} onClick={onOpenSourceHistory} />
+      <div className="detail-hero-tools">
+        <StarProjectButton repo={repo} onError={onError} />
+        <SourceHistoryButton language={language} onClick={onOpenSourceHistory} />
+      </div>
       <div className="detail-main">
         <span className="project-logo logo-sky public-owner-avatar" aria-hidden="true">
           {repo.owner.avatar_url ? (
@@ -50,7 +53,6 @@ export function PublicProjectHero({
         </div>
       </div>
       <div className="detail-actions">
-        <StarProjectButton repo={repo} onError={onError} />
         <button className="button button-quiet" onClick={onPropose}>
           <Plus size={17} />
           {t('publicProjectBrowser.reportAnIssueSuggestAChange')}

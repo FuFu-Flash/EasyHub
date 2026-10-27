@@ -51,8 +51,10 @@ try {
   await page.locator('.sidebar-nav button').nth(1).click();
   await page.getByRole('button', { name: /我的云端项目/ }).click();
   await page.locator('.cloud-row').filter({ hasText: 'owned-repo' }).getByRole('button', { name: '查看' }).click();
-  const danger = page.getByRole('region', { name: '危险区' });
+  await page.getByRole('button', { name: '项目设置', exact: true }).click();
+  const danger = page.getByRole('dialog', { name: '项目设置', exact: true });
   await danger.waitFor();
+  await page.waitForTimeout(400);
   await page.screenshot({ path: 'out/live-danger-zone.png' });
   await danger.getByRole('button', { name: '改变可见性' }).click();
   const dialog = page.getByRole('dialog', { name: '变更项目可见性' });

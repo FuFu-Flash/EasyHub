@@ -872,31 +872,71 @@
 .detail-hero.has-source-history {
   position: relative;
 }
-.detail-hero.has-source-history .source-history-entry {
+/* Star, source history and project settings sit together in the hero's top-right corner. */
+.detail-hero-tools {
   position: absolute;
   top: 10px;
   right: 12px;
-  width: 32px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--eh-space-2);
+}
+.detail-hero-tools > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 32px;
   height: 32px;
+  padding: 0 var(--eh-space-6);
   border: 1px solid transparent;
   border-radius: var(--eh-radius-8);
   color: var(--eh-color-faint);
   background: transparent;
-  z-index: 1;
+  font-size: var(--eh-text-13);
+  font-weight: var(--eh-weight-600);
+  cursor: pointer;
 }
-.detail-hero.has-source-history .source-history-entry:hover {
+.detail-hero-tools > button:hover:not(:disabled) {
   color: var(--eh-color-primary);
   background: var(--eh-color-primary-soft);
   border-color: var(--eh-color-line-strong);
 }
-.source-history-entry:focus-visible {
+.detail-hero-tools > button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.detail-hero-tools > button:focus-visible {
   outline: 2px solid var(--eh-color-line-primary);
   outline-offset: 2px;
 }
+.detail-hero-tools > .star-project-button.is-starred,
+.detail-hero-tools > .star-project-button.is-starred:hover:not(:disabled) {
+  color: var(--eh-color-warning);
+  border-color: var(--eh-color-warning-line);
+  background: var(--eh-color-warning-soft);
+}
 /* Project actions never fit beside a long description, so they always get their own row under the title. */
 .detail-hero.has-source-history .detail-main {
-  padding-right: 30px;
   flex-basis: 100%;
+}
+/* Keep the title clear of the corner tools; the description sits below them. */
+.detail-hero.has-source-history .detail-name-row {
+  padding-right: 130px;
+}
+.detail-hero.has-project-settings .detail-name-row {
+  padding-right: 170px;
+}
+.project-settings-modal {
+  width: min(620px, 100%);
+}
+.project-settings-modal .danger-zone-list {
+  margin-top: var(--eh-space-14);
+}
+.project-settings-modal .danger-zone-row {
+  min-height: 72px;
+  padding: var(--eh-space-14) var(--eh-space-16);
 }
 .source-history-page,
 .source-history-list,
@@ -7323,19 +7363,6 @@ select:focus-visible {
 }
 .home-shortcuts {
   padding-top: 17px;
-}
-.star-project-button {
-  color: var(--eh-color-ink-soft);
-}
-.star-project-button.is-starred {
-  color: var(--eh-color-warning);
-  border-color: var(--eh-color-warning-line);
-  background: var(--eh-color-warning-soft);
-}
-.star-project-button.is-starred:hover:not(:disabled) {
-  color: var(--eh-color-warning);
-  border-color: var(--eh-color-warning-line);
-  background: var(--eh-color-warning-soft);
 }
 .starred-projects-page {
   max-width: 1190px;

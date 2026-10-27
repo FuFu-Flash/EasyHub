@@ -392,6 +392,8 @@ export const en = {
   'liveProjectDangerZone.authorizationSucceededClickDeleteProjectAgainToDeleteIt':
     'Authorization succeeded. Click “Delete project” again to delete it.',
   'liveProjectDangerZone.authorizationFailedTryAgain': 'Authorization failed. Try again.',
+  'liveProjectDangerZone.projectSettings': 'Project Settings',
+  'projectPage.projectSettings': 'Project Settings',
   'liveProjectDangerZone.changeVisibility': 'Change visibility',
   'liveProjectDangerZone.onlyAuthorizedPeopleCanCurrentlySeeThisProject':
     'Only authorized people can currently see this project.',
@@ -430,9 +432,6 @@ export const en = {
   'liveProjectDangerZone.projectDeletedFromGithubFilesOnThisComputerRemain':
     'Project deleted from GitHub. Files on this computer remain.',
   'liveProjectDangerZone.theActionFailedTryAgain': 'The action failed. Try again.',
-  'liveProjectDangerZone.dangerZone': 'Danger Zone',
-  'liveProjectDangerZone.theseActionsChangeProjectAccessOrManagementConfirmThe':
-    'These actions change project access or management. Confirm the project name before continuing.',
   'liveProjectDangerZone.close': 'Close',
   'liveProjectDangerZone.loadingProtectionRules': 'Loading protection rules…',
   'liveProjectDangerZone.otherRulesProtectTheDefaultBranchEasyhubWillNot':

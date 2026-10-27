@@ -367,6 +367,8 @@ export const zh = {
   'liveProjectDangerZone.authorizationSucceededClickDeleteProjectAgainToDeleteIt':
     '授权成功。请再次点击“删除此项目”执行删除。',
   'liveProjectDangerZone.authorizationFailedTryAgain': '授权未完成，请重试。',
+  'liveProjectDangerZone.projectSettings': '项目设置',
+  'projectPage.projectSettings': '项目设置',
   'liveProjectDangerZone.changeVisibility': '变更项目可见性',
   'liveProjectDangerZone.onlyAuthorizedPeopleCanCurrentlySeeThisProject': '这个项目目前只有获得授权的人能看到。',
   'liveProjectDangerZone.thisProjectIsCurrentlyPublic': '这个项目目前是公开的。',
@@ -403,9 +405,6 @@ export const zh = {
   'liveProjectDangerZone.projectDeletedFromGithubFilesOnThisComputerRemain':
     'GitHub 上的项目已删除；电脑上的文件仍保留。',
   'liveProjectDangerZone.theActionFailedTryAgain': '操作失败，请稍后重试。',
-  'liveProjectDangerZone.dangerZone': '危险区',
-  'liveProjectDangerZone.theseActionsChangeProjectAccessOrManagementConfirmThe':
-    '以下操作会改变项目的访问或管理方式。请确认项目名称后继续。',
   'liveProjectDangerZone.close': '关闭',
   'liveProjectDangerZone.loadingProtectionRules': '正在读取保护规则…',
   'liveProjectDangerZone.otherRulesProtectTheDefaultBranchEasyhubWillNot':

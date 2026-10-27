@@ -31,7 +31,7 @@ const originalGithub=api.github;
 api.github=async(action,...args)=>{window.calls.push({method:action,args});if(action==='deleteRepoScope')return window.authorized;if(action==='deleteRepo')throw Error('Test must never delete a repository');return originalGithub(action,...args)};
 window.easyHub=api;
 const repo={id:1,name:'fixture',full_name:'owner/fixture',private:true,owner:{login:'owner'},permissions:{admin:true,push:true}};
-createRoot(document.getElementById('root')).render(<LanguageContext.Provider value={language}>{kind==='login'?<App/>:<div className="app-shell"><main className="page-content" style={{gridColumn:'1/-1'}}><LiveProjectDangerZone repo={repo} language={language} onUpdate={()=>{}} onTransferred={()=>{}} onNotice={()=>{}}/></main></div>}</LanguageContext.Provider>);
+createRoot(document.getElementById('root')).render(<LanguageContext.Provider value={language}>{kind==='login'?<App/>:<div className="app-shell"><main className="page-content" style={{gridColumn:'1/-1'}}><LiveProjectDangerZone repo={repo} language={language} open onClose={()=>{}} onUpdate={()=>{}} onTransferred={()=>{}} onNotice={()=>{}}/></main></div>}</LanguageContext.Provider>);
 `;
 const server = await createServer({ configFile: false, root: join(desktop, 'src/renderer'), plugins: [react(), {
   name: 'pairing-code-fixture',
@@ -55,6 +55,8 @@ try {
   const page = await context.newPage();
   page.setDefaultTimeout(6000);
   page.on('pageerror', error => errors.push(error.message));
+  // The project settings list stays open beneath the deletion confirmation, so name the one to inspect.
+  const confirmDialog = (kind, language) => page.getByRole('dialog', kind === 'login' ? {} : { name: language === 'zh' ? '删除此项目' : 'Delete project' });
   async function open(kind, language, copied, width = 1000, density = 'comfortable', extra = '') {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: density === 'compact' ? 'reduce' : 'no-preference' });
@@ -66,8 +68,8 @@ try {
       await page.getByRole('textbox', { name: language === 'zh' ? '确认项目名称' : 'Confirm project name' }).fill('owner/fixture');
       await page.getByRole('button', { name: language === 'zh' ? '授权删除权限' : 'Authorize deletion', exact: true }).click();
     }
-    await page.getByRole('dialog').getByText('TEST-0001', { exact: true }).waitFor();
-    return page.getByRole('dialog');
+    await confirmDialog(kind, language).getByText('TEST-0001', { exact: true }).waitFor();
+    return confirmDialog(kind, language);
   }
   function status(dialog) { return dialog.locator('[role="status"]').filter({ hasText: /配对码|Pairing code|pairing code/ }); }
   const copyLabel = language => language === 'zh' ? '复制配对码' : 'Copy pairing code';
@@ -128,7 +130,7 @@ try {
   }
   // Entering login from the demo banner must use the native auth bridge, not demo clipboard results.
   await open('login', 'en', 'true', 1000, 'compact', '&entry=demo');
-  assert.equal(await status(page.getByRole('dialog')).innerText(), copiedMessage('en'));
+  assert.equal(await status(page.getByRole('dialog').last()).innerText(), copiedMessage('en'));
   // An outstanding copy from a closed flow must not change the next flow's status.
   for (const kind of ['login', 'deletion']) {
     let dialog = await open(kind, 'en', 'false');
@@ -144,7 +146,7 @@ try {
       await page.getByRole('textbox', { name: 'Confirm project name' }).fill('owner/fixture');
       await page.getByRole('button', { name: 'Authorize deletion', exact: true }).click();
     }
-    dialog = page.getByRole('dialog'); await dialog.getByText('TEST-0002', { exact: true }).waitFor();
+    dialog = confirmDialog(kind, 'en'); await dialog.getByText('TEST-0002', { exact: true }).waitFor();
     await page.evaluate(() => window.finishCopy());
     await page.waitForTimeout(50);
     assert.equal(await status(dialog).innerText(), failedMessage('en'));
