@@ -8160,17 +8160,13 @@ select:focus-visible {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
 }
-.github-proxy-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 11px;
-  margin-top: 13px;
-}
-.github-proxy-last-check {
+.github-proxy-panel .github-proxy-last-check {
+  margin: 6px 0 0;
   color: var(--eh-color-faint);
   font-size: var(--eh-text-12);
+}
+.github-proxy-connection .github-proxy-actions {
+  margin-left: auto;
 }
 .github-proxy-actions .button {
   min-height: 34px;
