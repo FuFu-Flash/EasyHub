@@ -954,6 +954,32 @@ export const en = {
     "one": "{name} · {count} pull request",
     "other": "{name} · {count} pull requests"
   },
+  "home.title": "Home",
+  "home.needsYourAttention": "Needs your attention",
+  "home.nothingNeedsYourAttention": "Nothing needs your attention right now.",
+  "home.attentionOpenIssues": {
+    "count": "count",
+    "one": "{count} open issue",
+    "other": "{count} open issues"
+  },
+  "home.attentionPullRequests": {
+    "count": "count",
+    "one": "{count} pull request awaiting review",
+    "other": "{count} pull requests awaiting review"
+  },
+  "home.attentionTotal": {
+    "count": "count",
+    "one": "{count} item needs attention",
+    "other": "{count} items need attention"
+  },
+  "home.reviewPullRequests": "Review",
+  "home.taskMeta": "{name} · updated {time}",
+  "home.taskAction": "{action}: {name}",
+  "home.viewAllProjects": {
+    "count": "count",
+    "one": "All {count} project",
+    "other": "All {count} projects"
+  },
   "home.unreadNotifications": {
     "count": "count",
     "one": "Notifications · {count} unread notification",

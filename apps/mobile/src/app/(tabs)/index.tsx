@@ -17,9 +17,9 @@ import { loadOpenIssues } from '@/features/github/openIssues';
 import { EarthIcon } from '@/components/EarthIcon';
 import { useActivityNotices } from '@/features/github/useActivityNotices';
 import { usePullRefresh } from '@/features/github/usePullRefresh';
+import { homeTasks, type HomeTask } from '@/features/github/homeTasks';
 
 const appIcon = require('../../../assets/images/icon.png');
-const plant = require('../../../assets/images/potted-plant.png');
 const minecraftIcon = require('../../../assets/images/minecraft-grass-block.png');
 
 function BellIcon() {
@@ -75,13 +75,30 @@ function HomeProject({ repo, issueCount }: { repo: GitHubRepo; issueCount: numbe
   </View>;
 }
 
+function HomeTaskRow({ task, primary }: { task: HomeTask; primary: boolean }) {
+  const { language } = usePreferences();
+  const t = useTranslation();
+  const { repo, count } = task;
+  const [title, action] = task.kind === 'issues' ? [t("home.attentionOpenIssues", { count }), t("home.viewIssues")] : [t("home.attentionPullRequests", { count }), t("home.reviewPullRequests")];
+  const act = () => router.push(task.kind === 'issues'
+    ? { pathname: '/project/[owner]/[repo]', params: { owner: repo.owner.login, repo: repo.name, section: 'issues' } }
+    : { pathname: '/(tabs)/issues', params: { activity: 'pulls' } });
+  return <View style={styles.taskRow}>
+    <ProjectIcon repo={repo} />
+    <View style={styles.projectCopy}>
+      <Text style={styles.projectName} numberOfLines={2}>{title}</Text>
+      <Text style={styles.projectDescription} numberOfLines={1}>{t("home.taskMeta", { name: repo.name, time: relativeTime(repo.updated_at, language) })}</Text>
+    </View>
+    <Pressable onPress={act} accessibilityRole="button" accessibilityLabel={t("home.taskAction", { action, name: repo.name })} style={[styles.openButton, primary && styles.openButtonPrimary]}><Text style={[styles.openText, primary && styles.openTextPrimary]}>{action}</Text></Pressable>
+  </View>;
+}
+
 export default function Home() {
   const { ready, user, client, recovery } = useSession();
   const { language } = usePreferences();
   const t = useTranslation();
   const { width, height, fontScale } = useWindowDimensions();
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
-  const [issueCount, setIssueCount] = useState(0);
   const [repoIssueCounts, setRepoIssueCounts] = useState<Record<number, number>>({});
   const [activityCounts, setActivityCounts] = useState<Record<number, GitHubActivityCount>>({});
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -93,8 +110,7 @@ export default function Home() {
     ...(activityCounts[repo.id]?.pullRequests ? [{ id: `pulls-${repo.id}`, revision: `${activityCounts[repo.id].pullRequests}:${activityCounts[repo.id].closedPullRequests}`, repo, activity: 'pulls' as const, title: t("home.pullRequestNotice", { name: repo.name, count: activityCounts[repo.id].pullRequests }) }] : []),
   ]);
   const { unread } = useActivityNotices(notices, notificationsOpen, user?.login || '');
-  const pullCount = repos.reduce((total, repo) => total + (activityCounts[repo.id]?.pullRequests ?? 0), 0);
-  const showFeatureDecorations = width >= 400 && fontScale <= 1.15;
+  const tasks = homeTasks(repos, activityCounts);
   const stackedStats = width < 360 || fontScale > 1.15;
 
   const load = useCallback(async (force = false) => {
@@ -112,7 +128,6 @@ export default function Home() {
       if (!active()) return;
       setRepos(ordered);
       setError('');
-      setIssueCount(result.groups.reduce((total, group) => total + group.count, 0));
       setRepoIssueCounts(Object.fromEntries(result.groups.map((group) => [group.repo.id, group.count])));
       setActivityCounts(result.counts);
     } catch {
@@ -127,9 +142,6 @@ export default function Home() {
 
   if (recovery && repos.length === 0) return <Page><Text accessibilityRole="header" style={{ color: palette.ink, fontSize: 26, fontWeight: '800', marginBottom: 12 }}>{recovery === 'offline' ? t('sessionRecovery.offlineTitle') : t('home.myProjects')}</Text><Text style={{ color: palette.muted, lineHeight: 23 }}>{t('sessionRecovery.offlineNoProjects')}</Text></Page>;
 
-  const hour = new Date().getHours();
-  const greeting = hour < 11 ? t("home.goodMorning") : hour < 18 ? t("home.goodAfternoon") : t("home.goodEvening");
-
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
     <ScrollView nestedScrollEnabled={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[palette.blue]} tintColor={palette.blue} />} contentContainerStyle={styles.content}>
       <SessionConnectionNotice />
@@ -141,40 +153,19 @@ export default function Home() {
         </View>
       </View>
 
-      <View style={styles.intro}>
-        <Text style={styles.eyebrow}>{t("home.yourCreativeSpace")}</Text>
-        <Text style={[styles.greeting, width < 375 && styles.greetingCompact]}>{t("home.letSMakeSomethingFunToday", { greeting })}</Text>
-        <Text style={styles.introSubtitle}>{t("home.yourProjectsAreSafelySavedWhatHappensNextIsUpTo")}</Text>
-        <Pressable onPress={() => router.push('/create-project')} accessibilityRole="button" style={styles.createButton}><Text style={styles.createButtonText}>＋  {t("home.newProject")}</Text></Pressable>
-      </View>
-
-      <View style={styles.featureCard}>
-        <View style={styles.featureRing} /><View style={styles.featureGlow} />
-        <View style={[styles.featureCopy, showFeatureDecorations && styles.featureCopyDecorated]}>
-          <View style={styles.featureKicker}><View style={styles.featureDot} /><Text style={styles.featureKickerText}>{t("home.keepCreating")}</Text></View>
-          <Text style={styles.featureTitle}>{t("home.yourProjectsAreAllSaved")}</Text>
-          <Text style={styles.featureSubtitle}>{t("home.whenInspirationStrikesOpenAProjectAndKeepCreating")}</Text>
-          <Pressable onPress={() => router.push('/(tabs)/projects')} accessibilityRole="button" style={styles.featureButton}><DirectionLabel title={t("home.viewProjects")} name="forward" color="#1b4a7c" textStyle={styles.featureButtonText} /></Pressable>
-        </View>
-        {showFeatureDecorations && <><Image source={appIcon} style={styles.featureIcon} /><Image source={plant} resizeMode="contain" style={styles.featurePlant} /></>}
-      </View>
-
-      <View style={styles.overviewCard}>
-        <Text style={styles.overviewLabel}>{t("home.yourProgressAtAGlance")}</Text>
-        <View style={[styles.overviewStats, stackedStats && styles.overviewStatsStacked]}>
-          <View style={[styles.overviewStat, stackedStats && styles.overviewStatStacked]}><Text style={[styles.overviewNumber, stackedStats && styles.overviewNumberStacked]}>{String(repos.length).padStart(2, '0')}</Text><Text style={[styles.overviewText, stackedStats && styles.overviewTextStacked]}>{t("home.projects")}</Text></View>
-          <View style={[styles.overviewDivider, stackedStats && styles.overviewDividerStacked]} />
-          <View style={[styles.overviewStat, stackedStats && styles.overviewStatStacked]}><Text style={[styles.overviewNumber, stackedStats && styles.overviewNumberStacked]}>{String(issueCount).padStart(2, '0')}</Text><Text style={[styles.overviewText, stackedStats && styles.overviewTextStacked]}>{t("home.openIssues95f02f61")}</Text></View>
-          <View style={[styles.overviewDivider, stackedStats && styles.overviewDividerStacked]} />
-          <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/(tabs)/issues', params: { activity: 'pulls' } })} style={[styles.overviewStat, stackedStats && styles.overviewStatStacked]}><Text style={[styles.overviewNumber, stackedStats && styles.overviewNumberStacked]}>{String(pullCount).padStart(2, '0')}</Text><Text style={[styles.overviewText, stackedStats && styles.overviewTextStacked]}>{t("home.codeReviews")}</Text></Pressable>
-        </View>
+      <Text accessibilityRole="header" style={styles.pageTitle}>{t("home.title")}</Text>
+      <View style={styles.tasksPanel}>
+        <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>{t("home.needsYourAttention")}</Text>{tasks.length > 0 && <Text accessibilityLabel={t("home.attentionTotal", { count: tasks.length })} style={styles.taskTotal}>{tasks.length}</Text>}</View>
+        {tasks.map((task, index) => <HomeTaskRow key={`${task.kind}:${task.repo.id}`} task={task} primary={index === 0} />)}
+        {!loading && !error && tasks.length === 0 && <Text style={styles.empty}>{t("home.nothingNeedsYourAttention")}</Text>}
       </View>
 
       <View style={styles.projectsPanel}>
-        <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>{t("home.myProjects")}</Text><Pressable onPress={() => router.push('/(tabs)/projects')} accessibilityRole="button" style={styles.viewAllButton}><DirectionLabel title={t("home.viewAll")} name="chevron" color="#2578e8" textStyle={styles.viewAll} /></Pressable></View>
+        <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>{t("home.myProjects")}</Text><Pressable onPress={() => router.push('/(tabs)/projects')} accessibilityRole="button" style={styles.viewAllButton}><DirectionLabel title={t("home.viewAllProjects", { count: repos.length })} name="chevron" color="#2578e8" textStyle={styles.viewAll} /></Pressable></View>
         {!!error && <ErrorText message={error} onRetry={refresh} />}
         {repos.slice(0, 3).map((repo) => <HomeProject key={repo.id} repo={repo} issueCount={repoIssueCounts[repo.id] ?? 0} />)}
         {!loading && !error && repos.length === 0 && <Text style={styles.empty}>{t("home.noProjectsYetCreateYourFirstOne")}</Text>}
+        <Pressable onPress={() => router.push('/create-project')} accessibilityRole="button" style={styles.createButton}><Text style={styles.createButtonText}>＋  {t("home.newProject")}</Text></Pressable>
       </View>
 
       {repos.length > 0 && <View style={styles.recentPanel}>
@@ -205,12 +196,18 @@ const styles = StyleSheet.create({
   bellButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   notificationDot: { position: 'absolute', top: 5, right: 5, width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef535b' },
   avatar: { width: 40, height: 40, borderRadius: 20 },
+  pageTitle: { color: '#18314d', fontSize: 26, lineHeight: 34, fontWeight: '800', paddingTop: 20, paddingBottom: 14 },
+  tasksPanel: { borderRadius: 20, borderWidth: 1, borderColor: '#e3ecf8', padding: 11, backgroundColor: '#fff', marginBottom: 14 },
+  taskTotal: { minWidth: 24, paddingHorizontal: 7, borderRadius: 12, overflow: 'hidden', textAlign: 'center', color: '#fff', backgroundColor: '#2674e7', fontSize: 12, lineHeight: 24, fontWeight: '800' },
+  taskRow: { borderWidth: 1, borderColor: '#e2eaf5', borderRadius: 13, padding: 10, marginTop: 8, minHeight: 68, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', gap: 10 },
+  openButtonPrimary: { backgroundColor: '#2674e7', borderColor: '#2674e7' },
+  openTextPrimary: { color: '#fff' },
   intro: { paddingTop: 22, paddingBottom: 18 },
   eyebrow: { color: '#2676e8', fontSize: 12, fontWeight: '800', marginBottom: 8 },
   greeting: { color: '#18314d', fontSize: 26, lineHeight: 35, fontWeight: '800', letterSpacing: -0.5 },
   greetingCompact: { fontSize: 23, lineHeight: 32 },
   introSubtitle: { color: '#72839a', fontSize: 13, lineHeight: 20, marginTop: 7 },
-  createButton: { alignSelf: 'flex-start', backgroundColor: '#2674e7', paddingHorizontal: 15, paddingVertical: 9, minHeight: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 15, shadowColor: '#2463c6', shadowOpacity: 0.15, shadowRadius: 9, elevation: 2 },
+  createButton: { alignSelf: 'flex-start', backgroundColor: '#2674e7', paddingHorizontal: 15, paddingVertical: 9, minHeight: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 12, shadowColor: '#2463c6', shadowOpacity: 0.15, shadowRadius: 9, elevation: 2 },
   createButtonText: { color: '#fff', fontSize: 13, fontWeight: '800', textAlign: 'center' },
   featureCard: { minHeight: 188, borderRadius: 19, backgroundColor: '#1b416f', overflow: 'hidden', position: 'relative', padding: 19, marginBottom: 14, shadowColor: '#193f74', shadowOpacity: 0.13, shadowRadius: 14, elevation: 3 },
   featureRing: { position: 'absolute', width: 270, height: 270, borderRadius: 135, borderWidth: 1, borderColor: '#ffffff22', right: -35, top: -45 },
