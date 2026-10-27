@@ -227,7 +227,6 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
             <span />
           </button>
         </div>
-        <p className="github-proxy-explain">{t('hostsRepairPanel.reuseAnExistingSystemProxyTurningThisOffOr')}</p>
         <div className="github-proxy-connection">
           <span
             className={`github-proxy-status ${!checking && status?.state === 'ready' && status.system?.mode !== 'unavailable' && status.system?.mode !== 'external' ? 'is-ready' : ''}`}
@@ -257,45 +256,43 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
               })}
             </ul>
           )}
+          {!disabled && (
+        <div className="github-proxy-actions">
+          {(busy && busy !== 'cleanup') || status?.state === 'checking' ? (
+            <button type="button" className="button button-quiet" onClick={() => void cancel()}>
+              {t('hostsRepairPanel.cancel')}
+            </button>
+          ) : !status ? (
+            <button type="button" className="button button-quiet" disabled={loading} onClick={() => void reload()}>
+              <RotateCw size={15} />
+              {t('hostsRepairPanel.retry')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="button button-quiet"
+              disabled={Boolean(busy) || loading}
+              onClick={() => void act('refresh')}
+            >
+              <RotateCw size={15} />
+              {t('hostsRepairPanel.testConnection')}
+            </button>
+          )}
+        </div>
+          )}
         </div>
         {connectionError && (
           <p className="github-proxy-error" role="alert">
             <ErrorMessage error={connectionError} />
           </p>
         )}
-        {!disabled && (
-          <div className="github-proxy-footer">
-            <span className="github-proxy-last-check">
-              {status?.checkedAt && !Number.isNaN(Date.parse(status.checkedAt))
-                ? t('hostsRepairPanel.checkedAt', {
-                    p0: t('hostsRepairPanel.lastChecked'),
-                    p1: formatDateTime(status.checkedAt, language),
-                  })
-                : ''}
-            </span>
-            <div className="github-proxy-actions">
-              {(busy && busy !== 'cleanup') || status?.state === 'checking' ? (
-                <button type="button" className="button button-quiet" onClick={() => void cancel()}>
-                  {t('hostsRepairPanel.cancel')}
-                </button>
-              ) : !status ? (
-                <button type="button" className="button button-quiet" disabled={loading} onClick={() => void reload()}>
-                  <RotateCw size={15} />
-                  {t('hostsRepairPanel.retry')}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="button button-quiet"
-                  disabled={Boolean(busy) || loading}
-                  onClick={() => void act('refresh')}
-                >
-                  <RotateCw size={15} />
-                  {t('hostsRepairPanel.testConnection')}
-                </button>
-              )}
-            </div>
-          </div>
+        {!disabled && status?.checkedAt && !Number.isNaN(Date.parse(status.checkedAt)) && (
+          <p className="github-proxy-last-check">
+            {t('hostsRepairPanel.checkedAt', {
+              p0: t('hostsRepairPanel.lastChecked'),
+              p1: formatDateTime(status.checkedAt, language),
+            })}
+          </p>
         )}
         {!disabled && status?.legacyHosts && (
           <div className="github-proxy-legacy">

@@ -92,7 +92,6 @@ export function BinaryAnalysisSettings({
           </button>
         </div>
         <div id={detailsId} hidden={!expanded} className="binary-settings-details">
-          <p className="ai-settings-note">{t('binaryAnalysisSettings.usesTheSameAiProviderAsPullRequestsAfter')}</p>
           <label className="binary-install-prompts">
             <input
               type="checkbox"

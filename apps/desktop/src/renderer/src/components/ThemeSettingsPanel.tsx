@@ -16,10 +16,10 @@ export function ThemeSettingsPanel({
   const t = useTranslation(language);
   const headingId = useId();
 
-  const choices: { value: ThemePreference; label: string; description: string }[] = [
-    { value: 'system', label: t('themeSettingsPanel.system'), description: t('themeSettingsPanel.followTheSystem') },
-    { value: 'light', label: t('themeSettingsPanel.light'), description: t('themeSettingsPanel.lightDescription') },
-    { value: 'dark', label: t('themeSettingsPanel.dark'), description: t('themeSettingsPanel.darkDescription') },
+  const choices: { value: ThemePreference; label: string }[] = [
+    { value: 'system', label: t('themeSettingsPanel.system') },
+    { value: 'light', label: t('themeSettingsPanel.light') },
+    { value: 'dark', label: t('themeSettingsPanel.dark') },
   ];
 
   return (
@@ -29,7 +29,6 @@ export function ThemeSettingsPanel({
       </div>
       <div className="settings-panel-content layout-settings-content">
         <h2 id={headingId}>{t('themeSettingsPanel.appearance')}</h2>
-        <p>{t('themeSettingsPanel.chooseLightOrDark')}</p>
         <div className="layout-options" role="group" aria-label={t('themeSettingsPanel.appearance')}>
           {choices.map((choice) => (
             <button
@@ -53,7 +52,6 @@ export function ThemeSettingsPanel({
               </span>
               <span className="layout-option-description">
                 <strong>{choice.label}</strong>
-                <small>{choice.description}</small>
               </span>
               {preference === choice.value && <Check size={17} className="layout-option-check" aria-hidden="true" />}
             </button>

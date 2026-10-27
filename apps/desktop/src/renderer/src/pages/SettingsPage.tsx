@@ -22,7 +22,6 @@ export function SettingsPage() {
     user,
     language,
     translationTarget,
-    translationNames,
     translationNamesText,
     windowStyle,
     demo,
@@ -91,7 +90,6 @@ export function SettingsPage() {
           </div>
           <div className="settings-panel-content">
             <h2>{t('settingsPage.windowControls')}</h2>
-            <p>{t('settingsPage.chooseTheStyleOfTheWindowButtonsChangesTake')}</p>
             <div className="window-style-options" role="group" aria-label={t('settingsPage.windowControlStyle')}>
               <button
                 className={`window-style-option ${windowStyle === 'windows' ? 'selected' : ''}`}
@@ -159,9 +157,6 @@ export function SettingsPage() {
             <label className="translation-names-label" htmlFor="translation-names">
               {t('settingsPage.namesToKeepUnchanged')}
             </label>
-            <p className="translation-names-help">
-              {t('settingsPage.theCurrentProjectAuthorsAndGithubProjectsLinkedIn')}
-            </p>
             <textarea
               id="translation-names"
               aria-label={t('settingsPage.namesToKeepUnchanged')}
@@ -171,9 +166,6 @@ export function SettingsPage() {
               onChange={(event) => setTranslationNamesText(event.target.value)}
               placeholder={t('settingsPage.enterOneNameToKeepPerLine')}
             />
-            <small className="muted">
-              {t('settingsPage.saved')} {translationNames.length} {t('settingsPage.namesSavedOnThisComputerOnly')}
-            </small>
           </div>
         </section>
         <HostsRepairPanel language={language} />
@@ -188,7 +180,6 @@ export function SettingsPage() {
             <AppUpdatePanel language={language} />
             <div className="license-details">
               <strong>Apache 2.0</strong>
-              <span>{t('settingsPage.thisApplicationIsLicensedUnderApacheLicense20')}</span>
               <button className="text-link" onClick={() => void easyHub?.openLicense()}>
                 {t('settingsPage.viewLicense')} <ArrowRight size={15} />
               </button>

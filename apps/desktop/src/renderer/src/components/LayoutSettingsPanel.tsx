@@ -16,21 +16,18 @@ export function LayoutSettingsPanel({
   const t = useTranslation(language);
   const headingId = useId();
 
-  const choices: { value: LayoutPreference; label: string; description: string }[] = [
+  const choices: { value: LayoutPreference; label: string }[] = [
     {
       value: 'auto',
       label: t('layoutSettingsPanel.automatic'),
-      description: t('layoutSettingsPanel.adaptTheInterfaceToTheWindow'),
     },
     {
       value: 'comfortable',
       label: t('layoutSettingsPanel.comfortable'),
-      description: t('layoutSettingsPanel.moreRoomBetweenContent'),
     },
     {
       value: 'compact',
       label: t('layoutSettingsPanel.compact'),
-      description: t('layoutSettingsPanel.smallerControlsAndHeadingsMoreContent'),
     },
   ];
 
@@ -41,7 +38,6 @@ export function LayoutSettingsPanel({
       </div>
       <div className="settings-panel-content layout-settings-content">
         <h2 id={headingId}>{t('layoutSettingsPanel.interfaceLayout')}</h2>
-        <p>{t('layoutSettingsPanel.adjustInterfaceSizeAndSpacingChangesApplyImmediatelyAnd')}</p>
         <div className="layout-options" role="group" aria-label={t('layoutSettingsPanel.interfaceLayout')}>
           {choices.map((choice) => (
             <button
@@ -62,7 +58,6 @@ export function LayoutSettingsPanel({
               </span>
               <span className="layout-option-description">
                 <strong>{choice.label}</strong>
-                <small>{choice.description}</small>
               </span>
               {preference === choice.value && <Check size={17} className="layout-option-check" aria-hidden="true" />}
             </button>

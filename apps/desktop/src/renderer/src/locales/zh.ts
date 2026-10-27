@@ -1310,7 +1310,7 @@ export const zh = {
   'settingsPage.referenceTopLeft': '左上角圆点',
   'settingsPage.contentTranslation': '内容翻译',
   'settingsPage.useTheTranslationSwitchInTheTopBarTo':
-    '使用顶部的翻译开关查看译文，再次关闭即可查看原文。公开文本由第三方服务翻译，译文保存在这台电脑上。',
+    '使用顶部的翻译开关查看译文，再次关闭即可查看原文。',
   'settingsPage.targetLanguage': '目标语言',
   'settingsPage.translationTargetLanguage': '翻译目标语言',
   'settingsPage.simplifiedChinese': '简体中文',
