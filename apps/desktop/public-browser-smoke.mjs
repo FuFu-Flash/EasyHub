@@ -163,6 +163,12 @@ try {
   const proposalForm = page.getByRole('dialog', { name: '提出问题/建议' });
   assert.equal(await proposalForm.getByRole('radio', { name: /报告问题/ }).isChecked(), true);
   assert.equal(await proposalForm.getByRole('textbox', { name: '来源版本' }).count(), 0);
+  // Escape closes the dialog and hands the keyboard back to the button that opened it.
+  await page.keyboard.press('Escape');
+  await proposalForm.waitFor({ state: 'hidden' });
+  await page.waitForFunction(() => document.activeElement?.textContent?.includes('提出问题/建议'));
+  await browser.getByRole('button', { name: '提出问题/建议' }).click();
+  await proposalForm.waitFor();
   await proposalForm.getByRole('textbox', { name: '问题标题' }).fill('A new question');
   await proposalForm.getByRole('button', { name: '创建问题' }).click();
   await browser.getByText('A new question').waitFor();

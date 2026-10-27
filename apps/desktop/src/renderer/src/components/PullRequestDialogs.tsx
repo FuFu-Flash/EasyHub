@@ -1,5 +1,7 @@
 import { Check, RotateCw, Sparkles, X } from 'lucide-react';
+import { useRef } from 'react';
 import type { FormEvent } from 'react';
+import { useDialogFocus } from './useDialogFocus';
 import type { GitHubPullRequest, GitHubRepo } from '@easyhub/github';
 import type { AiSettingsStatus } from '@easyhub/types';
 import { useTranslation } from '../localization';
@@ -82,6 +84,10 @@ export function CreatePullRequestDialog({
   onSubmit: (event: FormEvent) => void;
 }) {
   const t = useTranslation(language);
+  const dialog = useRef<HTMLFormElement>(null);
+  useDialogFocus(true, dialog, () => {
+    if (!saving) onClose();
+  });
   return (
     <div
       className="modal-backdrop"
@@ -92,6 +98,8 @@ export function CreatePullRequestDialog({
     >
       <form
         className="modal issue-modal"
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-pull-title"
@@ -202,6 +210,10 @@ export function PullDecisionDialog({
   onConfirm: () => void;
 }) {
   const t = useTranslation(language);
+  const dialog = useRef<HTMLFormElement>(null);
+  useDialogFocus(true, dialog, () => {
+    if (!busy) onClose();
+  });
   return (
     <div
       className="modal-backdrop"
@@ -212,6 +224,8 @@ export function PullDecisionDialog({
     >
       <form
         className="modal pull-decision-modal"
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="pull-decision-title"
@@ -301,6 +315,8 @@ export function PullAiConsentDialog({
   onStart: () => void;
 }) {
   const t = useTranslation(language);
+  const dialog = useRef<HTMLDivElement>(null);
+  useDialogFocus(true, dialog, onClose);
   return (
     <div
       className="modal-backdrop"
@@ -309,7 +325,14 @@ export function PullAiConsentDialog({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="modal ai-consent-modal" role="dialog" aria-modal="true" aria-labelledby="ai-consent-title">
+      <div
+        className="modal ai-consent-modal"
+        ref={dialog}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ai-consent-title"
+      >
         <button
           type="button"
           className="icon-button modal-close"

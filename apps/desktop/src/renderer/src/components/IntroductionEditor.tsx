@@ -1,8 +1,9 @@
 import { useTranslation } from '../localization';
 import { ErrorMessage } from './ErrorMessage';
 import { SegmentedControl } from './SegmentedControl';
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useRef, useState } from 'react';
 import { ImagePlus, Link2, X } from 'lucide-react';
+import { useDialogFocus } from './useDialogFocus';
 import { ReadmeMarkdown, type ReadmeRepository } from './ReadmeMarkdown';
 
 type Media = 'image' | 'link' | null;
@@ -42,6 +43,11 @@ export function IntroductionEditor({
 }) {
   const t = useTranslation();
   const [markdown, setMarkdown] = useState(initialMarkdown);
+  const dialog = useRef<HTMLDivElement>(null);
+  // Escape never throws away typed text; use the close button or Cancel to discard it.
+  useDialogFocus(true, dialog, () => {
+    if (!saving && markdown === initialMarkdown) onCancel();
+  });
   const previewMarkdown = useDeferredValue(markdown);
   const [mode, setMode] = useState<EditorMode>('edit');
   const [media, setMedia] = useState<Media>(null);
@@ -88,6 +94,8 @@ export function IntroductionEditor({
     >
       <div
         className={`modal intro-modal${mode === 'split' ? ' intro-modal-split' : ''}`}
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="intro-editor-title"

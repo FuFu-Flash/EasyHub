@@ -158,6 +158,8 @@ try {
   const edited = original.replace('HTML preview fixture', 'Live HTML preview updated');
   await dialog.getByRole('textbox', { name: '项目介绍内容' }).fill(edited);
   await preview.getByRole('heading', { name: 'Live HTML preview updated' }).waitFor();
+  await page.keyboard.press('Escape');
+  assert.equal(await dialog.isVisible(), true, 'Escape must not discard typed introduction text');
   assert.equal(await readFile(join(folder, 'README.md'), 'utf8'), original, 'Preview must not save the README');
   assert.equal(await dialog.getByRole('button', { name: '保存介绍' }).isDisabled(), true);
   await dialog.getByRole('button', { name: '预览', exact: true }).click();

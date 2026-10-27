@@ -24,6 +24,7 @@ import {
   validateReleaseInput,
 } from '../stores/releaseStore';
 import { formatFileSize, ReleasePreview } from './ReleasePreview';
+import { useDialogFocus } from './useDialogFocus';
 import { createDraftKey, readDraft, writeDraft } from '../draftStore';
 import { parseReleaseDraft } from '../releaseDraft';
 
@@ -90,6 +91,8 @@ export function ReleaseEditor({
   const [mediaLabel, setMediaLabel] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
   const assetInput = useRef<HTMLInputElement>(null);
+  const mediaDialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(Boolean(mediaDialog), mediaDialogRef, () => setMediaDialog(null));
   const imageInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -540,6 +543,8 @@ export function ReleaseEditor({
         >
           <div
             className="modal release-media-modal"
+            ref={mediaDialogRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-labelledby="release-media-title"

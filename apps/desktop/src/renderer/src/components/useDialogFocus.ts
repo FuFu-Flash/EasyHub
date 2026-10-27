@@ -51,7 +51,8 @@ export function useDialogFocus(
     const focusFirst = (): void => (targets(dialog)[0] ?? dialog).focus({ preventScroll: true });
     if (activeDialog(dialog)) focusFirst();
     const key = (event: KeyboardEvent): void => {
-      if (!activeDialog(dialog)) return;
+      // Escape cancels an input-method composition first; it must not also close the dialog.
+      if (event.isComposing || !activeDialog(dialog)) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();

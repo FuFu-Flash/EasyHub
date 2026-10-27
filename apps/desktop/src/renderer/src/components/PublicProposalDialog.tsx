@@ -1,10 +1,12 @@
 import { X } from 'lucide-react';
+import { useRef } from 'react';
 import type { FormEvent } from 'react';
 import type { GitHubRepo } from '@easyhub/github';
 import { useTranslation } from '../localization';
 import type { Language } from '../i18n';
 import { ErrorMessage } from './ErrorMessage';
 import { ForkSetup } from './ForkSetup';
+import { useDialogFocus } from './useDialogFocus';
 
 export type ProposalType = 'issue' | 'pull';
 
@@ -41,6 +43,10 @@ export function PublicProposalDialog({
   onSubmit: (event: FormEvent) => void;
 }) {
   const t = useTranslation(language);
+  const dialog = useRef<HTMLFormElement>(null);
+  useDialogFocus(true, dialog, () => {
+    if (!saving) onClose();
+  });
   return (
     <div
       className="modal-backdrop"
@@ -51,6 +57,8 @@ export function PublicProposalDialog({
     >
       <form
         className="modal issue-modal proposal-modal"
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="public-new-proposal-title"
