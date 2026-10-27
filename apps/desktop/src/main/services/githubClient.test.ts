@@ -23,6 +23,13 @@ describe('GitHubClient', () => {
     expect(assetUrl).toBe('https://api.github.com/repos/writer/app/releases/assets/7');
     expect(assetInit.method).toBe('DELETE');
   });
+  it('reports an empty repository as having no commits instead of failing', async () => {
+    const client = new GitHubClient(async () => 'token', async () =>
+      Response.json({ message: 'Git Repository is empty.' }, { status: 409 }));
+    await expect(client.commits('writer', 'empty')).resolves.toEqual([]);
+    const failing = new GitHubClient(async () => 'token', async () => new Response(null, { status: 500 }));
+    await expect(failing.commits('writer', 'broken')).rejects.toMatchObject({ status: 500 });
+  });
   it('sends a token only to the GitHub API and paginates repositories', async () => {
     const transport = vi.fn(async () => Response.json([{ id: 1, name: 'A' }]));
     const client = new GitHubClient(async () => 'private-token', transport);
