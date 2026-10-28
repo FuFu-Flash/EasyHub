@@ -9489,3 +9489,33 @@ body {
   height: auto;
   width: auto;
 }
+.local-branch {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--eh-space-8);
+  color: var(--eh-color-muted);
+}
+.local-branch-select {
+  border: 1px solid var(--eh-color-line);
+  border-radius: var(--eh-radius-8);
+  background: var(--eh-color-surface);
+  color: var(--eh-color-ink);
+  font-size: var(--eh-text-13);
+  padding: 4px 8px;
+  max-width: 220px;
+}
+.local-branch-form {
+  display: flex;
+  align-items: center;
+  gap: var(--eh-space-8);
+}
+.local-branch-form input {
+  border: 1px solid var(--eh-color-line);
+  border-radius: var(--eh-radius-8);
+  background: var(--eh-color-surface);
+  color: var(--eh-color-ink);
+  font-size: var(--eh-text-13);
+  padding: 5px 10px;
+  width: 200px;
+}

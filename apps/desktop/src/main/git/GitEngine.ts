@@ -6,7 +6,7 @@ import type { OriginRule } from '../services/githubProxyOrigin';
 import fs from 'node:fs';
 import { chmod, lstat, mkdir, readFile, realpath, stat, writeFile, rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
-import type { OperationStep, ChangedFile, LocalPublishSelection, LocalPublishPreview, LocalFileDiff, LocalPushBranchResult, SyncDecision, SyncFileReview, SyncPreview } from '@easyhub/types';
+import type { OperationStep, ChangedFile, LocalPublishSelection, LocalPublishPreview, LocalFileDiff, LocalPushBranchResult, LocalBranchList, SyncDecision, SyncFileReview, SyncPreview } from '@easyhub/types';
 import { clearPendingPublication, commitSelectedChanges, fileDifference, pendingPublication, safeChangePath, snapshotChanges, markSensitiveFiles } from './LocalChanges';
 
 export interface GitProgress { step?: OperationStep; phase: string; loaded?: number; total?: number; cancelable?: boolean }
@@ -351,6 +351,32 @@ export class GitEngine {
   }
 
   /** Uploads saved versions that are already on this branch (for example made with another Git tool), exactly as they are. */
+  async listBranches(dir: string): Promise<LocalBranchList> {
+    return { current: (await git.currentBranch({ fs, dir })) ?? null, branches: (await git.listBranches({ fs, dir })).filter(safeChangePath).sort() };
+  }
+
+  /** Moves the folder to another branch. Only done when nothing is waiting to be published, so no file is ever overwritten. */
+  async switchBranch(dir: string, name: string): Promise<LocalBranchList> {
+    await ensureSyncComplete(dir);
+    if (!(await git.listBranches({ fs, dir })).includes(name)) throw new GitEngineError('invalid', '找不到这个分支，请刷新后重试。');
+    if (name === (await git.currentBranch({ fs, dir }))) return this.listBranches(dir);
+    const status = await this.getStatus(dir);
+    if (status.hasPreparedChanges || status.files.length) throw new GitEngineError('unsupported', '项目里还有没发布的修改。请先发布这些修改，再切换分支，EasyHub 不会丢掉你的文件。');
+    await git.checkout({ fs, dir, ref: name });
+    return this.listBranches(dir);
+  }
+
+  /** Starts a new branch from the saved version the folder is on and moves to it. Unpublished edits stay as they are. */
+  async createBranch(dir: string, name: string): Promise<LocalBranchList> {
+    await ensureSyncComplete(dir);
+    if (!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$/.test(name) || /\.\.|\/\/|\/$|\.lock$|\.$/.test(name) || !safeChangePath(name))
+      throw new GitEngineError('invalid', '分支名只能用字母、数字、点、横线、下划线和斜杠，并且不能以符号开头。');
+    if (!(await currentHead(dir))) throw new GitEngineError('unsupported', '项目还没有保存过版本，暂时不能新建分支。');
+    if ((await git.listBranches({ fs, dir })).includes(name)) throw new GitEngineError('invalid', '已经有叫这个名字的分支了。');
+    await git.branch({ fs, dir, ref: name, checkout: true });
+    return this.listBranches(dir);
+  }
+
   async pushBranch(dir: string, repo: GitRepository, token: string, onProgress?: (value: GitProgress) => void): Promise<LocalPushBranchResult> {
     await ensureSyncComplete(dir);
     const branch = await targetBranch(dir);

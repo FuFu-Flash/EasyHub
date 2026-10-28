@@ -138,6 +138,8 @@ export interface LocalPublishSelection {
   /** Splits `paths` into several saved versions, in order; `paths` must be all batch paths in that order. */
   batches?: LocalPublishBatch[];
 }
+/** The branches a local project has, and the one it is on now. */
+export interface LocalBranchList { current: string | null; branches: string[] }
 export interface LocalPushBranchResult { state: 'pushed' | 'created' | 'current'; branch: string }
 export interface LocalDiffLine { kind: 'context' | 'added' | 'deleted'; text: string; before?: number; after?: number }
 export interface LocalFileDiff {

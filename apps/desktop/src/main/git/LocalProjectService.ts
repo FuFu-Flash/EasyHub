@@ -5,7 +5,7 @@ import type { FSWatcher } from 'node:fs';
 import { lstat, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { join, parse } from 'node:path';
 import type { GitHubRepo } from '@easyhub/github';
-import type { FolderInspection, LocalDiscoveryResult, LocalFileDiff, LocalPublishBatch, LocalPublishPreview, LocalPublishSelection, LocalProjectStatus, LocalPushBranchResult, SyncDecision, SyncPreview } from '@easyhub/types';
+import type { FolderInspection, LocalDiscoveryResult, LocalFileDiff, LocalBranchList, LocalPublishBatch, LocalPublishPreview, LocalPublishSelection, LocalProjectStatus, LocalPushBranchResult, SyncDecision, SyncPreview } from '@easyhub/types';
 import { safeChangePath } from './LocalChanges';
 import { createEmptyRepository, gitHubIdentity, repositoryDetails } from '../services/githubService';
 import type { GitProgress, GitProjectInfo, GitProjectStatus, GitRepository } from './GitEngine';
@@ -275,6 +275,23 @@ export class LocalProjectService {
     const identity = await gitHubIdentity();
     const result = await this.interactive<{ head: string; changed: number }>({ action: 'publish', path: record.localPath, repo: repository(remote), author: author(identity.user), token: identity.token, message: rawMessage.trim(), selection });
     return { changed: result.changed };
+  }
+
+  async listBranches(id: unknown): Promise<LocalBranchList> {
+    const record = await this.record(id);
+    return this.interactive<LocalBranchList>({ action: 'list-branches', path: record.localPath });
+  }
+
+  async switchBranch(id: unknown, name: unknown): Promise<LocalBranchList> {
+    const record = await this.record(id);
+    if (typeof name !== 'string' || !name || name.length > 100) throw new Error('分支名无效。');
+    return this.interactive<LocalBranchList>({ action: 'switch-branch', path: record.localPath, branch: name });
+  }
+
+  async createBranch(id: unknown, name: unknown): Promise<LocalBranchList> {
+    const record = await this.record(id);
+    if (typeof name !== 'string' || !name.trim() || name.length > 100) throw new Error('请填写分支名。');
+    return this.interactive<LocalBranchList>({ action: 'create-branch', path: record.localPath, branch: name.trim() });
   }
 
   /** Uploads the saved versions already on the project's current branch, as they are, to the same-named GitHub branch. */

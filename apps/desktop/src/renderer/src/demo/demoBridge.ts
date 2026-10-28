@@ -446,6 +446,9 @@ export function createDemoBridge(
         localProgress.emit({ phase: '演示发布完成', loaded: 1, total: 1, cancelable: false });
         return { changed: chosen.length };
       }),
+    localListBranches: async () => ({ current: 'main', branches: ['main'] }),
+    localSwitchBranch: async () => ({ current: 'main', branches: ['main'] }),
+    localCreateBranch: async (_id, name) => ({ current: 'main', branches: ['main', name] }),
     localPushBranch: async () => ({ state: 'current', branch: 'main' }),
     localCheckSync: async (id) => {
       const item = local(id);

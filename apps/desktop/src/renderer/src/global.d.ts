@@ -2,7 +2,7 @@ import type { MenuCommand, MenuState } from '../../shared/applicationMenu';
 import type { GitHubUser } from '@easyhub/github';
 import type { AuthStatus } from '../../shared/auth';
 import type { DownloadCommand, DownloadItem, DownloadRequest } from '../../downloads';
-import type { LocalFileDiff, LocalPublishPreview, LocalPublishSelection, LocalPushBranchResult } from '@easyhub/types';
+import type { LocalFileDiff, LocalPublishPreview, LocalPublishSelection, LocalPushBranchResult, LocalBranchList } from '@easyhub/types';
 import type {
   FolderInspection,
   LocalDiscoveryResult,
@@ -106,6 +106,9 @@ declare global {
       localFileDiff: (id: string, path: string, snapshot: string) => Promise<LocalFileDiff>;
       localCancelPreview: (id: string) => Promise<void>;
       localPublish: (id: string, message: string, selection?: LocalPublishSelection) => Promise<{ changed: number }>;
+      localListBranches: (id: string) => Promise<LocalBranchList>;
+      localSwitchBranch: (id: string, name: string) => Promise<LocalBranchList>;
+      localCreateBranch: (id: string, name: string) => Promise<LocalBranchList>;
       localPushBranch: (id: string) => Promise<LocalPushBranchResult>;
       localCheckSync: (id: string) => Promise<SyncPreview>;
       localSync: (id: string, revision: string | undefined, decisions: SyncDecision[]) => Promise<{ updated: number }>;

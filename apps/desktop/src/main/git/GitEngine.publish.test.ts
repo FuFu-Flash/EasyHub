@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import * as git from 'isomorphic-git';
 import fs from 'node:fs';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { LocalPublishSelection } from '@easyhub/types';
@@ -266,5 +266,28 @@ describe('pushing a branch', () => {
     await commitFile(dir, 'extra.txt', 'x', 'Made elsewhere');
     engine.offline = true;
     await expect(engine.pushBranch(dir, repo, 'token')).rejects.toThrow('分支没有推送成功');
+  });
+});
+
+describe('switching and creating branches', () => {
+  it('creates a branch, keeps unpublished edits and refuses bad or repeated names', async () => {
+    const { dir, engine } = await project();
+    await writeFile(join(dir, 'a.txt'), 'edited');
+    expect(await engine.createBranch(dir, 'feature/login')).toEqual({ current: 'feature/login', branches: ['feature/login', 'main'] });
+    expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('edited');
+    await expect(engine.createBranch(dir, 'feature/login')).rejects.toThrow('已经有叫这个名字的分支');
+    await expect(engine.createBranch(dir, 'bad name')).rejects.toThrow('分支名只能用');
+    await expect(engine.createBranch(dir, 'a..b')).rejects.toThrow('分支名只能用');
+  });
+
+  it('switches only when nothing is waiting to be published', async () => {
+    const { dir, engine } = await project();
+    await startFeature(dir);
+    await writeFile(join(dir, 'a.txt'), 'edited');
+    await expect(engine.switchBranch(dir, 'main')).rejects.toThrow('还有没发布的修改');
+    expect((await engine.listBranches(dir)).current).toBe('feature');
+    await writeFile(join(dir, 'a.txt'), 'a');
+    expect((await engine.switchBranch(dir, 'main')).current).toBe('main');
+    await expect(engine.switchBranch(dir, 'missing')).rejects.toThrow('找不到这个分支');
   });
 });

@@ -19,6 +19,7 @@ import type {
   SyncPreview,
 } from '@easyhub/types';
 import { ArrowDownToLine, FileDiff, ArrowLeft, Download, FolderOpen, RotateCw, Send } from 'lucide-react';
+import { LocalBranchBar } from './components/LocalBranchBar';
 import { LocalChangeSelector } from './components/LocalChangeSelector';
 import { LocalCreateForm } from './components/LocalCreateForm';
 import { LocalSyncReview } from './components/LocalSyncReview';
@@ -396,6 +397,23 @@ export function LocalWorkspace({
     });
   }
 
+  async function changeBranch(
+    work: () => Promise<unknown>,
+    notice: 'localWorkspace.switchedBranch' | 'localWorkspace.createdBranch',
+    name: string,
+  ): Promise<void> {
+    if (!api) return;
+    await task(async () => {
+      try {
+        await work();
+        setNotice(t(notice, { p0: name }));
+      } finally {
+        setPreviewRefresh((value) => value + 1);
+        await refresh();
+      }
+    });
+  }
+
   async function pushBranch(item: LocalProjectLink): Promise<void> {
     if (!api) return;
     await task(async () => {
@@ -573,10 +591,20 @@ export function LocalWorkspace({
                     : t('localWorkspace.checkingFiles')}
               </span>
             </div>
-            <p className="muted">
-              {item.localPath}
-              {status?.branch ? ` · ${t('localWorkspace.currentBranch', { p0: status.branch })}` : ''}
-            </p>
+            <p className="muted">{item.localPath}</p>
+            {!statusError && status?.branch && (
+              <LocalBranchBar
+                id={item.id}
+                current={status.branch}
+                busy={busy}
+                onSwitch={(name) =>
+                  changeBranch(() => api!.localSwitchBranch(item.id, name), 'localWorkspace.switchedBranch', name)
+                }
+                onCreate={(name) =>
+                  changeBranch(() => api!.localCreateBranch(item.id, name), 'localWorkspace.createdBranch', name)
+                }
+              />
+            )}
             {statusError ? (
               <LocalFolderError
                 language={language}
