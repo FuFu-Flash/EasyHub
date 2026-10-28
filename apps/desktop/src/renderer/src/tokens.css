@@ -14,7 +14,7 @@
   --eh-color-ink: #1d1d1b;
   --eh-color-ink-soft: #3d3d39;
   --eh-color-muted: #62625d;
-  --eh-color-faint: #8a8a84;
+  --eh-color-faint: #6f6f69;
   --eh-color-surface: #ffffff;
   --eh-color-surface-subtle: #fafaf8;
   --eh-color-surface-bg: #f6f6f4;
@@ -25,15 +25,18 @@
   --eh-color-danger: #c53347;
   --eh-color-danger-soft: #fff0f1;
   --eh-color-danger-line: #f3c6c9;
-  --eh-color-success: #208a4d;
+  --eh-color-success: #1d7e46;
   --eh-color-success-soft: #eaf8ef;
   --eh-color-success-line: #b8eaca;
   --eh-color-warning: #8f4a00;
   --eh-color-warning-soft: #fdf3e3;
   --eh-color-warning-line: #efd9b4;
-  --eh-color-accent: #7655e8;
+  --eh-color-accent: #6f50da;
   --eh-color-accent-soft: #f0e8ff;
   --eh-color-on-primary: #ffffff;
+  /* Fills behind white text (primary and destructive buttons, badges); links keep --eh-color-primary. */
+  --eh-color-primary-fill: #2369de;
+  --eh-color-danger-fill: #c53347;
   --eh-color-hero-glow: #3b82d9;
   --eh-color-leaf: #72c546;
   --eh-color-amber: #dc8a13;
@@ -93,17 +96,17 @@
   --eh-z-dropdown: 75;
 }
 
-/* Dark appearance: the same 30 names with dark values. Values derived from colors
+/* Dark appearance: the same 32 names with dark values. Values derived from colors
    (shadows, focus ring) are declared again so dark areas never inherit light ones. */
 [data-theme='dark'] {
   color-scheme: dark;
-  --eh-color-primary: #3f84ee;
+  --eh-color-primary: #5492f0;
   --eh-color-primary-hover: #5a97f2;
   --eh-color-primary-soft: #1b2a42;
   --eh-color-ink: #ecece9;
   --eh-color-ink-soft: #d6d6d1;
   --eh-color-muted: #a5a59f;
-  --eh-color-faint: #7e7e78;
+  --eh-color-faint: #8c8c87;
   --eh-color-surface: #1e1e1c;
   --eh-color-surface-subtle: #242422;
   --eh-color-surface-bg: #161615;
@@ -111,7 +114,7 @@
   --eh-color-line: #31312f;
   --eh-color-line-strong: #43433f;
   --eh-color-line-primary: #3a64a8;
-  --eh-color-danger: #e5534b;
+  --eh-color-danger: #e7625b;
   --eh-color-danger-soft: #3a1c1c;
   --eh-color-danger-line: #6e2c2a;
   --eh-color-success: #4cc27a;
@@ -123,6 +126,8 @@
   --eh-color-accent: #a28bff;
   --eh-color-accent-soft: #2a2142;
   --eh-color-on-primary: #ffffff;
+  --eh-color-primary-fill: #2f6fd6;
+  --eh-color-danger-fill: #c4383d;
   --eh-color-hero-glow: #6aa3f5;
   --eh-color-leaf: #72c546;
   --eh-color-amber: #e8a33a;

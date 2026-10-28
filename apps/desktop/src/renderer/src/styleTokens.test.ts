@@ -23,9 +23,9 @@ describe('desktop style contract', () => {
     ]);
   });
 
-  it('limits the palette to 30 colors and keeps raw colors in the token file', () => {
+  it('limits the palette to 32 colors and keeps raw colors in the token file', () => {
     const palette = [...definitions].filter(([key]) => key.startsWith('--eh-color-'));
-    expect(palette.length).toBeLessThanOrEqual(30);
+    expect(palette.length).toBeLessThanOrEqual(32);
     expect(palette.length).toBeGreaterThan(0);
     expect(palette.every(([, value]) => /^#[\da-f]{6}$/i.test(value))).toBe(true);
     expect(styles).not.toMatch(/#[\da-f]{3,8}\b|\brgba?\(|\bhsla?\(/i);
@@ -68,5 +68,61 @@ describe('desktop style contract', () => {
     expect(styles).toContain('(prefers-reduced-motion: reduce)');
     expect(styles).toContain('.live-shell .issue-project-group.live-issue-group');
     expect(styles.replace(/\s/g, '')).toContain('cursor:text!important');
+  });
+});
+
+describe('text contrast', () => {
+  const themes = {
+    light: tokens.slice(0, tokens.indexOf("[data-theme='dark']")),
+    dark: tokens.slice(tokens.indexOf("[data-theme='dark']")),
+  };
+  const palette = (block: string) =>
+    new Map([...block.matchAll(/--eh-color-([\w-]+):\s*(#[\da-f]{6});/gi)].map((match) => [match[1]!, match[2]!]));
+  const channels = (hex: string) => [1, 3, 5].map((index) => parseInt(hex.slice(index, index + 2), 16));
+  const luminance = (hex: string) => {
+    const [red, green, blue] = channels(hex).map((value) => {
+      const channel = value / 255;
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red! + 0.7152 * green! + 0.0722 * blue!;
+  };
+  const ratio = (first: string, second: string) => {
+    const [high, low] = [luminance(first), luminance(second)].sort((a, b) => b - a);
+    return (high! + 0.05) / (low! + 0.05);
+  };
+  // Hover fills are written as color-mix(fill 86%, scrim) in styles.css.
+  const mix = (base: string, other: string, share: number) =>
+    '#' +
+    channels(base)
+      .map((value, index) => Math.round(value * share + channels(other)[index]! * (1 - share)))
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('');
+
+  it.each(Object.entries(themes))('keeps every text color readable in the %s theme', (_theme, block) => {
+    const color = palette(block);
+    const get = (name: string) => {
+      const value = color.get(name);
+      expect(value, name).toBeDefined();
+      return value!;
+    };
+    const pairs: Array<[string, string, string]> = [];
+    for (const text of ['ink', 'ink-soft', 'muted', 'faint', 'primary', 'danger', 'success', 'warning', 'accent'])
+      for (const background of ['surface', 'surface-subtle', 'surface-bg'])
+        pairs.push([text, background, get(background)]);
+    for (const state of ['primary', 'danger', 'success', 'warning', 'accent'])
+      pairs.push([state, `${state}-soft`, get(`${state}-soft`)]);
+    for (const fill of ['primary-fill', 'danger-fill']) {
+      pairs.push(['on-primary', fill, get(fill)]);
+      pairs.push(['on-primary', `${fill} hover`, mix(get(fill), get('scrim'), 0.86)]);
+    }
+    const failing = pairs
+      .map(([text, background, value]) => ({ pair: `${text} on ${background}`, ratio: ratio(get(text), value) }))
+      .filter((item) => item.ratio < 4.5);
+    expect(failing).toEqual([]);
+  });
+
+  it('uses the fill colors behind white button text', () => {
+    expect(styles).toMatch(/\.button-primary \{[^}]*background: var\(--eh-color-primary-fill\)/);
+    expect(styles).toMatch(/\.danger-confirm \{[^}]*background: var\(--eh-color-danger-fill\)/);
   });
 });

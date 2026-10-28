@@ -3326,8 +3326,8 @@ svg {
   background: var(--eh-color-surface-subtle);
 }
 .choice.chosen .choice-circle {
-  background: var(--eh-color-primary);
-  border-color: var(--eh-color-primary);
+  background: var(--eh-color-primary-fill);
+  border-color: var(--eh-color-primary-fill);
 }
 .settings-icon,
 .history-icon {
@@ -3440,7 +3440,7 @@ svg {
   background: var(--eh-color-surface-sunken);
 }
 .windows-control-close:hover {
-  background: var(--eh-color-danger);
+  background: var(--eh-color-danger-fill);
   color: var(--eh-color-on-primary);
 }
 .windows-control-button:focus-visible {
@@ -4574,12 +4574,12 @@ body,
   line-height: 1.5;
 }
 .danger-confirm {
-  background: var(--eh-color-danger);
+  background: var(--eh-color-danger-fill);
   color: var(--eh-color-on-primary);
-  border-color: var(--eh-color-danger);
+  border-color: var(--eh-color-danger-fill);
 }
 .danger-confirm:hover:not(:disabled) {
-  background: var(--eh-color-danger);
+  background: color-mix(in srgb, var(--eh-color-danger-fill) 86%, var(--eh-color-scrim));
 }
 .danger-confirm:disabled {
   opacity: 0.45;
@@ -5238,8 +5238,8 @@ body,
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--eh-color-line-primary) 26.67%, transparent);
 }
 .live-shell .choice.chosen .choice-circle {
-  background: var(--eh-color-primary);
-  border-color: var(--eh-color-primary);
+  background: var(--eh-color-primary-fill);
+  border-color: var(--eh-color-primary-fill);
 }
 .live-shell .choice strong {
   color: var(--eh-color-ink);
@@ -5989,7 +5989,7 @@ body,
 .release-edit-actions .primary-button,
 .release-edit-panel > .primary-button {
   border: 0;
-  background: var(--eh-color-primary);
+  background: var(--eh-color-primary-fill);
   color: var(--eh-color-on-primary);
   justify-self: start;
   padding: var(--eh-space-10) var(--eh-space-14);
@@ -6199,7 +6199,7 @@ body,
   place-items: center;
   height: 17px;
   border-radius: var(--eh-radius-8);
-  background: var(--eh-color-danger);
+  background: var(--eh-color-danger-fill);
   color: var(--eh-color-on-primary);
   font-size: var(--eh-text-12);
   font-weight: var(--eh-weight-700);
@@ -7057,13 +7057,13 @@ select:focus-visible {
 }
 .button-primary {
   color: var(--eh-color-on-primary);
-  background: var(--eh-color-primary);
-  border-color: var(--eh-color-primary);
+  background: var(--eh-color-primary-fill);
+  border-color: var(--eh-color-primary-fill);
   box-shadow: var(--eh-shadow-primary);
 }
 .button-primary:hover:not(:disabled) {
-  background: var(--eh-color-primary-hover);
-  border-color: var(--eh-color-primary-hover);
+  background: color-mix(in srgb, var(--eh-color-primary-fill) 86%, var(--eh-color-scrim));
+  border-color: color-mix(in srgb, var(--eh-color-primary-fill) 86%, var(--eh-color-scrim));
 }
 .button-quiet {
   color: var(--eh-color-ink-soft);
