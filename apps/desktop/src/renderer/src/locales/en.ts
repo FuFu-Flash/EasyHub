@@ -2,7 +2,7 @@ import type { zh } from './zh';
 import type { CatalogMessage } from '../localizationTypes';
 export const en = {
   'pairingCode.copied': 'Pairing code copied. Paste it on GitHub.',
-  'pairingCode.copyFailed': 'Could not copy the pairing code. Select the code above manually.',
+  'pairingCode.copyFailed': 'Could not copy the pairing code. Select the pairing code above manually.',
   'pairingCode.copy': 'Copy pairing code',
   'pairingCode.copying': 'Copying…',
   'app.offlineWithoutProjectData': 'GitHub is temporarily unavailable. No project data is available yet.',
@@ -19,7 +19,7 @@ export const en = {
   'app.close': 'Close',
   'app.signInWithGithub': 'Sign in with GitHub',
   'app.githubOpenedInYourBrowserEnterThisCodeAnd':
-    'GitHub opened in your browser. Enter this code and authorize EasyHub.',
+    'GitHub opened in your browser. Enter this pairing code and authorize EasyHub.',
   'app.waitingForYourConfirmationOnGithub': 'Waiting for your confirmation on GitHub…',
   'app.openGithubAgain': 'Open GitHub Again',
   'app.retry': 'Retry',
@@ -451,7 +451,7 @@ export const en = {
   'liveProjectDangerZone.newOwner': 'New owner',
   'liveProjectDangerZone.typeTheProjectNameToConfirm': 'Type the project name to confirm',
   'liveProjectDangerZone.confirmProjectName': 'Confirm project name',
-  'liveProjectDangerZone.enterThisCodeOnGithub': 'Enter this code on GitHub:',
+  'liveProjectDangerZone.enterThisCodeOnGithub': 'Enter this pairing code on GitHub:',
   'liveProjectDangerZone.openGithubAuthorization': 'Open GitHub authorization',
   'liveProjectDangerZone.waitingForAuthorization': 'Waiting for authorization…',
   'liveProjectDangerZone.cancel': 'Cancel',

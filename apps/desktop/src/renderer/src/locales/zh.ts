@@ -1,7 +1,7 @@
 /** Interface copy only; repository content never enters this catalog. */
 export const zh = {
   'pairingCode.copied': '配对码已复制，可直接粘贴到 GitHub。',
-  'pairingCode.copyFailed': '无法复制配对码，请手动选择上方代码。',
+  'pairingCode.copyFailed': '无法复制配对码，请手动选择上方的配对码。',
   'pairingCode.copy': '复制配对码',
   'pairingCode.copying': '正在复制…',
   'app.offlineWithoutProjectData': '暂时连不上 GitHub，还没有可显示的项目数据',
@@ -16,7 +16,8 @@ export const zh = {
   'app.exploreTheDemo': '先看看演示',
   'app.close': '关闭',
   'app.signInWithGithub': '使用 GitHub 登录',
-  'app.githubOpenedInYourBrowserEnterThisCodeAnd': '已在浏览器打开 GitHub。输入下面的代码并允许 EasyHub 访问你的项目。',
+  'app.githubOpenedInYourBrowserEnterThisCodeAnd':
+    '已在浏览器打开 GitHub。输入下面的配对码并允许 EasyHub 访问你的项目。',
   'app.waitingForYourConfirmationOnGithub': '等待你在 GitHub 完成确认…',
   'app.openGithubAgain': '重新打开 GitHub',
   'app.retry': '重试',
@@ -419,7 +420,7 @@ export const zh = {
   'liveProjectDangerZone.newOwner': '新所有者',
   'liveProjectDangerZone.typeTheProjectNameToConfirm': '输入项目名称以确认',
   'liveProjectDangerZone.confirmProjectName': '确认项目名称',
-  'liveProjectDangerZone.enterThisCodeOnGithub': '前往 GitHub 输入以下验证码：',
+  'liveProjectDangerZone.enterThisCodeOnGithub': '前往 GitHub 输入以下配对码：',
   'liveProjectDangerZone.openGithubAuthorization': '打开 GitHub 授权页面',
   'liveProjectDangerZone.waitingForAuthorization': '正在等待授权结果…',
   'liveProjectDangerZone.cancel': '取消',

@@ -74,7 +74,7 @@ try {
   function status(dialog) { return dialog.locator('[role="status"]').filter({ hasText: /配对码|Pairing code|pairing code/ }); }
   const copyLabel = language => language === 'zh' ? '复制配对码' : 'Copy pairing code';
   const copiedMessage = language => language === 'zh' ? '配对码已复制，可直接粘贴到 GitHub。' : 'Pairing code copied. Paste it on GitHub.';
-  const failedMessage = language => language === 'zh' ? '无法复制配对码，请手动选择上方代码。' : 'Could not copy the pairing code. Select the code above manually.';
+  const failedMessage = language => language === 'zh' ? '无法复制配对码，请手动选择上方的配对码。' : 'Could not copy the pairing code. Select the pairing code above manually.';
   for (const kind of ['login', 'deletion']) for (const language of ['zh', 'en']) for (const density of ['comfortable', 'compact']) for (const width of [1440, 1000]) {
     const dialog = await open(kind, language, 'true', width, density);
     assert.equal(await status(dialog).innerText(), copiedMessage(language), 'Main-process clipboard success must be visible');
