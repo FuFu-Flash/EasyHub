@@ -155,8 +155,20 @@ try {
   await page.locator('.cloud-row').first().getByRole('button', { name: '查看', exact: true }).click();
   const icon = page.getByRole('button', { name: '源码历史', exact: true });
   await icon.waitFor(); await settle();
-  const location = await icon.evaluate(button => { const r = button.getBoundingClientRect(); const hero = button.closest('.detail-hero').getBoundingClientRect(); return { right: hero.right - r.right, top: r.top - hero.top, width: r.width }; });
-  assert.ok(location.top < 15 && location.right < 15 && location.width >= 30, 'History icon sits in the requested top-right corner');
+  // The top-right actions read, from left to right: star, source history, project settings.
+  const location = await icon.evaluate(button => {
+    const hero = button.closest('.detail-hero').getBoundingClientRect();
+    const box = (element) => element?.getBoundingClientRect() ?? null;
+    const history = box(button);
+    const star = box(button.closest('.detail-hero').querySelector('.star-project-button'));
+    const settings = box([...button.closest('.detail-hero').querySelectorAll('button')].find((item) => item.getAttribute('aria-label') === '项目设置' || item.textContent.trim() === '项目设置'));
+    return { history, star, settings, heroRight: hero.right, heroTop: hero.top };
+  });
+  const { history, star, settings } = location;
+  assert.ok(star && settings, 'Star and project settings sit beside the history button');
+  assert.ok(star.right <= history.left + 1 && history.right <= settings.left + 1, 'History sits between star and project settings');
+  assert.ok(Math.abs(star.top + star.height / 2 - (history.top + history.height / 2)) < 4 && Math.abs(settings.top + settings.height / 2 - (history.top + history.height / 2)) < 4, 'Star, history and settings share one row');
+  assert.ok(location.heroRight - settings.right < 40 && history.top - location.heroTop < 40 && history.width >= 30, 'The actions sit in the top-right corner of the project header');
   await page.screenshot({ path: join(outputDirectory, 'own-project-icon.png') });
   await icon.click(); await count('.source-history-row', 100);
   await page.getByRole('button', { name: '加载更多提交', exact: true }).click(); await count('.source-history-row', 101);
