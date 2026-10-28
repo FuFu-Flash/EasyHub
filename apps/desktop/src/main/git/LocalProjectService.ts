@@ -53,14 +53,17 @@ export class LocalProjectService {
   private readonly grants = new Set<string>();
   private readonly watchers = new Map<string, FSWatcher>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
-  private active: GitJob<unknown> | null = null;
-  private activePreview: string | null = null;
+  /** Each project folder works through its own queue, so one project's slow scan never holds up another's. */
+  private readonly lanes = new Map<string, { tail: Promise<void>; active: GitJob<unknown> | null; activePreview: string | null; cancelSafe: boolean }>();
   private previewEpochs = new Map<string, number>();
   private discoveryController: AbortController | null = null;
   private discoveryJob: GitJob<GitProjectInfo> | null = null;
   private discoveryPromise: Promise<LocalDiscoveryResult> | null = null;
-  private cancelSafe = true;
-  private operationTail: Promise<void> = Promise.resolve();
+  private lane(path: string) {
+    let lane = this.lanes.get(path);
+    if (!lane) { lane = { tail: Promise.resolve(), active: null, activePreview: null, cancelSafe: true }; this.lanes.set(path, lane); }
+    return lane;
+  }
   constructor(private readonly store: LocalProjectStore, private readonly send: (channel: string, value: unknown) => void,
     private readonly discoveryRoots?: DiscoveryRootsStore) {}
 
@@ -80,11 +83,11 @@ export class LocalProjectService {
   async list(): Promise<LocalProjectRecord[]> { return this.store.list(); }
 
   async relocate(id: unknown, path: unknown): Promise<LocalProjectRecord> {
-    if (this.active) throw new Error('正在处理项目，请完成后再更换位置。');
     const record = await this.record(id);
+    if (this.lane(record.localPath).active) throw new Error('正在处理项目，请完成后再更换位置。');
     const info = await this.inspectRaw(path);
     if (!info.isGit || info.owner?.toLowerCase() !== record.owner.toLowerCase() || info.repo?.toLowerCase() !== record.name.toLowerCase()) throw new Error('请选择原项目对应的文件夹，不能关联到其他项目。');
-    if (this.active) throw new Error('正在处理项目，请完成后再更换位置。');
+    if (this.lane(record.localPath).active) throw new Error('正在处理项目，请完成后再更换位置。');
     const updated = await this.store.relocate(record.id, info.root);
     this.watchRecord(updated);
     this.previewEpochs.set(record.id, (this.previewEpochs.get(record.id) ?? 0) + 1);
@@ -92,8 +95,8 @@ export class LocalProjectService {
   }
 
   async remove(id: unknown): Promise<void> {
-    if (this.active) throw new Error('正在处理项目，请完成后再移除关联。');
     const record = await this.record(id);
+    if (this.lane(record.localPath).active) throw new Error('正在处理项目，请完成后再移除关联。');
     await this.store.remove(record.id);
     this.watchers.get(record.id)?.close(); this.watchers.delete(record.id);
     const timer = this.timers.get(record.id);
@@ -255,7 +258,8 @@ export class LocalProjectService {
   async cancelPreview(id: unknown): Promise<void> {
     const record = await this.record(id);
     this.previewEpochs.set(record.id, (this.previewEpochs.get(record.id) ?? 0) + 1);
-    if (this.activePreview === record.id) this.active?.cancel();
+    const lane = this.lane(record.localPath);
+    if (lane.activePreview === record.id) lane.active?.cancel();
   }
 
   async publish(id: unknown, rawMessage: unknown, rawSelection?: unknown): Promise<{ changed: number }> {
@@ -362,7 +366,7 @@ export class LocalProjectService {
       await rename(temp, file);
     } finally { await rm(temp, { force: true }).catch(() => undefined); }
   }
-  cancel(): void { if (this.cancelSafe) this.active?.cancel(); this.discoveryController?.abort(); this.discoveryJob?.cancel(); }
+  cancel(): void { for (const lane of this.lanes.values()) if (lane.cancelSafe) lane.active?.cancel(); this.discoveryController?.abort(); this.discoveryJob?.cancel(); }
 
   async startWatching(): Promise<void> { for (const record of await this.store.list()) this.watchRecord(record); }
   stopWatching(): void { for (const watcher of this.watchers.values()) watcher.close(); for (const timer of this.timers.values()) clearTimeout(timer); this.watchers.clear(); this.timers.clear(); }
@@ -375,25 +379,26 @@ export class LocalProjectService {
   }
 
   private async interactive<T>(task: GitTask, options?: { signal: AbortSignal; progress: (value: GitProgress) => void }, preview?: { id: string; epoch: number }): Promise<T> {
-    const previous = this.operationTail;
+    const lane = this.lane(task.path);
+    const previous = lane.tail;
     let release = (): void => undefined;
-    this.operationTail = new Promise<void>((resolve) => { release = resolve; });
+    lane.tail = new Promise<void>((resolve) => { release = resolve; });
     await previous;
     try {
       if (preview && (this.previewEpochs.get(preview.id) ?? 0) !== preview.epoch) throw new Error('已取消读取，可以重新读取修改。');
       options?.signal.throwIfAborted();
       const needsNetwork = task.action === 'create' || task.action === 'list-branches' || task.action === 'switch-branch' || task.action === 'download' || task.action === 'publish' || task.action === 'push-branch' || task.action === 'check-sync' || task.action === 'sync';
-      this.cancelSafe = true;
+      lane.cancelSafe = true;
       const job = runGitTask<T>({ ...task, proxy: needsNetwork ? await githubProxy() : undefined,
         githubRules: needsNetwork ? githubOriginRules() : undefined },
-        (value: GitProgress) => { if (value.cancelable === false) this.cancelSafe = false; this.send('easyhub:local-progress', value); options?.progress(value); });
-      this.active = job;
-      this.activePreview = preview?.id ?? null;
-      const abort = (): void => { if (this.cancelSafe) job.cancel(); };
+        (value: GitProgress) => { if (value.cancelable === false) lane.cancelSafe = false; this.send('easyhub:local-progress', value); options?.progress(value); });
+      lane.active = job;
+      lane.activePreview = preview?.id ?? null;
+      const abort = (): void => { if (lane.cancelSafe) job.cancel(); };
       options?.signal.addEventListener('abort', abort, { once: true });
       if (options?.signal.aborted) abort();
       try { return await job.result; }
-      finally { options?.signal.removeEventListener('abort', abort); this.active = null; this.activePreview = null; this.cancelSafe = true; }
+      finally { options?.signal.removeEventListener('abort', abort); lane.active = null; lane.activePreview = null; lane.cancelSafe = true; }
     } finally { release(); }
   }
 
@@ -405,7 +410,7 @@ export class LocalProjectService {
     try {
       const scan = (): void => {
         if (!this.watchers.has(record.id)) return;
-        if (this.active) {
+        if (this.lane(record.localPath).active) {
           this.timers.set(record.id, setTimeout(scan, 700));
           return;
         }

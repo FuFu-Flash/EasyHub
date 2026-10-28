@@ -9592,3 +9592,10 @@ body {
 .local-branch-menu li.local-branch-note:hover {
   background: transparent;
 }
+.local-selection-fold {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--eh-space-10);
+  padding: var(--eh-space-8) var(--eh-space-14);
+}

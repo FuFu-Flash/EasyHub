@@ -21,6 +21,9 @@ interface Props {
     sensitiveFiles?: ChangedFile[],
   ) => void;
 }
+/** Lists longer than this start folded. */
+const FOLD_AFTER = 6;
+
 export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: Props) {
   const t = useTranslation();
   const easyHub = useEasyHub();
@@ -32,6 +35,7 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
   const [loading, setLoading] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
   const [error, setError] = useState('');
+  const [showFiles, setShowFiles] = useState(false);
   const [split, setSplit] = useState(false);
   const [groupCount, setGroupCount] = useState(2);
   const [groupOf, setGroupOf] = useState<Record<string, number>>({});
@@ -50,6 +54,7 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
     setDiffs({});
     setError('');
     setLoading(null);
+    setShowFiles(false);
     setSplit(false);
     setGroupCount(2);
     setGroupOf({});
@@ -202,6 +207,10 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
     return rank(a) - rank(b);
   });
   const seenGroups = new Set<number>();
+  // A long list stays folded until asked for; short lists and grouping always show the rows.
+  const longList = (preview?.files.length ?? 0) > FOLD_AFTER;
+  const expanded = showFiles || grouped || !longList;
+  const sensitiveCount = preview?.files.filter((file) => file.sensitiveReasons?.length).length ?? 0;
   return (
     <section className="local-selection" aria-label={t('localChangeSelector.filesToPublish')}>
       <div className="local-selection-heading">
@@ -268,7 +277,20 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
           )}
         </div>
       )}
-      {preview && orderedFiles.map((file) => {
+      {preview && longList && !grouped && (
+        <div className="local-selection-fold">
+          <button className="text-link" type="button" aria-expanded={showFiles} onClick={() => setShowFiles((value) => !value)}>
+            {showFiles
+              ? t('localChangeSelector.hideFileList')
+              : t('localChangeSelector.showFileList', { p0: preview.files.length })}
+            <ChevronDown size={14} />
+          </button>
+          {!showFiles && sensitiveCount > 0 && (
+            <small className="local-sensitive-warning">{t('localChangeSelector.sensitiveFolded', { p0: sensitiveCount })}</small>
+          )}
+        </div>
+      )}
+      {preview && expanded && orderedFiles.map((file) => {
         const diff = diffs[file.path];
         const group = groupOf[file.path] ?? 0;
         const firstOfGroup = grouped && selected.includes(file.path) && !seenGroups.has(group) && seenGroups.add(group);
