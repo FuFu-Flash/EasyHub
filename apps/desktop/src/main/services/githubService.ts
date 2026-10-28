@@ -338,6 +338,16 @@ export async function gitHubIdentity(): Promise<{ token: string; user: GitHubUse
 }
 
 export function repositoryDetails(owner: string, name: string) { return client.repo(owner, name); }
+/** Names of the branches GitHub has for a repository (first 500). */
+export async function repositoryBranchNames(owner: string, name: string): Promise<string[]> {
+  const names: string[] = [];
+  for (let page: number | null = 1; page && page <= 5;) {
+    const result: Awaited<ReturnType<typeof client.branchesPage>> = await client.branchesPage(owner, name, page);
+    names.push(...result.items.map((branch) => branch.name));
+    page = result.nextPage;
+  }
+  return names;
+}
 export function loadCommitExplanation(owner: string, repo: string, sha: string, page: number, signal: AbortSignal) {
   return client.commitChangesPage(owner, repo, sha, page, signal);
 }

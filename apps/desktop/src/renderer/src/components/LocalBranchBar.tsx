@@ -4,6 +4,9 @@ import { Check, ChevronDown, GitBranch } from 'lucide-react';
 import { useEasyHub } from '../bridge';
 import { useTranslation } from '../localization';
 
+/** The last list seen for each project, so the menu opens with something to pick while the fresh list loads. */
+const knownBranches = new Map<string, string[]>();
+
 interface Props {
   id: string;
   current: string;
@@ -16,7 +19,8 @@ interface Props {
 export function LocalBranchBar({ id, current, busy, onSwitch, onCreate }: Props) {
   const t = useTranslation();
   const easyHub = useEasyHub();
-  const [branches, setBranches] = useState<string[]>([current]);
+  const [branches, setBranches] = useState<string[]>(knownBranches.get(id) ?? [current]);
+  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
@@ -24,19 +28,25 @@ export function LocalBranchBar({ id, current, busy, onSwitch, onCreate }: Props)
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
 
+  // Refreshed when the page opens, when the branch changes and every time the menu opens.
   useEffect(() => {
     let active = true;
+    setLoading(true);
     void easyHub
       ?.localListBranches(id)
       .then((result) => {
-        if (active) setBranches(result.branches.includes(current) ? result.branches : [current, ...result.branches]);
+        const next = result.branches.includes(current) ? result.branches : [current, ...result.branches];
+        knownBranches.set(id, next);
+        if (active) setBranches(next);
       })
-      .catch(() => undefined);
-    // The branch list changes only when the project moves to another branch.
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setLoading(false);
+      });
     return () => {
       active = false;
     };
-  }, [easyHub, id, current]);
+  }, [easyHub, id, current, open]);
   useEffect(() => {
     setOpen(false);
     setCreating(false);
@@ -121,6 +131,11 @@ export function LocalBranchBar({ id, current, busy, onSwitch, onCreate }: Props)
                 {branch === current && <Check size={14} aria-hidden="true" />}
               </li>
             ))}
+            {loading && (
+              <li className="local-branch-note" role="presentation">
+                {t('localWorkspace.loadingBranches')}
+              </li>
+            )}
           </ul>
         )}
       </div>

@@ -7,8 +7,9 @@ import { join, parse } from 'node:path';
 import type { GitHubRepo } from '@easyhub/github';
 import type { FolderInspection, LocalDiscoveryResult, LocalFileDiff, LocalBranchList, LocalPublishBatch, LocalPublishPreview, LocalPublishSelection, LocalProjectStatus, LocalPushBranchResult, SyncDecision, SyncPreview } from '@easyhub/types';
 import { safeChangePath } from './LocalChanges';
-import { createEmptyRepository, gitHubIdentity, repositoryDetails } from '../services/githubService';
+import { createEmptyRepository, gitHubIdentity, repositoryBranchNames, repositoryDetails } from '../services/githubService';
 import type { GitProgress, GitProjectInfo, GitProjectStatus, GitRepository } from './GitEngine';
+import { branchList } from './GitEngine';
 import { LocalProjectStore } from './LocalProjectStore';
 import type { LocalProjectRecord } from './LocalProjectStore';
 import { runGitTask } from './gitTaskRunner';
@@ -286,9 +287,11 @@ export class LocalProjectService {
     } catch { return {}; }
   }
 
+  /** Reading branch names is light, so it skips the project task queue and one slow scan never holds the list back. */
   async listBranches(id: unknown): Promise<LocalBranchList> {
     const record = await this.record(id);
-    return this.interactive<LocalBranchList>({ action: 'list-branches', path: record.localPath, ...(await this.branchConnection(record)) });
+    const names = await repositoryBranchNames(record.owner, record.name).catch(() => null);
+    return branchList(record.localPath, names);
   }
 
   async switchBranch(id: unknown, name: unknown): Promise<LocalBranchList> {

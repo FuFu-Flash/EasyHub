@@ -1135,6 +1135,7 @@ export const zh = {
   'localWorkspace.createAndSwitchBranch': '创建并切换',
   'localWorkspace.switchedBranch': '已切换到分支 {p0}。',
   'localWorkspace.createdBranch': '已新建并切换到分支 {p0}。',
+  'localWorkspace.loadingBranches': '正在读取 GitHub 上的分支…',
   'localWorkspace.pushBranch': '推送分支',
   'localWorkspace.branchPushed': '已把分支 {p0} 推送到 GitHub。',
   'localWorkspace.branchCreated': '已在 GitHub 上创建分支 {p0} 并推送。',

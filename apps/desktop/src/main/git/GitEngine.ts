@@ -35,6 +35,15 @@ async function currentHead(dir: string): Promise<string | null> {
   catch { return null; }
 }
 
+/** The branches on GitHub (when `onGithub` is unknown, the ones this folder has seen) plus the one the folder is on. */
+export async function branchList(dir: string, onGithub: string[] | null): Promise<LocalBranchList> {
+  const current = (await git.currentBranch({ fs, dir })) ?? null;
+  const remote = new Set(onGithub ?? await git.listBranches({ fs, dir, remote: 'origin' }));
+  const names = new Set((await git.listBranches({ fs, dir })).filter((branch) => branch === current || remote.has(branch)));
+  for (const branch of remote) names.add(branch);
+  return { current, branches: [...names].filter((branch) => branch !== 'HEAD' && safeChangePath(branch)).sort() };
+}
+
 /** Every publish, push and download of new content goes to the branch the folder is on. */
 async function targetBranch(dir: string): Promise<string> {
   const branch = await git.currentBranch({ fs, dir });
@@ -359,14 +368,11 @@ export class GitEngine {
   /** The branches that exist on GitHub, plus the one the folder is on, so the list never fills up with local-only branches.
    *  Without a connection it falls back to the GitHub branches this folder already knows about. */
   async listBranches(dir: string, repo?: GitRepository, token?: string): Promise<LocalBranchList> {
-    const current = (await git.currentBranch({ fs, dir })) ?? null;
-    let onGithub = new Set(await git.listBranches({ fs, dir, remote: 'origin' }));
+    let names: string[] | null = null;
     if (repo && token) {
-      try { onGithub = new Set(await this.remoteBranchNames(repo, token)); } catch { /* offline: keep what is known locally */ }
+      try { names = await this.remoteBranchNames(repo, token); } catch { /* offline: keep what is known locally */ }
     }
-    const names = new Set((await git.listBranches({ fs, dir })).filter((branch) => branch === current || onGithub.has(branch)));
-    for (const branch of onGithub) names.add(branch);
-    return { current, branches: [...names].filter((branch) => branch !== 'HEAD' && safeChangePath(branch)).sort() };
+    return branchList(dir, names);
   }
 
   /** Moves the folder to another branch. Only done when nothing is waiting to be published, so no file is ever overwritten.

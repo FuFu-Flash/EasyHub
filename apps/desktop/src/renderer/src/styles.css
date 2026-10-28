@@ -9584,3 +9584,11 @@ body {
   flex-wrap: wrap;
   gap: var(--eh-space-8) var(--eh-space-16);
 }
+.local-branch-menu li.local-branch-note {
+  color: var(--eh-color-muted);
+  font-size: var(--eh-text-12);
+  cursor: default;
+}
+.local-branch-menu li.local-branch-note:hover {
+  background: transparent;
+}
