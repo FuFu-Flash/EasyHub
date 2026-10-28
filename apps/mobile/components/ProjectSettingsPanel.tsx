@@ -185,7 +185,7 @@ export function ProjectSettingsPanel({ repo, publicMode = false, onUpdate, onRem
       <TextInput accessibilityLabel={t('确认项目名称', 'Confirm project name')} value={confirmation} onChangeText={setConfirmation} autoCorrect={false} autoCapitalize="none" editable={!busy && !authorizing} style={fieldStyle} />
       {flow && <View style={{ gap: 12, marginTop: 16 }}>
         <Text selectable style={{ color: palette.ink, fontSize: 20, fontWeight: '800' }}>{flow.user_code}</Text>
-        <Text style={{ color: palette.muted, lineHeight: 22 }}>{t('在 GitHub 输入以上验证码，授权删除权限。完成后仍需再次确认删除。', 'Enter this code on GitHub to authorize deletion. You must confirm deletion again afterward.')}</Text>
+        <Text style={{ color: palette.muted, lineHeight: 22 }}>{t('在 GitHub 输入以上配对码，授权删除权限。完成后仍需再次确认删除。', 'Enter this pairing code on GitHub to authorize deletion. You must confirm deletion again afterward.')}</Text>
         <Action title={t('打开 GitHub 授权页面', 'Open GitHub authorization')} secondary onPress={() => { void Linking.openURL(flow.verification_uri); }} />
       </View>}
       {authorizing && <Text style={{ color: palette.muted, marginTop: 14 }}>{t('正在等待 GitHub 授权…', 'Waiting for GitHub authorization…')}</Text>}

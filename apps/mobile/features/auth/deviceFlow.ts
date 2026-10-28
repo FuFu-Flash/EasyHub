@@ -60,5 +60,5 @@ export async function awaitDeviceAuthorization(code: DeviceCode, signal?: AbortS
     if (result.error === 'expired_token') break;
     throw new Error('登录暂时无法完成，请重试。');
   }
-  throw new Error('验证码已过期，请重新登录。');
+  throw new Error('配对码已过期，请重新登录。');
 }
