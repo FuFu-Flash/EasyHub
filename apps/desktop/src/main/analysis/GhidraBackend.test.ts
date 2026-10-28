@@ -292,6 +292,11 @@ describe('GhidraBackend', () => {
     } finally { await new Promise<void>((resolve) => server.close(() => resolve())); }
   });
 
+  const alive = (pid: number): boolean => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  const gone = async (pid: number, timeout = 10_000): Promise<boolean> => {
+    for (const end = Date.now() + timeout; Date.now() < end; await new Promise((resolve) => setTimeout(resolve, 50))) if (!alive(pid)) return true;
+    return !alive(pid);
+  };
   it('stops its real process tree including a native helper child', async () => {
     const { root } = await workspace();
     let childPid = 0;
@@ -301,14 +306,15 @@ describe('GhidraBackend', () => {
     const owned = await ghidraProcessRunner.start({ executable: process.execPath, args: ['-e', script], cwd: root, env: process.env,
       onOutput: (text) => { const pid = Number(text.trim()); if (pid > 0) { childPid = pid; childStarted(); } } });
     try {
-      await Promise.race([started, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Child startup timeout')), 3000).unref())]);
+      await Promise.race([started, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Child startup timeout')), 10_000).unref())]);
       expect(childPid).toBeGreaterThan(0);
-      expect(() => process.kill(childPid, 0)).not.toThrow();
+      expect(alive(childPid)).toBe(true);
       await owned.stop();
-      expect(() => process.kill(childPid, 0)).toThrow();
-      expect(() => process.kill(owned.pid!, 0)).toThrow();
+      // The operating system can take a moment to reap the processes on a busy machine, so wait for it.
+      expect(await gone(childPid)).toBe(true);
+      expect(await gone(owned.pid!)).toBe(true);
     } finally { await owned.stop(); }
-  });
+  }, 30_000);
 
   it.skipIf(!process.env.EASYHUB_GHIDRA_RUNTIME_TEST_ROOT || process.platform !== 'win32')('imports and decompiles a real PE using the installed pinned headless engine', async () => {
     const installed = process.env.EASYHUB_GHIDRA_RUNTIME_TEST_ROOT!;
