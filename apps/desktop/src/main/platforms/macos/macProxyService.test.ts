@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { existsSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -88,7 +89,11 @@ describe('GitHub PAC routing', () => {
   });
 });
 
-describe.skipIf(process.platform !== 'darwin')('MacProxyService isolated helper integration', () => {
+// The helper is compiled from Swift sources kept next to this repository (../Shared, ../GitHubTunnel,
+// ../EasyHubMac), so it can only be built on a Mac that has them checked out; CI runners do not.
+const helperSources = fileURLToPath(new URL('../../../../../../../Shared/SteamToolsRules.swift', import.meta.url));
+
+describe.skipIf(process.platform !== 'darwin' || !existsSync(helperSources))('MacProxyService isolated helper integration', () => {
   let resources = '';
   let service: MacProxyService;
 
