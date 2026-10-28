@@ -9537,7 +9537,7 @@ body {
   border: 1px solid var(--eh-color-line);
   border-radius: var(--eh-radius-8);
   background: var(--eh-color-surface);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+  box-shadow: var(--eh-shadow-menu);
 }
 .local-branch-menu li {
   display: flex;
@@ -9545,7 +9545,7 @@ body {
   justify-content: space-between;
   gap: var(--eh-space-10);
   padding: 7px 10px;
-  border-radius: var(--eh-radius-6, 6px);
+  border-radius: var(--eh-radius-8);
   color: var(--eh-color-ink);
   font-size: var(--eh-text-13);
   cursor: pointer;
@@ -9562,7 +9562,7 @@ body {
 }
 .local-branch-menu li[aria-selected='true'] {
   color: var(--eh-color-primary);
-  font-weight: 600;
+  font-weight: var(--eh-weight-600);
 }
 .local-branch-form {
   display: flex;
