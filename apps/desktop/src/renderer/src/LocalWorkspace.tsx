@@ -396,6 +396,24 @@ export function LocalWorkspace({
     });
   }
 
+  async function pushBranch(item: LocalProjectLink): Promise<void> {
+    if (!api) return;
+    await task(async () => {
+      try {
+        const result = await api.localPushBranch(item.id);
+        setNotice(
+          result.state === 'current'
+            ? t('localWorkspace.branchAlreadyCurrent', { p0: result.branch })
+            : result.state === 'created'
+              ? t('localWorkspace.branchCreated', { p0: result.branch })
+              : t('localWorkspace.branchPushed', { p0: result.branch }),
+        );
+      } finally {
+        await refresh();
+      }
+    });
+  }
+
   async function checkLatest(item: LocalProjectLink): Promise<void> {
     if (!api) return;
     await task(async () => {
@@ -555,7 +573,10 @@ export function LocalWorkspace({
                     : t('localWorkspace.checkingFiles')}
               </span>
             </div>
-            <p className="muted">{item.localPath}</p>
+            <p className="muted">
+              {item.localPath}
+              {status?.branch ? ` · ${t('localWorkspace.currentBranch', { p0: status.branch })}` : ''}
+            </p>
             {statusError ? (
               <LocalFolderError
                 language={language}
@@ -602,6 +623,12 @@ export function LocalWorkspace({
                     <ArrowDownToLine size={16} />
                     {t('localWorkspace.getLatest')}
                   </button>
+                  {status?.pushable && !status.files.length && !status.needsReview ? (
+                    <button className="button button-quiet" disabled={busy} onClick={() => void pushBranch(item)}>
+                      <Send size={16} />
+                      {t('localWorkspace.pushBranch')}
+                    </button>
+                  ) : null}
                   {status && (status.files.length > 0 || status.pendingPublish) ? (
                     <button
                       className="button button-primary"
@@ -652,6 +679,7 @@ export function LocalWorkspace({
                     language={language}
                     status={status}
                     targetPrivate={repo?.private}
+                    defaultBranch={repo?.default_branch}
                     message={updateMessage}
                     onMessageChange={setUpdateMessage}
                     inputRef={publishInput}

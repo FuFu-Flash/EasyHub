@@ -383,6 +383,7 @@ if (primaryInstance) app.whenReady().then(async () => {
   handle('easyhub:local-file-diff', (event, id: unknown, path: unknown, snapshot: unknown) => { assertTrustedSender(event); return localService.fileDiff(id, path, snapshot); });
   handle('easyhub:local-cancel-preview', (event, id: unknown) => { assertTrustedSender(event); return localService.cancelPreview(id); });
   handle('easyhub:local-publish', (event, id: unknown, message: unknown, selection: unknown) => { assertTrustedSender(event); return localService.publish(id, message, selection); });
+  handle('easyhub:local-push-branch', (event, id: unknown) => { assertTrustedSender(event); return localService.pushBranch(id); });
   handle('easyhub:local-check-sync', (event, id: unknown) => { assertTrustedSender(event); return localService.checkSync(id); });
   handle('easyhub:local-sync', (event, id: unknown, revision: unknown, decisions: unknown) => { assertTrustedSender(event); return localService.sync(id, revision, decisions); });
   handle('easyhub:local-cancel', (event) => { assertTrustedSender(event); localService.cancel(); });

@@ -5,7 +5,7 @@ import type { FSWatcher } from 'node:fs';
 import { lstat, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { join, parse } from 'node:path';
 import type { GitHubRepo } from '@easyhub/github';
-import type { FolderInspection, LocalDiscoveryResult, LocalFileDiff, LocalPublishPreview, LocalPublishSelection, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
+import type { FolderInspection, LocalDiscoveryResult, LocalFileDiff, LocalPublishBatch, LocalPublishPreview, LocalPublishSelection, LocalProjectStatus, LocalPushBranchResult, SyncDecision, SyncPreview } from '@easyhub/types';
 import { safeChangePath } from './LocalChanges';
 import { createEmptyRepository, gitHubIdentity, repositoryDetails } from '../services/githubService';
 import type { GitProgress, GitProjectInfo, GitProjectStatus, GitRepository } from './GitEngine';
@@ -15,6 +15,22 @@ import { runGitTask } from './gitTaskRunner';
 import type { GitJob, GitTask } from './gitTaskRunner';
 import { DiscoveryRootsStore, findGitProjects } from './LocalProjectDiscovery';
 import { githubOriginRules, isEasyHubProxyChoice } from '../services/GitHubProxyService';
+
+/** Checks the multi-step publish the page sent; the paths must be exactly the batches' paths, in order. */
+function publishBatches(raw: unknown, paths: string[]): LocalPublishBatch[] {
+  const invalid = new Error('分批发布的文件选择无效，请刷新修改列表后重试。');
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 50) throw invalid;
+  const batches = raw.map((item): LocalPublishBatch => {
+    if (!item || typeof item !== 'object') throw invalid;
+    const batch = item as Partial<LocalPublishBatch>;
+    if (!Array.isArray(batch.paths) || !batch.paths.length || batch.paths.some((path) => !safeChangePath(path))) throw invalid;
+    if (batch.message !== undefined && (typeof batch.message !== 'string' || batch.message.length > 200)) throw new Error('请用一句话说明这次修改。');
+    return { paths: batch.paths, ...(batch.message?.trim() ? { message: batch.message.trim() } : {}) };
+  });
+  const flat = batches.flatMap((batch) => batch.paths);
+  if (flat.length !== paths.length || flat.some((path, index) => path !== paths[index])) throw invalid;
+  return batches;
+}
 
 function validName(value: unknown): value is string { return typeof value === 'string' && /^[A-Za-z0-9_.-]{1,100}$/.test(value) && value !== '.' && value !== '..'; }
 function repository(repo: GitHubRepo): GitRepository { return { owner: repo.owner.login, name: repo.name, defaultBranch: repo.default_branch || 'main' }; }
@@ -221,7 +237,7 @@ export class LocalProjectService {
       catch (error) { if (['ENOENT', 'ENOTDIR', 'NOT_FOUND'].includes((error as NodeJS.ErrnoException).code ?? '')) throw Object.assign(new Error('找不到这个文件夹。'), { code: 'NOT_FOUND' }); }
       throw cause;
     }
-    return { files: result.files, needsReview: result.hasPreparedChanges, pendingPublish: result.pendingPublish, pendingMessage: result.pendingMessage };
+    return { files: result.files, needsReview: result.hasPreparedChanges, pendingPublish: result.pendingPublish, pendingMessage: result.pendingMessage, branch: result.branch, pushable: result.pushable };
   }
 
   async previewChanges(id: unknown): Promise<LocalPublishPreview> {
@@ -251,13 +267,23 @@ export class LocalProjectService {
       if (typeof input.snapshot !== 'string' || !/^[a-f0-9]{64}$/.test(input.snapshot) || !Array.isArray(input.paths) || input.paths.length > 10000
         || input.paths.some((path) => !safeChangePath(path)) || new Set(input.paths).size !== input.paths.length) throw new Error('文件选择无效，请刷新修改列表后重试。');
       if (input.sensitiveConfirmed !== undefined && typeof input.sensitiveConfirmed !== 'boolean') throw new Error('文件确认无效。');
-      selection = { snapshot: input.snapshot, paths: input.paths, ...(input.sensitiveConfirmed ? { sensitiveConfirmed: true } : {}) };
+      const batches = input.batches === undefined ? undefined : publishBatches(input.batches, input.paths);
+      selection = { snapshot: input.snapshot, paths: input.paths, ...(input.sensitiveConfirmed ? { sensitiveConfirmed: true } : {}), ...(batches ? { batches } : {}) };
     }
     const remote = await repositoryDetails(record.owner, record.name);
     if (remote.id !== record.repositoryId) throw new Error('GitHub 项目已发生变化，请重新添加这个文件夹。');
     const identity = await gitHubIdentity();
     const result = await this.interactive<{ head: string; changed: number }>({ action: 'publish', path: record.localPath, repo: repository(remote), author: author(identity.user), token: identity.token, message: rawMessage.trim(), selection });
     return { changed: result.changed };
+  }
+
+  /** Uploads the saved versions already on the project's current branch, as they are, to the same-named GitHub branch. */
+  async pushBranch(id: unknown): Promise<LocalPushBranchResult> {
+    const record = await this.record(id);
+    const remote = await repositoryDetails(record.owner, record.name);
+    if (remote.id !== record.repositoryId) throw new Error('GitHub 项目已发生变化，请重新添加这个文件夹。');
+    const identity = await gitHubIdentity();
+    return this.interactive<LocalPushBranchResult>({ action: 'push-branch', path: record.localPath, repo: repository(remote), token: identity.token });
   }
 
   async checkSync(id: unknown): Promise<SyncPreview> {
@@ -327,7 +353,7 @@ export class LocalProjectService {
     try {
       if (preview && (this.previewEpochs.get(preview.id) ?? 0) !== preview.epoch) throw new Error('已取消读取，可以重新读取修改。');
       options?.signal.throwIfAborted();
-      const needsNetwork = task.action === 'create' || task.action === 'download' || task.action === 'publish' || task.action === 'check-sync' || task.action === 'sync';
+      const needsNetwork = task.action === 'create' || task.action === 'download' || task.action === 'publish' || task.action === 'push-branch' || task.action === 'check-sync' || task.action === 'sync';
       this.cancelSafe = true;
       const job = runGitTask<T>({ ...task, proxy: needsNetwork ? await githubProxy() : undefined,
         githubRules: needsNetwork ? githubOriginRules() : undefined },
@@ -355,7 +381,7 @@ export class LocalProjectService {
           return;
         }
         void runGitTask<GitProjectStatus>({ action: 'status', path: record.localPath }).result
-          .then((status) => this.send('easyhub:local-status', { id: record.id, status: { files: status.files, needsReview: status.hasPreparedChanges, pendingPublish: status.pendingPublish, pendingMessage: status.pendingMessage } }))
+          .then((status) => this.send('easyhub:local-status', { id: record.id, status: { files: status.files, needsReview: status.hasPreparedChanges, pendingPublish: status.pendingPublish, pendingMessage: status.pendingMessage, branch: status.branch, pushable: status.pushable } }))
           .catch(() => undefined);
       };
       const watcher = watch(record.localPath, { recursive: true }, (_event, filename) => {

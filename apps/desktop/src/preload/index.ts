@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('easyHub', {
   localFileDiff: (id: string, path: string, snapshot: string) => ipcRenderer.invoke('easyhub:local-file-diff', id, path, snapshot),
   localCancelPreview: (id: string) => ipcRenderer.invoke('easyhub:local-cancel-preview', id),
   localPublish: (id: string, message: string, selection?: LocalPublishSelection) => ipcRenderer.invoke('easyhub:local-publish', id, message, selection),
+  localPushBranch: (id: string) => ipcRenderer.invoke('easyhub:local-push-branch', id),
   localCheckSync: (id: string) => ipcRenderer.invoke('easyhub:local-check-sync', id),
   localSync: (id: string, revision: string | undefined, decisions: unknown[]) => ipcRenderer.invoke('easyhub:local-sync', id, revision, decisions),
   localCancel: () => ipcRenderer.invoke('easyhub:local-cancel'),

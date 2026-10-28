@@ -122,10 +122,23 @@ export interface LocalProjectStatus {
   needsReview: boolean;
   pendingPublish?: boolean;
   pendingMessage?: string;
+  /** The local branch every publish and push goes to; undefined when the folder is not on a branch. */
+  branch?: string;
+  /** The branch has saved versions GitHub does not have yet (for example commits made with another Git tool). */
+  pushable?: boolean;
 }
 
 export interface LocalPublishPreview extends LocalProjectStatus { snapshot: string }
-export interface LocalPublishSelection { snapshot: string; paths: string[]; sensitiveConfirmed?: boolean }
+/** One saved version in a multi-step publish: its files and an optional one-line description. */
+export interface LocalPublishBatch { paths: string[]; message?: string }
+export interface LocalPublishSelection {
+  snapshot: string;
+  paths: string[];
+  sensitiveConfirmed?: boolean;
+  /** Splits `paths` into several saved versions, in order; `paths` must be all batch paths in that order. */
+  batches?: LocalPublishBatch[];
+}
+export interface LocalPushBranchResult { state: 'pushed' | 'created' | 'current'; branch: string }
 export interface LocalDiffLine { kind: 'context' | 'added' | 'deleted'; text: string; before?: number; after?: number }
 export interface LocalFileDiff {
   path: string;

@@ -3,7 +3,7 @@ import { useEasyHub } from '../bridge';
 import { ErrorMessage } from './ErrorMessage';
 import { errorText } from '../errors';
 import { useEffect, useRef, useState } from 'react';
-import type { ChangedFile, LocalFileDiff, LocalPublishPreview, LocalPublishSelection } from '@easyhub/types';
+import type { ChangedFile, LocalFileDiff, LocalPublishBatch, LocalPublishPreview, LocalPublishSelection } from '@easyhub/types';
 import { ChevronDown, RotateCw } from 'lucide-react';
 
 import { CodeExplanation } from './CodeExplanation';
@@ -32,6 +32,10 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
   const [loading, setLoading] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
   const [error, setError] = useState('');
+  const [split, setSplit] = useState(false);
+  const [groupCount, setGroupCount] = useState(2);
+  const [groupOf, setGroupOf] = useState<Record<string, number>>({});
+  const [groupNotes, setGroupNotes] = useState<string[]>([]);
   const generation = useRef(0);
   const request = useRef(0);
   const selectAll = useRef<HTMLInputElement>(null);
@@ -46,6 +50,10 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
     setDiffs({});
     setError('');
     setLoading(null);
+    setSplit(false);
+    setGroupCount(2);
+    setGroupOf({});
+    setGroupNotes([]);
     onSelection(id, null);
     setReading(true);
     void easyHub
@@ -91,15 +99,56 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
       selectAll.current.indeterminate = selected.length > 0 && selected.length < (preview?.files.length ?? 0);
   }, [selected, preview]);
 
-  function select(paths: string[]): void {
+  function report(
+    paths: string[],
+    grouping: { split: boolean; count: number; of: Record<string, number>; notes: string[] } = {
+      split,
+      count: groupCount,
+      of: groupOf,
+      notes: groupNotes,
+    },
+  ): void {
     if (!preview) return;
-    setSelected(paths);
+    // Several groups are sent in order; one group (or none) is the ordinary single save.
+    const groups: LocalPublishBatch[] = grouping.split
+      ? Array.from({ length: grouping.count }, (_, index) => ({
+          paths: paths.filter((path) => (grouping.of[path] ?? 0) === index),
+          message: grouping.notes[index]?.trim() || undefined,
+        })).filter((group) => group.paths.length)
+      : [];
+    const batches = groups.length > 1 ? groups : undefined;
     onSelection(
       id,
-      preview.needsReview ? null : { snapshot: preview.snapshot, paths },
+      preview.needsReview
+        ? null
+        : { snapshot: preview.snapshot, paths: batches ? batches.flatMap((batch) => batch.paths) : paths, batches },
       preview.pendingPublish,
       preview.files.filter((file) => paths.includes(file.path) && file.sensitiveReasons?.length),
     );
+  }
+  function select(paths: string[]): void {
+    setSelected(paths);
+    report(paths);
+  }
+  function changeSplit(value: boolean): void {
+    setSplit(value);
+    report(selected, { split: value, count: groupCount, of: groupOf, notes: groupNotes });
+  }
+  function changeGroup(path: string, index: number): void {
+    const of = { ...groupOf, [path]: index };
+    setGroupOf(of);
+    report(selected, { split, count: groupCount, of, notes: groupNotes });
+  }
+  function addGroup(): void {
+    const count = Math.min(groupCount + 1, 10);
+    setGroupCount(count);
+    report(selected, { split, count, of: groupOf, notes: groupNotes });
+  }
+  function changeNote(index: number, value: string): void {
+    const notes = [...groupNotes];
+    notes[index] = value;
+    setGroupNotes(notes);
+    report(selected, { split, count: groupCount, of: groupOf, notes });
   }
   async function cancelReading(): Promise<void> {
     const current = ++generation.current;
@@ -190,6 +239,38 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
           {t('localChangeSelector.selectAll')}
         </label>
       )}
+      {preview && selected.length > 1 && !preview.needsReview && !preview.pendingPublish && (
+        <div className="local-split">
+          <label>
+            <input
+              type="checkbox"
+              checked={split}
+              disabled={disabled}
+              onChange={(event) => changeSplit(event.target.checked)}
+            />
+            {t('localChangeSelector.splitIntoVersions')}
+          </label>
+          {split && (
+            <>
+              <small>{t('localChangeSelector.splitHint')}</small>
+              {Array.from({ length: groupCount }, (_, index) => (
+                <input
+                  key={index}
+                  aria-label={t('localChangeSelector.groupNote', { p0: index + 1 })}
+                  placeholder={t('localChangeSelector.groupNote', { p0: index + 1 })}
+                  maxLength={200}
+                  disabled={disabled}
+                  value={groupNotes[index] ?? ''}
+                  onChange={(event) => changeNote(index, event.target.value)}
+                />
+              ))}
+              <button className="text-link" type="button" disabled={disabled || groupCount >= 10} onClick={addGroup}>
+                {t('localChangeSelector.addGroup')}
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {preview?.files.map((file) => {
         const diff = diffs[file.path];
         return (
@@ -223,6 +304,21 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
                   </span>
                 ) : null}
               </label>
+              {split && selected.includes(file.path) && !preview.pendingPublish && (
+                <select
+                  className="local-group-select"
+                  aria-label={t('localChangeSelector.groupOfFile', { p0: file.path })}
+                  disabled={disabled}
+                  value={groupOf[file.path] ?? 0}
+                  onChange={(event) => changeGroup(file.path, Number(event.target.value))}
+                >
+                  {Array.from({ length: groupCount }, (_, index) => (
+                    <option key={index} value={index}>
+                      {t('localChangeSelector.groupName', { p0: index + 1 })}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button
                 type="button"
                 className="text-link"

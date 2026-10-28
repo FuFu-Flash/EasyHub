@@ -9430,3 +9430,6 @@ body {
   color: var(--eh-color-ink-soft);
   font-weight: var(--eh-weight-500);
 }
+.local-split { display: grid; gap: 8px; margin: 8px 0; }
+.local-split input:not([type='checkbox']) { width: 100%; }
+.local-group-select { max-width: 120px; }

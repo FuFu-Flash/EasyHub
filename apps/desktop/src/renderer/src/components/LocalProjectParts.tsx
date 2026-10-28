@@ -59,6 +59,7 @@ export function LocalPublishForm({
   language,
   status,
   targetPrivate,
+  defaultBranch,
   message,
   onMessageChange,
   inputRef,
@@ -69,6 +70,7 @@ export function LocalPublishForm({
   language: Language;
   status: LocalProjectStatus;
   targetPrivate: boolean | undefined;
+  defaultBranch: string | undefined;
   message: string;
   onMessageChange: (value: string) => void;
   inputRef: RefObject<HTMLInputElement | null>;
@@ -85,6 +87,13 @@ export function LocalPublishForm({
           ? t('localWorkspace.targetRepositoryPrivateVisibleToAuthorizedPeopleOnly')
           : t('localWorkspace.targetRepositoryPublicAnyoneCanReadPublishedFilesDo')}
       </p>
+      {status.branch && (
+        <p>
+          {status.branch === defaultBranch || !defaultBranch
+            ? t('localWorkspace.publishToBranch', { p0: status.branch })
+            : t('localWorkspace.publishToOtherBranch', { p0: status.branch, p1: defaultBranch })}
+        </p>
+      )}
       <div className="local-publish-row">
         <label className="field">
           <span>
