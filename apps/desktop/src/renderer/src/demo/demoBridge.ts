@@ -439,7 +439,8 @@ export function createDemoBridge(
           throw demoError('[SENSITIVE_FILES] 请确认可能包含密码或密钥的文件。');
         item.files = item.files.filter((file) => !selection.paths.includes(file.path));
         item.revision++;
-        for (const batch of batches) repo.commits.unshift(demoCommit(next(), batch.message?.trim() || message, batch.paths));
+        for (const batch of batches)
+          repo.commits.unshift(demoCommit(next(), batch.message?.trim() || message, batch.paths));
         repo.repo.updated_at = new Date().toISOString();
         if (selection.paths.includes('README.md')) repo.readme = item.readme;
         emitLocal(item);

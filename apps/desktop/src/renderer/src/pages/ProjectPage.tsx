@@ -156,7 +156,8 @@ export function ProjectPage() {
     }
   }
   if (!selected) return <PageStatus loading error="" />;
-  const canManage = selected.owner.login.toLowerCase() === user.login.toLowerCase() || Boolean(selected.permissions?.admin);
+  const canManage =
+    selected.owner.login.toLowerCase() === user.login.toLowerCase() || Boolean(selected.permissions?.admin);
 
   return (
     <>

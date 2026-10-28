@@ -2,7 +2,13 @@ import type { MenuCommand, MenuState } from '../../shared/applicationMenu';
 import type { GitHubUser } from '@easyhub/github';
 import type { AuthStatus } from '../../shared/auth';
 import type { DownloadCommand, DownloadItem, DownloadRequest } from '../../downloads';
-import type { LocalFileDiff, LocalPublishPreview, LocalPublishSelection, LocalPushBranchResult, LocalBranchList } from '@easyhub/types';
+import type {
+  LocalFileDiff,
+  LocalPublishPreview,
+  LocalPublishSelection,
+  LocalPushBranchResult,
+  LocalBranchList,
+} from '@easyhub/types';
 import type {
   FolderInspection,
   LocalDiscoveryResult,

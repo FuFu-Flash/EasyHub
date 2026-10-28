@@ -257,28 +257,28 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
             </ul>
           )}
           {!disabled && (
-        <div className="github-proxy-actions">
-          {(busy && busy !== 'cleanup') || status?.state === 'checking' ? (
-            <button type="button" className="button button-quiet" onClick={() => void cancel()}>
-              {t('hostsRepairPanel.cancel')}
-            </button>
-          ) : !status ? (
-            <button type="button" className="button button-quiet" disabled={loading} onClick={() => void reload()}>
-              <RotateCw size={15} />
-              {t('hostsRepairPanel.retry')}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="button button-quiet"
-              disabled={Boolean(busy) || loading}
-              onClick={() => void act('refresh')}
-            >
-              <RotateCw size={15} />
-              {t('hostsRepairPanel.testConnection')}
-            </button>
-          )}
-        </div>
+            <div className="github-proxy-actions">
+              {(busy && busy !== 'cleanup') || status?.state === 'checking' ? (
+                <button type="button" className="button button-quiet" onClick={() => void cancel()}>
+                  {t('hostsRepairPanel.cancel')}
+                </button>
+              ) : !status ? (
+                <button type="button" className="button button-quiet" disabled={loading} onClick={() => void reload()}>
+                  <RotateCw size={15} />
+                  {t('hostsRepairPanel.retry')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="button button-quiet"
+                  disabled={Boolean(busy) || loading}
+                  onClick={() => void act('refresh')}
+                >
+                  <RotateCw size={15} />
+                  {t('hostsRepairPanel.testConnection')}
+                </button>
+              )}
+            </div>
           )}
         </div>
         {connectionError && (

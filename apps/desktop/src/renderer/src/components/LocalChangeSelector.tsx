@@ -3,7 +3,13 @@ import { useEasyHub } from '../bridge';
 import { ErrorMessage } from './ErrorMessage';
 import { errorText } from '../errors';
 import { useEffect, useRef, useState } from 'react';
-import type { ChangedFile, LocalFileDiff, LocalPublishBatch, LocalPublishPreview, LocalPublishSelection } from '@easyhub/types';
+import type {
+  ChangedFile,
+  LocalFileDiff,
+  LocalPublishBatch,
+  LocalPublishPreview,
+  LocalPublishSelection,
+} from '@easyhub/types';
 import { ChevronDown, RotateCw } from 'lucide-react';
 
 import { CodeExplanation } from './CodeExplanation';
@@ -279,152 +285,162 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
       )}
       {preview && longList && !grouped && (
         <div className="local-selection-fold">
-          <button className="text-link" type="button" aria-expanded={showFiles} onClick={() => setShowFiles((value) => !value)}>
+          <button
+            className="text-link"
+            type="button"
+            aria-expanded={showFiles}
+            onClick={() => setShowFiles((value) => !value)}
+          >
             {showFiles
               ? t('localChangeSelector.hideFileList')
               : t('localChangeSelector.showFileList', { p0: preview.files.length })}
             <ChevronDown size={14} />
           </button>
           {!showFiles && sensitiveCount > 0 && (
-            <small className="local-sensitive-warning">{t('localChangeSelector.sensitiveFolded', { p0: sensitiveCount })}</small>
+            <small className="local-sensitive-warning">
+              {t('localChangeSelector.sensitiveFolded', { p0: sensitiveCount })}
+            </small>
           )}
         </div>
       )}
-      {preview && expanded && orderedFiles.map((file) => {
-        const diff = diffs[file.path];
-        const group = groupOf[file.path] ?? 0;
-        const firstOfGroup = grouped && selected.includes(file.path) && !seenGroups.has(group) && seenGroups.add(group);
-        return (
-          <div className="local-selection-file" key={file.path}>
-            {firstOfGroup && (
-              <div className="local-group-head">
-                <strong>{t('localChangeSelector.groupName', { p0: group + 1 })}</strong>
-                <input
-                  aria-label={t('localChangeSelector.groupNote', { p0: group + 1 })}
-                  placeholder={t('localChangeSelector.groupNote', { p0: group + 1 })}
-                  maxLength={200}
-                  disabled={disabled}
-                  value={groupNotes[group] ?? ''}
-                  onChange={(event) => changeNote(group, event.target.value)}
-                />
-              </div>
-            )}
-            <div className="local-selection-row">
-              <label>
-                <input
-                  type="checkbox"
-                  aria-label={t('localChangeSelector.publishFileLabel', {
-                    p0: t('localChangeSelector.publish'),
-                    p1: file.path,
-                  })}
-                  checked={selected.includes(file.path)}
-                  disabled={disabled || preview.needsReview || preview.pendingPublish}
-                  onChange={(event) =>
-                    select(
-                      event.target.checked ? [...selected, file.path] : selected.filter((path) => path !== file.path),
-                    )
-                  }
-                />
-                <span className={`local-change-kind ${file.kind}`}>{verbs[file.kind]}</span>
-                <span className="local-selection-path" data-content-original="true" title={file.path}>
-                  {file.previousPath ? `${file.previousPath} → ` : ''}
-                  {file.path}
-                </span>
-                {file.sensitiveReasons?.length ? (
-                  <span className="local-sensitive-tag">
-                    {selected.includes(file.path)
-                      ? t('localChangeSelector.sensitiveIncluded')
-                      : t('localChangeSelector.sensitiveSkipped')}
-                  </span>
-                ) : null}
-              </label>
-              {split && selected.includes(file.path) && !preview.pendingPublish && (
-                <select
-                  className="local-group-select"
-                  aria-label={t('localChangeSelector.groupOfFile', { p0: file.path })}
-                  disabled={disabled}
-                  value={groupOf[file.path] ?? 0}
-                  onChange={(event) => changeGroup(file.path, Number(event.target.value))}
-                >
-                  {Array.from({ length: groupCount }, (_, index) => (
-                    <option key={index} value={index}>
-                      {t('localChangeSelector.groupName', { p0: index + 1 })}
-                    </option>
-                  ))}
-                </select>
+      {preview &&
+        expanded &&
+        orderedFiles.map((file) => {
+          const diff = diffs[file.path];
+          const group = groupOf[file.path] ?? 0;
+          const firstOfGroup =
+            grouped && selected.includes(file.path) && !seenGroups.has(group) && seenGroups.add(group);
+          return (
+            <div className="local-selection-file" key={file.path}>
+              {firstOfGroup && (
+                <div className="local-group-head">
+                  <strong>{t('localChangeSelector.groupName', { p0: group + 1 })}</strong>
+                  <input
+                    aria-label={t('localChangeSelector.groupNote', { p0: group + 1 })}
+                    placeholder={t('localChangeSelector.groupNote', { p0: group + 1 })}
+                    maxLength={200}
+                    disabled={disabled}
+                    value={groupNotes[group] ?? ''}
+                    onChange={(event) => changeNote(group, event.target.value)}
+                  />
+                </div>
               )}
-              <button
-                type="button"
-                className="text-link"
-                disabled={disabled}
-                aria-expanded={open === file.path}
-                onClick={() => void showDiff(file.path)}
-              >
-                {open === file.path ? t('localChangeSelector.hideChanges') : t('localChangeSelector.viewChanges')}
-                <ChevronDown size={14} />
-              </button>
-            </div>
-            {open === file.path && (
-              <div className="local-diff-panel">
-                {loading === file.path ? (
-                  <p role="status">{t('localChangeSelector.loadingFile')}</p>
-                ) : diff?.unavailable ? (
-                  <p>
-                    {diff.unavailable === 'binary'
-                      ? t('localChangeSelector.thisIsAnImageProgramOrOtherNonText')
-                      : t('localChangeSelector.thisFileIsTooLargeForALinePreview')}
-                  </p>
-                ) : (
-                  diff && (
-                    <>
-                      <div className="local-diff-summary">
-                        <span>+{diff.additions}</span>
-                        <span>−{diff.deletions}</span>
-                        {file.kind === 'renamed' && !diff.additions && !diff.deletions && (
-                          <small>{t('localChangeSelector.fileContentsUnchanged')}</small>
-                        )}
-                      </div>
-                      <CodeExplanation
-                        source={{ kind: 'local', projectId: id, snapshot: preview.snapshot, path: file.path }}
-                        language={english ? 'en' : 'zh'}
-                      >
-                        <div
-                          className="local-diff-lines"
-                          data-code-selection-region
-                          data-content-original="true"
-                          tabIndex={0}
-                          aria-label={t('localChangeSelector.lineByLineChanges')}
-                        >
-                          {diff.lines.map((line, index) => (
-                            <div className={`local-diff-line ${line.kind}`} key={index}>
-                              <span aria-hidden="true">{line.before ?? ''}</span>
-                              <span aria-hidden="true">{line.after ?? ''}</span>
-                              <span aria-hidden="true">
-                                {line.kind === 'added' ? '+' : line.kind === 'deleted' ? '−' : ' '}
-                              </span>
-                              <code data-explain-code>{line.text}</code>
-                            </div>
-                          ))}
-                        </div>
-                      </CodeExplanation>
-                    </>
-                  )
+              <div className="local-selection-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    aria-label={t('localChangeSelector.publishFileLabel', {
+                      p0: t('localChangeSelector.publish'),
+                      p1: file.path,
+                    })}
+                    checked={selected.includes(file.path)}
+                    disabled={disabled || preview.needsReview || preview.pendingPublish}
+                    onChange={(event) =>
+                      select(
+                        event.target.checked ? [...selected, file.path] : selected.filter((path) => path !== file.path),
+                      )
+                    }
+                  />
+                  <span className={`local-change-kind ${file.kind}`}>{verbs[file.kind]}</span>
+                  <span className="local-selection-path" data-content-original="true" title={file.path}>
+                    {file.previousPath ? `${file.previousPath} → ` : ''}
+                    {file.path}
+                  </span>
+                  {file.sensitiveReasons?.length ? (
+                    <span className="local-sensitive-tag">
+                      {selected.includes(file.path)
+                        ? t('localChangeSelector.sensitiveIncluded')
+                        : t('localChangeSelector.sensitiveSkipped')}
+                    </span>
+                  ) : null}
+                </label>
+                {split && selected.includes(file.path) && !preview.pendingPublish && (
+                  <select
+                    className="local-group-select"
+                    aria-label={t('localChangeSelector.groupOfFile', { p0: file.path })}
+                    disabled={disabled}
+                    value={groupOf[file.path] ?? 0}
+                    onChange={(event) => changeGroup(file.path, Number(event.target.value))}
+                  >
+                    {Array.from({ length: groupCount }, (_, index) => (
+                      <option key={index} value={index}>
+                        {t('localChangeSelector.groupName', { p0: index + 1 })}
+                      </option>
+                    ))}
+                  </select>
                 )}
+                <button
+                  type="button"
+                  className="text-link"
+                  disabled={disabled}
+                  aria-expanded={open === file.path}
+                  onClick={() => void showDiff(file.path)}
+                >
+                  {open === file.path ? t('localChangeSelector.hideChanges') : t('localChangeSelector.viewChanges')}
+                  <ChevronDown size={14} />
+                </button>
               </div>
-            )}
-            {file.sensitiveReasons?.length ? (
-              <details className="local-sensitive-warning">
-                <summary>{t('localChangeSelector.mayContainPasswordsOrKeys')}</summary>
-                <ul>
-                  {file.sensitiveReasons.map((reason) => (
-                    <li key={reason}>{sensitiveReasonText(reason, english ? 'en' : 'zh')}</li>
-                  ))}
-                </ul>
-              </details>
-            ) : null}
-          </div>
-        );
-      })}
+              {open === file.path && (
+                <div className="local-diff-panel">
+                  {loading === file.path ? (
+                    <p role="status">{t('localChangeSelector.loadingFile')}</p>
+                  ) : diff?.unavailable ? (
+                    <p>
+                      {diff.unavailable === 'binary'
+                        ? t('localChangeSelector.thisIsAnImageProgramOrOtherNonText')
+                        : t('localChangeSelector.thisFileIsTooLargeForALinePreview')}
+                    </p>
+                  ) : (
+                    diff && (
+                      <>
+                        <div className="local-diff-summary">
+                          <span>+{diff.additions}</span>
+                          <span>−{diff.deletions}</span>
+                          {file.kind === 'renamed' && !diff.additions && !diff.deletions && (
+                            <small>{t('localChangeSelector.fileContentsUnchanged')}</small>
+                          )}
+                        </div>
+                        <CodeExplanation
+                          source={{ kind: 'local', projectId: id, snapshot: preview.snapshot, path: file.path }}
+                          language={english ? 'en' : 'zh'}
+                        >
+                          <div
+                            className="local-diff-lines"
+                            data-code-selection-region
+                            data-content-original="true"
+                            tabIndex={0}
+                            aria-label={t('localChangeSelector.lineByLineChanges')}
+                          >
+                            {diff.lines.map((line, index) => (
+                              <div className={`local-diff-line ${line.kind}`} key={index}>
+                                <span aria-hidden="true">{line.before ?? ''}</span>
+                                <span aria-hidden="true">{line.after ?? ''}</span>
+                                <span aria-hidden="true">
+                                  {line.kind === 'added' ? '+' : line.kind === 'deleted' ? '−' : ' '}
+                                </span>
+                                <code data-explain-code>{line.text}</code>
+                              </div>
+                            ))}
+                          </div>
+                        </CodeExplanation>
+                      </>
+                    )
+                  )}
+                </div>
+              )}
+              {file.sensitiveReasons?.length ? (
+                <details className="local-sensitive-warning">
+                  <summary>{t('localChangeSelector.mayContainPasswordsOrKeys')}</summary>
+                  <ul>
+                    {file.sensitiveReasons.map((reason) => (
+                      <li key={reason}>{sensitiveReasonText(reason, english ? 'en' : 'zh')}</li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+            </div>
+          );
+        })}
       {preview && !preview.files.length && (
         <p className="muted">
           {preview.pendingPublish

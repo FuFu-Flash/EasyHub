@@ -358,8 +358,7 @@ export const zh = {
   'layoutSettingsPanel.compact': '紧凑',
   'layoutSettingsPanel.smallerControlsAndHeadingsMoreContent': '缩小控件与标题，查看更多内容',
   'layoutSettingsPanel.interfaceLayout': '界面布局',
-  'layoutSettingsPanel.adjustInterfaceSizeAndSpacingChangesApplyImmediatelyAnd':
-    '调整界面大小与间距。',
+  'layoutSettingsPanel.adjustInterfaceSizeAndSpacingChangesApplyImmediatelyAnd': '调整界面大小与间距。',
   'liveProjectDangerZone.authorizationExpiredTryAgain': '授权已过期，请重新尝试。',
   'liveProjectDangerZone.authorizationSucceededClickDeleteProjectAgainToDeleteIt':
     '授权成功。请再次点击“删除此项目”执行删除。',
@@ -1319,16 +1318,14 @@ export const zh = {
   'settingsPage.yourProjectsRemainOnGithub': '。你的项目仍保存在 GitHub。',
   'settingsPage.signOut': '退出登录',
   'settingsPage.windowControls': '窗口控件',
-  'settingsPage.chooseTheStyleOfTheWindowButtonsChangesTake':
-    '选择窗口顶部按钮的外观。',
+  'settingsPage.chooseTheStyleOfTheWindowButtonsChangesTake': '选择窗口顶部按钮的外观。',
   'settingsPage.windowControlStyle': '窗口控件样式',
   'settingsPage.windowsStyle': 'Windows 风格',
   'settingsPage.topRightButtons': '右上角按钮',
   'settingsPage.dotStyle': '圆点风格',
   'settingsPage.referenceTopLeft': '左上角圆点',
   'settingsPage.contentTranslation': '内容翻译',
-  'settingsPage.useTheTranslationSwitchInTheTopBarTo':
-    '使用顶部的翻译开关查看译文，再次关闭即可查看原文。',
+  'settingsPage.useTheTranslationSwitchInTheTopBarTo': '使用顶部的翻译开关查看译文，再次关闭即可查看原文。',
   'settingsPage.targetLanguage': '目标语言',
   'settingsPage.translationTargetLanguage': '翻译目标语言',
   'settingsPage.simplifiedChinese': '简体中文',

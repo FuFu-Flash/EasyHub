@@ -127,11 +127,7 @@ export function SettingsPage() {
           </div>
         </section>
         <ThemeSettingsPanel language={language} preference={theme.preference} onChange={theme.setPreference} />
-        <LayoutSettingsPanel
-          language={language}
-          preference={layout.preference}
-          onChange={layout.setPreference}
-        />
+        <LayoutSettingsPanel language={language} preference={layout.preference} onChange={layout.setPreference} />
         <AiSettingsPanel language={language} />
         <section className="panel settings-panel">
           <div className="settings-icon blue">

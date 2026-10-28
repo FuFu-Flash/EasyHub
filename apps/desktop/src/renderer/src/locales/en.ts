@@ -383,8 +383,7 @@ export const en = {
   'layoutSettingsPanel.compact': 'Compact',
   'layoutSettingsPanel.smallerControlsAndHeadingsMoreContent': 'Smaller controls and headings, more content',
   'layoutSettingsPanel.interfaceLayout': 'Interface Layout',
-  'layoutSettingsPanel.adjustInterfaceSizeAndSpacingChangesApplyImmediatelyAnd':
-    'Adjust interface size and spacing.',
+  'layoutSettingsPanel.adjustInterfaceSizeAndSpacingChangesApplyImmediatelyAnd': 'Adjust interface size and spacing.',
   'liveProjectDangerZone.authorizationExpiredTryAgain': 'Authorization expired. Try again.',
   'liveProjectDangerZone.authorizationSucceededClickDeleteProjectAgainToDeleteIt':
     'Authorization succeeded. Click “Delete project” again to delete it.',
@@ -478,10 +477,12 @@ export const en = {
   'localChangeSelector.refreshChanges': 'Refresh changes',
   'localChangeSelector.showFileList': 'Show file list ({p0})',
   'localChangeSelector.hideFileList': 'Hide file list',
-  'localChangeSelector.sensitiveFolded': '{p0} of them may contain passwords or keys and are not selected. Show the list to review them.',
+  'localChangeSelector.sensitiveFolded':
+    '{p0} of them may contain passwords or keys and are not selected. Show the list to review them.',
   'localChangeSelector.selectAll': 'Select all',
   'localChangeSelector.splitIntoVersions': 'Save in several steps (one version per group)',
-  'localChangeSelector.splitHint': 'Each group is saved as its own version, then everything is uploaded to GitHub at once.',
+  'localChangeSelector.splitHint':
+    'Each group is saved as its own version, then everything is uploaded to GitHub at once.',
   'localChangeSelector.groupNote': 'Note for group {p0} (optional)',
   'localChangeSelector.groupOfFile': 'Group for {p0}',
   'localChangeSelector.groupName': 'Group {p0}',
@@ -1287,7 +1288,7 @@ export const en = {
   'localWorkspace.viewChanges': 'View Changes',
   'localWorkspace.getLatest': 'Get Latest',
   'localWorkspace.publishToBranch': 'Will publish to branch: {p0}',
-  'localWorkspace.publishToOtherBranch': 'Will publish to branch: {p0} (the project\'s main branch is {p1})',
+  'localWorkspace.publishToOtherBranch': "Will publish to branch: {p0} (the project's main branch is {p1})",
   'localWorkspace.switchBranch': 'Switch branch',
   'localWorkspace.newBranch': 'New branch',
   'localWorkspace.newBranchName': 'Name of the new branch',
@@ -1490,8 +1491,7 @@ export const en = {
   'settingsPage.yourProjectsRemainOnGithub': '. Your projects remain on GitHub.',
   'settingsPage.signOut': 'Sign Out',
   'settingsPage.windowControls': 'Window Controls',
-  'settingsPage.chooseTheStyleOfTheWindowButtonsChangesTake':
-    'Choose the style of the window buttons.',
+  'settingsPage.chooseTheStyleOfTheWindowButtonsChangesTake': 'Choose the style of the window buttons.',
   'settingsPage.windowControlStyle': 'Window control style',
   'settingsPage.windowsStyle': 'Windows Style',
   'settingsPage.topRightButtons': 'Top-right buttons',
