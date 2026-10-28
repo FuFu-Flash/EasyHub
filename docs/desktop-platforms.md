@@ -1,8 +1,8 @@
 # 桌面平台开发与构建
 
-分支归属以根目录 [AGENTS.md](../AGENTS.md) 为准。`main` 保留 Windows/Android 与共享功能基线；Mac 开发源码在 [macos](https://github.com/FuFu-Flash/EasyHub/tree/macos)。
+所有平台都在 `main` 开发，规则以根目录 [AGENTS.md](../AGENTS.md) 为准。平台差异放在下表的 `platforms/` 和 `build/` 目录，共享界面按运行平台判断（如 `platform === 'darwin'`）。
 
-建议用两个独立的 Git 检出目录分别开发 Windows 与 Mac。同步共享功能时从 main 选择提交合入 Mac 分支；Mac 平台改动不整分支合回 main。
+原来的 [macos](https://github.com/FuFu-Flash/EasyHub/tree/macos) 分支已合回 `main` 并停止使用，只保留历史。
 
 ## 目录
 
@@ -21,8 +21,8 @@
 
 在仓库根目录安装锁定依赖：`pnpm install --frozen-lockfile`。
 
-- Windows 系统、main 分支：`pnpm package:win`。安装版与便携版在 `apps/desktop/release/windows`。
-- Apple Silicon Mac、macos 分支：`pnpm package:mac`。DMG 和 ZIP 在 `apps/desktop/release/macos`。
+- Windows 系统：`pnpm package:win`。安装版与便携版在 `apps/desktop/release/windows`。
+- Apple Silicon Mac：`pnpm package:mac`。DMG 和 ZIP 在 `apps/desktop/release/macos`。
 - 两端通用：`pnpm typecheck`、`pnpm lint`、`pnpm test`、`pnpm build`。
 
 发布构建显式指定平台配置，并将平台中间文件映射为 ASAR 内统一的 out 目录。普通开发和现有 smoke 入口不变。构建不会自动上传安装包或创建发行版。

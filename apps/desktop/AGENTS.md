@@ -1,6 +1,6 @@
 # 桌面平台边界
 
-遵守根目录 AGENTS.md 的分支归属和提交规则。
+遵守根目录 AGENTS.md 的分支和提交规则：所有平台都在 `main` 开发，平台差异按下面的目录放置并按运行平台判断。
 
 - 共享业务：`src/renderer`、`src/preload`、`src/shared`、`src/main/services`；原生实现分别放到 `src/main/platforms/windows` 与 `src/main/platforms/macos`。
 - 两端通过 `src/shared/systemProxy.ts` 的平台无关接口连接 GitHub 代理；Mac 代码不依赖 Windows 实现或其命名类型。

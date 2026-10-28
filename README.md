@@ -47,7 +47,7 @@ Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，�
 
 ## macOS 必看
 
-开发源码按平台分支维护：Windows / Android 使用 `main`，macOS 使用 [`macos`](https://github.com/FuFu-Flash/EasyHub/tree/macos)。平台目录与构建入口见 [桌面平台分类](docs/desktop-platforms.md)。
+所有平台的源码都在 `main` 开发，平台差异放在 `platforms/` 目录并按运行平台判断；原来的 `macos` 分支已停止使用。平台目录与构建入口见 [桌面平台分类](docs/desktop-platforms.md)。
 
 当前 Mac 包为 **1.4.1（构建 22）**，DMG **73.7 MB**。对应源码见 [macos-v1.4.1](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.4.1)。
 

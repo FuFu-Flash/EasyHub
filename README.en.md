@@ -47,7 +47,7 @@ The Windows editions are for 64-bit PCs. The installer detects a previous instal
 
 ## macOS must-read
 
-Development branches: Windows / Android use `main`; macOS uses [`macos`](https://github.com/FuFu-Flash/EasyHub/tree/macos). See [desktop platform layout and build commands](docs/desktop-platforms.md).
+All platforms are developed on `main`; platform differences live in `platforms/` folders and are chosen by the running platform. The former `macos` branch is no longer used. See [desktop platform layout and build commands](docs/desktop-platforms.md).
 
 The current Mac package is **1.4.1 (build 22)**. The DMG is **73.7 MB**. Matching source: [macos-v1.4.1](https://github.com/FuFu-Flash/EasyHub/tree/macos-v1.4.1).
 
