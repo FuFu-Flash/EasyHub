@@ -485,6 +485,9 @@ export function LocalWorkspace({
     : selectedLink
       ? repos.filter((repo) => repo.id === selectedLink.repositoryId)
       : repos;
+  // The branch picker sits beside the title when the page shows one project.
+  const headerItem = singleProject && effectiveMode !== 'create' ? visibleLinks[0] : undefined;
+  const headerStatus = headerItem ? statuses[headerItem.id] : undefined;
   return (
     <div className="local-workspace">
       <button className="back-link" onClick={onBack}>
@@ -492,12 +495,25 @@ export function LocalWorkspace({
         {t('localWorkspace.back')}
       </button>
       <div className="page-header">
-        <div>
+        <div className="local-title-row">
           <h1 ref={title} tabIndex={-1}>
             {effectiveMode === 'create'
               ? t('localWorkspace.newProject')
               : (selectedLink?.name ?? selectedRepo?.name ?? t('localWorkspace.localProjects'))}
           </h1>
+          {headerItem && headerStatus?.branch && !statusErrors[headerItem.id] && (
+            <LocalBranchBar
+              id={headerItem.id}
+              current={headerStatus.branch}
+              busy={busy}
+              onSwitch={(name) =>
+                changeBranch(() => api!.localSwitchBranch(headerItem.id, name), 'localWorkspace.switchedBranch', name)
+              }
+              onCreate={(name) =>
+                changeBranch(() => api!.localCreateBranch(headerItem.id, name), 'localWorkspace.createdBranch', name)
+              }
+            />
+          )}
         </div>
       </div>
       {error && (
@@ -592,19 +608,6 @@ export function LocalWorkspace({
               </span>
             </div>
             <p className="muted">{item.localPath}</p>
-            {!statusError && status?.branch && (
-              <LocalBranchBar
-                id={item.id}
-                current={status.branch}
-                busy={busy}
-                onSwitch={(name) =>
-                  changeBranch(() => api!.localSwitchBranch(item.id, name), 'localWorkspace.switchedBranch', name)
-                }
-                onCreate={(name) =>
-                  changeBranch(() => api!.localCreateBranch(item.id, name), 'localWorkspace.createdBranch', name)
-                }
-              />
-            )}
             {statusError ? (
               <LocalFolderError
                 language={language}

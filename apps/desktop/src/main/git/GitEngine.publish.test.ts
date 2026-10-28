@@ -20,6 +20,7 @@ class FakeGithubEngine extends GitEngine {
   readonly pushes: Array<{ head: string; branch: string }> = [];
   offline = false;
   protected override async remoteBranchHead(_repo: GitRepository, branch: string): Promise<string | null> { return this.remote.get(branch) ?? null; }
+  protected override async remoteBranchNames(): Promise<string[]> { return [...this.remote.keys()]; }
   protected override async fetchRemote(_dir: string, _repo: GitRepository, branch: string): Promise<string | null> { return this.remote.get(branch) ?? null; }
   protected override async sendPush(_dir: string, _repo: GitRepository, _token: string, head: string, branch: string): Promise<void> {
     if (this.offline) throw new Error('offline');
@@ -289,5 +290,13 @@ describe('switching and creating branches', () => {
     await writeFile(join(dir, 'a.txt'), 'a');
     expect((await engine.switchBranch(dir, 'main')).current).toBe('main');
     await expect(engine.switchBranch(dir, 'missing')).rejects.toThrow('找不到这个分支');
+  });
+
+  it('lists the branches GitHub has and downloads one this computer does not have yet', async () => {
+    const { dir, engine, first } = await project();
+    engine.remote.set('macos', first);
+    expect((await engine.listBranches(dir, repo, 'token')).branches).toEqual(['macos', 'main']);
+    expect(await engine.switchBranch(dir, 'macos', repo, 'token')).toMatchObject({ current: 'macos' });
+    await expect(engine.switchBranch(dir, 'ghost', repo, 'token')).rejects.toThrow('找不到这个分支');
   });
 });

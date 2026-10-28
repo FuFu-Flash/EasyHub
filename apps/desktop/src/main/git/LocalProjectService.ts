@@ -277,15 +277,24 @@ export class LocalProjectService {
     return { changed: result.changed };
   }
 
+  /** GitHub details for branch tasks; without a connection the branch tasks still work on what is on this computer. */
+  private async branchConnection(record: LocalProjectRecord): Promise<{ repo?: GitRepository; token?: string }> {
+    try {
+      const remote = await repositoryDetails(record.owner, record.name);
+      if (remote.id !== record.repositoryId) return {};
+      return { repo: repository(remote), token: (await gitHubIdentity()).token };
+    } catch { return {}; }
+  }
+
   async listBranches(id: unknown): Promise<LocalBranchList> {
     const record = await this.record(id);
-    return this.interactive<LocalBranchList>({ action: 'list-branches', path: record.localPath });
+    return this.interactive<LocalBranchList>({ action: 'list-branches', path: record.localPath, ...(await this.branchConnection(record)) });
   }
 
   async switchBranch(id: unknown, name: unknown): Promise<LocalBranchList> {
     const record = await this.record(id);
     if (typeof name !== 'string' || !name || name.length > 100) throw new Error('分支名无效。');
-    return this.interactive<LocalBranchList>({ action: 'switch-branch', path: record.localPath, branch: name });
+    return this.interactive<LocalBranchList>({ action: 'switch-branch', path: record.localPath, branch: name, ...(await this.branchConnection(record)) });
   }
 
   async createBranch(id: unknown, name: unknown): Promise<LocalBranchList> {
@@ -370,7 +379,7 @@ export class LocalProjectService {
     try {
       if (preview && (this.previewEpochs.get(preview.id) ?? 0) !== preview.epoch) throw new Error('已取消读取，可以重新读取修改。');
       options?.signal.throwIfAborted();
-      const needsNetwork = task.action === 'create' || task.action === 'download' || task.action === 'publish' || task.action === 'push-branch' || task.action === 'check-sync' || task.action === 'sync';
+      const needsNetwork = task.action === 'create' || task.action === 'list-branches' || task.action === 'switch-branch' || task.action === 'download' || task.action === 'publish' || task.action === 'push-branch' || task.action === 'check-sync' || task.action === 'sync';
       this.cancelSafe = true;
       const job = runGitTask<T>({ ...task, proxy: needsNetwork ? await githubProxy() : undefined,
         githubRules: needsNetwork ? githubOriginRules() : undefined },

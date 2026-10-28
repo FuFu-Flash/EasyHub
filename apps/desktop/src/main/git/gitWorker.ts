@@ -19,8 +19,8 @@ async function run(): Promise<unknown> {
     case 'create': if (task.repo && task.author && task.token) return engine.createProject(task.path, task.repo, task.author, task.token, progress); break;
     case 'download': if (task.repo && task.token) return engine.downloadProject(task.path, task.repo, task.token, progress); break;
     case 'publish': if (task.repo && task.author && task.token && task.message) return engine.publishUpdate(task.path, task.repo, task.author, task.token, task.message, progress, task.selection); break;
-    case 'list-branches': return engine.listBranches(task.path);
-    case 'switch-branch': if (task.branch) return engine.switchBranch(task.path, task.branch); break;
+    case 'list-branches': return engine.listBranches(task.path, task.repo, task.token);
+    case 'switch-branch': if (task.branch) return engine.switchBranch(task.path, task.branch, task.repo, task.token); break;
     case 'create-branch': if (task.branch) return engine.createBranch(task.path, task.branch); break;
     case 'push-branch': if (task.repo && task.token) return engine.pushBranch(task.path, task.repo, task.token, progress); break;
     case 'check-sync': if (task.repo && task.token) return engine.checkSync(task.path, task.repo, task.token, progress); break;

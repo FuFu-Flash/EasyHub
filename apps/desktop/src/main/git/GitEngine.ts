@@ -350,24 +350,41 @@ export class GitEngine {
     if (!result.ok || result.error || Object.values(result.refs).some((value) => !value.ok)) throw new GitEngineError('remoteChanged', 'GitHub 没有接受这次发布，请检查项目权限和最新内容后重试。');
   }
 
-  /** Uploads saved versions that are already on this branch (for example made with another Git tool), exactly as they are. */
-  /** The branches that exist on GitHub, plus the one the folder is on, so the list never fills up with local-only branches. */
-  async listBranches(dir: string): Promise<LocalBranchList> {
-    const current = (await git.currentBranch({ fs, dir })) ?? null;
-    const onGithub = new Set(await git.listBranches({ fs, dir, remote: 'origin' }));
-    const local = await git.listBranches({ fs, dir });
-    return { current, branches: local.filter((branch) => safeChangePath(branch) && (branch === current || onGithub.has(branch))).sort() };
+  /** Names of the branches GitHub has. */
+  protected async remoteBranchNames(repo: GitRepository, token: string): Promise<string[]> {
+    const refs = await git.listServerRefs({ http: this.http, url: repositoryUrl(repo), prefix: 'refs/heads/', onAuth: () => auth(token) });
+    return refs.map((entry) => entry.ref.slice('refs/heads/'.length));
   }
 
-  /** Moves the folder to another branch. Only done when nothing is waiting to be published, so no file is ever overwritten. */
-  async switchBranch(dir: string, name: string): Promise<LocalBranchList> {
+  /** The branches that exist on GitHub, plus the one the folder is on, so the list never fills up with local-only branches.
+   *  Without a connection it falls back to the GitHub branches this folder already knows about. */
+  async listBranches(dir: string, repo?: GitRepository, token?: string): Promise<LocalBranchList> {
+    const current = (await git.currentBranch({ fs, dir })) ?? null;
+    let onGithub = new Set(await git.listBranches({ fs, dir, remote: 'origin' }));
+    if (repo && token) {
+      try { onGithub = new Set(await this.remoteBranchNames(repo, token)); } catch { /* offline: keep what is known locally */ }
+    }
+    const names = new Set((await git.listBranches({ fs, dir })).filter((branch) => branch === current || onGithub.has(branch)));
+    for (const branch of onGithub) names.add(branch);
+    return { current, branches: [...names].filter((branch) => branch !== 'HEAD' && safeChangePath(branch)).sort() };
+  }
+
+  /** Moves the folder to another branch. Only done when nothing is waiting to be published, so no file is ever overwritten.
+   *  A branch that exists only on GitHub is downloaded first and becomes a local branch of the same name. */
+  async switchBranch(dir: string, name: string, repo?: GitRepository, token?: string): Promise<LocalBranchList> {
     await ensureSyncComplete(dir);
-    if (!(await git.listBranches({ fs, dir })).includes(name)) throw new GitEngineError('invalid', '找不到这个分支，请刷新后重试。');
-    if (name === (await git.currentBranch({ fs, dir }))) return this.listBranches(dir);
+    if (name === (await git.currentBranch({ fs, dir }))) return this.listBranches(dir, repo, token);
+    const isLocal = (await git.listBranches({ fs, dir })).includes(name);
+    if (!isLocal && !(repo && token)) throw new GitEngineError('invalid', '找不到这个分支，请刷新后重试。');
     const status = await this.getStatus(dir);
     if (status.hasPreparedChanges || status.files.length) throw new GitEngineError('unsupported', '项目里还有没发布的修改。请先发布这些修改，再切换分支，EasyHub 不会丢掉你的文件。');
+    if (!isLocal) {
+      const remoteHead = await this.fetchRemote(dir, repo!, name, token!);
+      if (!remoteHead) throw new GitEngineError('invalid', 'GitHub 上找不到这个分支，请刷新后重试。');
+      await git.branch({ fs, dir, ref: name, object: remoteHead });
+    }
     await git.checkout({ fs, dir, ref: name });
-    return this.listBranches(dir);
+    return this.listBranches(dir, repo, token);
   }
 
   /** Starts a new branch from the saved version the folder is on and moves to it. Unpublished edits stay as they are. */
@@ -381,6 +398,7 @@ export class GitEngine {
     return this.listBranches(dir);
   }
 
+  /** Uploads saved versions that are already on this branch (for example made with another Git tool), exactly as they are. */
   async pushBranch(dir: string, repo: GitRepository, token: string, onProgress?: (value: GitProgress) => void): Promise<LocalPushBranchResult> {
     await ensureSyncComplete(dir);
     const branch = await targetBranch(dir);

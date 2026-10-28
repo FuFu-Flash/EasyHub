@@ -9578,3 +9578,9 @@ body {
   padding: 5px 10px;
   width: 200px;
 }
+.local-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--eh-space-8) var(--eh-space-16);
+}
