@@ -35,8 +35,9 @@
 
 ## 验证
 
-- 提交前检查按“提交”一节执行。根目录 npm run typecheck、npm run lint、npm test 当前只检查桌面端，不能当作 Android 已通过。
-- 涉及桌面端时，另运行根目录 npm run build，并运行与改动相关的 smoke 测试。根目录没有的脚本，到 apps/desktop 的 package.json 查找后运行；不要臆造命令。
+- 提交前检查按“提交”一节执行。根目录 npm run typecheck、npm run lint、npm test、npm run format:check 当前只检查桌面端，不能当作 Android 已通过。
+- 涉及桌面端时，另运行根目录 npm run build，并运行与改动相关的 smoke 测试。改了某个界面时，用 rg 在 apps/desktop 的 *-smoke.mjs（以及它们共用的 *-checks.mjs）里搜索该界面的文字、按钮名称或类名，找到的检查全部一起跑。根目录没有的脚本，到 apps/desktop 的 package.json 查找后运行；不要臆造命令。
+- 不删除现有测试，除非对应功能已删除。测试失败时先修代码；界面有意改版导致断言过时时，按新界面更新断言。
 - 涉及 Android 或跨端共享代码时，另运行根目录 pnpm run typecheck:mobile、pnpm run lint:mobile、pnpm run test:mobile。需要验证移动端打包时，使用 apps/mobile/package.json 中现有的构建或导出脚本，并注明目标平台。
 - 涉及平台原生能力、安装或打包时，在对应系统验证。Windows 构建不能证明 macOS 可用；静态检查或 Expo 导出不能证明 Android 真机流程可用。系统、SDK、设备或签名条件缺失时如实说明。
 - Electron smoke 需要图形环境；Linux 无显示器时可使用 xvfb-run。Android 界面与系统交互使用可用的模拟器或真机检查；确实跑不了就说明，不声称通过。
@@ -58,7 +59,7 @@
 
 ## 提交
 
-- 每完成一项改动，先运行 npm run typecheck、npm run lint、npm test；涉及 Android 或共享代码时，再运行“验证”一节要求的移动端检查。全部通过就直接 git commit，不用问我；没通过就先修，修不好就停下来告诉我，不要提交。
+- 每完成一项改动，先运行 npm run typecheck、npm run lint、npm test、npm run format:check；涉及 Android 或共享代码时，再运行“验证”一节要求的移动端检查。全部通过就直接 git commit，不用问我；没通过就先修，修不好就停下来告诉我，不要提交。
 - 一个提交只做一件事。提交说明用中文写清楚做了什么，例如“修复：在输入框里按 Alt+← 不再返回上一页”。
 - 格式化、依赖变动单独提交，不和逻辑改动混在一起。
 - 只暂存本项改动涉及的文件，不夹带工作区已有的无关修改。
