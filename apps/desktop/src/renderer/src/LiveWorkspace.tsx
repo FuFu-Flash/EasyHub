@@ -1,3 +1,4 @@
+import { useNativeShell } from './workspace/useNativeShell';
 import { useTranslation } from './localization';
 import { PageStatus } from './pages/shared';
 import {
@@ -73,6 +74,7 @@ function WorkspaceShell() {
   const [search, setSearch] = useState(''),
     [languageMenuOpen, setLanguageMenuOpen] = useState(false),
     [refreshing, setRefreshing] = useState(false);
+  useNativeShell(root, refreshing);
   const instance = JSON.stringify([
     page.view,
     page.params.repo,

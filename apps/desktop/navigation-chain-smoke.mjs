@@ -48,6 +48,9 @@ try {
       body: `[Project release](https://github.com/${repo.full_name}/releases)\n\n` + Array.from({ length: 20 }, (_, i) => `## Issue section ${i}\n\nDetailed issue report for ${repo.name}.`).join('\n\n'),
       state: 'open', created_at: now, user: { login: 'issue-author' }, comments: 2 });
     const pull = (repo, number) => ({ id: repo.id * 1000 + number, number, title: `Enhancement ${number}`, body: Array.from({ length: 20 }, (_, i) => `## Proposal section ${i}\n\nA detailed reason to improve this project.`).join('\n\n'), state: 'open', draft: false, created_at: now, user: { login: 'contributor' }, head: { sha: 'a'.repeat(40), ref: 'feature' }, base: { sha: 'b'.repeat(40), ref: 'main', repo: { id: repo.id } } });
+    // Native presentation is isolated; business mutations remain blocked.
+    mock('easyhub:menu-state', () => undefined);
+    mock('easyhub:window-set-style', () => undefined);
     mock('easyhub:auth-status', () => ({ user: { id: 1, login: 'tester', name: 'Tester', avatar_url: '', html_url: '' }, clientId: null }));
     mock('easyhub:local-list', () => []);
     mock('easyhub:local-discovery-roots', () => []);

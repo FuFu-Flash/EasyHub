@@ -1,11 +1,11 @@
-const { execFileSync } = require('node:child_process');
-const { existsSync, lstatSync, realpathSync } = require('node:fs');
-const { homedir } = require('node:os');
-const { isAbsolute, join, resolve, sep } = require('node:path');
+import { execFileSync } from 'node:child_process';
+import { existsSync, lstatSync, realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { isAbsolute, join, resolve, sep } from 'node:path';
 
 // afterPack runs after the application copy and before electron-builder signs it.
 // Desktop/File Provider metadata can survive that copy and invalidate codesign.
-module.exports = async function cleanMacPackageAttributes(context) {
+export default async function cleanMacPackageAttributes(context) {
   if (context.electronPlatformName !== 'darwin') return;
   if (!isAbsolute(context.appOutDir)) throw new Error('Expected an absolute generated app output directory.');
   const output = realpathSync(context.appOutDir);

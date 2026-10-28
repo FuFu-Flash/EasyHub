@@ -56,6 +56,7 @@ try {
     };
     // Deny every exposed real handler first, including packaged executables; allow only the explicit local reads below.
     for (const channel of bridgeChannels) mock(channel, () => {
+      if (['easyhub:menu-state', 'easyhub:window-set-style'].includes(channel)) return;
       fixture.forbidden.push(channel);
       throw new Error('External and write actions are blocked by this layout fixture: ' + channel);
     });

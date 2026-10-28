@@ -47,6 +47,9 @@ try {
       default_branch: 'main', updated_at: now, pushed_at: now, permissions: { pull: true, push: true, admin: true }, open_issues_count: 2 }));
     const issue = (repo, number) => ({ id: repo.id * 10 + number, number, title: `${repo.name} issue ${number} revision ${fixture.revision}`,
       body: `Description for ${repo.name} issue ${number}\n\n[Issue reference](https://example.com/issue)`, state: 'open', created_at: now, user: { login: 'fixture-author' }, comments: 1 });
+    // Native presentation is isolated; business mutations remain blocked.
+    mock('easyhub:menu-state', () => undefined);
+    mock('easyhub:window-set-style', () => undefined);
     mock('easyhub:auth-status', () => ({ user: { id: 81, login: 'issue-fixture', name: 'Issue Fixture', avatar_url: '', html_url: '' }, clientId: null }));
     mock('easyhub:local-list', () => []);
     mock('easyhub:downloads-list', () => []);

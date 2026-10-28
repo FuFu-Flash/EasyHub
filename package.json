@@ -72,6 +72,8 @@
     "review:resilience": "node scripts/run-desktop.mjs review:resilience",
     "review:workspace-navigation": "node scripts/run-desktop.mjs review:workspace-navigation",
     "test:key-localization": "node scripts/run-desktop.mjs test:key-localization",
-    "test:new-project-layout": "node scripts/run-desktop.mjs test:new-project-layout"
+    "test:new-project-layout": "node scripts/run-desktop.mjs test:new-project-layout",
+    "package:mac": "node scripts/run-desktop.mjs package:mac",
+    "test:menu-ui": "node scripts/run-desktop.mjs test:menu-ui"
   }
 }

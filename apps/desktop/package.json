@@ -3,7 +3,7 @@
   "version": "1.4.2",
   "private": true,
   "license": "Apache-2.0",
-  "description": "EasyHub Windows desktop application",
+  "description": "EasyHub desktop application for macOS and Windows",
   "author": "EasyHub",
   "main": "./out/main/index.js",
   "scripts": {
@@ -75,7 +75,9 @@
     "review:resilience": "node resilience-smoke.mjs --review",
     "review:workspace-navigation": "node workspace-navigation-review.mjs",
     "test:key-localization": "node key-localization-smoke.mjs",
-    "test:new-project-layout": "node new-project-layout-smoke.mjs"
+    "test:new-project-layout": "node new-project-layout-smoke.mjs",
+    "package:mac": "node package-mac.mjs",
+    "test:menu-ui": "node application-menu-smoke.mjs"
   },
   "dependencies": {
     "@easyhub/github": "workspace:*",

@@ -1,6 +1,7 @@
+import { WindowControlStyleOptions } from '../components/WindowControlStyleOptions';
 import { useTranslation } from '../localization';
 import type { TranslationTargetLanguage } from '@easyhub/types';
-import { ArrowRight, Check, Globe2, Info, Languages, Square } from 'lucide-react';
+import { ArrowRight, Globe2, Info, Languages, Square } from 'lucide-react';
 import { useState } from 'react';
 import { AiSettingsPanel } from '../components/AiSettingsPanel';
 import { AppUpdatePanel } from '../components/AppUpdatePanel';
@@ -90,40 +91,7 @@ export function SettingsPage() {
           </div>
           <div className="settings-panel-content">
             <h2>{t('settingsPage.windowControls')}</h2>
-            <div className="window-style-options" role="group" aria-label={t('settingsPage.windowControlStyle')}>
-              <button
-                className={`window-style-option ${windowStyle === 'windows' ? 'selected' : ''}`}
-                aria-pressed={windowStyle === 'windows'}
-                onClick={() => setWindowStyle('windows')}
-              >
-                <span className="window-style-preview windows-preview" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-                <span>
-                  <strong>{t('settingsPage.windowsStyle')}</strong>
-                  <small>{t('settingsPage.topRightButtons')}</small>
-                </span>
-                {windowStyle === 'windows' && <Check size={18} className="window-style-check" />}
-              </button>
-              <button
-                className={`window-style-option ${windowStyle === 'reference' ? 'selected' : ''}`}
-                aria-pressed={windowStyle === 'reference'}
-                onClick={() => setWindowStyle('reference')}
-              >
-                <span className="window-style-preview reference-preview" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-                <span>
-                  <strong>{t('settingsPage.dotStyle')}</strong>
-                  <small>{t('settingsPage.referenceTopLeft')}</small>
-                </span>
-                {windowStyle === 'reference' && <Check size={18} className="window-style-check" />}
-              </button>
-            </div>
+            <WindowControlStyleOptions value={windowStyle} onChange={setWindowStyle} />
           </div>
         </section>
         <ThemeSettingsPanel language={language} preference={theme.preference} onChange={theme.setPreference} />
@@ -171,7 +139,15 @@ export function SettingsPage() {
           </div>
           <div className="settings-panel-content">
             <h2>{t('settingsPage.aboutEasyhub')}</h2>
-            <p>{demo ? t('settingsPage.desktopEdition') : t('settingsPage.windowsDesktopConnectedToGithub')}</p>
+            <p>
+              {demo
+                ? t('settingsPage.desktopEdition')
+                : t(
+                    easyHub.platform === 'darwin'
+                      ? 'mac.desktopConnected'
+                      : 'settingsPage.windowsDesktopConnectedToGithub',
+                  )}
+            </p>
             <span className="settings-version">{t('settingsPage.version142')}</span>
             <AppUpdatePanel language={language} />
             <div className="license-details">

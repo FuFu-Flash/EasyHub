@@ -1,3 +1,4 @@
+import type { MenuCommand } from '../../../shared/applicationMenu';
 import { getTranslator, type Translator } from '../localization';
 import type { DemoNotice } from '../demo/demoBridge';
 import type { GitHubActivityCount, GitHubRepo, GitHubUser } from '@easyhub/github';
@@ -16,6 +17,7 @@ import { historyKey, readSearchHistory, rememberSearch, type SearchEntry, type S
 import { useWorkspaceNavigation } from './NavigationContext';
 
 export interface WorkspaceProps {
+  initialMenuCommand?: MenuCommand;
   user: GitHubUser;
   onLogout: () => void | Promise<void>;
   offline?: boolean;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { cp, mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { _electron as electron } from 'playwright-core';
@@ -60,11 +60,17 @@ const nativeFiles = [...files].filter(([file]) => file.startsWith(`node_modules/
 assert.equal(nativeFiles.length, 1, 'The matching native addon must be included exactly once.');
 for (const [file, entry] of nativeFiles) {
   assert.equal(entry.unpacked, true, 'Native addons must be unpacked from ASAR.');
-  assert.equal((await stat(join(resources, 'app.asar.unpacked', ...file.split('/')))).size, entry.size);
+  const nativePath = join(resources, 'app.asar.unpacked', ...file.split('/'));
+  const nativeSize = (await stat(nativePath)).size;
+  if (process.platform === 'darwin') {
+    // Signing changes Mach-O size after the ASAR header is written. Verify the signed file instead.
+    assert.ok(nativeSize > 0);
+    execFileSync('/usr/bin/codesign', ['--verify', '--strict', nativePath], { stdio: 'pipe' });
+  } else assert.equal(nativeSize, entry.size);
 }
 
-const directory = await mkdtemp(join(tmpdir(), 'easyhub-compact-package-'));
-assert.ok(isAbsolute(directory) && dirname(directory) === resolve(tmpdir()), 'The test must own its temporary directory.');
+const directory = await realpath(await mkdtemp(join(tmpdir(), 'easyhub-compact-package-')));
+assert.ok(isAbsolute(directory) && dirname(directory) === await realpath(tmpdir()), 'The test must own its temporary directory.');
 let app;
 try {
   const profile = join(directory, 'profile');
@@ -206,7 +212,7 @@ require('./out/main/index.js');
 } finally {
   try { await app?.close(); }
   finally {
-    assert.ok(dirname(directory) === resolve(tmpdir()) && directory.startsWith(join(resolve(tmpdir()), 'easyhub-compact-package-')));
+    assert.ok(dirname(directory) === await realpath(tmpdir()) && directory.startsWith(join(await realpath(tmpdir()), 'easyhub-compact-package-')));
     await rm(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
 }

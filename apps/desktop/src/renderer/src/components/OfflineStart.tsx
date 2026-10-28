@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useTranslation, useLanguage } from '../localization';
 import appIcon from '../assets/easyhub-icon.svg';
@@ -7,11 +7,23 @@ import { WindowControls } from './WindowControls';
 import { readWindowStyle } from '../windowStyle';
 
 /** No invented account or empty-project guidance when the first profile fetch is offline. */
-export function OfflineStart({ onRetry }: { onRetry: () => void }) {
+export function OfflineStart({ onRetry, repairRequest = 0 }: { onRetry: () => void; repairRequest?: number }) {
   const t = useTranslation();
   const language = useLanguage();
   const windowStyle = readWindowStyle();
   const [repair, setRepair] = useState(false);
+  const repairPanel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (repairRequest > 0) setRepair(true);
+  }, [repairRequest]);
+  useEffect(() => {
+    if (!repair) return;
+    const frame = requestAnimationFrame(() => {
+      repairPanel.current?.scrollIntoView({ block: 'start' });
+      repairPanel.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [repair, repairRequest]);
   return (
     <div className="welcome-page offline-start">
       <header className={`welcome-controls welcome-controls-${windowStyle}`}>
@@ -30,7 +42,7 @@ export function OfflineStart({ onRetry }: { onRetry: () => void }) {
           </button>
         </div>
         {repair && (
-          <div className="offline-network-settings">
+          <div className="offline-network-settings" ref={repairPanel}>
             <button className="back-link" onClick={() => setRepair(false)}>
               <ArrowLeft size={16} />
               {t('app.backToConnection')}

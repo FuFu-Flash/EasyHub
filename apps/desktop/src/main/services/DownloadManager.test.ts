@@ -119,6 +119,10 @@ describe('persistent download queue', () => {
     const url = await server((req, res) => { ranges.push(req.headers.range); streamFile(res, payload, Number(req.headers.range?.match(/bytes=(\d+)/)?.[1] ?? 0)); });
     const f = await fixture(url); const item = await f.add();
     await until(async () => (await f.manager.list())[0]!.loaded > 0);
+    await until(async () => {
+      const partial = await stat(join(f.directory, `example.zip.easyhub-${item.id}.part`)).catch(() => null);
+      return (partial?.size ?? 0) > 0;
+    });
     await f.manager.shutdown();
     // The stopped instance no longer owns this ledger. Teardown must not flush
     // it concurrently with the restarted instance into the same .tmp file.

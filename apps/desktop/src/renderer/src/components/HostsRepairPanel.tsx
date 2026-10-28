@@ -213,7 +213,13 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
         <div className="github-proxy-heading">
           <div>
             <h2>{t('hostsRepairPanel.githubSystemProxy')}</h2>
-            <p>{t('hostsRepairPanel.connectEasyhubAndBrowsersThatUseWindowsSystemProxy')}</p>
+            <p>
+              {t(
+                easyHub?.platform === 'darwin'
+                  ? 'mac.systemProxyDescription'
+                  : 'hostsRepairPanel.connectEasyhubAndBrowsersThatUseWindowsSystemProxy',
+              )}
+            </p>
           </div>
           <button
             type="button"

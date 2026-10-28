@@ -154,7 +154,7 @@ afterEach(() => {
 describe('macOS main-process compatibility', () => {
   it('creates native Mac traffic lights aligned to the custom toolbar without replacing AppKit fullscreen behavior', () => {
     const window = fixture.windows[0]!;
-    expect(window.options).toMatchObject({ frame: true, titleBarStyle: 'hidden', trafficLightPosition: { x: 25, y: 29 } });
+    expect(window.options).toMatchObject({ frame: true, titleBarStyle: 'hidden', trafficLightPosition: { x: 20, y: 19 } });
     expect(window.setWindowButtonVisibility).toHaveBeenCalledWith(true);
     expect(window.options).not.toHaveProperty('fullscreenable', false);
     expect(window.maximize).not.toHaveBeenCalled();
@@ -174,13 +174,13 @@ describe('macOS main-process compatibility', () => {
   it('aligns native lights to compact and comfortable toolbars and reapplies density after reopening', () => {
     const window = fixture.windows[0]!;
     invoke('window-set-style', 'reference', 'compact');
-    expect(window.setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 16, y: 21 });
+    expect(window.setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 16, y: 17 });
     closeMainWindow();
     fixture.appEvents.get('activate')!();
     const reopened = fixture.windows[0]!;
-    expect(reopened.options).toMatchObject({ trafficLightPosition: { x: 16, y: 21 } });
+    expect(reopened.options).toMatchObject({ trafficLightPosition: { x: 16, y: 17 } });
     invoke('window-set-style', 'reference', 'comfortable');
-    expect(reopened.setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 25, y: 29 });
+    expect(reopened.setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 20, y: 19 });
     expect(reopened.maximize).not.toHaveBeenCalled();
   });
 

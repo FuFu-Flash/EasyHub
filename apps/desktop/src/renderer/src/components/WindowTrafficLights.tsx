@@ -1,28 +1,30 @@
+import { useTranslation } from '../localization';
 type WindowAction = 'closeWindow' | 'minimizeWindow' | 'toggleMaximizeWindow';
 
 export function WindowTrafficLights({ onAction }: { onAction: (action: WindowAction) => void }) {
+  const t = useTranslation();
   if (window.easyHub?.platform === 'darwin') {
     // AppKit owns the controls and their accessibility; reserve only their space.
     return <span className="native-window-controls" aria-hidden="true" />;
   }
   return (
-    <div className="window-controls" aria-label="窗口控制">
+    <div className="window-controls" aria-label={t('liveWorkspace.windowControls')}>
       <button
         className="window-dot window-close"
-        aria-label="关闭窗口"
-        title="关闭"
+        aria-label={t('liveWorkspace.closeWindow')}
+        title={t('liveWorkspace.close')}
         onClick={() => onAction('closeWindow')}
       />
       <button
         className="window-dot window-minimize"
-        aria-label="最小化窗口"
-        title="最小化"
+        aria-label={t('liveWorkspace.minimizeWindow')}
+        title={t('liveWorkspace.minimize')}
         onClick={() => onAction('minimizeWindow')}
       />
       <button
         className="window-dot window-maximize"
-        aria-label="最大化或还原窗口"
-        title="最大化或还原"
+        aria-label={t('liveWorkspace.maximizeOrRestoreWindow')}
+        title={t('liveWorkspace.maximizeOrRestore')}
         onClick={() => onAction('toggleMaximizeWindow')}
       />
     </div>

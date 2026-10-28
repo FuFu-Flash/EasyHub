@@ -11,6 +11,8 @@ export function WindowControls({ style }: { style: WindowStyle }) {
   const t = useTranslation();
   const easyHub = useEasyHub();
   if (style === 'reference') {
+    // macOS draws the traffic lights itself; only their space is kept free.
+    if (easyHub?.platform === 'darwin') return <span className="native-window-controls" aria-hidden="true" />;
     return (
       <div className="window-controls" aria-label={t('liveWorkspace.windowControls')}>
         <button

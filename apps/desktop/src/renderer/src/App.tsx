@@ -1,3 +1,6 @@
+import type { MenuCommand } from '../../shared/applicationMenu';
+import { useApplicationMenu } from './useApplicationMenu';
+import { useLanguage } from './localization';
 import { useTranslation } from './localization';
 import { useEffect, useRef, useState } from 'react';
 import type { GitHubUser } from '@easyhub/github';
@@ -29,8 +32,11 @@ interface LoginFlow {
 }
 
 export default function App() {
-  const t = useTranslation();
+  const language = useLanguage();
+  const t = useTranslation(language);
   const windowStyle = readWindowStyle();
+  const [initialMenuCommand, setInitialMenuCommand] = useState<MenuCommand>();
+  const [offlineRepairRequest, setOfflineRepairRequest] = useState(0);
   const [user, setUser] = useState<GitHubUser | null>(null);
   const [authState, setAuthState] = useState('checking');
   const [welcomeChoice, setWelcomeChoice] = useState<WelcomeChoice | null>(readWelcomeChoice);
@@ -49,6 +55,19 @@ export default function App() {
   const loginStarting = useRef(false);
   const loginDialog = useRef<HTMLDivElement>(null);
   useDialogFocus(Boolean(flow || loginBusy || loginError), loginDialog, cancelLogin);
+  useApplicationMenu(
+    { language, signedIn: false, busy: loginBusy, demoOnly: demoOnlyBuild },
+    (command) => {
+      if (authOffline && (command === 'settings' || command === 'proxy-settings')) {
+        setOfflineRepairRequest((value) => value + 1);
+        return;
+      }
+      if (authOffline) setAuthOffline(false);
+      setInitialMenuCommand(command);
+      choose('demo');
+    },
+    !user && (authChecking || authOffline || needsWelcome(authState, welcomeChoice)),
+  );
 
   useEffect(() => {
     if (demoOnlyBuild) return;
@@ -146,7 +165,8 @@ export default function App() {
     void window.easyHub?.authCancel().catch(() => undefined);
   }
 
-  if (demoOnlyBuild) return <DemoWorkspace onLogin={() => undefined} demoOnly />;
+  if (demoOnlyBuild)
+    return <DemoWorkspace initialMenuCommand={initialMenuCommand} onLogin={() => undefined} demoOnly />;
   if (authChecking && !user)
     return (
       <div className="startup-loading" role="status" aria-live="polite">
@@ -154,11 +174,20 @@ export default function App() {
         <p>{t('app.connectingToGithub')}</p>
       </div>
     );
-  if (authOffline && !user) return <OfflineStart onRetry={() => setAuthRetry((value) => value + 1)} />;
+  if (authOffline && !user)
+    return (
+      <OfflineStart
+        repairRequest={
+          offlineRepairRequest + (initialMenuCommand === 'settings' || initialMenuCommand === 'proxy-settings' ? 1 : 0)
+        }
+        onRetry={() => setAuthRetry((value) => value + 1)}
+      />
+    );
   if (user)
     return (
       <LiveWorkspace
         key={user.login}
+        initialMenuCommand={initialMenuCommand}
         user={user}
         offline={authOffline}
         authRetrying={authChecking}
@@ -198,7 +227,7 @@ export default function App() {
           </section>
         </div>
       ) : (
-        <DemoWorkspace onLogin={() => void beginLogin()} />
+        <DemoWorkspace initialMenuCommand={initialMenuCommand} onLogin={() => void beginLogin()} />
       )}
       {(flow || loginBusy || loginError) && (
         <div className="modal-backdrop">
