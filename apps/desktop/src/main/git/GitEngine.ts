@@ -351,8 +351,12 @@ export class GitEngine {
   }
 
   /** Uploads saved versions that are already on this branch (for example made with another Git tool), exactly as they are. */
+  /** The branches that exist on GitHub, plus the one the folder is on, so the list never fills up with local-only branches. */
   async listBranches(dir: string): Promise<LocalBranchList> {
-    return { current: (await git.currentBranch({ fs, dir })) ?? null, branches: (await git.listBranches({ fs, dir })).filter(safeChangePath).sort() };
+    const current = (await git.currentBranch({ fs, dir })) ?? null;
+    const onGithub = new Set(await git.listBranches({ fs, dir, remote: 'origin' }));
+    const local = await git.listBranches({ fs, dir });
+    return { current, branches: local.filter((branch) => safeChangePath(branch) && (branch === current || onGithub.has(branch))).sort() };
   }
 
   /** Moves the folder to another branch. Only done when nothing is waiting to be published, so no file is ever overwritten. */

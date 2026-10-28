@@ -9496,14 +9496,73 @@ body {
   gap: var(--eh-space-8);
   color: var(--eh-color-muted);
 }
-.local-branch-select {
+.local-branch-picker {
+  position: relative;
+}
+.local-branch-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--eh-space-6);
+  max-width: 260px;
   border: 1px solid var(--eh-color-line);
   border-radius: var(--eh-radius-8);
   background: var(--eh-color-surface);
   color: var(--eh-color-ink);
   font-size: var(--eh-text-13);
-  padding: 4px 8px;
-  max-width: 220px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.local-branch-trigger span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.local-branch-trigger:focus-visible,
+.local-branch-menu li:focus-visible {
+  outline: 2px solid var(--eh-color-primary);
+  outline-offset: 1px;
+}
+.local-branch-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  max-width: 340px;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--eh-space-4);
+  list-style: none;
+  border: 1px solid var(--eh-color-line);
+  border-radius: var(--eh-radius-8);
+  background: var(--eh-color-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+}
+.local-branch-menu li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eh-space-10);
+  padding: 7px 10px;
+  border-radius: var(--eh-radius-6, 6px);
+  color: var(--eh-color-ink);
+  font-size: var(--eh-text-13);
+  cursor: pointer;
+}
+.local-branch-menu li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.local-branch-menu li:hover,
+.local-branch-menu li:focus {
+  background: color-mix(in srgb, var(--eh-color-primary) 10%, transparent);
+  outline: none;
+}
+.local-branch-menu li[aria-selected='true'] {
+  color: var(--eh-color-primary);
+  font-weight: 600;
 }
 .local-branch-form {
   display: flex;

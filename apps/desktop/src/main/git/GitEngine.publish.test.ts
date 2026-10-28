@@ -273,7 +273,7 @@ describe('switching and creating branches', () => {
   it('creates a branch, keeps unpublished edits and refuses bad or repeated names', async () => {
     const { dir, engine } = await project();
     await writeFile(join(dir, 'a.txt'), 'edited');
-    expect(await engine.createBranch(dir, 'feature/login')).toEqual({ current: 'feature/login', branches: ['feature/login', 'main'] });
+    expect(await engine.createBranch(dir, 'feature/login')).toEqual({ current: 'feature/login', branches: ['feature/login'] });
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('edited');
     await expect(engine.createBranch(dir, 'feature/login')).rejects.toThrow('已经有叫这个名字的分支');
     await expect(engine.createBranch(dir, 'bad name')).rejects.toThrow('分支名只能用');
