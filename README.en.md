@@ -1,3 +1,5 @@
+> **This branch is no longer used.** The macOS source has been merged into [`main`](https://github.com/FuFu-Flash/EasyHub/tree/main), where all platforms are now developed. This branch is kept for history only.
+
 <table>
   <tr>
     <th width="50%">Cryptic command-line errors</th>

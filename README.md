@@ -1,3 +1,5 @@
+> **此分支已停止使用。** macOS 的源码已合回 [`main`](https://github.com/FuFu-Flash/EasyHub/tree/main)，所有平台都在 `main` 开发。这里只保留历史，不再更新。
+
 <table>
   <tr>
     <th width="50%">看不懂的命令行报错</th>
