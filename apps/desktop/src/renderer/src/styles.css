@@ -9467,3 +9467,25 @@ body {
 .local-group-select:focus {
   border-color: var(--eh-color-primary);
 }
+.local-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--eh-space-10);
+  padding: var(--eh-space-10) var(--eh-space-14) var(--eh-space-6);
+  font-size: var(--eh-text-12);
+}
+.local-group-head strong {
+  flex: none;
+}
+.local-group-head input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--eh-color-line);
+  border-radius: var(--eh-radius-8);
+  background: var(--eh-color-surface);
+  color: var(--eh-color-ink);
+  font-size: var(--eh-text-12);
+  padding: 5px 10px;
+  height: auto;
+  width: auto;
+}

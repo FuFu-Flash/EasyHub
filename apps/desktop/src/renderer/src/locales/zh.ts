@@ -442,7 +442,7 @@ export const zh = {
   'localChangeSelector.selectAll': '全选',
   'localChangeSelector.splitIntoVersions': '分成多次保存（每组一个版本）',
   'localChangeSelector.splitHint': '每一组会单独保存成一个版本，最后一次性上传到 GitHub。',
-  'localChangeSelector.groupNote': '第 {p0} 组的说明（可不填，默认用下方的说明）',
+  'localChangeSelector.groupNote': '第 {p0} 组的说明（可不填）',
   'localChangeSelector.groupOfFile': '{p0} 放在哪一组',
   'localChangeSelector.groupName': '第 {p0} 组',
   'localChangeSelector.addGroup': '增加一组',

@@ -194,6 +194,14 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
     deleted: t('localChangeSelector.deleted'),
     renamed: t('localChangeSelector.renamed'),
   };
+  // With several groups the list is shown group by group, each group under its own heading and note.
+  const grouped = split && !preview?.pendingPublish;
+  const orderedFiles = [...(preview?.files ?? [])].sort((a, b) => {
+    if (!grouped) return 0;
+    const rank = (file: ChangedFile) => (selected.includes(file.path) ? (groupOf[file.path] ?? 0) : groupCount);
+    return rank(a) - rank(b);
+  });
+  const seenGroups = new Set<number>();
   return (
     <section className="local-selection" aria-label={t('localChangeSelector.filesToPublish')}>
       <div className="local-selection-heading">
@@ -253,17 +261,6 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
           {split && (
             <>
               <small>{t('localChangeSelector.splitHint')}</small>
-              {Array.from({ length: groupCount }, (_, index) => (
-                <input
-                  key={index}
-                  aria-label={t('localChangeSelector.groupNote', { p0: index + 1 })}
-                  placeholder={t('localChangeSelector.groupNote', { p0: index + 1 })}
-                  maxLength={200}
-                  disabled={disabled}
-                  value={groupNotes[index] ?? ''}
-                  onChange={(event) => changeNote(index, event.target.value)}
-                />
-              ))}
               <button className="text-link" type="button" disabled={disabled || groupCount >= 10} onClick={addGroup}>
                 {t('localChangeSelector.addGroup')}
               </button>
@@ -271,10 +268,25 @@ export function LocalChangeSelector({ id, refreshKey, disabled, onSelection }: P
           )}
         </div>
       )}
-      {preview?.files.map((file) => {
+      {preview && orderedFiles.map((file) => {
         const diff = diffs[file.path];
+        const group = groupOf[file.path] ?? 0;
+        const firstOfGroup = grouped && selected.includes(file.path) && !seenGroups.has(group) && seenGroups.add(group);
         return (
           <div className="local-selection-file" key={file.path}>
+            {firstOfGroup && (
+              <div className="local-group-head">
+                <strong>{t('localChangeSelector.groupName', { p0: group + 1 })}</strong>
+                <input
+                  aria-label={t('localChangeSelector.groupNote', { p0: group + 1 })}
+                  placeholder={t('localChangeSelector.groupNote', { p0: group + 1 })}
+                  maxLength={200}
+                  disabled={disabled}
+                  value={groupNotes[group] ?? ''}
+                  onChange={(event) => changeNote(group, event.target.value)}
+                />
+              </div>
+            )}
             <div className="local-selection-row">
               <label>
                 <input

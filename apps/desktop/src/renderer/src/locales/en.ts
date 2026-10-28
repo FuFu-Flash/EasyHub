@@ -479,7 +479,7 @@ export const en = {
   'localChangeSelector.selectAll': 'Select all',
   'localChangeSelector.splitIntoVersions': 'Save in several steps (one version per group)',
   'localChangeSelector.splitHint': 'Each group is saved as its own version, then everything is uploaded to GitHub at once.',
-  'localChangeSelector.groupNote': 'Note for group {p0} (optional, uses the note below if empty)',
+  'localChangeSelector.groupNote': 'Note for group {p0} (optional)',
   'localChangeSelector.groupOfFile': 'Group for {p0}',
   'localChangeSelector.groupName': 'Group {p0}',
   'localChangeSelector.addGroup': 'Add a group',
