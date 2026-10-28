@@ -1296,6 +1296,7 @@ export const en = {
   'localWorkspace.switchedBranch': 'Switched to branch {p0}.',
   'localWorkspace.createdBranch': 'Created and switched to branch {p0}.',
   'localWorkspace.loadingBranches': 'Loading branches from GitHub…',
+  'localWorkspace.localOnlyBranch': 'Only on this computer',
   'localWorkspace.pushBranch': 'Push branch',
   'localWorkspace.branchPushed': 'Pushed branch {p0} to GitHub.',
   'localWorkspace.branchCreated': 'Created branch {p0} on GitHub and pushed it.',

@@ -35,13 +35,18 @@ async function currentHead(dir: string): Promise<string | null> {
   catch { return null; }
 }
 
-/** The branches on GitHub (when `onGithub` is unknown, the ones this folder has seen) plus the one the folder is on. */
+/** Every local branch plus the branches on GitHub (when `onGithub` is unknown, the ones this folder has seen).
+ *  Local branches GitHub does not have are reported in `localOnly`, so a new branch never disappears from the list. */
 export async function branchList(dir: string, onGithub: string[] | null): Promise<LocalBranchList> {
   const current = (await git.currentBranch({ fs, dir })) ?? null;
-  const remote = new Set(onGithub ?? await git.listBranches({ fs, dir, remote: 'origin' }));
-  const names = new Set((await git.listBranches({ fs, dir })).filter((branch) => branch === current || remote.has(branch)));
-  for (const branch of remote) names.add(branch);
-  return { current, branches: [...names].filter((branch) => branch !== 'HEAD' && safeChangePath(branch)).sort() };
+  const usable = (branch: string) => branch !== 'HEAD' && safeChangePath(branch);
+  const remote = new Set((onGithub ?? await git.listBranches({ fs, dir, remote: 'origin' })).filter(usable));
+  const local = (await git.listBranches({ fs, dir })).filter(usable);
+  return {
+    current,
+    branches: [...new Set([...local, ...remote])].sort(),
+    localOnly: local.filter((branch) => !remote.has(branch)).sort(),
+  };
 }
 
 /** Every publish, push and download of new content goes to the branch the folder is on. */

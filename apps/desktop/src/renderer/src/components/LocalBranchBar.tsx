@@ -5,7 +5,7 @@ import { useEasyHub } from '../bridge';
 import { useTranslation } from '../localization';
 
 /** The last list seen for each project, so the menu opens with something to pick while the fresh list loads. */
-const knownBranches = new Map<string, string[]>();
+const knownBranches = new Map<string, { branches: string[]; localOnly: string[] }>();
 
 interface Props {
   id: string;
@@ -19,7 +19,9 @@ interface Props {
 export function LocalBranchBar({ id, current, busy, onSwitch, onCreate }: Props) {
   const t = useTranslation();
   const easyHub = useEasyHub();
-  const [branches, setBranches] = useState<string[]>(knownBranches.get(id) ?? [current]);
+  const [{ branches, localOnly }, setBranches] = useState(
+    knownBranches.get(id) ?? { branches: [current], localOnly: [] },
+  );
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -35,7 +37,10 @@ export function LocalBranchBar({ id, current, busy, onSwitch, onCreate }: Props)
     void easyHub
       ?.localListBranches(id)
       .then((result) => {
-        const next = result.branches.includes(current) ? result.branches : [current, ...result.branches];
+        const next = {
+          branches: result.branches.includes(current) ? result.branches : [current, ...result.branches],
+          localOnly: result.localOnly,
+        };
         knownBranches.set(id, next);
         if (active) setBranches(next);
       })
@@ -128,6 +133,9 @@ export function LocalBranchBar({ id, current, busy, onSwitch, onCreate }: Props)
                 }}
               >
                 <span>{branch}</span>
+                {localOnly.includes(branch) && (
+                  <small className="local-branch-tag">{t('localWorkspace.localOnlyBranch')}</small>
+                )}
                 {branch === current && <Check size={14} aria-hidden="true" />}
               </li>
             ))}

@@ -139,7 +139,8 @@ export interface LocalPublishSelection {
   batches?: LocalPublishBatch[];
 }
 /** The branches a local project has, and the one it is on now. */
-export interface LocalBranchList { current: string | null; branches: string[] }
+/** `localOnly` lists the branches that exist only on this computer (not uploaded to GitHub yet). */
+export interface LocalBranchList { current: string | null; branches: string[]; localOnly: string[] }
 export interface LocalPushBranchResult { state: 'pushed' | 'created' | 'current'; branch: string }
 export interface LocalDiffLine { kind: 'context' | 'added' | 'deleted'; text: string; before?: number; after?: number }
 export interface LocalFileDiff {

@@ -274,7 +274,7 @@ describe('switching and creating branches', () => {
   it('creates a branch, keeps unpublished edits and refuses bad or repeated names', async () => {
     const { dir, engine } = await project();
     await writeFile(join(dir, 'a.txt'), 'edited');
-    expect(await engine.createBranch(dir, 'feature/login')).toEqual({ current: 'feature/login', branches: ['feature/login'] });
+    expect(await engine.createBranch(dir, 'feature/login')).toEqual({ current: 'feature/login', branches: ['feature/login', 'main'], localOnly: ['feature/login', 'main'] });
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('edited');
     await expect(engine.createBranch(dir, 'feature/login')).rejects.toThrow('已经有叫这个名字的分支');
     await expect(engine.createBranch(dir, 'bad name')).rejects.toThrow('分支名只能用');
@@ -295,8 +295,16 @@ describe('switching and creating branches', () => {
   it('lists the branches GitHub has and downloads one this computer does not have yet', async () => {
     const { dir, engine, first } = await project();
     engine.remote.set('macos', first);
-    expect((await engine.listBranches(dir, repo, 'token')).branches).toEqual(['macos', 'main']);
+    expect(await engine.listBranches(dir, repo, 'token')).toEqual({ current: 'main', branches: ['macos', 'main'], localOnly: [] });
     expect(await engine.switchBranch(dir, 'macos', repo, 'token')).toMatchObject({ current: 'macos' });
     await expect(engine.switchBranch(dir, 'ghost', repo, 'token')).rejects.toThrow('找不到这个分支');
+  });
+
+  it('keeps a new branch that is not on GitHub yet in the list after moving away from it', async () => {
+    const { dir, engine } = await project();
+    await engine.createBranch(dir, 'draft');
+    await engine.switchBranch(dir, 'main', repo, 'token');
+    expect(await engine.listBranches(dir, repo, 'token')).toEqual({ current: 'main', branches: ['draft', 'main'], localOnly: ['draft'] });
+    expect((await engine.switchBranch(dir, 'draft', repo, 'token')).current).toBe('draft');
   });
 });

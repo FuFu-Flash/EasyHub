@@ -9604,3 +9604,13 @@ body {
   gap: var(--eh-space-10);
   padding: var(--eh-space-8) var(--eh-space-14);
 }
+.local-branch-menu li .local-branch-tag {
+  flex: none;
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: var(--eh-radius-4);
+  background: var(--eh-color-surface-sunken);
+  color: var(--eh-color-muted);
+  font-size: var(--eh-text-12);
+  font-weight: var(--eh-weight-400);
+}
