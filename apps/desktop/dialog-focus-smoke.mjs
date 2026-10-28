@@ -24,6 +24,7 @@ localStorage.setItem('easyhub:language', 'zh');
 const repo = { id: 1, name: 'fixture', full_name: 'fixture/fixture', private: false, owner: { login: 'fixture' }, default_branch: 'main', updated_at: '', open_issues_count: 0 };
 let rows = [{ id: 'fixture-download', request: { kind: 'archive', repo, ref: 'main', fileName: 'example.zip' }, state: 'complete', percent: 100, loaded: 1024, total: 1024, path: 'C:/fixture/example.zip', seen: true, phase: '项目已经下载完成。' }];
 const listeners = new Set();
+window.fixtureSetRows = (next) => { rows = next; listeners.forEach(listener => listener(rows)); };
 window.githubCallLog = [];
 window.easyHub = {
   authStatus: async () => ({ user: null }),
@@ -98,6 +99,16 @@ try {
   assert.equal(await focused(notificationFirst), true, 'Tab on the last action cycles to the first');
   await page.keyboard.press('Shift+Tab');
   assert.equal(await focused(notificationLast), true, 'Shift+Tab cycles in reverse');
+  // A download changing state removes the focused button; focus must come back into the dialog, not fall to the page.
+  const savedRows = await page.evaluate(() => { const before = window.easyHub.downloadsList(); return before; });
+  await page.evaluate(() => window.fixtureSetRows([{ id: 'fixture-download', request: { kind: 'archive', repo: { id: 1, name: 'fixture', full_name: 'fixture/fixture', private: false, owner: { login: 'fixture' }, default_branch: 'main', updated_at: '', open_issues_count: 0 }, ref: 'main', fileName: 'example.zip' }, state: 'running', percent: 50, loaded: 512, total: 1024, path: null, seen: true, phase: '' }]));
+  await notificationLast.waitFor({ state: 'detached' });
+  await page.waitForFunction(() => document.activeElement !== document.body);
+  assert.equal(await focusedInside(notification), true, 'Focus returns to the dialog when its focused button disappears');
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(await focusedInside(notification), true, 'Shift+Tab after a removed button stays inside');
+  await page.evaluate((rows) => window.fixtureSetRows(rows), savedRows);
+  await notificationLast.waitFor();
   await page.locator('#background').evaluate(element => element.focus());
   assert.equal(await focusedInside(notification), true, 'Background controls cannot retain focus');
   for (let index = 0; index < 12; index++) {
@@ -141,6 +152,8 @@ try {
   await download.waitFor();
   assert.equal(await focusedInside(download), true, 'Download notifications receive focus');
   const notificationClose = download.getByRole('button', { name: '关闭通知', exact: true });
+  // The simulated download finishes shortly after it starts and swaps its buttons; press keys once it has settled.
+  await download.getByRole('button', { name: '清除下载记录', exact: true }).waitFor();
   await notificationClose.focus();
   await page.keyboard.press('Shift+Tab');
   assert.equal(await focusedInside(download), true, 'Shift+Tab remains inside the notification dialog');
