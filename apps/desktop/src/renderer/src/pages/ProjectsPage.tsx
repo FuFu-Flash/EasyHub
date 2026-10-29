@@ -264,14 +264,14 @@ export function ProjectsPage() {
                   <button
                     className="button button-quiet"
                     onClick={() => {
-                      const link = findLocalLink(repo, localLinks);
+                      const link = findLocalLink(repo, localLinks, localErrors);
                       if (link) openLocal(link, repo);
                       else {
                         navigation.navigate('local', { repo: repo.full_name });
                       }
                     }}
                   >
-                    {findLocalLink(repo, localLinks) ? (
+                    {findLocalLink(repo, localLinks, localErrors) ? (
                       <>
                         {t('projectsPage.open')} <FolderOpen size={16} />
                       </>

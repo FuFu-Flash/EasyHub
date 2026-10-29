@@ -11,10 +11,13 @@ export function repositoryIdentity(address: string): string {
 export function findLocalLink(
   repo: { id: number; full_name: string },
   links: readonly (LocalProjectLink & { remoteUrl?: string })[],
+  failed: Readonly<Record<string, boolean>> = {},
 ): LocalProjectLink | undefined {
   const identity = repositoryIdentity(repo.full_name);
-  return links.find(
+  const matches = links.filter(
     (link) =>
       link.repositoryId === repo.id || repositoryIdentity(link.remoteUrl ?? `${link.owner}/${link.name}`) === identity,
   );
+  // One repository can have several local folders; prefer one whose status could be read.
+  return matches.find((link) => !failed[link.id]) ?? matches[0];
 }

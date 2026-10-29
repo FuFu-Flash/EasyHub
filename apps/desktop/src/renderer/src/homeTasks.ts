@@ -12,6 +12,16 @@ export interface HomeTask {
 
 // Work the user can act on now comes first; incoming content waits until last.
 const order: Record<HomeTaskKind, number> = { publish: 0, review: 1, unavailable: 2, issues: 3, pulls: 4, sync: 5 };
+// A repository can be linked to several local folders. Show one task for it, taking a copy that can be
+// read over one that cannot, so an unreadable duplicate never hides or repeats the real work.
+const localPriority: Record<HomeTaskKind, number> = {
+  review: 0,
+  publish: 1,
+  sync: 2,
+  unavailable: 3,
+  issues: 4,
+  pulls: 5,
+};
 
 /** Lists what needs the user's attention, using the same counts as the sidebar and project status. */
 export function homeTasks({
@@ -32,16 +42,21 @@ export function homeTasks({
   activityCounts: Record<number, GitHubActivityCount>;
 }): HomeTask[] {
   const tasks: HomeTask[] = [];
+  const localTasks = new Map<number, HomeTask>();
   for (const link of localLinks) {
     const repo = repos.find((item) => item.id === link.repositoryId);
     if (!repo) continue;
     const status = localStatuses[link.id],
       remote = remotePreviews[link.id];
-    if (status?.needsReview || remote?.state === 'review') tasks.push({ kind: 'review', repo, link });
-    else if (localErrors[link.id] || remote?.state === 'blocked') tasks.push({ kind: 'unavailable', repo, link });
-    else if (status?.files.length) tasks.push({ kind: 'publish', repo, link, count: status.files.length });
-    else if (status && remote?.state === 'ready') tasks.push({ kind: 'sync', repo, link });
+    let task: HomeTask | undefined;
+    if (status?.needsReview || remote?.state === 'review') task = { kind: 'review', repo, link };
+    else if (localErrors[link.id] || remote?.state === 'blocked') task = { kind: 'unavailable', repo, link };
+    else if (status?.files.length) task = { kind: 'publish', repo, link, count: status.files.length };
+    else if (status && remote?.state === 'ready') task = { kind: 'sync', repo, link };
+    const kept = localTasks.get(repo.id);
+    if (task && (!kept || localPriority[task.kind] < localPriority[kept.kind])) localTasks.set(repo.id, task);
   }
+  tasks.push(...localTasks.values());
   for (const repo of repos) {
     const count = activityCounts[repo.id]?.issues ?? 0;
     if (count > 0) tasks.push({ kind: 'issues', repo, count });

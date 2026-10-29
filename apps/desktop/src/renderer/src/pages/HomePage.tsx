@@ -156,7 +156,7 @@ export function HomePage() {
     );
   }
   function projectRow(repo: GitHubRepo) {
-    const link = findLocalLink(repo, localLinks);
+    const link = findLocalLink(repo, localLinks, localErrors);
     const state = link
       ? projectPresentation(localStatuses[link.id], remotePreviews[link.id], localErrors[link.id], language)
       : { state: 'saved', text: t('homePage.savedOnGithub') };

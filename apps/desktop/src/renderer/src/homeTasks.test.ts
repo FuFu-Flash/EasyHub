@@ -57,4 +57,20 @@ describe('home tasks', () => {
     expect(tasks.some((task) => task.kind === 'pulls')).toBe(false);
     expect(tasks.some((task) => task.link?.id === 'gone')).toBe(false);
   });
+
+  it('shows one task per repository when it has several local folders, preferring a readable one', () => {
+    const copies = {
+      ...base,
+      repos: [mod],
+      localLinks: [link('broken-a', 1), link('broken-b', 1), link('works', 1)],
+      localStatuses: { works: { files: [{ path: 'a', kind: 'modified' }], needsReview: false } },
+      remotePreviews: {},
+      localErrors: { 'broken-a': true, 'broken-b': true },
+      reviewRepos: [],
+      activityCounts: {},
+    } as unknown as Parameters<typeof homeTasks>[0];
+    expect(homeTasks(copies).map((task) => [task.kind, task.link?.id])).toEqual([['publish', 'works']]);
+    const allBroken = { ...copies, localLinks: [link('broken-a', 1), link('broken-b', 1)] };
+    expect(homeTasks(allBroken).map((task) => [task.kind, task.link?.id])).toEqual([['unavailable', 'broken-a']]);
+  });
 });
