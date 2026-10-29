@@ -3,9 +3,9 @@
 [data-theme='light'] {
   color-scheme: light;
   --eh-font-sans:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', 'Noto Sans SC',
-    'PingFang SC', 'Hiragino Sans GB', sans-serif;
-  --eh-font-mono: Consolas, 'Cascadia Code', monospace;
+    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', 'Noto Sans CJK SC',
+    'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', Ubuntu, Cantarell, 'Liberation Sans', sans-serif;
+  --eh-font-mono: Consolas, 'Cascadia Code', 'Liberation Mono', 'Noto Sans Mono', 'Ubuntu Mono', monospace;
 
   /* One shared palette: 30 colors, including decorative colors. */
   --eh-color-primary: #2369de;

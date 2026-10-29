@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     steps:
@@ -51,7 +51,9 @@ jobs:
         run: pnpm run build
 
       # Window buttons tell the main process their style on every screen; uses the runner's installed Chrome.
+      # The Linux job runs the same unit tests. Its browser smoke is covered when Chrome is present locally.
       - name: Window style sync
+        if: runner.os != 'Linux'
         run: pnpm run test:window-style-sync
 
       # The application menu is native on macOS only; it runs against the build above.
@@ -85,3 +87,35 @@ jobs:
 
       - name: Unit tests
         run: pnpm run test:mobile
+
+  linux-package:
+    name: Linux package (x64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fakeroot dpkg
+
+      - name: Build AppImage and deb
+        run: pnpm package:linux
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: easyhub-linux-x64
+          if-no-files-found: error
+          path: |
+            apps/desktop/release/linux/*.AppImage
+            apps/desktop/release/linux/*.deb

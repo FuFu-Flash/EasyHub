@@ -3,7 +3,7 @@
   "version": "1.4.2",
   "private": true,
   "license": "Apache-2.0",
-  "description": "EasyHub desktop application for macOS and Windows",
+    "description": "EasyHub desktop application for Linux, macOS and Windows",
   "author": "EasyHub",
   "main": "./out/main/index.js",
   "scripts": {
@@ -77,6 +77,7 @@
     "test:key-localization": "node key-localization-smoke.mjs",
     "test:new-project-layout": "node new-project-layout-smoke.mjs",
     "package:mac": "node package-mac.mjs",
+    "package:linux": "node package-linux.mjs",
     "test:menu-ui": "node application-menu-smoke.mjs",
     "test:window-style-sync": "node window-style-sync-smoke.mjs"
   },

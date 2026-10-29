@@ -20,7 +20,7 @@ Android is outside this contract.
   alignment offsets and control dimensions remain measurements, not extra tokens.
 - Elevation: `--eh-shadow-*`. Inset borders and state/focus rings may compose
   palette tokens directly; they aren't elevation.
-- Font stacks include Windows and macOS system fonts; code uses the mono token.
+- Font stacks include Windows, macOS and Linux system fonts; code uses the mono token.
 
 ## Responsive rules
 

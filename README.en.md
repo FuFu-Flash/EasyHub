@@ -25,17 +25,17 @@
 
 **Publish your work to GitHub without learning Git commands.**
 
-EasyHub is an open-source **GitHub client** for beginners. Choose a folder, review your changes, and write a short note to publish your source. Create and publish with the **desktop edition (Windows / macOS)**; browse projects, reply to issues, and review pull requests on Android.
+EasyHub is an open-source **GitHub client** for beginners. Choose a folder, review your changes, and write a short note to publish your source. Create and publish with the **desktop edition (Windows / macOS / Linux)**; browse projects, reply to issues, and review pull requests on Android.
 
 You do not need to install Git or create a separate EasyHub account. Sign in with your own GitHub account when you are ready to publish.
 
-> **中文简介：** EasyHub 是面向新手的开源 GitHub 客户端，提供桌面版（Windows / macOS）与 Android 版，支持发布源码、管理发行版、合并请求审查和可选的 AI 辅助。[阅读中文说明](README.md)。
+> **中文简介：** EasyHub 是面向新手的开源 GitHub 客户端，提供桌面版（Windows / macOS / Linux）与 Android 版，支持发布源码、管理发行版、合并请求审查和可选的 AI 辅助。[阅读中文说明](README.md)。
 
 ## Download and install
 
 > **Android notice:** Android 1.2.0 changes the signing key (earlier packages used a public debug key). To upgrade from 1.1.0 or earlier, **uninstall the old app first, then install the new one**, and sign in to GitHub again. Your projects on GitHub are not affected.
 
-**Current versions: Desktop (Windows) 1.4.1 · Desktop (macOS) 1.4.1 · Android 1.2.0.**
+**Current versions: Desktop (Windows) 1.4.1 · Desktop (macOS) 1.4.1 · Desktop (Linux, build on your computer) 1.4.2 · Android 1.2.0.**
 
 | Platform | Edition | Best for | Download |
 | --- | --- | --- | --- |
@@ -44,8 +44,9 @@ You do not need to install Git or create a separate EasyHub account. Sign in wit
 | Desktop (macOS) | DMG / ZIP | Apple Silicon Macs running macOS 12 or later | **[Download DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.4.1/EasyHub-macOS.dmg)** · [Download ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.4.1/EasyHub-macOS.zip) · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.4.1) |
 | Android | 1.2.0 ARM64 APK | Most newer Android phones; smaller package. Upgrading from 1.1.0 requires uninstalling first | **[Download ARM64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.2.0/EasyHub-Android-1.2.0-arm64.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.2.0) |
 | Android | Universal APK | ARM32 and x86 devices and emulators | No universal package for 1.2.0 yet; the old 1.1.0 universal APK uses a public debug key and is no longer linked |
+| Desktop (Linux) | AppImage / deb | 64-bit x64 or arm64; build it on that computer | See [Install on Linux](#install-on-linux) below |
 
-The Windows editions are for 64-bit PCs. The installer detects a previous installation location and selects “Create desktop shortcut” by default. Android requires Android 7.0 or later. The macOS edition requires an Apple Silicon Mac running macOS 12 or later. Open the DMG, drag EasyHub into Applications, and launch it from there.
+The Windows editions are for 64-bit PCs. The installer detects a previous installation location and selects “Create desktop shortcut” by default. Android requires Android 7.0 or later. The macOS edition requires an Apple Silicon Mac running macOS 12 or later. Open the DMG, drag EasyHub into Applications, and launch it from there. The Linux edition is for common 64-bit distributions and is built on the target computer. The releases page does not yet offer a ready-made Linux download.
 
 ## macOS must-read
 
@@ -78,6 +79,24 @@ The current Mac app uses an **ad hoc signature**, a local developer signature. I
 Once installed, eject the EasyHub installation disk from Finder's sidebar. If you choose the ZIP, extract it, move EasyHub into Applications, and follow the same first-launch steps.
 
 </details>
+
+## Install on Linux
+
+Linux shares the desktop source with Windows and macOS. Platform-specific code lives in `platforms/`. See [desktop platform layout and build commands](docs/desktop-platforms.md).
+
+On Linux x64 or arm64, from the repository root:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm package:linux
+```
+
+Packages are written to `apps/desktop/release/linux`:
+
+- `EasyHub-<version>-<arch>.AppImage`: allow it to run (check “Allow executing file as program”, or run `chmod +x`), then double-click it or start it from a terminal. Some systems need FUSE first (often the `libfuse2` package).
+- `EasyHub-<version>-<arch>.deb`: open it with the software installer, or run `sudo apt install ./EasyHub-<version>-<arch>.deb`.
+
+Sign-in stores the credential in the system keyring (GNOME Keyring, KWallet, or another Secret Service). Unlock the keyring before signing in. The GitHub proxy applies only inside EasyHub and does not change system proxy settings; an existing proxy is reused. Program file review components are currently provided for 64-bit Windows and Apple Silicon Macs. Publishing source and browsing projects work without them.
 
 ## Get started in three steps (desktop edition)
 
@@ -188,7 +207,7 @@ The Windows app does not yet use a commercial code-signing certificate, so this 
 
 **Are packages available for other operating systems?**
 
-Windows, macOS, and Android packages are available in the download table above. Linux packages and the iOS edition are not yet available.
+Ready-made Windows, macOS, and Android packages are listed in the download table above. Build an AppImage or deb on Linux using [Install on Linux](#install-on-linux). The iOS edition is not yet available.
 
 </details>
 

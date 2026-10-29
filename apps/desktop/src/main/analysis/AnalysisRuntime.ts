@@ -52,6 +52,7 @@ export class AnalysisRuntime {
   private readonly manifest: typeof MANIFEST;
   private readonly downloadBytes: number;
   private readonly deps: Required<RuntimeDependencies>;
+  private readonly unsupported?: string;
   private progress?: RuntimeProgress;
   private error?: string;
   private installing = false;
@@ -63,14 +64,20 @@ export class AnalysisRuntime {
       platform: dependencies.platform ?? process.platform, arch: dependencies.arch ?? process.arch,
       extractArchive: dependencies.extractArchive ?? extractRuntimeArchive,
       downloadArchive: dependencies.downloadArchive ?? downloadVerifiedArchive };
-    const mac = this.deps.platform === 'darwin';
-    this.artifacts = mac ? MAC_RUNTIME_ARTIFACTS : RUNTIME_ARTIFACTS;
-    this.manifest = mac ? MAC_MANIFEST : MANIFEST;
+    let artifacts: readonly RuntimeArtifact[];
+    try { artifacts = runtimeArtifacts(this.deps.platform, this.deps.arch); }
+    catch (error) {
+      artifacts = [];
+      this.unsupported = error instanceof Error ? error.message : '分析组件暂不支持当前系统。';
+    }
+    this.artifacts = artifacts;
+    this.manifest = this.deps.platform === 'darwin' ? MAC_MANIFEST : MANIFEST;
     this.downloadBytes = this.artifacts.reduce((sum, artifact) => sum + artifact.size, 0);
     this.target = join(this.root, this.manifest.installation);
   }
 
   async status(): Promise<RuntimeStatus> {
+    if (this.unsupported) return { state: 'error', error: this.unsupported, downloadBytes: 0 };
     if (this.installing) return { state: 'installing', progress: this.progress, downloadBytes: this.downloadBytes };
     const paths = await this.readInstalled();
     if (paths) return { state: 'ready', paths, downloadBytes: 0 };

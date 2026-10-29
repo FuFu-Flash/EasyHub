@@ -217,7 +217,9 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
               {t(
                 easyHub?.platform === 'darwin'
                   ? 'mac.systemProxyDescription'
-                  : 'hostsRepairPanel.connectEasyhubAndBrowsersThatUseWindowsSystemProxy',
+                  : easyHub?.platform === 'linux'
+                    ? 'linux.systemProxyDescription'
+                    : 'hostsRepairPanel.connectEasyhubAndBrowsersThatUseWindowsSystemProxy',
               )}
             </p>
           </div>

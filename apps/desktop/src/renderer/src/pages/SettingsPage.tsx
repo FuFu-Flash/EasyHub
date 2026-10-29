@@ -145,7 +145,9 @@ export function SettingsPage() {
                 : t(
                     easyHub.platform === 'darwin'
                       ? 'mac.desktopConnected'
-                      : 'settingsPage.windowsDesktopConnectedToGithub',
+                      : easyHub.platform === 'linux'
+                        ? 'linux.desktopConnected'
+                        : 'settingsPage.windowsDesktopConnectedToGithub',
                   )}
             </p>
             <span className="settings-version">{t('settingsPage.version142')}</span>

@@ -69,6 +69,7 @@ vi.mock('./services/githubDownloads', () => ({ GitHubDownloads: class { construc
 vi.mock('./services/GitHubProxyService', () => ({ GitHubProxyService: fixture.FakeProxy, useGitHubProxy: vi.fn() }));
 vi.mock('./platforms/windows/WindowsSystemProxy', () => ({ WindowsSystemProxy: class { constructor() { fixture.systemAdapters.push('windows'); } } }));
 vi.mock('./platforms/macos/MacSystemProxy', () => ({ MacSystemProxy: class { constructor() { fixture.systemAdapters.push('mac'); } } }));
+vi.mock('./platforms/linux/LinuxSystemProxy', () => ({ LinuxSystemProxy: class { constructor() { fixture.systemAdapters.push('linux'); } } }));
 vi.mock('./services/GitHubSystemRelay', () => ({ GitHubSystemRelay: class {} }));
 vi.mock('./analysis/AnalysisRuntime', () => ({ AnalysisRuntime: class { status = vi.fn(async () => ({ state: 'missing' })); } }));
 vi.mock('./analysis/BinaryAnalysisService', () => ({ BinaryAnalysisService: class { initialize = vi.fn(async () => {}); shutdown = fixture.analysisShutdown; } }));
@@ -375,6 +376,26 @@ describe('macOS main-process compatibility', () => {
     expect(fixture.proxies[0]!.dependencies).toHaveProperty('systemRelay');
     expect(fixture.hosts).not.toHaveBeenCalled();
     expect(fixture.windows[0]!.options).toMatchObject({ frame: true, titleBarStyle: 'hidden' });
+  });
+
+  it('selects the Linux proxy reader, PNG icon and frameless controls without Windows Hosts repair', async () => {
+    vi.resetModules();
+    vi.stubEnv('EASYHUB_TEST_MODE', '0');
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+    fixture.windows.length = 0;
+    fixture.proxies.length = 0;
+    fixture.systemAdapters.length = 0;
+    fixture.hosts.mockClear();
+    fixture.menu.setApplicationMenu.mockClear();
+    await import('./index');
+    await vi.waitFor(() => expect(fixture.windows).toHaveLength(1));
+    expect(fixture.systemAdapters).toEqual(['linux']);
+    expect(fixture.proxies[0]!.dependencies).toHaveProperty('systemProxy');
+    expect(fixture.hosts).not.toHaveBeenCalled();
+    expect(fixture.menu.setApplicationMenu).toHaveBeenCalledExactlyOnceWith(null);
+    expect(fixture.windows[0]!.options).toMatchObject({ frame: false });
+    expect(fixture.windows[0]!.options).not.toHaveProperty('titleBarStyle');
+    expect(String((fixture.windows[0]!.options as { icon?: string }).icon)).toMatch(/easyhub\.png$/);
   });
 
   it('waits for a validated renderer state and disables account-only commands in Demo mode', () => {

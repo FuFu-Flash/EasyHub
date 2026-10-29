@@ -58,6 +58,9 @@ export const zh = {
   'mac.defaultDotStyle': '默认 · 左上角圆点',
   'mac.desktopConnected': 'macOS 桌面版 · 已连接 GitHub',
   'mac.windowControlsFailed': '无法更新窗口控件，请重新启动 EasyHub。',
+  'linux.desktopConnected': 'Linux 桌面版 · 已连接 GitHub',
+  'linux.systemProxyDescription':
+    '让 EasyHub 自己连接 GitHub。Linux 暂不修改系统代理；如果系统里已经有代理，会继续使用它。',
 
   'app.yourGithubLoginHasExpiredPleaseSignInAgain': 'GitHub 登录已过期，请重新登录。',
   'app.signInConfirmationExpiredPleaseStartAgain': '登录确认已过期，请重新开始。',

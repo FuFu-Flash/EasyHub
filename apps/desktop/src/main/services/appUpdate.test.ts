@@ -24,6 +24,20 @@ describe('application update checks', () => {
     expect((await checkAppUpdate('1.3.0', transport, 'win32')).latestVersion).toBe('9.0.0');
     await expect(checkAppUpdate('1.3.0', vi.fn<typeof fetch>().mockResolvedValue(Response.json([release('v9.0.0')])), 'darwin')).rejects.toThrow('macOS');
   });
+  it('keeps Linux updates on linux tags for the running architecture', async () => {
+    const linux = (tag: string, assets: string[], extra = {}) => release(tag, assets, extra);
+    const transport = vi.fn<typeof fetch>().mockImplementation(async () => Response.json([
+      release('v9.0.0'), linux('linux-v1.4.0', ['EasyHub-1.4.0-x64.AppImage']),
+      linux('linux-v1.4.2', ['EasyHub-1.4.2-arm64.deb']),
+      linux('linux-v1.5.0', ['EasyHub-1.5.0-x64.deb', 'EasyHub-1.5.0-x64.AppImage']),
+      linux('linux-v1.6.0', ['EasyHub-1.6.0-x64.AppImage'], { prerelease: true }),
+      linux('macos-v9.0.0', ['EasyHub-macOS.dmg']),
+    ]));
+    expect(await checkAppUpdate('1.4.0', transport, 'linux', 'x64')).toEqual({ currentVersion: '1.4.0', latestVersion: '1.5.0', available: true, releaseUrl: 'https://github.com/FuFu-Flash/EasyHub/releases/tag/linux-v1.5.0' });
+    expect((await checkAppUpdate('1.4.0', transport, 'linux', 'arm64')).latestVersion).toBe('1.4.2');
+    expect((await checkAppUpdate('1.4.0', transport, 'win32')).latestVersion).toBe('9.0.0');
+    await expect(checkAppUpdate('1.4.0', vi.fn<typeof fetch>().mockResolvedValue(Response.json([release('v9.0.0')])), 'linux', 'x64')).rejects.toThrow('Linux');
+  });
   it('does not offer equal versions or downgrades', async () => {
     for (const current of ['1.1.0', '1.2.0']) expect((await checkAppUpdate(current, vi.fn<typeof fetch>().mockResolvedValue(Response.json([release('v1.1.0')])))).available).toBe(false);
   });

@@ -122,6 +122,22 @@ describe('optional analysis installation', () => {
     expect((await retry.install()).javaPath).toContain('analysis-runtime');
   });
 
+  it('does not offer Windows analysis components on Linux', async () => {
+    const root = await temporary();
+    const fetch = vi.fn<RuntimeFetch>();
+    const runtime = new AnalysisRuntime(root, { platform: 'linux', arch: 'x64', fetch });
+    await expect(runtime.status()).resolves.toMatchObject({ state: 'error', downloadBytes: 0 });
+    await expect(runtime.install()).rejects.toThrow('Linux');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.skipIf(process.platform === 'win32' || process.platform === 'darwin')('does not launch PowerShell to extract analysis archives', async () => {
+    const root = await temporary();
+    const archive = join(root, 'component.zip');
+    await writeFile(archive, 'not a zip');
+    await expect(extractRuntimeArchive(archive, join(root, 'unpacked'), 1024)).rejects.toThrow('Windows 和 macOS');
+  });
+
   it('refuses a concurrent installation into the same userData directory', async () => {
     let releaseDownload!: () => void;
     let reachedDownload!: () => void;

@@ -7,8 +7,10 @@ import { bundledDependencyNotices } from './scripts/bundled-dependency-notices';
 // Release builds inline JavaScript dependencies and retain the native keyring.
 // Each release flag is restricted to its platform; ordinary development stays unchanged.
 const compactRelease = (process.platform === 'darwin' && process.env.EASYHUB_MAC_BUNDLE === '1')
-  || (process.platform === 'win32' && process.env.EASYHUB_WIN_BUNDLE === '1');
-const output = compactRelease ? `out/${process.platform === 'darwin' ? 'macos' : 'windows'}` : 'out';
+  || (process.platform === 'win32' && process.env.EASYHUB_WIN_BUNDLE === '1')
+  || (process.platform === 'linux' && process.env.EASYHUB_LINUX_BUNDLE === '1');
+const releaseDirectory = process.platform === 'darwin' ? 'macos' : process.platform === 'linux' ? 'linux' : 'windows';
+const output = compactRelease ? `out/${releaseDirectory}` : 'out';
 const dependencies = Object.keys(JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).dependencies);
 const bundledDependencies = compactRelease
   ? dependencies.filter(name => name !== '@napi-rs/keyring')

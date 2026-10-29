@@ -74,6 +74,7 @@
     "test:key-localization": "node scripts/run-desktop.mjs test:key-localization",
     "test:new-project-layout": "node scripts/run-desktop.mjs test:new-project-layout",
     "package:mac": "node scripts/run-desktop.mjs package:mac",
+    "package:linux": "node scripts/run-desktop.mjs package:linux",
     "test:menu-ui": "node scripts/run-desktop.mjs test:menu-ui",
     "test:window-style-sync": "node scripts/run-desktop.mjs test:window-style-sync"
   }

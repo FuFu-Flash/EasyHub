@@ -2,25 +2,25 @@
 
 ## 适用范围和项目结构
 
-- 本文件适用于整个仓库的 Windows、macOS 和 Android 三端；子目录存在 AGENTS.md 时，同时遵守其中针对该端的规则。
-- EasyHub 是面向新手的 GitHub 客户端。Windows 和 macOS 共用 apps/desktop（Electron + React + TypeScript）；Android 位于 apps/mobile（Expo + React Native + TypeScript）。
+- 本文件适用于整个仓库的 Windows、macOS、Linux 和 Android；子目录存在 AGENTS.md 时，同时遵守其中针对该端的规则。
+- EasyHub 是面向新手的 GitHub 客户端。Windows、macOS 和 Linux 共用 apps/desktop（Electron + React + TypeScript）；Android 位于 apps/mobile（Expo + React Native + TypeScript）。
 - 桌面界面：apps/desktop/src/renderer/src；主进程：apps/desktop/src/main；IPC 接口：apps/desktop/src/preload/index.ts；桌面进程间共用：apps/desktop/src/shared。
 - 跨端共享类型和 GitHub 能力位于 packages/types、packages/github。修改共享代码时，检查桌面端和移动端的调用方。
 - iOS 尚未推出；移动端目录中的 iOS 配置不代表已经完成 iOS 验证或发布。
 
 ## 分支
 
-- 所有平台（Windows、macOS、Android）都在 `main` 开发和发布。不再按平台分分支；仅在用户明确要求时另建分支，保留已有提交和未提交内容。
-- 平台差异放在 `platforms/` 目录（桌面端 `apps/desktop/src/main/platforms/windows`、`.../macos`），共享界面里按运行平台判断（如 `platform === 'darwin'`）。不用一端的配置覆盖另一端。
+- 所有平台（Windows、macOS、Linux、Android）都在 `main` 开发和发布。不再按平台分分支；仅在用户明确要求时另建分支，保留已有提交和未提交内容。
+- 平台差异放在 `platforms/` 目录（桌面端 `apps/desktop/src/main/platforms/windows`、`.../macos`、`.../linux`），共享界面里按运行平台判断（如 `platform === 'darwin'`）。不用一端的配置覆盖另一端。
 - `macos` 分支已停止使用，只保留历史，不再提交或合并。
 - 修改桌面构建、安装或原生平台代码前，先读 `apps/desktop/AGENTS.md`；构建命令和目录布局见 `docs/desktop-platforms.md`。
 
 ## 改动范围和平台差异
 
 - 按用户指定的平台和功能修改代码。只涉及一端时，不顺手改另一端；涉及共享能力时，同步处理受影响端，无法完成的部分明确记录。
-- 三端相同操作保持名称、计数口径、权限判断和结果反馈一致；平台能力和交互可以不同，不把桌面专属的源码发布、文件系统或窗口行为强行搬到手机。
-- 平台专属能力放在对应实现中，并检查平台条件。Windows、macOS 的代理、凭据存储、菜单、快捷键、窗口和安装流程不能互相覆盖；Android 的返回键、权限、安全存储和文件访问遵循现有平台实现。
-- Windows 命令使用 PowerShell 7；macOS 使用环境中可用的原生 shell。路径和脚本兼容目标平台，不把本机绝对路径写进产品代码。
+- 各端相同操作保持名称、计数口径、权限判断和结果反馈一致；平台能力和交互可以不同，不把桌面专属的源码发布、文件系统或窗口行为强行搬到手机。
+- 平台专属能力放在对应实现中，并检查平台条件。Windows、macOS、Linux 的代理、凭据存储、菜单、快捷键、窗口和安装流程不能互相覆盖；Android 的返回键、权限、安全存储和文件访问遵循现有平台实现。
+- Windows 命令使用 PowerShell 7；macOS 和 Linux 使用环境中可用的原生 shell。路径和脚本兼容目标平台，不把本机绝对路径写进产品代码。
 
 ## 改动约束
 
