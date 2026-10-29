@@ -33,6 +33,8 @@ You do not need to install Git or create a separate EasyHub account. Sign in wit
 
 ## Download and install
 
+> **Android notice:** The upcoming Android 1.2.0 changes the signing key (earlier packages used a public debug key). To upgrade from 1.1.0 or earlier, **uninstall the old app first, then install the new one**, and sign in to GitHub again. Your projects on GitHub are not affected.
+
 **Current versions: Desktop (Windows) 1.4.1 · Desktop (macOS) 1.4.1 · Android 1.1.0.**
 
 | Platform | Edition | Best for | Download |

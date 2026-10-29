@@ -12,7 +12,7 @@ Android 不提供本地项目、源码编辑与发布，也不提供发行版发
 
 ## 更新与动画阶段：Android 1.1.0（历史包）
 
-更新与动画阶段的验收包为 `artifacts/EasyHub-Android-1.1.0-arm64.apk`，Android versionCode **4**，大小 **27,474,706 字节（26.20 MiB）**。SHA-256：`00c115b7f8c88be807e7497a3929ad3dbaac93497f13769eafa13d63a42460a3`。production、`debuggable=false`、开发 fixture 关闭、Android 测试签名；**174 项**构建输入哈希匹配。主包保留 **21 个**应用 SO，不内置分析框架或 JADX，也不含 Reanimated/Worklets 原生库；本轮没有新增依赖。
+更新与动画阶段的验收包为 `artifacts/EasyHub-Android-1.1.0-arm64.apk`，Android versionCode **4**，大小 **27,474,706 字节（26.20 MiB）**。SHA-256：`00c115b7f8c88be807e7497a3929ad3dbaac93497f13769eafa13d63a42460a3`。production、`debuggable=false`、开发 fixture 关闭、旧版调试签名（1.1.0 及更早的历史包，发布包已不再使用）；**174 项**构建输入哈希匹配。主包保留 **21 个**应用 SO，不内置分析框架或 JADX，也不含 Reanimated/Worklets 原生库；本轮没有新增依赖。
 
 设置中的更新检查对齐桌面 main `e89e9a337ae4b90d5e50e3131ef33a3632e5e980`：手动检查正式发行版，仅识别匹配版本的 EasyHub Android APK，发现更新后由用户打开官方发行页。**150 项**移动端 TypeScript 测试全部通过，其中包括 **11 项**更新检查测试；完整类型检查和全量 lint 通过。Android Studio AVD 的 **1080×2400 中文**和 **720×1600 英文**已实际显示 1.1.0；真实 HTTP 检查不会误报桌面 1.2.1，断网错误、恢复网络重试及切换标签取消均通过。
 
@@ -67,6 +67,36 @@ Android 不提供本地项目、源码编辑与发布，也不提供发行版发
 
 ## 从源码构建
 
+### 发布签名（必读）
+
+发布包必须用你自己的发布密钥签名。Expo 模板自带的 `debug.keystore` 是公开的（证书 `CN=Android Debug`，密码 `android`），任何人都能用它签出会被系统当作"正常更新"覆盖安装的假包，所以 `with-release-signing` 插件让 release 构建只认下面四个变量，缺任何一个就中文报错并停止，**不会**退回调试签名；debug 构建不受影响。
+
+1. 自己生成密钥，不要放进仓库（`*.jks`、`*.keystore`、`keystore.properties` 已被忽略）：
+
+```sh
+keytool -genkeypair -v -storetype PKCS12 -keystore easyhub-release.keystore -alias easyhub-release -keyalg RSA -keysize 4096 -validity 10000
+```
+
+2. **离线备份两份**（例如两个不同的加密 U 盘）并记下密码。丢了密钥或密码，就再也无法给已安装的用户发更新，只能让所有人卸载重装。
+3. 构建前设置环境变量，或写进 `~/.gradle/gradle.properties`（变量同名，权限设为仅自己可读）：
+
+```sh
+export EASYHUB_UPLOAD_STORE_FILE=/绝对路径/easyhub-release.keystore
+export EASYHUB_UPLOAD_STORE_PASSWORD=...   # 在终端里设置，别写进文档或贴到对话里
+export EASYHUB_UPLOAD_KEY_ALIAS=easyhub-release
+export EASYHUB_UPLOAD_KEY_PASSWORD=...
+```
+
+4. 构建后用脚本检查签名，并把输出的证书 SHA-256 写进发布说明：
+
+```sh
+node scripts/verify-android-signature.mjs apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+```
+
+如果 APK 用的是公开调试证书（SHA-256 `FA:C6:17:45:…:91:03:3B:9C`），脚本会报错并以非零状态退出。1.1.0 就是这样签的，所以 1.2.0 起换用自己的密钥；换签名后老用户要先卸载旧版再安装，重新登录。草拟的发布说明见 [Android 1.2.0 发布说明](android-release-1.2.0.md)。
+
+### 生成工程并构建
+
 先安装工作区依赖，并准备 Android SDK 和 JDK 17，再生成 Expo 原生工程：
 
 ```sh
@@ -97,7 +127,7 @@ EXPO_PUBLIC_UI_TEST=0 pnpm --filter @easyhub/mobile exec expo prebuild --platfor
 - 本轮移动端完整类型检查及全量 lint 已通过，按需框架的只读核验见 最终审计（`artifacts/analysis-frameworks/final-audit.md`）。此前 128 项设置验证及原生格式、取消、NUL 协议、哈希和 16 KiB 对齐记录，分别保留于 设置对齐基线（`artifacts/native-analysis/settings-alignment-verification.json`） 和 运行资源基线（`artifacts/native-analysis/runtime-pruned-smoke-verification.json`）。
 - 此前已在 Android Studio AVD 上完成 **1080×2400 和 720×1600、正常字号**的实际界面检查；两个分辨率均完成 PR 同页真实 PE 反编译并展开恢复代码，1080×2400 实际恢复 `arg1 * 3 + 7`。720×1600 已检查取消及重试，取消和成功后的私有临时文件残留均为 **0**。上一轮独立离线 release APK 中真实 Java 字节码与 SO 分析成功，证据见 [Android 分析验收记录](android-analysis-check.md)。
 - 本轮设置流程在 **1080×2400 中文**和 **720×1600 英文** AVD、正常字号上通过：1080 完成真实 APK 提取、AI 结果和取消后同文件重试；720 完成长文件名 APK 及 SO 的真实提取与 AI 结果。长确认内容可滚动，按钮实测为 48dp，删除动画模块后的 Tabs/Stack 导航正常，见 设置 UI 验证（`artifacts/android-analysis-ui/settings-ui-verification.json`）。AI 为界面明确标注的本地受控响应，提取由真实 JADX/r2ghidra 完成，没有收费请求。
-- 上一轮 按需框架 arm64 APK（`artifacts/EasyHub-Android-on-demand-frameworks-arm64.apk`） 为 **27,463,442 字节（26.19 MiB）**，较历史内置框架包减少 **51.48%**；production、`debuggable=false`、开发 fixture 关闭、测试签名，170 项构建输入哈希匹配，见 主包验证（`artifacts/analysis-frameworks/on-demand-apk-verification.json`）。SHA-256：`8678cb4ea10cdb8590e9214a664aef7a5a77a27a0eec3e5fc6296fa6407b2197`。
+- 上一轮 按需框架 arm64 APK（`artifacts/EasyHub-Android-on-demand-frameworks-arm64.apk`） 为 **27,463,442 字节（26.19 MiB）**，较历史内置框架包减少 **51.48%**；production、`debuggable=false`、开发 fixture 关闭、旧版调试签名（历史包），170 项构建输入哈希匹配，见 主包验证（`artifacts/analysis-frameworks/on-demand-apk-verification.json`）。SHA-256：`8678cb4ea10cdb8590e9214a664aef7a5a77a27a0eec3e5fc6296fa6407b2197`。
 - 两个框架已真实发布到桌面同一个 Release，含 3 个构建支持/源码附件的 7 个 Android 附件已核对；该 Release 实际共 21 个附件，见 发布验证（`artifacts/analysis-frameworks/repository-assets-final-verification.json`）。已从真实 GitHub 下载 Java 组件，并在最终生产主包断网后完成 APK 恢复代码（`artifacts/android-analysis-ui/ondemand-final-offline-apk-code.png`）；原生下载取消与网络重试安装实测成功，见 组件安装状态（`artifacts/android-analysis-ui/ondemand-components-installed.png`）。最终生产主包的 APK、JAR 和 ARM64 SO 断网代码恢复均通过；1080×2400 中文与 720×1600 英文、正常字号未发现组件布局问题。687 个组件文件哈希及只读权限匹配，临时文件残留为 0，中断安装恢复、Java 移除后重新下载及冷启动状态保持通过，见 最终模拟器验收（`artifacts/analysis-frameworks/emulator-framework-verification.json`） 与 界面审计（`artifacts/analysis-frameworks/framework-ui-audit.md`）。
 - 历史内置框架包为 **56,598,974 字节（53.98 MiB）**，SHA-256 `8ad04189554d29cb49c39541ccdab050a92b24ddb6e892ab44a2a66714c4a412`，见 历史安装包验证（`artifacts/native-analysis/release-apk-verification.json`）。其 **915 ms** 冷启动、Java/SO 离线分析及 AI 授权提示保留于 历史 UI 验证（`artifacts/android-analysis-ui/final-ui-verification.json`） 和 `settings-release-*` 截图。
 - 上一包的 PR 与 Material 箭头验收保留于 设置对齐前的 UI 基线（`artifacts/android-analysis-ui/final-ui-verification.before-settings-alignment.json`）；`material-release-*` 与 `settings-release-*` 截图属于前轮基线；按需框架本轮使用 `ondemand-final-*`。

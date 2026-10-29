@@ -43,7 +43,7 @@ Android Studio API 36 AVD 使用主流 **1080×2400 / 420dpi 中文**及 **720×
 
 移动端 TypeScript 测试 **150 项全部通过**，其中更新模块 **11 项**覆盖桌面/框架发行过滤、数字版本排序、同版本与降级、精确 APK 名称、异常响应、匿名请求及实际缓存请求头、预取消、响应读取期间取消、15 秒截止时间与监听器清理。完整类型检查及全量 lint 通过，见 测试日志（`artifacts/android-v110/tests.log`）、类型检查日志（`artifacts/android-v110/typecheck.log`） 和 lint 日志（`artifacts/android-v110/lint.log`）。缓存请求头修正后，更新模块 11 项测试及范围 lint/typecheck 也重新通过。
 
-最终重建包的 APK 验证（`artifacts/android-v110/apk-verification.json`） 已刷新：`artifacts/EasyHub-Android-1.1.0-arm64.apk` 为 **27,474,706 字节（26.20 MiB）**，SHA-256 `00c115b7f8c88be807e7497a3929ad3dbaac93497f13769eafa13d63a42460a3`。production、`debuggable=false`、开发 fixture 关闭、Android 测试签名，174 项构建输入匹配；21 个应用 SO，零内置框架库或资源，主 DEX 无 JADX 类。缓存请求头及下方减少动画模式修正已纳入此次构建；完整移动端 150 项测试、类型检查及全量 lint 再次通过。
+最终重建包的 APK 验证（`artifacts/android-v110/apk-verification.json`） 已刷新：`artifacts/EasyHub-Android-1.1.0-arm64.apk` 为 **27,474,706 字节（26.20 MiB）**，SHA-256 `00c115b7f8c88be807e7497a3929ad3dbaac93497f13769eafa13d63a42460a3`。production、`debuggable=false`、开发 fixture 关闭、旧版调试签名（1.1.0 及更早的历史包，发布包已不再使用），174 项构建输入匹配；21 个应用 SO，零内置框架库或资源，主 DEX 无 JADX 类。缓存请求头及下方减少动画模式修正已纳入此次构建；完整移动端 150 项测试、类型检查及全量 lint 再次通过。
 
 本轮完整结果由 验证清单（`artifacts/android-v110/verification.json`） 汇总；APK 校验与本机界面、录屏和隔离 fixture 记录分别说明构建内容及实际行为。
 

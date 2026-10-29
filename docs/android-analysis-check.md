@@ -8,7 +8,7 @@ Android 1.1.0 下载：[arm64 APK](https://github.com/FuFu-Flash/EasyHub/release
 
 ## 更新与动画阶段：Android 1.1.0（历史包）
 
-更新与动画阶段的验收包为 `artifacts/EasyHub-Android-1.1.0-arm64.apk`，Android versionCode **4**，大小 **27,474,706 字节（26.20 MiB）**，SHA-256 `00c115b7f8c88be807e7497a3929ad3dbaac93497f13769eafa13d63a42460a3`。production、`debuggable=false`、开发 fixture 关闭、测试签名，**174 项**构建输入哈希匹配；**21 个**应用 SO，零内置分析框架，无 JADX 类和 Reanimated/Worklets 原生库，本轮没有新增依赖。
+更新与动画阶段的验收包为 `artifacts/EasyHub-Android-1.1.0-arm64.apk`，Android versionCode **4**，大小 **27,474,706 字节（26.20 MiB）**，SHA-256 `00c115b7f8c88be807e7497a3929ad3dbaac93497f13769eafa13d63a42460a3`。production、`debuggable=false`、开发 fixture 关闭、旧版调试签名（历史包），**174 项**构建输入哈希匹配；**21 个**应用 SO，零内置分析框架，无 JADX 类和 Reanimated/Worklets 原生库，本轮没有新增依赖。
 
 本轮 **150 项**移动端 TypeScript 测试全部通过，包含 **11 项**更新检查测试，完整类型检查与全量 lint 通过。更新检查与桌面同为手动正式渠道，仅识别官方 Android APK 并打开官方发行页。1080×2400 中文及 720×1600 英文 AVD 实际显示 1.1.0，真实 HTTP 不误报桌面 1.2.1；断网错误、恢复网络重试、标签失焦取消已经通过。新增更新与导航过渡的最终验收见 [本轮记录](android-update-and-motion.md) 和 验证清单（`artifacts/android-v110/verification.json`）。
 
@@ -78,7 +78,7 @@ AI 回归使用受控响应，没有使用真实 API Key 执行收费请求。
 
 ## 上一轮按需框架安装包（历史基线）
 
-`artifacts/EasyHub-Android-on-demand-frameworks-arm64.apk` 保留设置审查、PR 集成及官方 Material Symbols 箭头，把 Java/原生框架改为用户按需下载，大小 **27,463,442 字节（26.19 MiB）**，较历史内置框架包减少 **51.48%**。arm64-v8a，最低 API 24、目标 API 36，production 构建、`debuggable=false`、开发 fixture 关闭、Android 测试签名；170 项构建输入哈希一致。包内确认零分析引擎 SO、零原生框架 assets、JADX 类不存在，详情见 `artifacts/analysis-frameworks/on-demand-apk-verification.json`。
+`artifacts/EasyHub-Android-on-demand-frameworks-arm64.apk` 保留设置审查、PR 集成及官方 Material Symbols 箭头，把 Java/原生框架改为用户按需下载，大小 **27,463,442 字节（26.19 MiB）**，较历史内置框架包减少 **51.48%**。arm64-v8a，最低 API 24、目标 API 36，production 构建、`debuggable=false`、开发 fixture 关闭、旧版调试签名（1.1.0 及更早的历史包，发布包已不再使用）；170 项构建输入哈希一致。包内确认零分析引擎 SO、零原生框架 assets、JADX 类不存在，详情见 `artifacts/analysis-frameworks/on-demand-apk-verification.json`。
 
 SHA-256：`8678cb4ea10cdb8590e9214a664aef7a5a77a27a0eec3e5fc6296fa6407b2197`。
 

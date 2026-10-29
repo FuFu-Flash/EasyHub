@@ -31,4 +31,4 @@
 
 最终包 **26.22 MiB**，比之前的 1.1.0 包增加 **20,132 字节**；SHA-256 为 `399998f68432e2274a09ecf8f74b7a80e071e65d4aa257adfcb12e4e749bb13f`。已安装回模拟器并核对安装包哈希，确认无测试数据标记、显示版本 1.1.0，真实网络的「检查更新」返回「已是最新版本。」。发布阶段按合并后的源码重新生成安装包；原加载圈与布局截图保留各自测试副本的身份。最终发布包重新安装并检查版本和更新入口；模拟器恢复 1080×2400、420 dpi、字体与动画缩放 1.0。见 最终包安装验证（`artifacts/android-pull-refresh/installed-production-verification.json`）。
 
-详细检查、构建输入和模拟器证据保存在 `artifacts/android-pull-refresh/`；[Android 1.1.0 arm64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)使用 Android 测试签名，与本地最终验收包内容一致。
+详细检查、构建输入和模拟器证据保存在 `artifacts/android-pull-refresh/`；[Android 1.1.0 arm64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)使用 旧版调试签名（1.1.0 及更早的历史包，发布包已不再使用），与本地最终验收包内容一致。

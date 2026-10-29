@@ -62,13 +62,13 @@ packager 会先清理旧的生成目录再复制资源，干净构建和增量�
 
 `artifacts/EasyHub-Android-1.1.0-arm64.apk` 为 **27,474,706 字节（26.20 MiB）**，Android versionCode **4**，SHA-256 `00c115b7f8c88be807e7497a3929ad3dbaac93497f13769eafa13d63a42460a3`。比下方上一轮按需框架基线增加 **11,264 字节（11.00 KiB）**，继续保留 **21 个**应用 SO，分析框架内置文件为 **0**，主包无 JADX 类及 Reanimated/Worklets 原生库。
 
-新增手动更新检查和 Tabs/native Stack 导航过渡均复用现有依赖，没有新增库。更新检查对齐桌面 main `e89e9a337ae4b90d5e50e3131ef33a3632e5e980` 的正式渠道和官方发行页流程，并仅识别 Android 应用附件。**150 项**移动端 TypeScript 测试（含 **11 项**更新检查测试）、完整类型检查及全量 lint 通过；production、`debuggable=false`、开发 fixture 关闭、测试签名及 **174 项**构建输入哈希已核对。1080×2400 中文和 720×1600 英文 AVD 的实际版本显示、HTTP 检查、断网错误、网络恢复重试和失焦取消通过，见 [本轮更新与动画记录](android-update-and-motion.md) 和 验证清单（`artifacts/android-v110/verification.json`）。
+新增手动更新检查和 Tabs/native Stack 导航过渡均复用现有依赖，没有新增库。更新检查对齐桌面 main `e89e9a337ae4b90d5e50e3131ef33a3632e5e980` 的正式渠道和官方发行页流程，并仅识别 Android 应用附件。**150 项**移动端 TypeScript 测试（含 **11 项**更新检查测试）、完整类型检查及全量 lint 通过；production、`debuggable=false`、开发 fixture 关闭、旧版调试签名（历史包）及 **174 项**构建输入哈希已核对。1080×2400 中文和 720×1600 英文 AVD 的实际版本显示、HTTP 检查、断网错误、网络恢复重试和失焦取消通过，见 [本轮更新与动画记录](android-update-and-motion.md) 和 验证清单（`artifacts/android-v110/verification.json`）。
 
 ## 历史：26.19 MiB 主包与按需框架
 
 上一轮 `artifacts/EasyHub-Android-on-demand-frameworks-arm64.apk` 为 **27,463,442 字节（26.19 MiB）**，比上述内置框架包减少 **29,135,532 字节（51.48%）**。该轮主包的 21 个 SO 均为应用依赖，分析引擎 SO 和原生框架 assets 均为 **0**，JADX 类不在 DEX 中；按需安装保留原有分析能力，用户只下载需要的组件。
 
-历史按需主包 SHA-256：`8678cb4ea10cdb8590e9214a664aef7a5a77a27a0eec3e5fc6296fa6407b2197`。arm64、production、`debuggable=false`、开发 fixture 关闭、测试签名及 16 KiB ELF 对齐检查通过，170 项构建输入哈希一致，见 `artifacts/analysis-frameworks/on-demand-apk-verification.json`。
+历史按需主包 SHA-256：`8678cb4ea10cdb8590e9214a664aef7a5a77a27a0eec3e5fc6296fa6407b2197`。arm64、production、`debuggable=false`、开发 fixture 关闭、旧版调试签名（历史包）及 16 KiB ELF 对齐检查通过，170 项构建输入哈希一致，见 `artifacts/analysis-frameworks/on-demand-apk-verification.json`。
 
 Java 框架下载 **2,804,563 字节**，原生框架下载 **26,357,764 字节**；均在桌面既有组件 Release 真实发布。当前原生 ZIP 保留 25 个引擎库、287 个 Sleigh 文件以及固定版本的数据库、资源和许可证；共享 libc++ 复用主包。前述五类交互资源裁剪属于内置框架阶段，当前框架打包器不再额外裁剪这些目录，详见 框架与源码验证（`artifacts/native-analysis/on-demand-native-frameworks.md`）。
 

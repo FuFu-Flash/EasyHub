@@ -17,11 +17,11 @@ Android 主 APK 与桌面使用同样的组件管理方式：安装应用后，�
 
 ## 安装包与真实发布来源
 
-更新与动画阶段的主包为 `artifacts/EasyHub-Android-1.1.0-arm64.apk`，Android versionCode **4**，**27,474,706 字节（26.20 MiB）**，SHA-256 `00c115b7f8c88be807e7497a3929ad3dbaac93497f13769eafa13d63a42460a3`。production、开发 fixture 关闭、`debuggable=false`、Android 测试签名，**174 项**构建输入哈希匹配；主包有 **21 个**应用 SO，零内置分析框架，无 JADX 类和 Reanimated/Worklets 原生库，本轮未新增依赖。
+更新与动画阶段的主包为 `artifacts/EasyHub-Android-1.1.0-arm64.apk`，Android versionCode **4**，**27,474,706 字节（26.20 MiB）**，SHA-256 `00c115b7f8c88be807e7497a3929ad3dbaac93497f13769eafa13d63a42460a3`。production、开发 fixture 关闭、`debuggable=false`、旧版调试签名（1.1.0 及更早的历史包，发布包已不再使用），**174 项**构建输入哈希匹配；主包有 **21 个**应用 SO，零内置分析框架，无 JADX 类和 Reanimated/Worklets 原生库，本轮未新增依赖。
 
 1.1.0 增加与桌面一致的手动正式渠道应用更新检查，只识别官方 Android APK，下载按钮打开官方发行页。**150 项**移动端 TypeScript 测试（含 **11 项**更新检查测试）、完整类型检查和全量 lint 通过；1080×2400 中文和 720×1600 英文 AVD 显示版本正确，真实 HTTP 不误报桌面 1.2.1，断网、重试和标签切换取消通过。新包的更新与导航验收见 [本轮记录](android-update-and-motion.md) 和 验证清单（`artifacts/android-v110/verification.json`）；下方组件实测及发布证据保留上一轮归属。
 
-上一轮按需框架基线包为 `artifacts/EasyHub-Android-on-demand-frameworks-arm64.apk`，**27,463,442 字节（26.19 MiB）**。相比此前内置框架包的 **56,598,974 字节（53.98 MiB）**减少 **51.48%**。该 APK 保留 21 个应用原生库和 6 个 DEX；分析引擎 SO、原生框架 assets 均为 **0**，JADX 类也不在 APK 中。production 构建、开发 fixture 关闭、`debuggable=false`，使用 Android 测试签名，170 项构建输入哈希匹配，见 历史主包验证（`artifacts/analysis-frameworks/on-demand-apk-verification.json`）。
+上一轮按需框架基线包为 `artifacts/EasyHub-Android-on-demand-frameworks-arm64.apk`，**27,463,442 字节（26.19 MiB）**。相比此前内置框架包的 **56,598,974 字节（53.98 MiB）**减少 **51.48%**。该 APK 保留 21 个应用原生库和 6 个 DEX；分析引擎 SO、原生框架 assets 均为 **0**，JADX 类也不在 APK 中。production 构建、开发 fixture 关闭、`debuggable=false`，使用 旧版调试签名（1.1.0 及更早的历史包，发布包已不再使用），170 项构建输入哈希匹配，见 历史主包验证（`artifacts/analysis-frameworks/on-demand-apk-verification.json`）。
 
 历史按需主包 SHA-256：`8678cb4ea10cdb8590e9214a664aef7a5a77a27a0eec3e5fc6296fa6407b2197`。
 

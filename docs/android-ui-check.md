@@ -32,7 +32,7 @@ Android 1.1.0 下载：[arm64 APK](https://github.com/FuFu-Flash/EasyHub/release
 ## 自动验证与安装包
 
 - Mobile 类型检查与 lint 通过；Mobile 测试 54 项通过；共享 GitHub API 相关测试 27 项通过；`git diff --check` 通过。
-- 安装包：`artifacts/EasyHub-Android-ui-checked-arm64.apk`。仅 arm64，最低 Android API 24，target API 36；生产构建 `EXPO_PUBLIC_UI_TEST=0`，使用测试签名。
+- 安装包：`artifacts/EasyHub-Android-ui-checked-arm64.apk`。仅 arm64，最低 Android API 24，target API 36；生产构建 `EXPO_PUBLIC_UI_TEST=0`，使用旧版调试签名（历史包）。
 - SHA-256：`b2dd9da2f6533e3cdcbf0e5a2bb3aab05c8375cbe184a6a2613e3fbef3d47bb3`。
 
 模拟数据界面验收不能代替真实账号的 GitHub 网络、OAuth 授权和写入验收。此 APK 不是商店发行包。
