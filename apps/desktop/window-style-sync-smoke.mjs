@@ -87,8 +87,21 @@ try {
       results.push({ screen, style: style || 'default', calls });
     }
   }
+  // Changing the layout in Settings must reach the window buttons as well: they read the same layout as the
+  // workspace, so macOS moves its traffic lights to the compact toolbar position.
+  await page.goto(`${base}?page=welcome&style=&density=comfortable`);
+  await page.getByRole('button', { name: '先看看演示', exact: true }).click();
+  await page.waitForFunction(() => window.styleCalls.some((call) => call[0] === 'reference' && call[1] === 'comfortable'));
+  await page.getByRole('button', { name: '设置', exact: true }).first().click();
+  await page.getByRole('button', { name: '紧凑', exact: true }).click();
+  await page.waitForFunction(() => {
+    const last = window.styleCalls.at(-1);
+    return last?.[0] === 'reference' && last?.[1] === 'compact';
+  });
+  assert.deepEqual((await page.evaluate(() => window.styleCalls)).at(-1), ['reference', 'compact'], 'Settings layout reaches the main process');
+  results.push({ screen: 'workspace settings', style: 'default', calls: await page.evaluate(() => window.styleCalls) });
   assert.deepEqual(errors, []);
-  console.log(`Window style sync passed: welcome and offline pages, saved Windows/dot styles and the macOS default (${results.length} cases).`);
+  console.log(`Window style sync passed: welcome and offline pages, saved Windows/dot styles, the macOS default and a layout change in Settings (${results.length} cases).`);
 } finally {
   await browser?.close();
   await server.close();
