@@ -13,13 +13,6 @@ contextBridge.exposeInMainWorld('easyHub', {
     ipcRenderer.on('easyhub:menu-command', handler);
     return (): void => { ipcRenderer.removeListener('easyhub:menu-command', handler); };
   },
-  macProxy: {
-    status: () => ipcRenderer.invoke('easyhub:mac-proxy-status'),
-    setEnabled: (enabled: boolean) => ipcRenderer.invoke('easyhub:mac-proxy-set-enabled', enabled),
-    probe: () => ipcRenderer.invoke('easyhub:mac-proxy-probe'),
-    openSettings: () => ipcRenderer.invoke('easyhub:mac-proxy-open-settings'),
-    onChanged: (callback: (value: unknown) => void) => { const handler = (_event: Electron.IpcRendererEvent, value: unknown): void => callback(value); ipcRenderer.on('easyhub:mac-proxy-changed', handler); return (): void => { ipcRenderer.removeListener('easyhub:mac-proxy-changed', handler); }; },
-  },
   copyPairingCode: (code: string): Promise<boolean> => ipcRenderer.invoke('easyhub:copy-pairing-code', code),
 
   reportRendererError: (report: { scope: string; message: string; stack: string; componentStack: string }) => ipcRenderer.invoke('easyhub:renderer-error', report),

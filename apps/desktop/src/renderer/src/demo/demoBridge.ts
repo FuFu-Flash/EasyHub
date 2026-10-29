@@ -276,17 +276,6 @@ export function createDemoBridge(
     },
     onMenuCommand: (callback) => native?.onMenuCommand?.(callback) ?? (() => undefined),
     copyPairingCode: async () => false,
-    macProxy: {
-      status: async () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }),
-      setEnabled: async () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }),
-      probe: async () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }),
-      openSettings: async () => ({
-        status: 'disconnected',
-        pacURL: 'http://127.0.0.1:8869/github.pac',
-        socksPort: 8868,
-      }),
-      onChanged: () => () => undefined,
-    },
     reportRendererError: async (report) => {
       reports.push(copy(report));
     },

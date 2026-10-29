@@ -56,28 +56,12 @@ interface HostsRepairStatus {
   source: string;
 }
 
-export interface MacProxySnapshot {
-  status: 'disconnected' | 'connecting' | 'connected' | 'disconnecting' | 'unavailable';
-  pacURL: string;
-  socksPort: number;
-  lastProbe?: string;
-  error?: string;
-  domains?: number;
-}
-
 export {};
 
 declare global {
   interface Window {
     easyHub?: {
       readonly platform?: string;
-      readonly macProxy?: {
-        status: () => Promise<MacProxySnapshot>;
-        setEnabled: (enabled: boolean) => Promise<MacProxySnapshot>;
-        probe: () => Promise<MacProxySnapshot>;
-        openSettings: () => Promise<MacProxySnapshot>;
-        onChanged: (callback: (value: MacProxySnapshot) => void) => () => void;
-      };
       copyPairingCode?: (code: string) => Promise<boolean>;
       setMenuState?: (state: MenuState) => Promise<void>;
       onMenuCommand?: (callback: (command: MenuCommand) => void) => () => void;
