@@ -33,17 +33,17 @@ You do not need to install Git or create a separate EasyHub account. Sign in wit
 
 ## Download and install
 
-> **Android notice:** The upcoming Android 1.2.0 changes the signing key (earlier packages used a public debug key). To upgrade from 1.1.0 or earlier, **uninstall the old app first, then install the new one**, and sign in to GitHub again. Your projects on GitHub are not affected.
+> **Android notice:** Android 1.2.0 changes the signing key (earlier packages used a public debug key). To upgrade from 1.1.0 or earlier, **uninstall the old app first, then install the new one**, and sign in to GitHub again. Your projects on GitHub are not affected.
 
-**Current versions: Desktop (Windows) 1.4.1 · Desktop (macOS) 1.4.1 · Android 1.1.0.**
+**Current versions: Desktop (Windows) 1.4.1 · Desktop (macOS) 1.4.1 · Android 1.2.0.**
 
 | Platform | Edition | Best for | Download |
 | --- | --- | --- | --- |
 | Desktop (Windows) | Installer | Regular use, with installation location and desktop shortcut options | **[Download installer](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.4.1/EasyHub-1.4.1-setup.exe)** |
 | Desktop (Windows) | Portable | Run directly without installing | **[Download portable](https://github.com/FuFu-Flash/EasyHub/releases/download/v1.4.1/EasyHub-1.4.1-portable.exe)** |
 | Desktop (macOS) | DMG / ZIP | Apple Silicon Macs running macOS 12 or later | **[Download DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.4.1/EasyHub-macOS.dmg)** · [Download ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.4.1/EasyHub-macOS.zip) · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.4.1) |
-| Android | 1.1.0 ARM64 APK | Most newer Android phones; smaller package | **[Download ARM64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-arm64.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
-| Android | 1.1.0 universal APK | ARM32, ARM64, x86, and x86_64 devices and emulators | **[Download universal APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.1.0/EasyHub-Android-1.1.0-universal.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.1.0) |
+| Android | 1.2.0 ARM64 APK | Most newer Android phones; smaller package. Upgrading from 1.1.0 requires uninstalling first | **[Download ARM64 APK](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.2.0/EasyHub-Android-1.2.0-arm64.apk)** · [Release notes](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.2.0) |
+| Android | Universal APK | ARM32 and x86 devices and emulators | No universal package for 1.2.0 yet; the old 1.1.0 universal APK uses a public debug key and is no longer linked |
 
 The Windows editions are for 64-bit PCs. The installer detects a previous installation location and selects “Create desktop shortcut” by default. Android requires Android 7.0 or later. The macOS edition requires an Apple Silicon Mac running macOS 12 or later. Open the DMG, drag EasyHub into Applications, and launch it from there.
 
@@ -119,7 +119,7 @@ Temporary review files are cleaned up after completion, failure, or cancellation
 
 Your API key is saved in secure storage on the current device and used to connect to your chosen service. Fees and available quotas depend on the provider.
 
-Android 1.1.0 reviews text changes and decompiles program files locally. Download the Java/Dalvik component (about 2.67 MiB) and native component (about 25.14 MiB) separately in settings. They share the [desktop component release](https://github.com/FuFu-Flash/EasyHub/releases/tag/analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1). The Java/Dalvik component supports all architectures on Android 8.0 or later; the native component currently supports ARM64 only. Program files downloaded for review are removed when the task finishes or is canceled.
+Android 1.2.0 reviews text changes and decompiles program files locally. Download the Java/Dalvik component (about 2.67 MiB) and native component (about 25.14 MiB) separately in settings. They share the [desktop component release](https://github.com/FuFu-Flash/EasyHub/releases/tag/analysis-runtime-ghidra-12.1.2-java-21.0.12.1-r1). The Java/Dalvik component supports all architectures on Android 8.0 or later; the native component currently supports ARM64 only. Program files downloaded for review are removed when the task finishes or is canceled.
 
 </details>
 
