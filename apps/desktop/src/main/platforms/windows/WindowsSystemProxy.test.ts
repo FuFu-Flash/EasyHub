@@ -292,6 +292,7 @@ describe('Windows current-user proxy ownership', () => {
 
   // Spawns real PowerShell processes; a busy parallel test run can exceed the default 5s.
   it.skipIf(process.platform !== 'win32')('runs the crash guardian against an isolated native stub without touching OS settings', async () => {
+    // PowerShell compiles the C# stub with Add-Type first, which can take well over 10 seconds on a cold CI machine.
     const root = await mkdtemp(join(tmpdir(), 'easyhub-proxy-guardian-'));
     roots.push(root);
     const leasePath = join(root, 'lease.json');
@@ -341,7 +342,7 @@ public static class EasyHubWinInetProxy {
     const expectedLeaseHash = createHash('sha256').update(savedLease).digest('hex');
     const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
       input: JSON.stringify({ operation: 'watch', ownerPid: 2147483647, leasePath, expectedLeaseHash }), windowsHide: true,
-      env: { ...process.env, EASYHUB_GUARDIAN_FIXTURE_STATE: statePath }, encoding: 'utf8', timeout: 10000,
+      env: { ...process.env, EASYHUB_GUARDIAN_FIXTURE_STATE: statePath }, encoding: 'utf8', timeout: 60_000,
     });
     expect(result.error).toBeUndefined();
     expect(result.stderr).toBe('');
@@ -355,7 +356,7 @@ public static class EasyHubWinInetProxy {
     await rm(statePath);
     const retrying = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
       input: JSON.stringify({ operation: 'watch', ownerPid: 2147483647, leasePath, expectedLeaseHash }), windowsHide: true,
-      env: { ...process.env, EASYHUB_GUARDIAN_FIXTURE_STATE: statePath, EASYHUB_GUARDIAN_FIXTURE_RETRY: '1' }, encoding: 'utf8', timeout: 10000,
+      env: { ...process.env, EASYHUB_GUARDIAN_FIXTURE_STATE: statePath, EASYHUB_GUARDIAN_FIXTURE_RETRY: '1' }, encoding: 'utf8', timeout: 60_000,
     });
     expect(retrying.error).toBeUndefined();
     expect(retrying.status).toBe(0);
@@ -368,7 +369,7 @@ public static class EasyHubWinInetProxy {
     await rm(statePath);
     const stale = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
       input: JSON.stringify({ operation: 'watch', ownerPid: 2147483647, leasePath, expectedLeaseHash }), windowsHide: true,
-      env: { ...process.env, EASYHUB_GUARDIAN_FIXTURE_STATE: statePath }, encoding: 'utf8', timeout: 10000,
+      env: { ...process.env, EASYHUB_GUARDIAN_FIXTURE_STATE: statePath }, encoding: 'utf8', timeout: 60_000,
     });
     expect(stale.error).toBeUndefined();
     expect(stale.status).toBe(0);
@@ -405,5 +406,5 @@ public static class EasyHubWinInetProxy {
     });
     expect(await readFile(leasePath, 'utf8')).toBe(replacementLease);
     await expect(readFile(statePath)).rejects.toMatchObject({ code: 'ENOENT' });
-  }, 30_000);
+  }, 200_000);
 });
