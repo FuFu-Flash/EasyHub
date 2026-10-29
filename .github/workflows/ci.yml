@@ -54,3 +54,30 @@ jobs:
       - name: Application menu (macOS)
         if: runner.os == 'macOS'
         run: pnpm run test:menu-ui
+
+  android:
+    name: Android (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # Only the mobile app and the shared packages it uses; the desktop app is not needed here.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter "@easyhub/mobile..."
+
+      - name: Typecheck
+        run: pnpm run typecheck:mobile
+
+      - name: Lint
+        run: pnpm run lint:mobile
+
+      - name: Unit tests
+        run: pnpm run test:mobile
