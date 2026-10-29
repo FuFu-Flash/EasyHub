@@ -248,6 +248,8 @@ try {
   // The settings accelerator's menu action must survive closing all native windows
   // and wait for authentication plus the new renderer subscription to become ready.
   await Promise.all([page.waitForEvent('close'), app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())]);
+  // The page can report closing slightly before Electron drops the window from its list on a busy machine.
+  for (const end = Date.now() + 10000; Date.now() < end && await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length); ) await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length), 0);
   await waitEnabled('home', false);
   await waitEnabled('settings');
