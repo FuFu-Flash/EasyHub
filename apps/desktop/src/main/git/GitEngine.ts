@@ -4,7 +4,7 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import { GitHubOriginAgent } from '../services/githubProxyOrigin';
 import type { OriginRule } from '../services/githubProxyOrigin';
 import fs from 'node:fs';
-import { chmod, lstat, mkdir, readFile, realpath, stat, writeFile, rm } from 'node:fs/promises';
+import { chmod, lstat, mkdir, open as openFile, readFile, realpath, stat, writeFile, rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import type { OperationStep, ChangedFile, LocalPublishSelection, LocalPublishPreview, LocalFileDiff, LocalPushBranchResult, LocalBranchList, SyncDecision, SyncFileReview, SyncPreview } from '@easyhub/types';
 import { clearPendingPublication, commitSelectedChanges, fileDifference, pendingPublication, safeChangePath, snapshotChanges, markSensitiveFiles } from './LocalChanges';
@@ -50,6 +50,17 @@ export async function branchList(dir: string, onGithub: string[] | null): Promis
 }
 
 /** Every publish, push and download of new content goes to the branch the folder is on. */
+/** Only index version 2 can be read. Folders that check out part of a project (skip-worktree) use version 3. */
+async function assertReadableIndex(dir: string): Promise<void> {
+  let header: Buffer;
+  try {
+    const handle = await openFile(join(dir, '.git', 'index'), 'r');
+    try { header = Buffer.alloc(8); await handle.read(header, 0, 8, 0); } finally { await handle.close(); }
+  } catch { return; }
+  if (header.subarray(0, 4).toString('latin1') === 'DIRC' && header.readUInt32BE(4) > 2)
+    throw new GitEngineError('unsupported', '这个文件夹只检出了项目的一部分文件，EasyHub 暂时读不了它的状态。请改用完整下载的文件夹。');
+}
+
 async function targetBranch(dir: string): Promise<string> {
   const branch = await git.currentBranch({ fs, dir });
   if (!branch || !safeChangePath(branch)) throw new GitEngineError('unsupported', '暂时无法确认项目的当前工作版本，请先在其他工具中切换到一个分支。');
@@ -150,6 +161,7 @@ export class GitEngine {
 
   async getStatus(dir: string, onProgress?: (value: GitProgress) => void): Promise<GitProjectStatus> {
     onProgress?.({ step: 'checking-files', phase: '正在检查文件' });
+    await assertReadableIndex(dir);
     const tracked = new Set(await git.listFiles({ fs, dir }));
     // Status and previews must stay read-only so terminating a scan cannot
     // interrupt an index rewrite, or interfere with another tool's staging.

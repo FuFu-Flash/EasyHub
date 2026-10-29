@@ -181,3 +181,17 @@ describe('GitEngine', () => {
     expect((await engine.getStatus(dir)).hasPreparedChanges).toBe(true);
   });
 });
+
+describe('folders that check out only part of a project', () => {
+  it('reports a readable message for an index version the bundled git cannot read', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'easyhub-index-v3-'));
+    try {
+      await mkdir(join(dir, '.git'));
+      const header = Buffer.alloc(12);
+      header.write('DIRC', 0, 'latin1');
+      header.writeUInt32BE(3, 4);
+      await writeFile(join(dir, '.git', 'index'), header);
+      await expect(new GitEngine().getStatus(dir)).rejects.toMatchObject({ code: 'unsupported', message: expect.stringContaining('只检出了项目的一部分') });
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+});
