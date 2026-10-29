@@ -40,7 +40,11 @@ export function createNoticeTimer(expire: () => void, duration = 4000, clock = s
     release: (reason: string) => {
       if (!disposed && paused.delete(reason) && !paused.size) resume();
     },
-    dispose: () => { disposed = true; generation++; clock.cancel(handle); },
+    dispose: () => {
+      disposed = true;
+      generation++;
+      clock.cancel(handle);
+    },
   };
   resume();
   return timer;

@@ -1,5 +1,5 @@
-import type { GitHubClient, GitHubRepo } from '@easyhub/github';
-import { throwIfCancelled } from '../network/cancellation.js';
+import type { GitHubClient, GitHubRepo } from "@easyhub/github";
+import { throwIfCancelled } from "../network/cancellation.js";
 
 export async function loadAllRepos(client: GitHubClient, signal?: AbortSignal): Promise<GitHubRepo[]> {
   const repos: GitHubRepo[] = [];

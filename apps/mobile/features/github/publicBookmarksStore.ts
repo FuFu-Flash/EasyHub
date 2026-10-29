@@ -1,5 +1,5 @@
-import { File, Paths } from 'expo-file-system';
-import { parsePublicBookmarks, type PublicBookmark } from './publicBookmarks';
+import { File, Paths } from "expo-file-system";
+import { parsePublicBookmarks, type PublicBookmark } from "./publicBookmarks";
 
 function bookmarksFile(login: string): File {
   return new File(Paths.document, `easyhub-public-bookmarks-${login.toLowerCase()}.json`);

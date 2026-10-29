@@ -1,8 +1,8 @@
-import { createContext, useContext, useMemo } from 'react';
-import type { AppLanguage } from '../preferences/model';
-import { getTranslator, type Translator } from './index';
+import { createContext, useContext, useMemo } from "react";
+import type { AppLanguage } from "../preferences/model";
+import { getTranslator, type Translator } from "./index";
 
-export const LanguageContext = createContext<AppLanguage>('zh');
+export const LanguageContext = createContext<AppLanguage>("zh");
 
 export function useLanguage(language?: AppLanguage): AppLanguage {
   const inherited = useContext(LanguageContext);

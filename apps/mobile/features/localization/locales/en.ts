@@ -1,23 +1,30 @@
-import type { zh } from './zh.ts';
-import type { CatalogMessage } from '../types.ts';
+import type { zh } from "./zh.ts";
+import type { CatalogMessage } from "../types.ts";
 
 export const en = {
-  "sessionRecovery.offlineNoProjects": "Your account details were verified, but this device has no project data available yet. Your latest projects will appear after a successful retry.",
+  "sessionRecovery.offlineNoProjects":
+    "Your account details were verified, but this device has no project data available yet. Your latest projects will appear after a successful retry.",
   "sessionRecovery.offlineTitle": "Offline — no project data yet",
-  "sessionRecovery.offlineNoProfile": "EasyHub cannot reach GitHub and has not loaded this account or its projects yet. Your saved sign-in details are still on this device. Reconnect, then retry.",
-  "sessionRecovery.offlineSaved": "You are using the last verified account details. Projects and messages may be out of date. Reconnect, then retry.",
+  "sessionRecovery.offlineNoProfile":
+    "EasyHub cannot reach GitHub and has not loaded this account or its projects yet. Your saved sign-in details are still on this device. Reconnect, then retry.",
+  "sessionRecovery.offlineSaved":
+    "You are using the last verified account details. Projects and messages may be out of date. Reconnect, then retry.",
   "sessionRecovery.savedAccount": "Last verified account: {login}",
   "sessionRecovery.forbiddenTitle": "GitHub temporarily declined access",
-  "sessionRecovery.forbiddenHelp": "Access may be restricted or rate limited. Your sign-in details are preserved. Retry later, or sign in again to check authorization.",
+  "sessionRecovery.forbiddenHelp":
+    "Access may be restricted or rate limited. Your sign-in details are preserved. Retry later, or sign in again to check authorization.",
   "sessionRecovery.expiredTitle": "Your GitHub sign-in has expired",
-  "sessionRecovery.expiredHelp": "Sign in again to restore account access. EasyHub will not use the expired authorization to read or change projects before verification.",
+  "sessionRecovery.expiredHelp":
+    "Sign in again to restore account access. EasyHub will not use the expired authorization to read or change projects before verification.",
   "sessionRecovery.storageTitle": "Saved sign-in details are unavailable",
-  "sessionRecovery.storageHelp": "Secure storage is temporarily unavailable on this device. Retry, or sign in again. Existing records will not be cleared automatically.",
+  "sessionRecovery.storageHelp":
+    "Secure storage is temporarily unavailable on this device. Retry, or sign in again. Existing records will not be cleared automatically.",
   "sessionRecovery.retry": "Retry connection",
   "sessionRecovery.retrying": "Connecting to GitHub…",
   "sessionRecovery.signIn": "Sign in again",
   "sessionRecovery.networkSettings": "Open network settings",
-  "sessionRecovery.networkSettingsFailed": "Network settings could not be opened. Check the connection in Android Settings.",
+  "sessionRecovery.networkSettingsFailed":
+    "Network settings could not be opened. Check the connection in Android Settings.",
   "sessionRecovery.easyhubSettings": "EasyHub settings",
   "sessionRecovery.connectionNotice": "GitHub connection is unavailable",
   "common.dateUnavailable": "Date unavailable",
@@ -27,14 +34,14 @@ export const en = {
   "common.contentTranslation": "Content translation",
   "common.reload": "Reload",
   "common.fileCount": {
-    "count": "count",
-    "one": "{count} file",
-    "other": "{count} files"
+    count: "count",
+    one: "{count} file",
+    other: "{count} files",
   },
   "common.commentCount": {
-    "count": "count",
-    "one": "{count} comment",
-    "other": "{count} comments"
+    count: "count",
+    one: "{count} comment",
+    other: "{count} comments",
   },
   "common.itemOfTotal": "Item {current} of {total}",
   "AiReviewSettings.aiSettingsSaved": "AI settings saved",
@@ -57,7 +64,8 @@ export const en = {
   "AiReviewSettings.connectedManageAccess": "Connected · manage access",
   "AiReviewSettings.setUpAnAIProvider": "Set up an AI provider",
   "AiReviewSettings.model": "Model",
-  "AiReviewSettings.useYourOwnAICredentialsToReviewProposedChangesAndProgram": "Use your own AI credentials to review proposed changes and program files. Credentials stay on this device.",
+  "AiReviewSettings.useYourOwnAICredentialsToReviewProposedChangesAndProgram":
+    "Use your own AI credentials to review proposed changes and program files. Credentials stay on this device.",
   "AiReviewSettings.aiProvider": "AI provider",
   "AiReviewSettings.savedLeaveBlankToKeepIt": "Saved; leave blank to keep it",
   "AiReviewSettings.enterYourOwnAPIKey": "Enter your own API key",
@@ -81,23 +89,30 @@ export const en = {
   "BinaryAnalysisSettings.extractionCoverage": "Extraction coverage",
   "BinaryAnalysisSettings.componentInstalledReviewIsReady": "Component installed. Review is ready.",
   "BinaryAnalysisSettings.downloadCanceledYouCanRetry": "Download canceled. You can retry.",
-  "BinaryAnalysisSettings.componentDownloadDidNotCompletePleaseRetry": "Component download did not complete. Please retry.",
-  "BinaryAnalysisSettings.componentRemovedDownloadItAgainWhenNeeded": "Component removed. Download it again when needed.",
+  "BinaryAnalysisSettings.componentDownloadDidNotCompletePleaseRetry":
+    "Component download did not complete. Please retry.",
+  "BinaryAnalysisSettings.componentRemovedDownloadItAgainWhenNeeded":
+    "Component removed. Download it again when needed.",
   "BinaryAnalysisSettings.couldNotRemoveTheComponentPleaseRetry": "Could not remove the component. Please retry.",
-  "BinaryAnalysisSettings.thisBuildDoesNotIncludeProgramReviewComponents": "This build does not include program review components.",
+  "BinaryAnalysisSettings.thisBuildDoesNotIncludeProgramReviewComponents":
+    "This build does not include program review components.",
   "BinaryAnalysisSettings.componentStatusRefreshed": "Component status refreshed.",
   "BinaryAnalysisSettings.couldNotCheckComponentsPleaseRetry": "Could not check components. Please retry.",
   "BinaryAnalysisSettings.theFileExceedsChooseASmallerFile": "The file exceeds {p0}. Choose a smaller file.",
   "BinaryAnalysisSettings.couldNotSelectTheFilePleaseRetry": "Could not select the file. Please retry.",
   "BinaryAnalysisSettings.canceled": "Canceled.",
-  "BinaryAnalysisSettings.aiReviewCouldNotBeCompletedCheckTheFileAndComponents": "AI review could not be completed. Check the file and components, then retry.",
+  "BinaryAnalysisSettings.aiReviewCouldNotBeCompletedCheckTheFileAndComponents":
+    "AI review could not be completed. Check the file and components, then retry.",
   "BinaryAnalysisSettings.useAIToReviewThisProgramFile": "Use AI to review this program file?",
-  "BinaryAnalysisSettings.afterConfirmationProgramContentIsExtractedOnThisDeviceTheFile": "After confirmation, program content is extracted on this device. The file name, format, architecture, analysis summary, and extracted function code, imports, and text excerpts are then sent to your AI service.",
+  "BinaryAnalysisSettings.afterConfirmationProgramContentIsExtractedOnThisDeviceTheFile":
+    "After confirmation, program content is extracted on this device. The file name, format, architecture, analysis summary, and extracted function code, imports, and text excerpts are then sent to your AI service.",
   "BinaryAnalysisSettings.provider": "Provider",
   "BinaryAnalysisSettings.serviceAddress": "Service address",
-  "BinaryAnalysisSettings.confirmThatYouWantToShareThisExtractedContentYourProvider": "Confirm that you want to share this extracted content. Your provider may charge for this request. Use the review to guide your own inspection.",
+  "BinaryAnalysisSettings.confirmThatYouWantToShareThisExtractedContentYourProvider":
+    "Confirm that you want to share this extracted content. Your provider may charge for this request. Use the review to guide your own inspection.",
   "BinaryAnalysisSettings.agreeAndStartReview": "Agree and start review",
-  "BinaryAnalysisSettings.setUpAIAccessAboveFirstChooseAProviderAndSave": "Set up AI access above first. Choose a provider and save your own API key.",
+  "BinaryAnalysisSettings.setUpAIAccessAboveFirstChooseAProviderAndSave":
+    "Set up AI access above first. Choose a provider and save your own API key.",
   "BinaryAnalysisSettings.canceling": "Canceling…",
   "BinaryAnalysisSettings.downloadingReviewComponents": "Downloading review components…",
   "BinaryAnalysisSettings.removingComponent": "Removing component…",
@@ -112,13 +127,16 @@ export const en = {
   "BinaryAnalysisSettings.downloadingComponent": "Downloading component…",
   "BinaryAnalysisSettings.programFileReview": "Program file review",
   "BinaryAnalysisSettings.componentInstallationReminders": "Component installation reminders",
-  "BinaryAnalysisSettings.showAReminderWhenAPullRequestNeedsAMissingComponent": "Show a reminder when a pull request needs a missing component. You can turn reminders back on here.",
+  "BinaryAnalysisSettings.showAReminderWhenAPullRequestNeedsAMissingComponent":
+    "Show a reminder when a pull request needs a missing component. You can turn reminders back on here.",
   "BinaryAnalysisSettings.on": "On",
   "BinaryAnalysisSettings.off": "Off",
-  "BinaryAnalysisSettings.usesTheSameAIProviderAsChangeRequestsAfterConfirmationProgram": "Uses the same AI provider as pull requests. After confirmation, program content is extracted and reviewed, with the evidence included in the review results.",
+  "BinaryAnalysisSettings.usesTheSameAIProviderAsChangeRequestsAfterConfirmationProgram":
+    "Uses the same AI provider as pull requests. After confirmation, program content is extracted and reviewed, with the evidence included in the review results.",
   "BinaryAnalysisSettings.uiTestingAIUsesALocalSimulatedResponse": "UI testing: AI uses a local simulated response",
   "BinaryAnalysisSettings.manageReviewComponents": "Manage review components",
-  "BinaryAnalysisSettings.downloadFromTheProjectRepositoryWhenNeededInstallOrRemoveEach": "Download from the project repository when needed. Install or remove each component separately.",
+  "BinaryAnalysisSettings.downloadFromTheProjectRepositoryWhenNeededInstallOrRemoveEach":
+    "Download from the project repository when needed. Install or remove each component separately.",
   "BinaryAnalysisSettings.nativeProgramsRadare2R2ghidra": "Native programs · radare2 / r2ghidra",
   "BinaryAnalysisSettings.notSupportedOnThisDevice": "Not supported on this device",
   "BinaryAnalysisSettings.installed": "Installed",
@@ -131,11 +149,14 @@ export const en = {
   "BinaryAnalysisSettings.removeNativeComponent": "Remove native component",
   "BinaryAnalysisSettings.downloadJavaDalvik": "Download Java / Dalvik",
   "BinaryAnalysisSettings.downloadNativeComponent": "Download native component",
-  "BinaryAnalysisSettings.couldNotReadComponentStatusCheckTheInstalledAppVersion": "Could not read component status. Check the installed app version.",
+  "BinaryAnalysisSettings.couldNotReadComponentStatusCheckTheInstalledAppVersion":
+    "Could not read component status. Check the installed app version.",
   "BinaryAnalysisSettings.checkComponents": "Check components",
-  "BinaryAnalysisSettings.filesUpToJavaInputAndExpandedBytecodeUpToExtracted": "Files up to {p0}; Java input and expanded bytecode up to {p1}. Extracted code is sampled and may be incomplete.",
+  "BinaryAnalysisSettings.filesUpToJavaInputAndExpandedBytecodeUpToExtracted":
+    "Files up to {p0}; Java input and expanded bytecode up to {p1}. Extracted code is sampled and may be incomplete.",
   "BinaryAnalysisSettings.sizeVerifiedWhenTheFileIsRead": "Size verified when the file is read",
-  "BinaryAnalysisSettings.selectAProgramFileAfterConfirmationItsContentIsExtractedAnd": "Select a program file. After confirmation, its content is extracted and reviewed with AI.",
+  "BinaryAnalysisSettings.selectAProgramFileAfterConfirmationItsContentIsExtractedAnd":
+    "Select a program file. After confirmation, its content is extracted and reviewed with AI.",
   "BinaryAnalysisSettings.choosing": "Choosing…",
   "BinaryAnalysisSettings.changeFile": "Change file",
   "BinaryAnalysisSettings.selectLocalFile": "Select local file",
@@ -143,7 +164,8 @@ export const en = {
   "BinaryAnalysisSettings.loadingAISettings": "Loading AI settings…",
   "BinaryAnalysisSettings.reviewAgain": "Review again",
   "BinaryAnalysisSettings.aiReview": "AI review",
-  "BinaryAnalysisSettings.theSelectedFileIsReadWithoutRunningTheProgram": "The selected file is read without running the program.",
+  "BinaryAnalysisSettings.theSelectedFileIsReadWithoutRunningTheProgram":
+    "The selected file is read without running the program.",
   "BinaryAnalysisSettings.aiReviewResults": "AI review results",
   "BinaryAnalysisSettings.highPriority": "High priority",
   "BinaryAnalysisSettings.worthChecking": "Worth checking",
@@ -153,22 +175,28 @@ export const en = {
   "CommitExplanation.connectYourAIServiceInSettingsFirst": "Connect your AI service in Settings first.",
   "CommitExplanation.couldNotLoadAISettingsPleaseRetry": "Could not load AI settings. Please retry.",
   "CommitExplanation.aiSettingsChangedConfirmAgain": "AI settings changed. Confirm again.",
-  "CommitExplanation.couldNotExplainTheseChangesCheckYourAIAuthorizationAndConnection": "Could not explain these changes. Check your AI authorization and connection, then retry.",
+  "CommitExplanation.couldNotExplainTheseChangesCheckYourAIAuthorizationAndConnection":
+    "Could not explain these changes. Check your AI authorization and connection, then retry.",
   "CommitExplanation.explainChangesAgain": "Explain changes again",
   "CommitExplanation.explainChanges": "Explain changes",
   "CommitExplanation.openAISettings": "Open AI settings",
   "CommitExplanation.explainingTheseChanges": "Explaining these changes…",
   "CommitExplanation.cancelExplanation": "Cancel explanation",
   "CommitExplanation.changeExplanation": "Change explanation",
-  "CommitExplanation.thisExplanationCoversOnlySuppliedChangesSomeContentWasTooLarge": "This explanation covers only supplied changes. Some content was too large or had no text diff.",
+  "CommitExplanation.thisExplanationCoversOnlySuppliedChangesSomeContentWasTooLarge":
+    "This explanation covers only supplied changes. Some content was too large or had no text diff.",
   "CommitExplanation.useAIToExplainTheseChanges": "Use AI to explain these changes?",
-  "CommitExplanation.thisCommitSMessageFilenamesAndCodeDiffsWillBeSent": "This commit’s message, filenames, and code diffs will be sent to the provider below. Large commits include only some changes. Original program files are not sent.",
-  "CommitExplanation.thisIsAPrivateProjectConfirmThatYouWantToShare": "This is a private project. Confirm that you want to share these changes.",
-  "CommitExplanation.yourProviderMayChargeForThisRequestTheExplanationCoversOnly": "Your provider may charge for this request. The explanation covers only supplied content.",
+  "CommitExplanation.thisCommitSMessageFilenamesAndCodeDiffsWillBeSent":
+    "This commit’s message, filenames, and code diffs will be sent to the provider below. Large commits include only some changes. Original program files are not sent.",
+  "CommitExplanation.thisIsAPrivateProjectConfirmThatYouWantToShare":
+    "This is a private project. Confirm that you want to share these changes.",
+  "CommitExplanation.yourProviderMayChargeForThisRequestTheExplanationCoversOnly":
+    "Your provider may charge for this request. The explanation covers only supplied content.",
   "CommitExplanation.startExplanation": "Start explanation",
   "DiscussionSearch.searchFailedPleaseRetry": "Search failed. Please retry.",
   "DiscussionSearch.searchByTitleOrNumber": "Search by title or number",
-  "DiscussionSearch.searchProjectIncludingAuthorizedPrivateProjects": "Search project (including authorized private projects)",
+  "DiscussionSearch.searchProjectIncludingAuthorizedPrivateProjects":
+    "Search project (including authorized private projects)",
   "DiscussionSearch.public": "Public",
   "DiscussionSearch.privateOrUnconfirmed": "Private or unconfirmed",
   "DiscussionSearch.searchTitleOrNumber": "Search title or number",
@@ -178,31 +206,36 @@ export const en = {
   "DiscussionSearch.open": "Open",
   "DiscussionSearch.closed": "Closed",
   "DiscussionSearch.noMatchingResults": "No matching results.",
-  "DiscussionSearch.githubAllowsBrowsingTheFirst1000ResultsTryANarrower": "GitHub allows browsing the first 1,000 results. Try a narrower search.",
-  "DiscussionSearch.githubReturnedIncompleteResultsTryANarrowerSearch": "GitHub returned incomplete results. Try a narrower search.",
+  "DiscussionSearch.githubAllowsBrowsingTheFirst1000ResultsTryANarrower":
+    "GitHub allows browsing the first 1,000 results. Try a narrower search.",
+  "DiscussionSearch.githubReturnedIncompleteResultsTryANarrowerSearch":
+    "GitHub returned incomplete results. Try a narrower search.",
   "DiscussionSearch.retry": "Retry",
   "DiscussionSearch.loadMoreMatches": "Load more matches",
   "ForkContributionPanel.forksAndContributions": "Forks and pull requests",
-  "ForkContributionPanel.copyAPublicProjectIntoYourAccountThenSubmitChangesAlready": "Copy a public project into your account, then submit changes already on GitHub to the original author for review.",
+  "ForkContributionPanel.copyAPublicProjectIntoYourAccountThenSubmitChangesAlready":
+    "Copy a public project into your account, then submit changes already on GitHub to the original author for review.",
   "ForkContributionPanel.originalProject": "Original project",
   "ForkContributionPanel.source": "Source",
   "ForkContributionPanel.target": "Target",
   "ForkContributionPanel.sourceBranch": "Source branch",
   "ForkContributionPanel.targetBranch": "Target branch",
-  "ForkContributionPanel.enterBranchNamesAlreadyOnGitHubThenCompareTheChangesBetween": "Enter branch names already on GitHub, then compare the changes between them.",
+  "ForkContributionPanel.enterBranchNamesAlreadyOnGitHubThenCompareTheChangesBetween":
+    "Enter branch names already on GitHub, then compare the changes between them.",
   "ForkContributionPanel.enterValidSourceAndTargetBranchNames": "Enter valid source and target branch names.",
   "ForkContributionPanel.checking": "Checking…",
   "ForkContributionPanel.compareBranches": "Compare branches",
   "ForkContributionPanel.commitsAhead": {
-    "count": "p0",
-    "one": "{p0} commit ahead",
-    "other": "{p0} commits ahead"
+    count: "p0",
+    one: "{p0} commit ahead",
+    other: "{p0} commits ahead",
   },
   "ForkContributionPanel.commitsBehindChangedFiles": "Commits behind: {p0} · Changed files: {p1}",
   "ForkContributionPanel.contributionSubmitted": "Contribution submitted.",
   "ForkContributionPanel.anExistingContributionIsWaitingForReview": "An existing contribution is waiting for review.",
   "ForkContributionPanel.viewOnGitHub": "View on GitHub",
-  "ForkContributionPanel.thereAreNoChangesToSubmitUpdateYourForkOnGitHub": "There are no changes to submit. Update your fork on GitHub, then refresh this comparison.",
+  "ForkContributionPanel.thereAreNoChangesToSubmitUpdateYourForkOnGitHub":
+    "There are no changes to submit. Update your fork on GitHub, then refresh this comparison.",
   "ForkContributionPanel.contributionTitle": "Pull request title",
   "ForkContributionPanel.describeYourChangesInOneSentence": "Describe your changes in one sentence",
   "ForkContributionPanel.description": "Description",
@@ -212,17 +245,22 @@ export const en = {
   "ForkContributionPanel.submitContribution": "Open a pull request in the original project",
   "ForkContributionPanel.youAlreadyHaveARelatedFork": "You already have a related fork",
   "ForkContributionPanel.openFork": "Open fork",
-  "ForkContributionPanel.githubIsPreparingCheckAgainShortlyOrLookInMyProjects": "GitHub is preparing {p0}. Check again shortly or look in My projects.",
+  "ForkContributionPanel.githubIsPreparingCheckAgainShortlyOrLookInMyProjects":
+    "GitHub is preparing {p0}. Check again shortly or look in My projects.",
   "ForkContributionPanel.checkForkReadiness": "Check fork readiness",
   "ForkContributionPanel.forkName": "Fork name",
   "ForkContributionPanel.copiesOnlyTheDefaultBranch": "Copies only the default branch",
   "ForkContributionPanel.creatingFork": "Creating fork…",
   "ForkContributionPanel.createFork": "Create fork",
-  "ForkContributionPanel.openYourForkFromMyProjectsToSubmitAContribution": "Open your fork from My projects to submit a contribution.",
-  "ForkContributionPanel.thisProjectIsArchivedForkingAndContributionsAreUnavailable": "This project is archived. Forking and contributions are unavailable.",
-  "ForkContributionPanel.thisProjectDoesNotNeedOrAllowAForkRightNow": "This project does not need or allow a fork right now.",
+  "ForkContributionPanel.openYourForkFromMyProjectsToSubmitAContribution":
+    "Open your fork from My projects to submit a contribution.",
+  "ForkContributionPanel.thisProjectIsArchivedForkingAndContributionsAreUnavailable":
+    "This project is archived. Forking and contributions are unavailable.",
+  "ForkContributionPanel.thisProjectDoesNotNeedOrAllowAForkRightNow":
+    "This project does not need or allow a fork right now.",
   "ProgramReviewPrompt.thisPullRequestIncludesProgramFiles": "This pull request includes program files",
-  "ProgramReviewPrompt.installTheRequiredReviewComponentsToExtractEvidenceOnThisDevice": "Install the required review components to extract evidence on this device. You decide whether to send evidence to AI. Components are not downloaded automatically.",
+  "ProgramReviewPrompt.installTheRequiredReviewComponentsToExtractEvidenceOnThisDevice":
+    "Install the required review components to extract evidence on this device. You decide whether to send evidence to AI. Components are not downloaded automatically.",
   "ProgramReviewPrompt.installReviewComponents": "Install review components",
   "ProgramReviewPrompt.doNotShowComponentReminders": "Do not show component reminders",
   "ProjectSettingsPanel.changeVisibility": "Change visibility",
@@ -233,41 +271,56 @@ export const en = {
   "ProjectSettingsPanel.viewAndManageDefaultBranchProtection": "View and manage default branch protection.",
   "ProjectSettingsPanel.manageRules": "Manage rules",
   "ProjectSettingsPanel.transferOwnership": "Transfer ownership",
-  "ProjectSettingsPanel.transferToAnotherUserOrOrganizationTheyMayNeedToAccept": "Transfer to another user or organization. They may need to accept.",
+  "ProjectSettingsPanel.transferToAnotherUserOrOrganizationTheyMayNeedToAccept":
+    "Transfer to another user or organization. They may need to accept.",
   "ProjectSettingsPanel.transferProject": "Transfer project",
   "ProjectSettingsPanel.unarchiveProject": "Unarchive project",
   "ProjectSettingsPanel.archiveProject": "Archive project",
   "ProjectSettingsPanel.unarchiveToMakeChangesAgain": "Unarchive to make changes again.",
-  "ProjectSettingsPanel.archivingMakesTheProjectReadOnlyYouCanUnarchiveItLater": "Archiving makes the project read-only. You can unarchive it later.",
+  "ProjectSettingsPanel.archivingMakesTheProjectReadOnlyYouCanUnarchiveItLater":
+    "Archiving makes the project read-only. You can unarchive it later.",
   "ProjectSettingsPanel.unarchive": "Unarchive",
   "ProjectSettingsPanel.deleteProject": "Delete project",
-  "ProjectSettingsPanel.permanentlyDeleteTheProjectHistoryAndIssuesOnGitHub": "Permanently delete the project, history and issues on GitHub.",
+  "ProjectSettingsPanel.permanentlyDeleteTheProjectHistoryAndIssuesOnGitHub":
+    "Permanently delete the project, history and issues on GitHub.",
   "ProjectSettingsPanel.removeDefaultBranchProtection": "Remove default branch protection",
   "ProjectSettingsPanel.protectDefaultBranch": "Protect default branch",
   "ProjectSettingsPanel.done": "Done",
-  "ProjectSettingsPanel.transferRequestedTheNewOwnerMayNeedToAcceptOnGitHub": "Transfer requested. The new owner may need to accept on GitHub.",
+  "ProjectSettingsPanel.transferRequestedTheNewOwnerMayNeedToAcceptOnGitHub":
+    "Transfer requested. The new owner may need to accept on GitHub.",
   "ProjectSettingsPanel.projectDeletedFromGitHub": "Project deleted from GitHub.",
   "ProjectSettingsPanel.defaultBranchProtectionEnabled": "Default branch protection enabled.",
   "ProjectSettingsPanel.defaultBranchProtectionRemoved": "Default branch protection removed.",
   "ProjectSettingsPanel.projectArchived": "Project archived.",
   "ProjectSettingsPanel.projectUnarchived": "Project unarchived.",
   "ProjectSettingsPanel.projectVisibilityUpdated": "Project visibility updated.",
-  "ProjectSettingsPanel.theOriginalProjectIsReadOnlyInPublicBrowsingMode": "The original project is read-only in public browsing mode.",
-  "ProjectSettingsPanel.onlyProjectAdministratorsCanChangeTheseSettings": "Only project administrators can change these settings.",
+  "ProjectSettingsPanel.theOriginalProjectIsReadOnlyInPublicBrowsingMode":
+    "The original project is read-only in public browsing mode.",
+  "ProjectSettingsPanel.onlyProjectAdministratorsCanChangeTheseSettings":
+    "Only project administrators can change these settings.",
   "ProjectSettingsPanel.projectSettings": "Project settings",
-  "ProjectSettingsPanel.theseActionsChangeProjectAccessOrManagement": "These actions change project access or management.",
-  "ProjectSettingsPanel.everyoneWillBeAbleToSeeThisProjectAndItsContents": "Everyone will be able to see this project and its contents.",
-  "ProjectSettingsPanel.onlyAuthorizedPeopleWillBeAbleToSeeThisProject": "Only authorized people will be able to see this project.",
-  "ProjectSettingsPanel.theProjectHistoryAndIssuesWillBePermanentlyDeletedFromGitHub": "The project, history and issues will be permanently deleted from GitHub. This cannot be undone.",
-  "ProjectSettingsPanel.otherRulesProtectThisBranchManageThoseRulesOnGitHub": "Other rules protect this branch. Manage those rules on GitHub.",
-  "ProjectSettingsPanel.defaultBranchIsProtectedRemovingProtectionRevokesItsCurrentLegacyRule": "Default branch {p0} is protected. Removing protection revokes its current legacy rule.",
-  "ProjectSettingsPanel.defaultBranchIsUnprotectedEnablingProtectionRequiresOneApprovalBeforeMerging": "Default branch {p0} is unprotected. Enabling protection requires one approval before merging.",
+  "ProjectSettingsPanel.theseActionsChangeProjectAccessOrManagement":
+    "These actions change project access or management.",
+  "ProjectSettingsPanel.everyoneWillBeAbleToSeeThisProjectAndItsContents":
+    "Everyone will be able to see this project and its contents.",
+  "ProjectSettingsPanel.onlyAuthorizedPeopleWillBeAbleToSeeThisProject":
+    "Only authorized people will be able to see this project.",
+  "ProjectSettingsPanel.theProjectHistoryAndIssuesWillBePermanentlyDeletedFromGitHub":
+    "The project, history and issues will be permanently deleted from GitHub. This cannot be undone.",
+  "ProjectSettingsPanel.otherRulesProtectThisBranchManageThoseRulesOnGitHub":
+    "Other rules protect this branch. Manage those rules on GitHub.",
+  "ProjectSettingsPanel.defaultBranchIsProtectedRemovingProtectionRevokesItsCurrentLegacyRule":
+    "Default branch {p0} is protected. Removing protection revokes its current legacy rule.",
+  "ProjectSettingsPanel.defaultBranchIsUnprotectedEnablingProtectionRequiresOneApprovalBeforeMerging":
+    "Default branch {p0} is unprotected. Enabling protection requires one approval before merging.",
   "ProjectSettingsPanel.newOwner": "New owner",
   "ProjectSettingsPanel.githubUsernameOrOrganization": "GitHub username or organization",
-  "ProjectSettingsPanel.deletionAuthorizedEnterTheFullProjectNameAgainAndConfirmDeletion": "Deletion authorized. Enter the full project name again and confirm deletion.",
+  "ProjectSettingsPanel.deletionAuthorizedEnterTheFullProjectNameAgainAndConfirmDeletion":
+    "Deletion authorized. Enter the full project name again and confirm deletion.",
   "ProjectSettingsPanel.typeTheProjectNameToConfirm": "Type the project name to confirm",
   "ProjectSettingsPanel.confirmProjectName": "Confirm project name",
-  "ProjectSettingsPanel.enterThisCodeOnGitHubToAuthorizeDeletionYouMustConfirm": "Enter this pairing code on GitHub to authorize deletion. You must confirm deletion again afterward.",
+  "ProjectSettingsPanel.enterThisCodeOnGitHubToAuthorizeDeletionYouMustConfirm":
+    "Enter this pairing code on GitHub to authorize deletion. You must confirm deletion again afterward.",
   "ProjectSettingsPanel.openGitHubAuthorization": "Open GitHub authorization",
   "ProjectSettingsPanel.waitingForGitHubAuthorization": "Waiting for GitHub authorization…",
   "ProjectSettingsPanel.authorizeDeletion": "Authorize deletion",
@@ -295,10 +348,13 @@ export const en = {
   "PullChecksPanel.reviewEachCheckResult": "Review each check result",
   "PullChecksPanel.buildAndTests": "Build and tests",
   "PullChecksPanel.refreshChecks": "Refresh checks",
-  "PullChecksPanel.theChecksForTheseChangesCouldNotBeVerifiedRefreshThe": "The checks for these changes could not be verified. Refresh the checks, or reopen the request if its changes have been updated.",
+  "PullChecksPanel.theChecksForTheseChangesCouldNotBeVerifiedRefreshThe":
+    "The checks for these changes could not be verified. Refresh the checks, or reopen the request if its changes have been updated.",
   "PullChecksPanel.otherChecks": "Other checks",
-  "PullChecksPanel.githubDidNotAllowThisReadAccessPermissionOrALater": "GitHub did not allow this read. Access permission or a later retry may be needed.",
-  "PullChecksPanel.couldNotLoadTheseResultsTheDisplayedResultsMayBeIncomplete": "Could not load these results. The displayed results may be incomplete.",
+  "PullChecksPanel.githubDidNotAllowThisReadAccessPermissionOrALater":
+    "GitHub did not allow this read. Access permission or a later retry may be needed.",
+  "PullChecksPanel.couldNotLoadTheseResultsTheDisplayedResultsMayBeIncomplete":
+    "Could not load these results. The displayed results may be incomplete.",
   "PullChecksPanel.viewLogs": "View logs",
   "PullChecksPanel.couldNotOpenCheckDetailsPleaseTryAgain": "Could not open check details. Please try again.",
   "PullChecksPanel.showFewerChecks": "Show fewer checks",
@@ -306,7 +362,8 @@ export const en = {
   "PullChecksPanel.loadingCheckResults": "Loading check results…",
   "PullChecksPanel.retryUnavailableChecks": "Retry unavailable checks",
   "PullChecksPanel.loadMoreChecks": "Load more checks",
-  "PullChecksPanel.theseAreTheResultsReportedForTheCurrentChangesGitHubProject": "These are the results reported for the current changes. GitHub project rules still decide whether they can be merged.",
+  "PullChecksPanel.theseAreTheResultsReportedForTheCurrentChangesGitHubProject":
+    "These are the results reported for the current changes. GitHub project rules still decide whether they can be merged.",
   "PullRequestsPanel.couldNotLoadPullRequestsPleaseTryAgain": "Could not load pull requests. Please try again.",
   "PullRequestsPanel.couldNotLoadMorePullRequests": "Could not load more pull requests.",
   "PullRequestsPanel.open": "Open",
@@ -322,7 +379,8 @@ export const en = {
   "PullReviewGroups.couldNotLoadChangeRequestsPleaseTryAgain": "Could not load pull requests. Please try again.",
   "PullReviewGroups.loadingChangeRequests": "Loading pull requests…",
   "PullReviewGroups.loadMoreChangeRequests": "Load more pull requests",
-  "SourceHistoryPanel.browseUpdatesAndCodeChangesCommittedToGitHub": "Browse updates and code changes committed to GitHub.",
+  "SourceHistoryPanel.browseUpdatesAndCodeChangesCommittedToGitHub":
+    "Browse updates and code changes committed to GitHub.",
   "SourceHistoryPanel.selectBranch": "Select branch",
   "SourceHistoryPanel.findABranch": "Find a branch",
   "SourceHistoryPanel.showMoreBranches": "Show more branches",
@@ -333,9 +391,11 @@ export const en = {
   "SourceHistoryPanel.leaveBlankForAllFiles": "Leave blank for all files",
   "SourceHistoryPanel.viewFileHistory": "View file history",
   "SourceHistoryPanel.showHistoryForAllFiles": "Show history for all files",
-  "SourceHistoryPanel.enterARelativeProjectPathWithoutEmptyOrParentDirectorySegments": "Enter a relative project path without empty or parent-directory segments.",
+  "SourceHistoryPanel.enterARelativeProjectPathWithoutEmptyOrParentDirectorySegments":
+    "Enter a relative project path without empty or parent-directory segments.",
   "SourceHistoryPanel.unknownAuthor": "Unknown author",
-  "SourceHistoryPanel.couldNotLoadChangeHistoryPreviouslyLoadedCommitsAreKept": "Could not load change history. Previously loaded commits are kept.",
+  "SourceHistoryPanel.couldNotLoadChangeHistoryPreviouslyLoadedCommitsAreKept":
+    "Could not load change history. Previously loaded commits are kept.",
   "SourceHistoryPanel.thisFileHasNoCommitsOnThisBranch": "This file has no commits on this branch.",
   "SourceHistoryPanel.thisBranchHasNoCommitsYet": "This branch has no commits yet.",
   "SourceHistoryPanel.loadMoreCommits": "Load more commits",
@@ -345,11 +405,13 @@ export const en = {
   "SourceHistoryPanel.modified": "Modified",
   "SourceHistoryPanel.fileHistory": "File history",
   "SourceHistoryPanel.previousFilename": "Previous filename",
-  "SourceHistoryPanel.someChangesAreOmittedViewTheCompleteDiffOnGitHub": "Some changes are omitted. View the complete diff on GitHub.",
+  "SourceHistoryPanel.someChangesAreOmittedViewTheCompleteDiffOnGitHub":
+    "Some changes are omitted. View the complete diff on GitHub.",
   "SourceHistoryPanel.fileChanges": "File changes",
   "SourceHistoryPanel.showMoreChangedLines": "Show more changed lines",
   "SourceHistoryPanel.thisIsANewEmptyFile": "This is a new empty file.",
-  "SourceHistoryPanel.githubDidNotProvideATextDiffTheFileMayBe": "GitHub did not provide a text diff. The file may be an image, program, rename, or too large.",
+  "SourceHistoryPanel.githubDidNotProvideATextDiffTheFileMayBe":
+    "GitHub did not provide a text diff. The file may be an image, program, rename, or too large.",
   "StarProjectButton.couldNotUpdateStar": "Could not update Star",
   "StarProjectButton.checkYourConnectionAndPermissionsThenRetry": "Check your connection and permissions, then retry.",
   "StarProjectButton.updating": "Updating…",
@@ -363,52 +425,66 @@ export const en = {
   "commitExplanation.confirmThisCommitAndTheDestinationFirst": "Confirm this commit and the destination first.",
   "commitExplanation.theAIProviderChangedConfirmAgain": "The AI provider changed. Confirm again.",
   "commitExplanation.thisCommitHasNoFileChangesToExplain": "This commit has no file changes to explain.",
-  "commitExplanation.couldNotExplainTheseChangesCheckYourAIAuthorizationAndConnection": "Could not explain these changes. Check your AI authorization and connection.",
+  "commitExplanation.couldNotExplainTheseChangesCheckYourAIAuthorizationAndConnection":
+    "Could not explain these changes. Check your AI authorization and connection.",
   "commitExplanation.theExplanationTookTooLongPleaseRetry": "The explanation took too long. Please retry.",
   "review.aiReturnedTooMuchAnalysisContentPleaseRetry": "AI returned too much analysis content. Please retry.",
   "review.aiDidNotReturnAUsableAnalysisResultPleaseRetry": "AI did not return a usable analysis result. Please retry.",
   "review.aiReturnedAnIncompleteAnalysisResult": "AI returned an incomplete analysis result.",
   "review.aiFindingsDoNotMatchTheSuppliedProgramEvidence": "AI findings do not match the supplied program evidence.",
-  "review.aiInterpretedSampledStaticEvidenceOnlyTheProgramWasNotRun": "AI interpreted sampled static evidence only. The program was not run; safety or correctness is not established. No earlier version was compared.",
+  "review.aiInterpretedSampledStaticEvidenceOnlyTheProgramWasNotRun":
+    "AI interpreted sampled static evidence only. The program was not run; safety or correctness is not established. No earlier version was compared.",
   "review.someAnalysisContentWasShortenedBeforeSending": "Some analysis content was shortened before sending.",
   "review.theAIProviderChangedConfirmTheDestinationAgain": "The AI provider changed. Confirm the destination again.",
   "review.thereIsTooMuchAnalysisContentTryASmallerFile": "There is too much analysis content. Try a smaller file.",
   "review.theProgramReviewTookTooLongPleaseRetry": "The program review took too long. Please retry.",
   "review.confirmTheProgramEvidenceAndAIDestinationFirst": "Confirm the program evidence and AI destination first.",
-  "review.thisRequestOrItsTargetChangedRefreshAndReviewAgain": "This request or its target changed. Refresh and review again.",
-  "review.thisReviewCoversSuppliedTextChangesAndSampledProgramEvidenceShown": "This review covers supplied text changes and sampled program evidence shown below. No code or tests were run.",
-  "review.onlyTheSuppliedTextChangesWereReviewedNoCodeOrTests": "Only the supplied text changes were reviewed. No code or tests were run.",
+  "review.thisRequestOrItsTargetChangedRefreshAndReviewAgain":
+    "This request or its target changed. Refresh and review again.",
+  "review.thisReviewCoversSuppliedTextChangesAndSampledProgramEvidenceShown":
+    "This review covers supplied text changes and sampled program evidence shown below. No code or tests were run.",
+  "review.onlyTheSuppliedTextChangesWereReviewedNoCodeOrTests":
+    "Only the supplied text changes were reviewed. No code or tests were run.",
   "review.filesHaveNoReviewableTextDiff": {
-    "count": "p0",
-    "one": "{p0} file has no reviewable text diff.",
-    "other": "{p0} files have no reviewable text diff."
+    count: "p0",
+    one: "{p0} file has no reviewable text diff.",
+    other: "{p0} files have no reviewable text diff.",
   },
   "review.thisChangeIsLargeSoOnlyPartOfItWasReviewed": "This change is large, so only part of it was reviewed.",
   "review.notReviewedThisReviewAnalyzesAtMostProgramFiles": {
-    "count": "p1",
-    "one": "{p0}: not reviewed; this review analyzes at most {p1} program file.",
-    "other": "{p0}: not reviewed; this review analyzes at most {p1} program files."
+    count: "p1",
+    one: "{p0}: not reviewed; this review analyzes at most {p1} program file.",
+    other: "{p0}: not reviewed; this review analyzes at most {p1} program files.",
   },
-  "review.notReviewedProgramAnalysisOrAVerifiedFileRevisionIsUnavailable": "{p0}: not reviewed; program analysis or a verified file revision is unavailable.",
+  "review.notReviewedProgramAnalysisOrAVerifiedFileRevisionIsUnavailable":
+    "{p0}: not reviewed; program analysis or a verified file revision is unavailable.",
   "review.analyzing": "Analyzing {p0}…",
-  "review.programAnalysisCouldNotBeCompletedThisFileWasNotReviewed": "{p0}: program analysis could not be completed; this file was not reviewed by AI.",
+  "review.programAnalysisCouldNotBeCompletedThisFileWasNotReviewed":
+    "{p0}: program analysis could not be completed; this file was not reviewed by AI.",
   "review.reviewing": "Reviewing {p0}…",
-  "review.programAIReviewCouldNotBeCompletedLocalEvidenceIsAvailable": "{p0}: program AI review could not be completed; local evidence is available below.",
+  "review.programAIReviewCouldNotBeCompletedLocalEvidenceIsAvailable":
+    "{p0}: program AI review could not be completed; local evidence is available below.",
   "review.isANewlyAddedEmptyFileThereIsNoCodeTo": "{p0} is a newly added empty file. There is no code to review.",
-  "review.noProgramFileCouldBeReviewedSeeTheLimitationsForEach": "No program file could be reviewed. See the limitations for each file.",
+  "review.noProgramFileCouldBeReviewedSeeTheLimitationsForEach":
+    "No program file could be reviewed. See the limitations for each file.",
   "review.theseFilesHaveNoTextChangesAvailableForAIReview": "These files have no text changes available for AI review.",
   "review.checkYourAISettings": "Check your AI settings.",
   "review.chooseAProviderAndEnterAValidModelNameAndAPI": "Choose a provider and enter a valid model name and API key.",
   "review.aiReturnedTooMuchContentPleaseRetry": "AI returned too much content. Please retry.",
-  "review.aiDidNotReturnAUsableReviewRetryOrChooseAnother": "AI did not return a usable review. Retry or choose another model.",
+  "review.aiDidNotReturnAUsableReviewRetryOrChooseAnother":
+    "AI did not return a usable review. Retry or choose another model.",
   "review.aiReturnedAnIncompleteReviewPleaseRetry": "AI returned an incomplete review. Please retry.",
-  "review.aiReviewFindingsDoNotMatchTheseChangesPleaseRetry": "AI review findings do not match these changes. Please retry.",
+  "review.aiReviewFindingsDoNotMatchTheseChangesPleaseRetry":
+    "AI review findings do not match these changes. Please retry.",
   "review.aiDidNotReturnACompleteReviewPleaseRetry": "AI did not return a complete review. Please retry.",
-  "review.theProgramAnalysisResultIsInvalidAnalyzeTheFileAgain": "The program analysis result is invalid. Analyze the file again.",
-  "review.theProgramFunctionEvidenceIsInvalidAnalyzeTheFileAgain": "The program function evidence is invalid. Analyze the file again.",
+  "review.theProgramAnalysisResultIsInvalidAnalyzeTheFileAgain":
+    "The program analysis result is invalid. Analyze the file again.",
+  "review.theProgramFunctionEvidenceIsInvalidAnalyzeTheFileAgain":
+    "The program function evidence is invalid. Analyze the file again.",
   "review.chooseAValidReviewLanguage": "Choose a valid review language.",
   "review.theAIServiceReturnedNoContentCheckTheModelName": "The AI service returned no content. Check the model name.",
-  "download.theFileIsNoLongerPartOfTheseChangesRefreshAnd": "The file is no longer part of these changes. Refresh and try again.",
+  "download.theFileIsNoLongerPartOfTheseChangesRefreshAnd":
+    "The file is no longer part of these changes. Refresh and try again.",
   "download.theFileExceeds128MB": "The file exceeds 128 MB.",
   "download.thisDownloadDidNotReturnAReadableFile": "This download did not return a readable file.",
   "download.theDownloadedFileExceedsTheExpectedSize": "The downloaded file exceeds the expected size.",
@@ -417,21 +493,28 @@ export const en = {
   "frameworks.programReviewIsUnavailableInThisBuild": "Program review is unavailable in this build.",
   "frameworks.isNotSupportedOnThisDevice": "{p0} is not supported on this device.",
   "frameworks.downloadInSettingsBeforeAnalyzingThisFile": "Download {p0} in Settings before analyzing this file.",
-  "frameworks.downloadTheRequiredProgramReviewComponentInSettingsFirst": "Download the required program review component in Settings first.",
-  "frameworks.programReviewComponentsAreNotSupportedOnThisDevice": "Program review components are not supported on this device.",
+  "frameworks.downloadTheRequiredProgramReviewComponentInSettingsFirst":
+    "Download the required program review component in Settings first.",
+  "frameworks.programReviewComponentsAreNotSupportedOnThisDevice":
+    "Program review components are not supported on this device.",
   "native.installTheAndroidBuildThatIncludesTheDecompiler": "Install the Android build that includes the decompiler.",
   "programReview.chooseAReadableNonemptyProgramFileUpTo128MB": "Choose a readable, nonempty program file up to 128 MB.",
-  "programReview.aiSettingsChangedConfirmTheDestinationAndModelAgain": "AI settings changed. Confirm the destination and model again.",
-  "programReview.theProgramEvidenceDoesNotMatchTheSelectedFileSelectIt": "The program evidence does not match the selected file. Select it again.",
-  "programReview.theReviewDoesNotMatchThisProgramEvidenceReviewAgain": "The review does not match this program evidence. Review again.",
+  "programReview.aiSettingsChangedConfirmTheDestinationAndModelAgain":
+    "AI settings changed. Confirm the destination and model again.",
+  "programReview.theProgramEvidenceDoesNotMatchTheSelectedFileSelectIt":
+    "The program evidence does not match the selected file. Select it again.",
+  "programReview.theReviewDoesNotMatchThisProgramEvidenceReviewAgain":
+    "The review does not match this program evidence. Review again.",
   "source.invalidProgramFileAddress": "Invalid program file address.",
   "source.invalidProjectAddress": "Invalid project address.",
   "source.invalidFileName": "Invalid file name.",
   "source.invalidChangedFileAddress": "Invalid changed file address.",
   "source.invalidProgramFileSource": "Invalid program file source.",
-  "source.theReleaseAssetChangedIsEmptyOrExceeds128MBRefresh": "The release asset changed, is empty, or exceeds 128 MB. Refresh and try again.",
+  "source.theReleaseAssetChangedIsEmptyOrExceeds128MBRefresh":
+    "The release asset changed, is empty, or exceeds 128 MB. Refresh and try again.",
   "source.invalidFileVerificationMetadata": "Invalid file verification metadata.",
-  "source.theChangesHaveBeenUpdatedRefreshAndInspectTheFileAgain": "The changes have been updated. Refresh and inspect the file again.",
+  "source.theChangesHaveBeenUpdatedRefreshAndInspectTheFileAgain":
+    "The changes have been updated. Refresh and inspect the file again.",
   "deviceFlow.githubSignInIsUnavailablePleaseTryAgainLater": "GitHub sign-in is unavailable. Please try again later.",
   "deviceFlow.yourGitHubSignInExpiredSignInAgain": "Your GitHub sign-in expired. Sign in again.",
   "deviceFlow.signInCanceled": "Sign-in canceled.",
@@ -446,16 +529,22 @@ export const en = {
   "archiveDownload.preparingDownload": "Preparing download…",
   "archiveDownload.invalidSourceDownloadAddress": "Invalid source download address.",
   "archiveDownload.invalidVersionAddress": "Invalid version address.",
-  "pullDownload.changesHaveBeenUpdatedRefreshAndCheckTheFilesAgain": "Changes have been updated. Refresh and check the files again.",
+  "pullDownload.changesHaveBeenUpdatedRefreshAndCheckTheFilesAgain":
+    "Changes have been updated. Refresh and check the files again.",
   "pullDownload.thisFileCannotBeDownloaded": "This file cannot be downloaded.",
   "releaseDetails.theReleaseAddressIsInvalid": "The release address is invalid.",
   "repositoryOperations.yourGitHubSessionExpiredSignInAgain": "Your GitHub session expired. Sign in again.",
-  "repositoryOperations.githubDeclinedTheActionCheckPermissionsOrTryAgainLater": "GitHub declined the action. Check permissions or try again later.",
-  "repositoryOperations.thisProjectWasNotFoundOrYouDoNotHaveAccess": "This project was not found, or you do not have access.",
-  "repositoryOperations.githubDidNotAcceptTheseDetailsCheckTheNameAndForm": "GitHub did not accept these details. Check the name and form fields.",
-  "repositoryOperations.theActionCouldNotBeCompletedCheckYourConnectionAndTry": "The action could not be completed. Check your connection and try again.",
+  "repositoryOperations.githubDeclinedTheActionCheckPermissionsOrTryAgainLater":
+    "GitHub declined the action. Check permissions or try again later.",
+  "repositoryOperations.thisProjectWasNotFoundOrYouDoNotHaveAccess":
+    "This project was not found, or you do not have access.",
+  "repositoryOperations.githubDidNotAcceptTheseDetailsCheckTheNameAndForm":
+    "GitHub did not accept these details. Check the name and form fields.",
+  "repositoryOperations.theActionCouldNotBeCompletedCheckYourConnectionAndTry":
+    "The action could not be completed. Check your connection and try again.",
   "AppUpdatePanel.tooManyUpdateChecksPleaseTryAgainLater": "Too many update checks. Please try again later.",
-  "AppUpdatePanel.noAndroidReleaseIsAvailableYetPleaseTryAgainLater": "No Android release is available yet. Please try again later.",
+  "AppUpdatePanel.noAndroidReleaseIsAvailableYetPleaseTryAgainLater":
+    "No Android release is available yet. Please try again later.",
   "AppUpdatePanel.unableToIdentifyTheCurrentAppVersion": "Unable to identify the current app version.",
   "AppUpdatePanel.unableToOpenTheDownloadPage": "Unable to open the download page.",
   "AppUpdatePanel.unableToCheckForUpdatesPleaseTryAgainLater": "Unable to check for updates. Please try again later.",
@@ -478,7 +567,8 @@ export const en = {
   "discover.signInToExplorePublicProjectsAndGitHubUsers": "Sign in to explore public projects and GitHub users.",
   "discover.signInWithGitHub": "Sign in with GitHub",
   "discover.exploreMoreCreations": "Explore more creations",
-  "discover.searchPublicProjectsAndGitHubUsersOrSeeWhatPeopleAre": "Search public projects and GitHub users, or see what people are creating.",
+  "discover.searchPublicProjectsAndGitHubUsersOrSeeWhatPeopleAre":
+    "Search public projects and GitHub users, or see what people are creating.",
   "discover.projects": "Projects",
   "discover.users": "Users",
   "discover.searchUsers": "Search users",
@@ -491,7 +581,8 @@ export const en = {
   "discover.user": "User",
   "discover.publicProject": "Public project",
   "discover.easyhubPopular": "EasyHub Popular",
-  "discover.publicProjectsRankedByStarsRecentActivityAndUpdateTimeThis": "Public projects ranked by Stars, recent activity and update time. This is not official GitHub Trending.",
+  "discover.publicProjectsRankedByStarsRecentActivityAndUpdateTimeThis":
+    "Public projects ranked by Stars, recent activity and update time. This is not official GitHub Trending.",
   "discover.userResults": "User results",
   "discover.publicProjectResults": "Public project results",
   "discover.compact": "Compact",
@@ -503,20 +594,24 @@ export const en = {
   "discover.noUsersFound": "No users found.",
   "discover.matches": "Matches",
   "discover.githubAllowsBrowsingTheFirst1000Results": " · GitHub allows browsing the first 1,000 results",
-  "discover.githubReturnedIncompleteResultsTryANarrowerSearch": "GitHub returned incomplete results. Try a narrower search.",
+  "discover.githubReturnedIncompleteResultsTryANarrowerSearch":
+    "GitHub returned incomplete results. Try a narrower search.",
   "discover.previous": "Previous",
   "discover.page": "Page ",
   "discover.message": "",
   "discover.next": "Next",
-  "discover.recentGrowthRequiresObservationNewProjectsShowObservingGrowth": "Recent growth requires observation. New projects show “Observing growth”.",
+  "discover.recentGrowthRequiresObservationNewProjectsShowObservingGrowth":
+    "Recent growth requires observation. New projects show “Observing growth”.",
   "home.openProject": "Open project",
   "home.viewIssues": "View issues",
   "home.history": "Change history",
   "home.saved": "Saved",
   "home.moreActions": "More actions",
-  "home.couldNotLoadProjectsCheckYourConnectionAndTryAgain": "Could not load projects. Check your connection and try again.",
+  "home.couldNotLoadProjectsCheckYourConnectionAndTryAgain":
+    "Could not load projects. Check your connection and try again.",
   "home.createAndShareWithEase": "Create and share with ease.",
-  "home.signInWithGitHubToViewProjectsReplyToIssuesAnd": "Sign in with GitHub to view projects, reply to issues and download files on your phone.",
+  "home.signInWithGitHubToViewProjectsReplyToIssuesAnd":
+    "Sign in with GitHub to view projects, reply to issues and download files on your phone.",
   "home.notifications": "Notifications",
   "home.profile": "Profile",
   "home.newProject": "New project",
@@ -525,14 +620,15 @@ export const en = {
   "home.noProjectsYetCreateYourFirstOne": "No projects yet. Create your first one.",
   "home.closeNotifications": "Close notifications",
   "home.noPendingNotifications": "No pending notifications.",
-  "home.openingMarksTheseAsReadChangedTasksWillNotifyYouAgain": "Opening marks these as read. Changed tasks will notify you again.",
+  "home.openingMarksTheseAsReadChangedTasksWillNotifyYouAgain":
+    "Opening marks these as read. Changed tasks will notify you again.",
   "home.justNow": "just now",
   "home.minAgo": "{p0} min ago",
   "home.hrAgo": "{p0} hr ago",
   "home.daysAgo": {
-    "count": "p0",
-    "one": "{p0} day ago",
-    "other": "{p0} days ago"
+    count: "p0",
+    one: "{p0} day ago",
+    other: "{p0} days ago",
   },
   "issues.couldNotLoadIssuesPleaseTryAgain": "Could not load issues. Please try again.",
   "issues.issues": "Issues",
@@ -552,7 +648,8 @@ export const en = {
   "projects.starredOnGitHub": "Starred on GitHub",
   "projects.searchMyProjects": "Search my projects",
   "projects.repositoryForks": "Repository forks",
-  "projects.viewYourForksAndSubmitChangesAlreadyOnGitHubToTheir": "View your forks and submit changes already on GitHub to their original projects.",
+  "projects.viewYourForksAndSubmitChangesAlreadyOnGitHubToTheir":
+    "View your forks and submit changes already on GitHub to their original projects.",
   "projects.noProjectsFound": "No projects found.",
   "projects.savedPublicProjects": "Saved public projects",
   "projects.readOnlyBrowsing": "Read-only browsing",
@@ -561,12 +658,15 @@ export const en = {
   "settings.notSignedInToGitHub": "Not signed in to GitHub",
   "settings.signOut": "Sign out",
   "settings.signOutb5275f36": "Sign out?",
-  "settings.yourSavedSignInDetailsWillBeRemovedFromThisDevice": "Your saved sign-in details will be removed from this device.",
+  "settings.yourSavedSignInDetailsWillBeRemovedFromThisDevice":
+    "Your saved sign-in details will be removed from this device.",
   "settings.signOuta65c6d66": "Sign out",
   "settings.appLanguage": "Interface language",
-  "settings.translatePublicProjectDescriptionsIntroductionsIssuesCommentsAndReleaseNotesTurn": "Translate public project descriptions, introductions, issues, comments and release notes; turn off to see originals. Private projects are never sent to translation services.",
+  "settings.translatePublicProjectDescriptionsIntroductionsIssuesCommentsAndReleaseNotesTurn":
+    "Translate public project descriptions, introductions, issues, comments and release notes; turn off to see originals. Private projects are never sent to translation services.",
   "settings.namesToKeepUnchanged": "Names to keep unchanged",
-  "settings.addOneNamePerLineSuchAsProductOrAuthorNames": "Add one name per line, such as product or author names. Project names, file names, version numbers and links are preserved automatically.",
+  "settings.addOneNamePerLineSuchAsProductOrAuthorNames":
+    "Add one name per line, such as product or author names. Project names, file names, version numbers and links are preserved automatically.",
   "settings.saveNames": "Save names",
   "settings.couldNotOpenTheLink": "Could not open the link",
   "settings.checkYourBrowserSettingsAndTryAgain": "Check your browser settings and try again.",
@@ -581,7 +681,8 @@ export const en = {
   "analysis.chooseAProviderAndSaveYourOwnAPIKey": "Choose a provider and save your own API key.",
   "analysis.openSettings": "Open Settings",
   "analysis.sendDecompiledEvidenceForAIReview": "Send decompiled evidence for AI review?",
-  "analysis.fileNameSHA256SampledCodeImportsAndStringsWillBe": "File name, SHA-256, sampled code, imports and strings will be sent. These may contain private code or sensitive content. Confirm you want to send them.",
+  "analysis.fileNameSHA256SampledCodeImportsAndStringsWillBe":
+    "File name, SHA-256, sampled code, imports and strings will be sent. These may contain private code or sensitive content. Confirm you want to send them.",
   "analysis.agreeAndReview": "Agree and review",
   "analysis.aiReviewCancelled": "AI review cancelled.",
   "analysis.aiReviewFailed": "AI review failed.",
@@ -592,9 +693,12 @@ export const en = {
   "analysis.programDecompiler": "Program decompiler",
   "analysis.inspectProgramsAndRecoveredCodeOnThisDevice": "Inspect programs and recovered code on this device.",
   "analysis.supportedFiles": "Supported files",
-  "analysis.filesUpTo128MBJavaInputAndExpandedBytecodeUp": "Files up to 128 MB; Java input and expanded bytecode up to 64 MB. Recovered code is sampled and may be incomplete. AI review requires separate consent.",
-  "analysis.javaDalvikIsNotInstalledOrNotSupportedOnThisDevice": "Java / Dalvik is not installed or not supported on this device",
-  "analysis.nativeComponentIsNotInstalledOrNotSupportedOnThisDevice": "Native component is not installed or not supported on this device",
+  "analysis.filesUpTo128MBJavaInputAndExpandedBytecodeUp":
+    "Files up to 128 MB; Java input and expanded bytecode up to 64 MB. Recovered code is sampled and may be incomplete. AI review requires separate consent.",
+  "analysis.javaDalvikIsNotInstalledOrNotSupportedOnThisDevice":
+    "Java / Dalvik is not installed or not supported on this device",
+  "analysis.nativeComponentIsNotInstalledOrNotSupportedOnThisDevice":
+    "Native component is not installed or not supported on this device",
   "analysis.openSettingsToDownloadComponents": "Open Settings to download components",
   "analysis.chooseAFileToAnalyze": "Choose a file to analyze",
   "analysis.chooseFile": "Choose file",
@@ -611,10 +715,12 @@ export const en = {
   "analysis.hideImportsAndStrings": "Hide imports and strings",
   "analysis.viewImportsAndStrings": "View imports and strings",
   "analysis.aiReviewResult": "AI review result",
-  "createproject.projectNamesCanOnlyUseLettersNumbersDotsHyphensAndUnderscores": "Project names can only use letters, numbers, dots, hyphens and underscores.",
+  "createproject.projectNamesCanOnlyUseLettersNumbersDotsHyphensAndUnderscores":
+    "Project names can only use letters, numbers, dots, hyphens and underscores.",
   "createproject.projectCreated": "Project created",
   "createproject.youCanNowViewAndShareThisProject": "You can now view and share this project.",
-  "createproject.couldNotCreateTheProjectCheckWhetherTheNameIsAlready": "Could not create the project. Check whether the name is already in use, then try again.",
+  "createproject.couldNotCreateTheProjectCheckWhetherTheNameIsAlready":
+    "Could not create the project. Check whether the name is already in use, then try again.",
   "createproject.giveYourNewIdeaANameAndShareYourWorkAnytime": "Give your new idea a name and share your work anytime.",
   "createproject.projectName": "Project name",
   "createproject.forExampleMyTool": "For example, MyTool",
@@ -627,12 +733,15 @@ export const en = {
   "createproject.creating": "Creating…",
   "createproject.createProject": "Create project",
   "login.signInFailedPleaseTryAgain": "Sign-in failed. Please try again.",
-  "login.easyhubOpensGitHubForAuthorizationYouCanThenViewAndManage": "EasyHub opens GitHub for authorization. You can then view and manage projects on your phone.",
+  "login.easyhubOpensGitHubForAuthorizationYouCanThenViewAndManage":
+    "EasyHub opens GitHub for authorization. You can then view and manage projects on your phone.",
   "login.connectYourAccountSecurely": "Connect your account securely",
-  "login.easyhubDoesNotCreateASeparateAccountSignInDetailsStay": "EasyHub does not create a separate account. Sign-in details stay in secure storage on this device.",
+  "login.easyhubDoesNotCreateASeparateAccountSignInDetailsStay":
+    "EasyHub does not create a separate account. Sign-in details stay in secure storage on this device.",
   "login.copyTheCodeAndPasteItOnGitHub": "Copy the pairing code and paste it on GitHub",
   "login.copyCodeAndOpenGitHub": "Copy pairing code and open GitHub",
-  "login.returnToEasyHubAfterAuthorizationSignInCompletesAutomatically": "Return to EasyHub after authorization. Sign-in completes automatically.",
+  "login.returnToEasyHubAfterAuthorizationSignInCompletesAutomatically":
+    "Return to EasyHub after authorization. Sign-in completes automatically.",
   "login.waitingForAuthorization": "Waiting for authorization…",
   "login.startSignIn": "Start sign-in",
   "login.cancelSignIn": "Cancel sign-in",
@@ -679,15 +788,18 @@ export const en = {
   "project.timeLeft": "Time left",
   "project.downloadCompleteYouCanSaveOrShareIt": "Download complete. You can save or share it.",
   "project.downloadCancelledYouCanDownloadItAgain": "Download cancelled. You can download it again.",
-  "project.downloadFailedCheckYourConnectionAndDownloadAgain": "Download failed. Check your connection and download again.",
+  "project.downloadFailedCheckYourConnectionAndDownloadAgain":
+    "Download failed. Check your connection and download again.",
   "project.downloadAgain": "Download again",
   "project.noDescription": "No description",
   "project.viewDownloads": "View downloads",
-  "project.couldNotLoadReleasesPreviouslyLoadedVersionsAreKept": "Could not load releases. Previously loaded versions are kept.",
+  "project.couldNotLoadReleasesPreviouslyLoadedVersionsAreKept":
+    "Could not load releases. Previously loaded versions are kept.",
   "project.noReleasesYet": "No releases yet.",
   "project.loadMoreReleases": "Load more releases",
   "project.projectFiles": "Project files",
-  "project.chooseAPointInChangeHistoryToDownloadFilesFromThat": "Choose a point in change history to download files from that time.",
+  "project.chooseAPointInChangeHistoryToDownloadFilesFromThat":
+    "Choose a point in change history to download files from that time.",
   "project.chooseACommit": "Choose a commit",
   "number.couldNotLoadThisIssuePleaseTryAgain": "Could not load this issue. Please try again.",
   "number.couldNotLoadRepliesPleaseRetry": "Could not load replies. Please retry.",
@@ -709,12 +821,14 @@ export const en = {
   "number.reopen": "Reopen",
   "newissue.enterAnIssueTitle": "Enter an issue title",
   "newissue.couldNotSubmit": "Could not submit",
-  "newissue.checkWhetherThisProjectAcceptsIssuesThenTryAgain": "Check whether this project accepts issues, then try again.",
+  "newissue.checkWhetherThisProjectAcceptsIssuesThenTryAgain":
+    "Check whether this project accepts issues, then try again.",
   "newissue.newIssue": "New issue",
   "newissue.issueTitle": "Issue title",
   "newissue.brieflyDescribeWhatHappened": "Briefly describe what happened",
   "newissue.details": "Details",
-  "newissue.addStepsToReproduceExpectedBehaviorOrOtherDetails": "Add steps to reproduce, expected behavior, or other details…",
+  "newissue.addStepsToReproduceExpectedBehaviorOrOtherDetails":
+    "Add steps to reproduce, expected behavior, or other details…",
   "newissue.submitIssue": "Submit issue",
   "number.couldNotLoadReviewsPleaseRetry": "Could not load reviews. Please retry.",
   "number.couldNotLoadThisPullRequestPleaseTryAgain": "Could not load this pull request. Please try again.",
@@ -729,9 +843,12 @@ export const en = {
   "number.aiReviewCouldNotBeCompletedPleaseTryAgain": "AI review could not be completed. Please try again.",
   "number.chooseAnAIProviderAndEnterYourOwnAPIKeyIn": "Choose an AI provider and enter your own API key in Settings.",
   "number.useAIToReviewTheseChanges": "Use AI to review these changes?",
-  "number.thisPRSTitleDescriptionAndTextChangesWillBeSent": "This PR’s title, description and text changes will be sent. Program files without text diffs are first decompiled on this device; file names, SHA-256, sampled code, imports and strings are then sent. Up to 3 program files are analyzed.",
-  "number.thisIsAPrivateProjectConfirmYouWantToSendThese": "This is a private project. Confirm you want to send these changes.",
-  "number.theResultIsAdvisoryYouDecideWhetherToAcceptTheChanges": "The result is advisory. You decide whether to accept the changes.",
+  "number.thisPRSTitleDescriptionAndTextChangesWillBeSent":
+    "This PR’s title, description and text changes will be sent. Program files without text diffs are first decompiled on this device; file names, SHA-256, sampled code, imports and strings are then sent. Up to 3 program files are analyzed.",
+  "number.thisIsAPrivateProjectConfirmYouWantToSendThese":
+    "This is a private project. Confirm you want to send these changes.",
+  "number.theResultIsAdvisoryYouDecideWhetherToAcceptTheChanges":
+    "The result is advisory. You decide whether to accept the changes.",
   "number.couldNotReadAISettings": "Could not read AI settings",
   "number.checkSettingsAndTryAgain": "Check Settings and try again.",
   "number.changesHaveBeenUpdated": "Changes have been updated",
@@ -747,15 +864,18 @@ export const en = {
   "number.reviewAllChangedFilesFirst": "Review all changed files first.",
   "number.thisProjectDoesNotAllowMergingHere": "This project does not allow merging here.",
   "number.couldNotIdentifyThisRevisionRefreshAndTryAgain": "Could not identify this revision. Refresh and try again.",
-  "number.githubDidNotConfirmTheMergeRefreshAndCheckTheResult": "GitHub did not confirm the merge. Refresh and check the result.",
+  "number.githubDidNotConfirmTheMergeRefreshAndCheckTheResult":
+    "GitHub did not confirm the merge. Refresh and check the result.",
   "number.approvedAndMerged": "Approved and merged",
   "number.rejectedAndClosed": "Rejected and closed",
   "number.actionCouldNotBeCompleted": "Action could not be completed",
   "number.theChangesJustChangedRefreshAndReviewAgain": "The changes just changed. Refresh and review again.",
   "number.approveAndMergeTheseChanges": "Approve and merge these changes?",
   "number.rejectAndCloseThisRequest": "Reject and close this request?",
-  "number.theseChangesWillBeSavedToYourGitHubProjectCheckThe": "These changes will be saved to your GitHub project. Check the changed files first.",
-  "number.thisChangeRequestWillBeClosedYourReasonWillBePosted": "This pull request will be closed. Your reason will be posted as a reply.",
+  "number.theseChangesWillBeSavedToYourGitHubProjectCheckThe":
+    "These changes will be saved to your GitHub project. Check the changed files first.",
+  "number.thisChangeRequestWillBeClosedYourReasonWillBePosted":
+    "This pull request will be closed. Your reason will be posted as a reply.",
   "number.confirm": "Confirm",
   "number.comment": "Comment",
   "number.leaveFeedbackWithoutApproval": "Leave feedback without approval.",
@@ -766,18 +886,22 @@ export const en = {
   "number.backToChangeRequests": "Back to pull requests",
   "number.awaitingReview": "Awaiting review",
   "number.reviewTheseChanges": "Pull request review",
-  "number.theAuthorIsStillPreparingTheseChangesItCanBeMerged": "The author is still preparing these changes. It can be merged when ready.",
-  "number.approvalMergesTheChangesRejectionClosesTheRequest": "Approval merges the changes; rejection closes the request.",
+  "number.theAuthorIsStillPreparingTheseChangesItCanBeMerged":
+    "The author is still preparing these changes. It can be merged when ready.",
+  "number.approvalMergesTheChangesRejectionClosesTheRequest":
+    "Approval merges the changes; rejection closes the request.",
   "number.reject": "Reject",
   "number.approveAndMerge": "Approve and merge",
   "number.reasonForRejectionOptional": "Reason for rejection (optional)",
   "number.description": "Description",
   "number.noDescriptionProvided": "No description provided.",
   "number.changedFiles": "Changed files",
-  "number.aiReviewCombinesTextChangesWithDecompiledProgramEvidenceYouCan": "AI review combines text changes with decompiled program evidence. You can also inspect recovered code below first.",
+  "number.aiReviewCombinesTextChangesWithDecompiledProgramEvidenceYouCan":
+    "AI review combines text changes with decompiled program evidence. You can also inspect recovered code below first.",
   "number.previously": "Previously: ",
   "number.newEmptyFile": "New empty file.",
-  "number.githubDidNotProvideATextDiffDownloadTheFileTo": "GitHub did not provide a text diff. Download the file to inspect it.",
+  "number.githubDidNotProvideATextDiffDownloadTheFileTo":
+    "GitHub did not provide a text diff. Download the file to inspect it.",
   "number.downloading": "Downloading…",
   "number.fileDeleted": "File deleted",
   "number.downloadChangedFile": "Download changed file",
@@ -789,14 +913,14 @@ export const en = {
   "number.reviewingChanges": "Reviewing changes…",
   "number.cancelReview": "Cancel review",
   "number.reviewedOfFilesResultsAreAdvisory": {
-    "count": "p1",
-    "one": "Reviewed {p0} of {p1} file. Results are advisory.",
-    "other": "Reviewed {p0} of {p1} files. Results are advisory."
+    count: "p1",
+    one: "Reviewed {p0} of {p1} file. Results are advisory.",
+    other: "Reviewed {p0} of {p1} files. Results are advisory.",
   },
   "number.programFilesWereReviewedUsingDecompiledEvidence": {
-    "count": "p0",
-    "one": "{p0} program file was reviewed using decompiled evidence.",
-    "other": "{p0} program files were reviewed using decompiled evidence."
+    count: "p0",
+    one: "{p0} program file was reviewed using decompiled evidence.",
+    other: "{p0} program files were reviewed using decompiled evidence.",
   },
   "number.highRisk": "High risk",
   "number.needsAttention": "Needs attention",
@@ -820,8 +944,10 @@ export const en = {
   "number.submitReviewb954ebaa": "Submit review",
   "number.writeYourReview": "Write your review…",
   "number.submitReview04113737": "Submit review",
-  "number.thisIsADraftFormalReviewIsAvailableWhenTheAuthor": "This is a draft. Formal review is available when the author marks it ready.",
-  "id.couldNotLoadThisReleaseCheckYourAccessAndConnectionThen": "Could not load this release. Check your access and connection, then retry.",
+  "number.thisIsADraftFormalReviewIsAvailableWhenTheAuthor":
+    "This is a draft. Formal review is available when the author marks it ready.",
+  "id.couldNotLoadThisReleaseCheckYourAccessAndConnectionThen":
+    "Could not load this release. Check your access and connection, then retry.",
   "id.downloadFailedCheckYourConnectionAndDownloadAgain": "Download failed. Check your connection and download again.",
   "id.signInToViewThisRelease": "Sign in to view this release.",
   "id.backToProject": "Back to project",
@@ -833,38 +959,51 @@ export const en = {
   "id.downloadse1df2a2b": "Downloads",
   "id.downloadFile": "Download file",
   "id.decompileFile": "Decompile file",
-  "id.thisReleaseHasNoSeparateFilesYouCanDownloadItsSource": "This release has no separate files. You can download its source below.",
+  "id.thisReleaseHasNoSeparateFilesYouCanDownloadItsSource":
+    "This release has no separate files. You can download its source below.",
   "id.sourceCodeForThisRelease": "Source code for this release",
   "id.downloadSource": "Download source",
   "sha.couldNotOpenThisLink": "Could not open this link.",
   "sha.signInToViewChangeHistory": "Sign in to view change history.",
   "sha.backToChangeHistory": "Back to change history",
-  "sha.couldNotLoadCodeChangesPreviouslyLoadedFilesAreKept": "Could not load code changes. Previously loaded files are kept.",
+  "sha.couldNotLoadCodeChangesPreviouslyLoadedFilesAreKept":
+    "Could not load code changes. Previously loaded files are kept.",
   "sha.changedFiles": "Changed files",
   "sha.viewTheCompleteDiffOnGitHub": "View the complete diff on GitHub",
   "sha.thisCommitHasNoFileChanges": "This commit has no file changes.",
-  "sha.theFileCountReachedTheGitHubAPILimitViewTheRemaining": "The file count reached the GitHub API limit. View the remaining changes on GitHub.",
+  "sha.theFileCountReachedTheGitHubAPILimitViewTheRemaining":
+    "The file count reached the GitHub API limit. View the remaining changes on GitHub.",
   "sha.downloadFilesAtThisPoint": "Download files at this point",
   "starred.couldNotLoadStarredProjectsPleaseTryAgain": "Could not load Starred projects. Please try again.",
   "starred.starredProjects": "Starred projects",
   "starred.yourGitHubStarredProjectsAppearOnAllDevices": "Your GitHub Starred projects appear on all devices.",
   "starred.noStarredProjectsYet": "No Starred projects yet.",
-  "repositoryOperations.projectDetailsOrPermissionsChangedRefreshAndTryAgain": "Project details or permissions changed. Refresh and try again.",
-  "repositoryOperations.youDoNotHavePermissionToManageThisProject": "You do not have permission to manage this project.",
-  "repositoryOperations.theOriginalProjectCannotBeChangedInPublicBrowsingMode": "The original project cannot be changed in public browsing mode.",
+  "repositoryOperations.projectDetailsOrPermissionsChangedRefreshAndTryAgain":
+    "Project details or permissions changed. Refresh and try again.",
+  "repositoryOperations.youDoNotHavePermissionToManageThisProject":
+    "You do not have permission to manage this project.",
+  "repositoryOperations.theOriginalProjectCannotBeChangedInPublicBrowsingMode":
+    "The original project cannot be changed in public browsing mode.",
   "repositoryOperations.unarchiveThisProjectBeforeMakingChanges": "Unarchive this project before making changes.",
   "repositoryOperations.thisProjectCannotBeForkedRightNow": "This project cannot be forked right now.",
   "repositoryOperations.enterAValidForkName": "Enter a valid fork name.",
   "repositoryOperations.enterAValidDifferentUserOrOrganization": "Enter a valid different user or organization.",
   "repositoryOperations.couldNotFindAWritableForkOwnedByYou": "Could not find a writable fork owned by you.",
-  "repositoryOperations.theOriginalProjectCannotAcceptPullRequestsRightNow": "The original project cannot accept pull requests right now.",
-  "repositoryOperations.updateYourForkOnGitHubBeforeSubmittingAContribution": "Update your fork on GitHub before submitting a contribution.",
-  "repositoryOperations.otherRulesProtectThisBranchAndCannotBeOverwrittenHere": "Other rules protect this branch and cannot be overwritten here.",
+  "repositoryOperations.theOriginalProjectCannotAcceptPullRequestsRightNow":
+    "The original project cannot accept pull requests right now.",
+  "repositoryOperations.updateYourForkOnGitHubBeforeSubmittingAContribution":
+    "Update your fork on GitHub before submitting a contribution.",
+  "repositoryOperations.otherRulesProtectThisBranchAndCannotBeOverwrittenHere":
+    "Other rules protect this branch and cannot be overwritten here.",
   "repositoryOperations.enterTheCompleteProjectNameToConfirm": "Enter the complete project name to confirm.",
-  "repositoryOperations.enterAPullRequestTitleOfUpTo256Characters": "Enter a pull request title of up to 256 characters.",
-  "repositoryOperations.aBranchIsMissingOrWasRenamedCheckItsNameAnd": "A branch is missing or was renamed. Check its name and compare again.",
-  "repositoryOperations.authorizeWithTheSameGitHubAccountYouAreSignedInWith": "Authorize with the same GitHub account you are signed in with.",
-  "repositoryOperations.deletionAuthorizationExpiredAuthorizeAndConfirmAgain": "Deletion authorization expired. Authorize and confirm again.",
+  "repositoryOperations.enterAPullRequestTitleOfUpTo256Characters":
+    "Enter a pull request title of up to 256 characters.",
+  "repositoryOperations.aBranchIsMissingOrWasRenamedCheckItsNameAnd":
+    "A branch is missing or was renamed. Check its name and compare again.",
+  "repositoryOperations.authorizeWithTheSameGitHubAccountYouAreSignedInWith":
+    "Authorize with the same GitHub account you are signed in with.",
+  "repositoryOperations.deletionAuthorizationExpiredAuthorizeAndConfirmAgain":
+    "Deletion authorization expired. Authorize and confirm again.",
   "layout.home": "Home",
   "layout.projects": "Projects",
   "layout.discover": "Discover",
@@ -878,120 +1017,121 @@ export const en = {
   "notFound.backHome": "Back to Home",
   "AppAlert.closeDialog": "Close dialog",
   "profile.publicProjectCount": {
-    "count": "count",
-    "one": "{count} public project",
-    "other": "{count} public projects"
+    count: "count",
+    one: "{count} public project",
+    other: "{count} public projects",
   },
   "profile.followerCount": {
-    "count": "count",
-    "one": "{count} follower",
-    "other": "{count} followers"
+    count: "count",
+    one: "{count} follower",
+    other: "{count} followers",
   },
   "profile.followingCount": "Following {count}",
   "profile.yearContributions": "Contributions in {year}",
   "profile.contributionCount": {
-    "count": "count",
-    "one": "{count} contribution",
-    "other": "{count} contributions"
+    count: "count",
+    one: "{count} contribution",
+    other: "{count} contributions",
   },
   "profile.dayContributionCount": {
-    "count": "count",
-    "one": "{date}: {count} contribution",
-    "other": "{date}: {count} contributions"
+    count: "count",
+    one: "{date}: {count} contribution",
+    other: "{date}: {count} contributions",
   },
   "profile.dayActivity": "Activity on {date}",
   "profile.yearProjects": "Projects in {year}",
   "home.issueCount": {
-    "count": "count",
-    "one": "{count} issue",
-    "other": "{count} issues"
+    count: "count",
+    one: "{count} issue",
+    other: "{count} issues",
   },
   "home.openIssueNotice": {
-    "count": "count",
-    "one": "{name} · {count} open issue",
-    "other": "{name} · {count} open issues"
+    count: "count",
+    one: "{name} · {count} open issue",
+    other: "{name} · {count} open issues",
   },
   "home.pullRequestNotice": {
-    "count": "count",
-    "one": "{name} · {count} pull request",
-    "other": "{name} · {count} pull requests"
+    count: "count",
+    one: "{name} · {count} pull request",
+    other: "{name} · {count} pull requests",
   },
   "settings.appearance": "Appearance",
   "settings.themeSystem": "Follow system",
   "settings.themeLight": "Light",
   "settings.themeDark": "Dark",
   "number.changedFilesSummary": {
-    "count": "count",
-    "one": "{count} file changed",
-    "other": "{count} files changed"
+    count: "count",
+    one: "{count} file changed",
+    other: "{count} files changed",
   },
   "number.checkingResultsSummary": "Reading check results…",
   "number.checksFailedSummary": {
-    "count": "count",
-    "one": "{count} check failed",
-    "other": "{count} checks failed"
+    count: "count",
+    one: "{count} check failed",
+    other: "{count} checks failed",
   },
   "number.checksPendingSummary": {
-    "count": "count",
-    "one": "{count} check still running",
-    "other": "{count} checks still running"
+    count: "count",
+    one: "{count} check still running",
+    other: "{count} checks still running",
   },
   "number.checksPassedSummary": "All checks passed",
   "number.checksNoneSummary": "No check results",
   "number.checksUnclearSummary": "Check results are incomplete",
   "number.mergeWithFailedChecks": {
-    "count": "count",
-    "one": "{count} check failed. Merging will bring these problems into your project.",
-    "other": "{count} checks failed. Merging will bring these problems into your project."
+    count: "count",
+    one: "{count} check failed. Merging will bring these problems into your project.",
+    other: "{count} checks failed. Merging will bring these problems into your project.",
   },
   "number.mergeWithPendingChecks": {
-    "count": "count",
-    "one": "{count} check is still running, so the result may change.",
-    "other": "{count} checks are still running, so the result may change."
+    count: "count",
+    one: "{count} check is still running, so the result may change.",
+    other: "{count} checks are still running, so the result may change.",
   },
   "number.jumpToReply": "Jump to reply",
   "home.title": "Home",
   "home.needsYourAttention": "Needs your attention",
   "home.nothingNeedsYourAttention": "Nothing needs your attention right now.",
   "home.attentionOpenIssues": {
-    "count": "count",
-    "one": "{count} open issue",
-    "other": "{count} open issues"
+    count: "count",
+    one: "{count} open issue",
+    other: "{count} open issues",
   },
   "home.attentionPullRequests": {
-    "count": "count",
-    "one": "{count} pull request awaiting review",
-    "other": "{count} pull requests awaiting review"
+    count: "count",
+    one: "{count} pull request awaiting review",
+    other: "{count} pull requests awaiting review",
   },
   "home.attentionTotal": {
-    "count": "count",
-    "one": "{count} project needs attention",
-    "other": "{count} projects need attention"
+    count: "count",
+    one: "{count} project needs attention",
+    other: "{count} projects need attention",
   },
   "home.reviewPullRequests": "Review",
   "home.showMoreProjects": {
-    "count": "count",
-    "one": "{count} more project",
-    "other": "{count} more projects"
+    count: "count",
+    one: "{count} more project",
+    other: "{count} more projects",
   },
   "home.showFewerProjects": "Show less",
   "home.taskAction": "{action}: {name}",
   "home.viewAllProjects": {
-    "count": "count",
-    "one": "All {count} project",
-    "other": "All {count} projects"
+    count: "count",
+    one: "All {count} project",
+    other: "All {count} projects",
   },
   "home.unreadNotifications": {
-    "count": "count",
-    "one": "Notifications · {count} unread notification",
-    "other": "Notifications · {count} unread notifications"
+    count: "count",
+    one: "Notifications · {count} unread notification",
+    other: "Notifications · {count} unread notifications",
   },
   "home.openNamedProject": "Open project {name}",
   "discover.viewNamedProfile": "View {name}’s profile",
   "discover.viewNamedPublicProject": "View public project {name}",
   "github.actionDenied": "GitHub declined the action. Try again later or check authorization scopes.",
-  "github.detailsRejected": "GitHub did not accept these details. Check for a duplicate name and review the form fields.",
+  "github.detailsRejected":
+    "GitHub did not accept these details. Check for a duplicate name and review the form fields.",
   "github.unavailable": "GitHub could not complete the action. Please try again later.",
   "github.canceled": "Action canceled.",
-  "github.network": "Could not connect to GitHub. Check your connection and try again."
+  "github.network": "Could not connect to GitHub. Check your connection and try again.",
 } as const satisfies Record<keyof typeof zh, CatalogMessage>;

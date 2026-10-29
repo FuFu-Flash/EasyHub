@@ -1,7 +1,9 @@
 export const zh = {
-  "sessionRecovery.offlineNoProjects": "账号资料已验证，但这台设备还没有可用的项目数据。重试成功后，这里会显示最新项目。",
+  "sessionRecovery.offlineNoProjects":
+    "账号资料已验证，但这台设备还没有可用的项目数据。重试成功后，这里会显示最新项目。",
   "sessionRecovery.offlineTitle": "离线，暂时没有项目数据",
-  "sessionRecovery.offlineNoProfile": "现在无法连接 GitHub，还没有取得这个账号的资料或项目数据。已保存的登录信息仍在设备上，恢复网络后可以重试。",
+  "sessionRecovery.offlineNoProfile":
+    "现在无法连接 GitHub，还没有取得这个账号的资料或项目数据。已保存的登录信息仍在设备上，恢复网络后可以重试。",
   "sessionRecovery.offlineSaved": "当前使用上次验证的账号资料，项目和消息可能还没有更新。恢复网络后重试。",
   "sessionRecovery.savedAccount": "已验证的账号：{login}",
   "sessionRecovery.forbiddenTitle": "GitHub 暂时拒绝了访问",
@@ -46,7 +48,8 @@ export const zh = {
   "AiReviewSettings.connectedManageAccess": "已连接 · 点击管理授权",
   "AiReviewSettings.setUpAnAIProvider": "点击设置 AI 服务",
   "AiReviewSettings.model": "模型选择",
-  "AiReviewSettings.useYourOwnAICredentialsToReviewProposedChangesAndProgram": "使用你自己的 AI 服务授权审查合并请求和程序文件。授权仅保存在这台设备上。",
+  "AiReviewSettings.useYourOwnAICredentialsToReviewProposedChangesAndProgram":
+    "使用你自己的 AI 服务授权审查合并请求和程序文件。授权仅保存在这台设备上。",
   "AiReviewSettings.aiProvider": "AI 服务商",
   "AiReviewSettings.savedLeaveBlankToKeepIt": "已保存；留空则保持原值",
   "AiReviewSettings.enterYourOwnAPIKey": "输入你自己的 API Key",
@@ -79,14 +82,18 @@ export const zh = {
   "BinaryAnalysisSettings.theFileExceedsChooseASmallerFile": "文件超过 {p0}，请选择更小的文件。",
   "BinaryAnalysisSettings.couldNotSelectTheFilePleaseRetry": "无法选择文件，请重试。",
   "BinaryAnalysisSettings.canceled": "已取消。",
-  "BinaryAnalysisSettings.aiReviewCouldNotBeCompletedCheckTheFileAndComponents": "AI 审查未能完成，请检查文件和组件后重试。",
+  "BinaryAnalysisSettings.aiReviewCouldNotBeCompletedCheckTheFileAndComponents":
+    "AI 审查未能完成，请检查文件和组件后重试。",
   "BinaryAnalysisSettings.useAIToReviewThisProgramFile": "使用 AI 审查这个程序文件？",
-  "BinaryAnalysisSettings.afterConfirmationProgramContentIsExtractedOnThisDeviceTheFile": "确认后，将先在这台设备上提取程序内容，再向你的 AI 服务发送文件名、格式与架构、分析摘要，以及提取的函数代码、导入项和文本片段。",
+  "BinaryAnalysisSettings.afterConfirmationProgramContentIsExtractedOnThisDeviceTheFile":
+    "确认后，将先在这台设备上提取程序内容，再向你的 AI 服务发送文件名、格式与架构、分析摘要，以及提取的函数代码、导入项和文本片段。",
   "BinaryAnalysisSettings.provider": "服务商",
   "BinaryAnalysisSettings.serviceAddress": "服务地址",
-  "BinaryAnalysisSettings.confirmThatYouWantToShareThisExtractedContentYourProvider": "请确认你愿意分享这些提取内容。服务商可能收费，审查结果供你进一步检查程序时参考。",
+  "BinaryAnalysisSettings.confirmThatYouWantToShareThisExtractedContentYourProvider":
+    "请确认你愿意分享这些提取内容。服务商可能收费，审查结果供你进一步检查程序时参考。",
   "BinaryAnalysisSettings.agreeAndStartReview": "同意并开始审查",
-  "BinaryAnalysisSettings.setUpAIAccessAboveFirstChooseAProviderAndSave": "请先在上方设置 AI 授权，选择服务商并保存自己的 API Key。",
+  "BinaryAnalysisSettings.setUpAIAccessAboveFirstChooseAProviderAndSave":
+    "请先在上方设置 AI 授权，选择服务商并保存自己的 API Key。",
   "BinaryAnalysisSettings.canceling": "正在取消…",
   "BinaryAnalysisSettings.downloadingReviewComponents": "正在下载审查组件…",
   "BinaryAnalysisSettings.removingComponent": "正在移除组件…",
@@ -101,13 +108,16 @@ export const zh = {
   "BinaryAnalysisSettings.downloadingComponent": "正在下载组件…",
   "BinaryAnalysisSettings.programFileReview": "程序文件审查",
   "BinaryAnalysisSettings.componentInstallationReminders": "组件安装提醒",
-  "BinaryAnalysisSettings.showAReminderWhenAPullRequestNeedsAMissingComponent": "合并请求缺少所需组件时提醒，可随时在这里重新开启。",
+  "BinaryAnalysisSettings.showAReminderWhenAPullRequestNeedsAMissingComponent":
+    "合并请求缺少所需组件时提醒，可随时在这里重新开启。",
   "BinaryAnalysisSettings.on": "已开启",
   "BinaryAnalysisSettings.off": "已关闭",
-  "BinaryAnalysisSettings.usesTheSameAIProviderAsChangeRequestsAfterConfirmationProgram": "与合并请求使用同一个 AI 服务。确认后自动提取程序内容并完成审查，提取证据收在审查结果中。",
+  "BinaryAnalysisSettings.usesTheSameAIProviderAsChangeRequestsAfterConfirmationProgram":
+    "与合并请求使用同一个 AI 服务。确认后自动提取程序内容并完成审查，提取证据收在审查结果中。",
   "BinaryAnalysisSettings.uiTestingAIUsesALocalSimulatedResponse": "界面测试：AI 使用本地模拟响应",
   "BinaryAnalysisSettings.manageReviewComponents": "管理审查组件",
-  "BinaryAnalysisSettings.downloadFromTheProjectRepositoryWhenNeededInstallOrRemoveEach": "从项目仓库按需下载，可分别安装或移除。",
+  "BinaryAnalysisSettings.downloadFromTheProjectRepositoryWhenNeededInstallOrRemoveEach":
+    "从项目仓库按需下载，可分别安装或移除。",
   "BinaryAnalysisSettings.nativeProgramsRadare2R2ghidra": "原生程序 · radare2 / r2ghidra",
   "BinaryAnalysisSettings.notSupportedOnThisDevice": "此设备不支持",
   "BinaryAnalysisSettings.installed": "已安装",
@@ -120,11 +130,14 @@ export const zh = {
   "BinaryAnalysisSettings.removeNativeComponent": "移除原生组件",
   "BinaryAnalysisSettings.downloadJavaDalvik": "下载 Java / Dalvik",
   "BinaryAnalysisSettings.downloadNativeComponent": "下载原生组件",
-  "BinaryAnalysisSettings.couldNotReadComponentStatusCheckTheInstalledAppVersion": "无法读取组件状态，请检查当前安装版本。",
+  "BinaryAnalysisSettings.couldNotReadComponentStatusCheckTheInstalledAppVersion":
+    "无法读取组件状态，请检查当前安装版本。",
   "BinaryAnalysisSettings.checkComponents": "检查组件",
-  "BinaryAnalysisSettings.filesUpToJavaInputAndExpandedBytecodeUpToExtracted": "文件上限 {p0}；Java 输入及展开字节码上限 {p1}。提取代码是抽样证据，可能不完整。",
+  "BinaryAnalysisSettings.filesUpToJavaInputAndExpandedBytecodeUpToExtracted":
+    "文件上限 {p0}；Java 输入及展开字节码上限 {p1}。提取代码是抽样证据，可能不完整。",
   "BinaryAnalysisSettings.sizeVerifiedWhenTheFileIsRead": "大小由读取文件时核验",
-  "BinaryAnalysisSettings.selectAProgramFileAfterConfirmationItsContentIsExtractedAnd": "选择要审查的程序文件，确认后自动提取内容并进行 AI 审查。",
+  "BinaryAnalysisSettings.selectAProgramFileAfterConfirmationItsContentIsExtractedAnd":
+    "选择要审查的程序文件，确认后自动提取内容并进行 AI 审查。",
   "BinaryAnalysisSettings.choosing": "正在选择…",
   "BinaryAnalysisSettings.changeFile": "更换文件",
   "BinaryAnalysisSettings.selectLocalFile": "选择本地文件",
@@ -142,18 +155,22 @@ export const zh = {
   "CommitExplanation.connectYourAIServiceInSettingsFirst": "请先在设置中连接你的 AI 服务。",
   "CommitExplanation.couldNotLoadAISettingsPleaseRetry": "暂时无法读取 AI 设置，请重试。",
   "CommitExplanation.aiSettingsChangedConfirmAgain": "AI 设置已变化，请重新确认。",
-  "CommitExplanation.couldNotExplainTheseChangesCheckYourAIAuthorizationAndConnection": "暂时无法解释改动，请检查 AI 授权和网络后重试。",
+  "CommitExplanation.couldNotExplainTheseChangesCheckYourAIAuthorizationAndConnection":
+    "暂时无法解释改动，请检查 AI 授权和网络后重试。",
   "CommitExplanation.explainChangesAgain": "重新解释改动",
   "CommitExplanation.explainChanges": "解释改动",
   "CommitExplanation.openAISettings": "打开 AI 设置",
   "CommitExplanation.explainingTheseChanges": "正在解释这次改动…",
   "CommitExplanation.cancelExplanation": "取消说明",
   "CommitExplanation.changeExplanation": "改动说明",
-  "CommitExplanation.thisExplanationCoversOnlySuppliedChangesSomeContentWasTooLarge": "说明仅覆盖已提供的改动；部分内容过大或没有文字差异。",
+  "CommitExplanation.thisExplanationCoversOnlySuppliedChangesSomeContentWasTooLarge":
+    "说明仅覆盖已提供的改动；部分内容过大或没有文字差异。",
   "CommitExplanation.useAIToExplainTheseChanges": "使用 AI 解释这次改动？",
-  "CommitExplanation.thisCommitSMessageFilenamesAndCodeDiffsWillBeSent": "将这次提交的说明、文件名和代码差异发送给下列服务商。较大的提交只发送部分改动，不发送原始程序文件。",
+  "CommitExplanation.thisCommitSMessageFilenamesAndCodeDiffsWillBeSent":
+    "将这次提交的说明、文件名和代码差异发送给下列服务商。较大的提交只发送部分改动，不发送原始程序文件。",
   "CommitExplanation.thisIsAPrivateProjectConfirmThatYouWantToShare": "这是私有项目，请确认你愿意发送这次改动。",
-  "CommitExplanation.yourProviderMayChargeForThisRequestTheExplanationCoversOnly": "服务商可能收取费用；说明仅覆盖提交的部分内容。",
+  "CommitExplanation.yourProviderMayChargeForThisRequestTheExplanationCoversOnly":
+    "服务商可能收取费用；说明仅覆盖提交的部分内容。",
   "CommitExplanation.startExplanation": "开始解释",
   "DiscussionSearch.searchFailedPleaseRetry": "搜索失败，请重试。",
   "DiscussionSearch.searchByTitleOrNumber": "按标题或编号搜索",
@@ -167,18 +184,21 @@ export const zh = {
   "DiscussionSearch.open": "待处理",
   "DiscussionSearch.closed": "已关闭",
   "DiscussionSearch.noMatchingResults": "没有找到符合条件的结果。",
-  "DiscussionSearch.githubAllowsBrowsingTheFirst1000ResultsTryANarrower": "GitHub 最多可浏览前 1000 项，请缩小搜索范围。",
+  "DiscussionSearch.githubAllowsBrowsingTheFirst1000ResultsTryANarrower":
+    "GitHub 最多可浏览前 1000 项，请缩小搜索范围。",
   "DiscussionSearch.githubReturnedIncompleteResultsTryANarrowerSearch": "GitHub 返回了部分结果，请缩小搜索范围后重试。",
   "DiscussionSearch.retry": "重试",
   "DiscussionSearch.loadMoreMatches": "加载更多搜索结果",
   "ForkContributionPanel.forksAndContributions": "仓库副本与合并请求",
-  "ForkContributionPanel.copyAPublicProjectIntoYourAccountThenSubmitChangesAlready": "把公开项目复制到自己的账号，再把 GitHub 上已有的改动交给原项目作者审阅。",
+  "ForkContributionPanel.copyAPublicProjectIntoYourAccountThenSubmitChangesAlready":
+    "把公开项目复制到自己的账号，再把 GitHub 上已有的改动交给原项目作者审阅。",
   "ForkContributionPanel.originalProject": "原项目",
   "ForkContributionPanel.source": "来源",
   "ForkContributionPanel.target": "目标",
   "ForkContributionPanel.sourceBranch": "来源分支",
   "ForkContributionPanel.targetBranch": "目标分支",
-  "ForkContributionPanel.enterBranchNamesAlreadyOnGitHubThenCompareTheChangesBetween": "填写 GitHub 上已有的分支名称，然后检查这些分支之间的改动。",
+  "ForkContributionPanel.enterBranchNamesAlreadyOnGitHubThenCompareTheChangesBetween":
+    "填写 GitHub 上已有的分支名称，然后检查这些分支之间的改动。",
   "ForkContributionPanel.enterValidSourceAndTargetBranchNames": "请输入有效的来源分支和目标分支名称。",
   "ForkContributionPanel.checking": "正在检查…",
   "ForkContributionPanel.compareBranches": "检查分支改动",
@@ -187,7 +207,8 @@ export const zh = {
   "ForkContributionPanel.contributionSubmitted": "合并请求已提交。",
   "ForkContributionPanel.anExistingContributionIsWaitingForReview": "已有合并请求等待原项目审阅。",
   "ForkContributionPanel.viewOnGitHub": "在 GitHub 查看",
-  "ForkContributionPanel.thereAreNoChangesToSubmitUpdateYourForkOnGitHub": "还没有可提交的改进。请先在 GitHub 更新仓库副本，再刷新检查。",
+  "ForkContributionPanel.thereAreNoChangesToSubmitUpdateYourForkOnGitHub":
+    "还没有可提交的改进。请先在 GitHub 更新仓库副本，再刷新检查。",
   "ForkContributionPanel.contributionTitle": "合并请求标题",
   "ForkContributionPanel.describeYourChangesInOneSentence": "一句话说明改了什么",
   "ForkContributionPanel.description": "详细描述",
@@ -197,17 +218,20 @@ export const zh = {
   "ForkContributionPanel.submitContribution": "向原项目提交合并请求",
   "ForkContributionPanel.youAlreadyHaveARelatedFork": "已经有一个关联副本",
   "ForkContributionPanel.openFork": "打开仓库副本",
-  "ForkContributionPanel.githubIsPreparingCheckAgainShortlyOrLookInMyProjects": "GitHub 正在准备 {p0}。可稍后检查，也可以在“我的项目”中查看。",
+  "ForkContributionPanel.githubIsPreparingCheckAgainShortlyOrLookInMyProjects":
+    "GitHub 正在准备 {p0}。可稍后检查，也可以在“我的项目”中查看。",
   "ForkContributionPanel.checkForkReadiness": "检查副本是否就绪",
   "ForkContributionPanel.forkName": "副本名称",
   "ForkContributionPanel.copiesOnlyTheDefaultBranch": "仅复制默认分支",
   "ForkContributionPanel.creatingFork": "正在创建仓库副本…",
   "ForkContributionPanel.createFork": "创建仓库副本",
   "ForkContributionPanel.openYourForkFromMyProjectsToSubmitAContribution": "在“我的项目”中打开副本后，可以提交改进。",
-  "ForkContributionPanel.thisProjectIsArchivedForkingAndContributionsAreUnavailable": "项目已存档，暂时不能创建副本或提交改进。",
+  "ForkContributionPanel.thisProjectIsArchivedForkingAndContributionsAreUnavailable":
+    "项目已存档，暂时不能创建副本或提交改进。",
   "ForkContributionPanel.thisProjectDoesNotNeedOrAllowAForkRightNow": "这个项目当前不需要或不允许创建副本。",
   "ProgramReviewPrompt.thisPullRequestIncludesProgramFiles": "本次合并请求包含程序文件",
-  "ProgramReviewPrompt.installTheRequiredReviewComponentsToExtractEvidenceOnThisDevice": "安装所需审查组件后，可在本机提取程序证据，再自行决定是否发送给 AI 服务。组件不会自动下载。",
+  "ProgramReviewPrompt.installTheRequiredReviewComponentsToExtractEvidenceOnThisDevice":
+    "安装所需审查组件后，可在本机提取程序证据，再自行决定是否发送给 AI 服务。组件不会自动下载。",
   "ProgramReviewPrompt.installReviewComponents": "安装审查组件",
   "ProgramReviewPrompt.doNotShowComponentReminders": "不再提示安装组件",
   "ProjectSettingsPanel.changeVisibility": "变更项目可见性",
@@ -218,19 +242,23 @@ export const zh = {
   "ProjectSettingsPanel.viewAndManageDefaultBranchProtection": "查看并管理默认分支的保护规则。",
   "ProjectSettingsPanel.manageRules": "管理规则",
   "ProjectSettingsPanel.transferOwnership": "所有权转移",
-  "ProjectSettingsPanel.transferToAnotherUserOrOrganizationTheyMayNeedToAccept": "转移给其他用户或组织，对方可能需要接受。",
+  "ProjectSettingsPanel.transferToAnotherUserOrOrganizationTheyMayNeedToAccept":
+    "转移给其他用户或组织，对方可能需要接受。",
   "ProjectSettingsPanel.transferProject": "转移项目",
   "ProjectSettingsPanel.unarchiveProject": "取消项目存档",
   "ProjectSettingsPanel.archiveProject": "存档此项目",
   "ProjectSettingsPanel.unarchiveToMakeChangesAgain": "取消存档后可以继续修改项目。",
-  "ProjectSettingsPanel.archivingMakesTheProjectReadOnlyYouCanUnarchiveItLater": "存档后项目会变为只读，之后仍可取消存档。",
+  "ProjectSettingsPanel.archivingMakesTheProjectReadOnlyYouCanUnarchiveItLater":
+    "存档后项目会变为只读，之后仍可取消存档。",
   "ProjectSettingsPanel.unarchive": "取消存档",
   "ProjectSettingsPanel.deleteProject": "删除此项目",
-  "ProjectSettingsPanel.permanentlyDeleteTheProjectHistoryAndIssuesOnGitHub": "永久删除 GitHub 上的项目、修改记录和问题。",
+  "ProjectSettingsPanel.permanentlyDeleteTheProjectHistoryAndIssuesOnGitHub":
+    "永久删除 GitHub 上的项目、修改记录和问题。",
   "ProjectSettingsPanel.removeDefaultBranchProtection": "移除默认分支保护",
   "ProjectSettingsPanel.protectDefaultBranch": "开启默认分支保护",
   "ProjectSettingsPanel.done": "操作完成",
-  "ProjectSettingsPanel.transferRequestedTheNewOwnerMayNeedToAcceptOnGitHub": "转移请求已提交，对方可能需要在 GitHub 接受。",
+  "ProjectSettingsPanel.transferRequestedTheNewOwnerMayNeedToAcceptOnGitHub":
+    "转移请求已提交，对方可能需要在 GitHub 接受。",
   "ProjectSettingsPanel.projectDeletedFromGitHub": "项目已从 GitHub 删除。",
   "ProjectSettingsPanel.defaultBranchProtectionEnabled": "默认分支保护已开启。",
   "ProjectSettingsPanel.defaultBranchProtectionRemoved": "默认分支保护已移除。",
@@ -243,16 +271,22 @@ export const zh = {
   "ProjectSettingsPanel.theseActionsChangeProjectAccessOrManagement": "这些操作会改变项目的访问或管理方式。",
   "ProjectSettingsPanel.everyoneWillBeAbleToSeeThisProjectAndItsContents": "所有人都将能看到这个项目及其内容。",
   "ProjectSettingsPanel.onlyAuthorizedPeopleWillBeAbleToSeeThisProject": "只有获得授权的人能看到这个项目。",
-  "ProjectSettingsPanel.theProjectHistoryAndIssuesWillBePermanentlyDeletedFromGitHub": "项目、修改记录和问题将从 GitHub 永久删除。此操作无法撤销。",
-  "ProjectSettingsPanel.otherRulesProtectThisBranchManageThoseRulesOnGitHub": "默认分支受到其他规则保护。请前往 GitHub 管理这些规则。",
-  "ProjectSettingsPanel.defaultBranchIsProtectedRemovingProtectionRevokesItsCurrentLegacyRule": "默认分支 {p0} 已保护。移除会撤销当前的旧版保护规则。",
-  "ProjectSettingsPanel.defaultBranchIsUnprotectedEnablingProtectionRequiresOneApprovalBeforeMerging": "默认分支 {p0} 未保护。开启后合入修改需要一人批准。",
+  "ProjectSettingsPanel.theProjectHistoryAndIssuesWillBePermanentlyDeletedFromGitHub":
+    "项目、修改记录和问题将从 GitHub 永久删除。此操作无法撤销。",
+  "ProjectSettingsPanel.otherRulesProtectThisBranchManageThoseRulesOnGitHub":
+    "默认分支受到其他规则保护。请前往 GitHub 管理这些规则。",
+  "ProjectSettingsPanel.defaultBranchIsProtectedRemovingProtectionRevokesItsCurrentLegacyRule":
+    "默认分支 {p0} 已保护。移除会撤销当前的旧版保护规则。",
+  "ProjectSettingsPanel.defaultBranchIsUnprotectedEnablingProtectionRequiresOneApprovalBeforeMerging":
+    "默认分支 {p0} 未保护。开启后合入修改需要一人批准。",
   "ProjectSettingsPanel.newOwner": "新所有者",
   "ProjectSettingsPanel.githubUsernameOrOrganization": "GitHub 用户名或组织名",
-  "ProjectSettingsPanel.deletionAuthorizedEnterTheFullProjectNameAgainAndConfirmDeletion": "删除权限已授权。请再次输入完整项目名称并确认删除。",
+  "ProjectSettingsPanel.deletionAuthorizedEnterTheFullProjectNameAgainAndConfirmDeletion":
+    "删除权限已授权。请再次输入完整项目名称并确认删除。",
   "ProjectSettingsPanel.typeTheProjectNameToConfirm": "输入项目名称以确认",
   "ProjectSettingsPanel.confirmProjectName": "确认项目名称",
-  "ProjectSettingsPanel.enterThisCodeOnGitHubToAuthorizeDeletionYouMustConfirm": "在 GitHub 输入以上配对码，授权删除权限。完成后仍需再次确认删除。",
+  "ProjectSettingsPanel.enterThisCodeOnGitHubToAuthorizeDeletionYouMustConfirm":
+    "在 GitHub 输入以上配对码，授权删除权限。完成后仍需再次确认删除。",
   "ProjectSettingsPanel.openGitHubAuthorization": "打开 GitHub 授权页面",
   "ProjectSettingsPanel.waitingForGitHubAuthorization": "正在等待 GitHub 授权…",
   "ProjectSettingsPanel.authorizeDeletion": "授权删除权限",
@@ -280,10 +314,13 @@ export const zh = {
   "PullChecksPanel.reviewEachCheckResult": "请查看各项检查结果",
   "PullChecksPanel.buildAndTests": "构建与测试",
   "PullChecksPanel.refreshChecks": "刷新检查",
-  "PullChecksPanel.theChecksForTheseChangesCouldNotBeVerifiedRefreshThe": "暂时无法确认这次修改的检查结果。请刷新检查；如果修改已更新，请返回后重新打开。",
+  "PullChecksPanel.theChecksForTheseChangesCouldNotBeVerifiedRefreshThe":
+    "暂时无法确认这次修改的检查结果。请刷新检查；如果修改已更新，请返回后重新打开。",
   "PullChecksPanel.otherChecks": "其他检查",
-  "PullChecksPanel.githubDidNotAllowThisReadAccessPermissionOrALater": "GitHub 暂未允许读取，可能需要访问权限或稍后重试。",
-  "PullChecksPanel.couldNotLoadTheseResultsTheDisplayedResultsMayBeIncomplete": "暂时无法读取，已有结果不代表全部结果。",
+  "PullChecksPanel.githubDidNotAllowThisReadAccessPermissionOrALater":
+    "GitHub 暂未允许读取，可能需要访问权限或稍后重试。",
+  "PullChecksPanel.couldNotLoadTheseResultsTheDisplayedResultsMayBeIncomplete":
+    "暂时无法读取，已有结果不代表全部结果。",
   "PullChecksPanel.viewLogs": "查看日志",
   "PullChecksPanel.couldNotOpenCheckDetailsPleaseTryAgain": "无法打开检查详情，请稍后重试。",
   "PullChecksPanel.showFewerChecks": "收起检查",
@@ -291,7 +328,8 @@ export const zh = {
   "PullChecksPanel.loadingCheckResults": "正在获取检查结果…",
   "PullChecksPanel.retryUnavailableChecks": "重试未读取的检查",
   "PullChecksPanel.loadMoreChecks": "加载更多检查",
-  "PullChecksPanel.theseAreTheResultsReportedForTheCurrentChangesGitHubProject": "这里只展示当前修改已报告的结果。是否可以合入，仍由 GitHub 的项目规则判断。",
+  "PullChecksPanel.theseAreTheResultsReportedForTheCurrentChangesGitHubProject":
+    "这里只展示当前修改已报告的结果。是否可以合入，仍由 GitHub 的项目规则判断。",
   "PullRequestsPanel.couldNotLoadPullRequestsPleaseTryAgain": "合并请求加载失败，请重试。",
   "PullRequestsPanel.couldNotLoadMorePullRequests": "更多合并请求加载失败，请重试。",
   "PullRequestsPanel.open": "待审查",
@@ -318,9 +356,11 @@ export const zh = {
   "SourceHistoryPanel.leaveBlankForAllFiles": "留空查看全部文件",
   "SourceHistoryPanel.viewFileHistory": "查看文件历史",
   "SourceHistoryPanel.showHistoryForAllFiles": "查看全部文件历史",
-  "SourceHistoryPanel.enterARelativeProjectPathWithoutEmptyOrParentDirectorySegments": "请输入项目内的相对路径，不含空目录或上级目录。",
+  "SourceHistoryPanel.enterARelativeProjectPathWithoutEmptyOrParentDirectorySegments":
+    "请输入项目内的相对路径，不含空目录或上级目录。",
   "SourceHistoryPanel.unknownAuthor": "未知作者",
-  "SourceHistoryPanel.couldNotLoadChangeHistoryPreviouslyLoadedCommitsAreKept": "修改记录暂时无法加载，已加载的记录保留。",
+  "SourceHistoryPanel.couldNotLoadChangeHistoryPreviouslyLoadedCommitsAreKept":
+    "修改记录暂时无法加载，已加载的记录保留。",
   "SourceHistoryPanel.thisFileHasNoCommitsOnThisBranch": "这个文件在此分支还没有提交记录。",
   "SourceHistoryPanel.thisBranchHasNoCommitsYet": "这个分支还没有提交记录。",
   "SourceHistoryPanel.loadMoreCommits": "加载更多修改记录",
@@ -330,11 +370,13 @@ export const zh = {
   "SourceHistoryPanel.modified": "修改",
   "SourceHistoryPanel.fileHistory": "文件历史",
   "SourceHistoryPanel.previousFilename": "原文件名",
-  "SourceHistoryPanel.someChangesAreOmittedViewTheCompleteDiffOnGitHub": "这里只显示部分差异，可在 GitHub 查看完整改动。",
+  "SourceHistoryPanel.someChangesAreOmittedViewTheCompleteDiffOnGitHub":
+    "这里只显示部分差异，可在 GitHub 查看完整改动。",
   "SourceHistoryPanel.fileChanges": "文件改动",
   "SourceHistoryPanel.showMoreChangedLines": "继续查看修改内容",
   "SourceHistoryPanel.thisIsANewEmptyFile": "这是一个新建的空文件。",
-  "SourceHistoryPanel.githubDidNotProvideATextDiffTheFileMayBe": "GitHub 未提供文字差异，文件可能是图片、程序文件、仅更名或内容过大。",
+  "SourceHistoryPanel.githubDidNotProvideATextDiffTheFileMayBe":
+    "GitHub 未提供文字差异，文件可能是图片、程序文件、仅更名或内容过大。",
   "StarProjectButton.couldNotUpdateStar": "Star 更新失败",
   "StarProjectButton.checkYourConnectionAndPermissionsThenRetry": "请检查网络和授权后重试。",
   "StarProjectButton.updating": "正在更新…",
@@ -348,29 +390,34 @@ export const zh = {
   "commitExplanation.confirmThisCommitAndTheDestinationFirst": "请先确认这次提交和发送目标。",
   "commitExplanation.theAIProviderChangedConfirmAgain": "AI 服务地址已改变，请重新确认。",
   "commitExplanation.thisCommitHasNoFileChangesToExplain": "这次提交没有可解释的文件改动。",
-  "commitExplanation.couldNotExplainTheseChangesCheckYourAIAuthorizationAndConnection": "暂时无法解释改动，请检查 AI 授权和网络。",
+  "commitExplanation.couldNotExplainTheseChangesCheckYourAIAuthorizationAndConnection":
+    "暂时无法解释改动，请检查 AI 授权和网络。",
   "commitExplanation.theExplanationTookTooLongPleaseRetry": "改动说明等待时间较长，请稍后重试。",
   "review.aiReturnedTooMuchAnalysisContentPleaseRetry": "AI 返回的分析结果过长，请重试。",
   "review.aiDidNotReturnAUsableAnalysisResultPleaseRetry": "AI 没有返回可用的分析结果，请重试。",
   "review.aiReturnedAnIncompleteAnalysisResult": "AI 返回的分析结果不完整，请重试。",
   "review.aiFindingsDoNotMatchTheSuppliedProgramEvidence": "AI 返回的结果无法对应分析内容，请重试。",
-  "review.aiInterpretedSampledStaticEvidenceOnlyTheProgramWasNotRun": "AI 仅解读部分静态分析证据，没有运行程序或对比旧版本，不能据此确定程序安全、正确或存在新增问题。",
+  "review.aiInterpretedSampledStaticEvidenceOnlyTheProgramWasNotRun":
+    "AI 仅解读部分静态分析证据，没有运行程序或对比旧版本，不能据此确定程序安全、正确或存在新增问题。",
   "review.someAnalysisContentWasShortenedBeforeSending": "部分分析内容在发送前进行了截取。",
   "review.theAIProviderChangedConfirmTheDestinationAgain": "AI 服务地址已改变，请重新确认发送目标。",
   "review.thereIsTooMuchAnalysisContentTryASmallerFile": "分析内容过多，请重新分析较小的文件。",
   "review.theProgramReviewTookTooLongPleaseRetry": "程序审查等待时间较长，请稍后重试。",
   "review.confirmTheProgramEvidenceAndAIDestinationFirst": "请先确认要发送的程序证据和服务地址。",
   "review.thisRequestOrItsTargetChangedRefreshAndReviewAgain": "这次改进或目标已有新修改，请刷新后重新审查。",
-  "review.thisReviewCoversSuppliedTextChangesAndSampledProgramEvidenceShown": "本次审查提交的文字修改及下方程序抽样证据，没有运行程序或测试。",
+  "review.thisReviewCoversSuppliedTextChangesAndSampledProgramEvidenceShown":
+    "本次审查提交的文字修改及下方程序抽样证据，没有运行程序或测试。",
   "review.onlyTheSuppliedTextChangesWereReviewedNoCodeOrTests": "本次仅审查提交的文字修改，没有运行程序或测试。",
   "review.filesHaveNoReviewableTextDiff": "{p0} 个文件没有可供审查的文字修改。",
   "review.thisChangeIsLargeSoOnlyPartOfItWasReviewed": "修改内容较多，本次只审查了部分内容。",
   "review.notReviewedThisReviewAnalyzesAtMostProgramFiles": "{p0}：未审查，本次最多分析 {p1} 个程序文件。",
-  "review.notReviewedProgramAnalysisOrAVerifiedFileRevisionIsUnavailable": "{p0}：未审查，程序分析组件或可校验的文件版本不可用。",
+  "review.notReviewedProgramAnalysisOrAVerifiedFileRevisionIsUnavailable":
+    "{p0}：未审查，程序分析组件或可校验的文件版本不可用。",
   "review.analyzing": "正在分析 {p0}…",
   "review.programAnalysisCouldNotBeCompletedThisFileWasNotReviewed": "{p0}：程序分析未能完成，此文件未被 AI 审查。",
   "review.reviewing": "正在审查 {p0}…",
-  "review.programAIReviewCouldNotBeCompletedLocalEvidenceIsAvailable": "{p0}：程序 AI 审查未能完成，可在下方查看本机反编译证据。",
+  "review.programAIReviewCouldNotBeCompletedLocalEvidenceIsAvailable":
+    "{p0}：程序 AI 审查未能完成，可在下方查看本机反编译证据。",
   "review.isANewlyAddedEmptyFileThereIsNoCodeTo": "{p0} 是新建的空文件，没有代码内容可供审查。",
   "review.noProgramFileCouldBeReviewedSeeTheLimitationsForEach": "本次未能完成程序文件审查，请查看各文件的审查限制。",
   "review.theseFilesHaveNoTextChangesAvailableForAIReview": "这些文件没有可供 AI 审查的文字修改。",
@@ -427,9 +474,11 @@ export const zh = {
   "pullDownload.thisFileCannotBeDownloaded": "此文件无法下载。",
   "releaseDetails.theReleaseAddressIsInvalid": "版本地址无效。",
   "repositoryOperations.yourGitHubSessionExpiredSignInAgain": "GitHub 登录已失效，请重新登录。",
-  "repositoryOperations.githubDeclinedTheActionCheckPermissionsOrTryAgainLater": "GitHub 拒绝了操作，请检查权限或稍后重试。",
+  "repositoryOperations.githubDeclinedTheActionCheckPermissionsOrTryAgainLater":
+    "GitHub 拒绝了操作，请检查权限或稍后重试。",
   "repositoryOperations.thisProjectWasNotFoundOrYouDoNotHaveAccess": "找不到这个项目，或你没有访问权限。",
-  "repositoryOperations.githubDidNotAcceptTheseDetailsCheckTheNameAndForm": "GitHub 未接受这些内容，请检查名称和填写的信息。",
+  "repositoryOperations.githubDidNotAcceptTheseDetailsCheckTheNameAndForm":
+    "GitHub 未接受这些内容，请检查名称和填写的信息。",
   "repositoryOperations.theActionCouldNotBeCompletedCheckYourConnectionAndTry": "操作暂时无法完成，请检查网络后重试。",
   "AppUpdatePanel.tooManyUpdateChecksPleaseTryAgainLater": "检查更新过于频繁，请稍后重试。",
   "AppUpdatePanel.noAndroidReleaseIsAvailableYetPleaseTryAgainLater": "暂时没有可用的安卓版本，请稍后重试。",
@@ -455,7 +504,8 @@ export const zh = {
   "discover.signInToExplorePublicProjectsAndGitHubUsers": "登录后探索公开项目与 GitHub 用户。",
   "discover.signInWithGitHub": "使用 GitHub 登录",
   "discover.exploreMoreCreations": "发现更多作品",
-  "discover.searchPublicProjectsAndGitHubUsersOrSeeWhatPeopleAre": "搜索公开项目与 GitHub 用户，也可以看看大家最近在创作什么。",
+  "discover.searchPublicProjectsAndGitHubUsersOrSeeWhatPeopleAre":
+    "搜索公开项目与 GitHub 用户，也可以看看大家最近在创作什么。",
   "discover.projects": "项目搜索",
   "discover.users": "用户搜索",
   "discover.searchUsers": "搜索用户",
@@ -468,7 +518,8 @@ export const zh = {
   "discover.user": "用户",
   "discover.publicProject": "公开项目",
   "discover.easyhubPopular": "EasyHub 热门",
-  "discover.publicProjectsRankedByStarsRecentActivityAndUpdateTimeThis": "按 Star 数、近期活跃度和更新时间排列公开项目。不是 GitHub 官方 Trending。",
+  "discover.publicProjectsRankedByStarsRecentActivityAndUpdateTimeThis":
+    "按 Star 数、近期活跃度和更新时间排列公开项目。不是 GitHub 官方 Trending。",
   "discover.userResults": "用户搜索结果",
   "discover.publicProjectResults": "公开项目搜索结果",
   "discover.compact": "精简",
@@ -485,7 +536,8 @@ export const zh = {
   "discover.page": "第",
   "discover.message": "页",
   "discover.next": "下一页",
-  "discover.recentGrowthRequiresObservationNewProjectsShowObservingGrowth": "近期增长需持续观察，首次收录时显示“增长观察中”。",
+  "discover.recentGrowthRequiresObservationNewProjectsShowObservingGrowth":
+    "近期增长需持续观察，首次收录时显示“增长观察中”。",
   "home.openProject": "打开项目",
   "home.viewIssues": "查看问题",
   "home.history": "修改记录",
@@ -525,7 +577,8 @@ export const zh = {
   "projects.starredOnGitHub": "GitHub 已加星项目",
   "projects.searchMyProjects": "搜索我的项目",
   "projects.repositoryForks": "仓库副本",
-  "projects.viewYourForksAndSubmitChangesAlreadyOnGitHubToTheir": "查看仓库副本，并将 GitHub 上已有的改动提交给原项目。",
+  "projects.viewYourForksAndSubmitChangesAlreadyOnGitHubToTheir":
+    "查看仓库副本，并将 GitHub 上已有的改动提交给原项目。",
   "projects.noProjectsFound": "没有找到项目。",
   "projects.savedPublicProjects": "收藏的公开项目",
   "projects.readOnlyBrowsing": "只读浏览",
@@ -537,9 +590,11 @@ export const zh = {
   "settings.yourSavedSignInDetailsWillBeRemovedFromThisDevice": "这台设备上保存的登录信息会被清除。",
   "settings.signOuta65c6d66": "退出",
   "settings.appLanguage": "界面语言",
-  "settings.translatePublicProjectDescriptionsIntroductionsIssuesCommentsAndReleaseNotesTurn": "翻译公开项目的简介、介绍、问题、评论和版本说明；关闭后显示原文。私有项目不会发送给翻译服务。",
+  "settings.translatePublicProjectDescriptionsIntroductionsIssuesCommentsAndReleaseNotesTurn":
+    "翻译公开项目的简介、介绍、问题、评论和版本说明；关闭后显示原文。私有项目不会发送给翻译服务。",
   "settings.namesToKeepUnchanged": "不翻译的名称",
-  "settings.addOneNamePerLineSuchAsProductOrAuthorNames": "每行填写一个名称，例如产品名或作者名。项目名、文件名、版本号和链接会自动保留。",
+  "settings.addOneNamePerLineSuchAsProductOrAuthorNames":
+    "每行填写一个名称，例如产品名或作者名。项目名、文件名、版本号和链接会自动保留。",
   "settings.saveNames": "保存名称",
   "settings.couldNotOpenTheLink": "无法打开链接",
   "settings.checkYourBrowserSettingsAndTryAgain": "请检查浏览器设置后重试。",
@@ -554,7 +609,8 @@ export const zh = {
   "analysis.chooseAProviderAndSaveYourOwnAPIKey": "选择服务商并保存你自己的 API Key。",
   "analysis.openSettings": "打开设置",
   "analysis.sendDecompiledEvidenceForAIReview": "发送反编译证据进行 AI 审查？",
-  "analysis.fileNameSHA256SampledCodeImportsAndStringsWillBe": "将发送文件名、SHA-256、抽样代码、导入符号和字符串。这可能包含私有代码或敏感内容，请确认你愿意发送。",
+  "analysis.fileNameSHA256SampledCodeImportsAndStringsWillBe":
+    "将发送文件名、SHA-256、抽样代码、导入符号和字符串。这可能包含私有代码或敏感内容，请确认你愿意发送。",
   "analysis.agreeAndReview": "同意并审查",
   "analysis.aiReviewCancelled": "AI 审查已取消。",
   "analysis.aiReviewFailed": "AI 审查失败。",
@@ -565,7 +621,8 @@ export const zh = {
   "analysis.programDecompiler": "程序反编译",
   "analysis.inspectProgramsAndRecoveredCodeOnThisDevice": "在这台设备上读取程序，查看恢复的代码与证据。",
   "analysis.supportedFiles": "支持的文件",
-  "analysis.filesUpTo128MBJavaInputAndExpandedBytecodeUp": "文件上限 128 MB；Java 输入及展开字节码上限 64 MB。恢复代码是抽样证据，可能不完整。AI 审查需要单独确认。",
+  "analysis.filesUpTo128MBJavaInputAndExpandedBytecodeUp":
+    "文件上限 128 MB；Java 输入及展开字节码上限 64 MB。恢复代码是抽样证据，可能不完整。AI 审查需要单独确认。",
   "analysis.javaDalvikIsNotInstalledOrNotSupportedOnThisDevice": "Java / Dalvik 组件未安装或此设备不支持",
   "analysis.nativeComponentIsNotInstalledOrNotSupportedOnThisDevice": "原生组件未安装或此设备不支持",
   "analysis.openSettingsToDownloadComponents": "打开设置下载组件",
@@ -584,10 +641,12 @@ export const zh = {
   "analysis.hideImportsAndStrings": "收起导入与字符串",
   "analysis.viewImportsAndStrings": "查看导入与字符串",
   "analysis.aiReviewResult": "AI 审查结果",
-  "createproject.projectNamesCanOnlyUseLettersNumbersDotsHyphensAndUnderscores": "项目名称只能使用英文字母、数字、点、横线和下划线。",
+  "createproject.projectNamesCanOnlyUseLettersNumbersDotsHyphensAndUnderscores":
+    "项目名称只能使用英文字母、数字、点、横线和下划线。",
   "createproject.projectCreated": "项目创建成功",
   "createproject.youCanNowViewAndShareThisProject": "现在可以查看和分享这个项目。",
-  "createproject.couldNotCreateTheProjectCheckWhetherTheNameIsAlready": "创建失败。请检查项目名称是否重复，或稍后重试。",
+  "createproject.couldNotCreateTheProjectCheckWhetherTheNameIsAlready":
+    "创建失败。请检查项目名称是否重复，或稍后重试。",
   "createproject.giveYourNewIdeaANameAndShareYourWorkAnytime": "给新想法起个名字，随时分享你的作品。",
   "createproject.projectName": "项目名称",
   "createproject.forExampleMyTool": "例如 MyTool",
@@ -600,9 +659,11 @@ export const zh = {
   "createproject.creating": "正在创建…",
   "createproject.createProject": "创建项目",
   "login.signInFailedPleaseTryAgain": "登录失败，请重试。",
-  "login.easyhubOpensGitHubForAuthorizationYouCanThenViewAndManage": "EasyHub 会打开 GitHub 授权页面。登录后即可在手机上查看和管理项目。",
+  "login.easyhubOpensGitHubForAuthorizationYouCanThenViewAndManage":
+    "EasyHub 会打开 GitHub 授权页面。登录后即可在手机上查看和管理项目。",
   "login.connectYourAccountSecurely": "安全连接你的账号",
-  "login.easyhubDoesNotCreateASeparateAccountSignInDetailsStay": "EasyHub 不建立新账号。登录信息仅保存在这台设备的安全存储中。",
+  "login.easyhubDoesNotCreateASeparateAccountSignInDetailsStay":
+    "EasyHub 不建立新账号。登录信息仅保存在这台设备的安全存储中。",
   "login.copyTheCodeAndPasteItOnGitHub": "复制配对码，然后在 GitHub 页面粘贴",
   "login.copyCodeAndOpenGitHub": "复制配对码并打开 GitHub",
   "login.returnToEasyHubAfterAuthorizationSignInCompletesAutomatically": "完成授权后回到 EasyHub，登录会自动完成。",
@@ -702,7 +763,8 @@ export const zh = {
   "number.aiReviewCouldNotBeCompletedPleaseTryAgain": "AI 审查暂时无法完成，请重试。",
   "number.chooseAnAIProviderAndEnterYourOwnAPIKeyIn": "在设置中选择 AI 服务商并填写你自己的 API Key。",
   "number.useAIToReviewTheseChanges": "使用 AI 审查这次改进？",
-  "number.thisPRSTitleDescriptionAndTextChangesWillBeSent": "将发送本次 PR 的标题、描述及文字差异；没有文字差异的程序文件会先在本机反编译，再发送文件名、SHA-256、抽样代码、导入符号和字符串。最多分析 3 个程序文件。",
+  "number.thisPRSTitleDescriptionAndTextChangesWillBeSent":
+    "将发送本次 PR 的标题、描述及文字差异；没有文字差异的程序文件会先在本机反编译，再发送文件名、SHA-256、抽样代码、导入符号和字符串。最多分析 3 个程序文件。",
   "number.thisIsAPrivateProjectConfirmYouWantToSendThese": "这是私有项目，请确认你愿意发送本次修改。",
   "number.theResultIsAdvisoryYouDecideWhetherToAcceptTheChanges": "结果仅供参考，是否采纳由你决定。",
   "number.couldNotReadAISettings": "无法读取 AI 设置",
@@ -727,8 +789,10 @@ export const zh = {
   "number.theChangesJustChangedRefreshAndReviewAgain": "修改内容刚刚发生变化，请刷新后重新审查。",
   "number.approveAndMergeTheseChanges": "批准并合入这次改进？",
   "number.rejectAndCloseThisRequest": "拒绝并关闭这次请求？",
-  "number.theseChangesWillBeSavedToYourGitHubProjectCheckThe": "确认后，这次修改会保存到你的 GitHub 项目中。请先检查修改文件。",
-  "number.thisChangeRequestWillBeClosedYourReasonWillBePosted": "确认后，这次合并请求会关闭。填写的原因会作为回复发给对方。",
+  "number.theseChangesWillBeSavedToYourGitHubProjectCheckThe":
+    "确认后，这次修改会保存到你的 GitHub 项目中。请先检查修改文件。",
+  "number.thisChangeRequestWillBeClosedYourReasonWillBePosted":
+    "确认后，这次合并请求会关闭。填写的原因会作为回复发给对方。",
   "number.confirm": "确认",
   "number.comment": "发表意见",
   "number.leaveFeedbackWithoutApproval": "留下审查意见，不表态同意与否。",
@@ -747,7 +811,8 @@ export const zh = {
   "number.description": "修改说明",
   "number.noDescriptionProvided": "没有填写说明。",
   "number.changedFiles": "修改的文件",
-  "number.aiReviewCombinesTextChangesWithDecompiledProgramEvidenceYouCan": "AI 审查会结合文字差异与程序文件的反编译证据。也可以先在下方查看程序代码。",
+  "number.aiReviewCombinesTextChangesWithDecompiledProgramEvidenceYouCan":
+    "AI 审查会结合文字差异与程序文件的反编译证据。也可以先在下方查看程序代码。",
   "number.previously": "原文件：",
   "number.newEmptyFile": "新建空文件。",
   "number.githubDidNotProvideATextDiffDownloadTheFileTo": "GitHub 未提供文字差异，可下载文件检查。",
@@ -808,7 +873,8 @@ export const zh = {
   "sha.changedFiles": "修改文件",
   "sha.viewTheCompleteDiffOnGitHub": "在 GitHub 查看完整改动",
   "sha.thisCommitHasNoFileChanges": "这次提交没有文件改动。",
-  "sha.theFileCountReachedTheGitHubAPILimitViewTheRemaining": "文件数量达到 GitHub 的显示上限，请在 GitHub 查看其余改动。",
+  "sha.theFileCountReachedTheGitHubAPILimitViewTheRemaining":
+    "文件数量达到 GitHub 的显示上限，请在 GitHub 查看其余改动。",
   "sha.downloadFilesAtThisPoint": "下载当时的文件",
   "starred.couldNotLoadStarredProjectsPleaseTryAgain": "收藏列表加载失败，请重试。",
   "starred.starredProjects": "我 Star 的项目",
@@ -823,12 +889,15 @@ export const zh = {
   "repositoryOperations.enterAValidDifferentUserOrOrganization": "请输入其他用户或组织的有效名称。",
   "repositoryOperations.couldNotFindAWritableForkOwnedByYou": "找不到属于你的可写仓库副本。",
   "repositoryOperations.theOriginalProjectCannotAcceptPullRequestsRightNow": "原项目暂时无法接收合并请求。",
-  "repositoryOperations.updateYourForkOnGitHubBeforeSubmittingAContribution": "仓库副本还没有可提交的修改，请先在 GitHub 更新副本。",
-  "repositoryOperations.otherRulesProtectThisBranchAndCannotBeOverwrittenHere": "默认分支受其他规则保护，不能在这里覆盖这些规则。",
+  "repositoryOperations.updateYourForkOnGitHubBeforeSubmittingAContribution":
+    "仓库副本还没有可提交的修改，请先在 GitHub 更新副本。",
+  "repositoryOperations.otherRulesProtectThisBranchAndCannotBeOverwrittenHere":
+    "默认分支受其他规则保护，不能在这里覆盖这些规则。",
   "repositoryOperations.enterTheCompleteProjectNameToConfirm": "请输入完整的项目名称以确认。",
   "repositoryOperations.enterAPullRequestTitleOfUpTo256Characters": "请填写合并请求标题，最多 256 个字符。",
   "repositoryOperations.aBranchIsMissingOrWasRenamedCheckItsNameAnd": "分支不存在或已改名，请检查名称后重新对比。",
-  "repositoryOperations.authorizeWithTheSameGitHubAccountYouAreSignedInWith": "授权账号与当前登录账号不同，请使用同一 GitHub 账号。",
+  "repositoryOperations.authorizeWithTheSameGitHubAccountYouAreSignedInWith":
+    "授权账号与当前登录账号不同，请使用同一 GitHub 账号。",
   "repositoryOperations.deletionAuthorizationExpiredAuthorizeAndConfirmAgain": "删除授权已过期，请重新授权并再次确认。",
   "layout.home": "首页",
   "layout.projects": "项目",
@@ -886,5 +955,5 @@ export const zh = {
   "github.detailsRejected": "GitHub 未接受这些内容。请检查名称是否重复，以及填写的信息。",
   "github.unavailable": "GitHub 暂时无法完成操作，请稍后再试。",
   "github.canceled": "操作已取消。",
-  "github.network": "无法连接 GitHub，请检查网络后重试。"
+  "github.network": "无法连接 GitHub，请检查网络后重试。",
 } as const;

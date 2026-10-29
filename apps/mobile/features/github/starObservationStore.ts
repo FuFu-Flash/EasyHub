@@ -1,7 +1,9 @@
-import { File, Paths } from 'expo-file-system';
-import { parseObservations, type StarObservations } from './starObservations';
+import { File, Paths } from "expo-file-system";
+import { parseObservations, type StarObservations } from "./starObservations";
 
-function observationsFile(login: string): File { return new File(Paths.document, `easyhub-star-observations-${login}.json`); }
+function observationsFile(login: string): File {
+  return new File(Paths.document, `easyhub-star-observations-${login}.json`);
+}
 
 export async function loadStarObservations(login: string): Promise<StarObservations> {
   const file = observationsFile(login);

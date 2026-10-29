@@ -1,13 +1,23 @@
-import { getTranslator } from '../localization/index.ts';
-import { Directory, File, Paths, type FileHandle } from 'expo-file-system';
-import type { GitHubClient, GitHubPullFile } from '@easyhub/github';
-import type { BinaryAnalysisResult } from '@easyhub/types';
-import { analyzeFile, prepareAnalysisCache, type AnalysisProgress } from './native';
-import { MAX_ANALYSIS_BYTES, verifiedPullDownload, verifiedReleaseDownload, type AnalysisSource, type VerifiedDownload } from './source';
-import { throwIfCancelled } from '../network/cancellation.js';
+import { getTranslator } from "../localization/index.ts";
+import { Directory, File, Paths, type FileHandle } from "expo-file-system";
+import type { GitHubClient, GitHubPullFile } from "@easyhub/github";
+import type { BinaryAnalysisResult } from "@easyhub/types";
+import { analyzeFile, prepareAnalysisCache, type AnalysisProgress } from "./native";
+import {
+  MAX_ANALYSIS_BYTES,
+  verifiedPullDownload,
+  verifiedReleaseDownload,
+  type AnalysisSource,
+  type VerifiedDownload,
+} from "./source";
+import { throwIfCancelled } from "../network/cancellation.js";
 
 export async function analyzeGithubFile(input: {
-  source: Exclude<AnalysisSource, { kind: 'local' }>; client: GitHubClient; requestId: string; language: 'zh' | 'en'; signal: AbortSignal;
+  source: Exclude<AnalysisSource, { kind: "local" }>;
+  client: GitHubClient;
+  requestId: string;
+  language: "zh" | "en";
+  signal: AbortSignal;
   onProgress: (progress: AnalysisProgress) => void;
 }): Promise<BinaryAnalysisResult> {
   const { source, client, signal } = input;
@@ -15,8 +25,11 @@ export async function analyzeGithubFile(input: {
   await prepareAnalysisCache();
   throwIfCancelled(signal);
   let verified: VerifiedDownload;
-  if (source.kind === 'release') {
-    verified = verifiedReleaseDownload(source, await client.releaseAsset(source.owner, source.repo, source.assetId, signal));
+  if (source.kind === "release") {
+    verified = verifiedReleaseDownload(
+      source,
+      await client.releaseAsset(source.owner, source.repo, source.assetId, signal),
+    );
   } else {
     const pull = await client.pullRequest(source.owner, source.repo, source.number, signal);
     let file: GitHubPullFile | undefined;
@@ -39,38 +52,77 @@ export async function analyzeGithubFile(input: {
   let loaded = 0;
   try {
     throwIfCancelled(signal);
-    const advertised = Number(response.headers.get('content-length'));
-    if (Number.isFinite(advertised) && advertised > MAX_ANALYSIS_BYTES) throw new Error(getTranslator(input.language)("download.theFileExceeds128MB"));
+    const advertised = Number(response.headers.get("content-length"));
+    if (Number.isFinite(advertised) && advertised > MAX_ANALYSIS_BYTES)
+      throw new Error(getTranslator(input.language)("download.theFileExceeds128MB"));
     const body = response.body;
     if (!body) throw new Error(getTranslator(input.language)("download.thisDownloadDidNotReturnAReadableFile"));
     reader = body.getReader();
-    const folder = new Directory(Paths.cache, 'easyhub-analysis-downloads');
+    const folder = new Directory(Paths.cache, "easyhub-analysis-downloads");
     folder.create({ intermediates: true, idempotent: true });
-    const extension = verified.name.split('.').at(-1)?.toLowerCase().replace(/[^a-z0-9]/gu, '').slice(0, 8) || 'bin';
+    const extension =
+      verified.name
+        .split(".")
+        .at(-1)
+        ?.toLowerCase()
+        .replace(/[^a-z0-9]/gu, "")
+        .slice(0, 8) || "bin";
     destination = new File(folder, `${input.requestId}.${extension}`);
     destination.create();
     handle = destination.open();
-      while (true) {
-        throwIfCancelled(signal);
-        const { done, value } = await reader.read();
-        if (done) break;
-        loaded += value.byteLength;
-        if (loaded > MAX_ANALYSIS_BYTES || (verified.expectedSize && loaded > verified.expectedSize)) throw new Error(getTranslator(input.language)("download.theDownloadedFileExceedsTheExpectedSize"));
-        handle.writeBytes(value);
-        input.onProgress({ requestId: input.requestId, phase: 'preparing', completed: loaded, total: verified.expectedSize ?? (advertised > 0 ? advertised : 0), unit: 'bytes', message: getTranslator(input.language)("download.downloadingProgramFile") });
-      }
-    handle.close(); handle = null;
+    while (true) {
+      throwIfCancelled(signal);
+      const { done, value } = await reader.read();
+      if (done) break;
+      loaded += value.byteLength;
+      if (loaded > MAX_ANALYSIS_BYTES || (verified.expectedSize && loaded > verified.expectedSize))
+        throw new Error(getTranslator(input.language)("download.theDownloadedFileExceedsTheExpectedSize"));
+      handle.writeBytes(value);
+      input.onProgress({
+        requestId: input.requestId,
+        phase: "preparing",
+        completed: loaded,
+        total: verified.expectedSize ?? (advertised > 0 ? advertised : 0),
+        unit: "bytes",
+        message: getTranslator(input.language)("download.downloadingProgramFile"),
+      });
+    }
+    handle.close();
+    handle = null;
     throwIfCancelled(signal);
-    if (!loaded || (verified.expectedSize && loaded !== verified.expectedSize)) throw new Error(getTranslator(input.language)("download.theFileDownloadIsIncomplete"));
-    return await analyzeFile({ requestId: input.requestId, uri: destination.uri, name: verified.name, language: input.language,
-      expectedSize: loaded, ...(verified.expectedSha256 ? { expectedSha256: verified.expectedSha256 } : {}),
-      ...(verified.expectedBlobSha ? { expectedBlobSha: verified.expectedBlobSha } : {}) }, signal, input.onProgress);
+    if (!loaded || (verified.expectedSize && loaded !== verified.expectedSize))
+      throw new Error(getTranslator(input.language)("download.theFileDownloadIsIncomplete"));
+    return await analyzeFile(
+      {
+        requestId: input.requestId,
+        uri: destination.uri,
+        name: verified.name,
+        language: input.language,
+        expectedSize: loaded,
+        ...(verified.expectedSha256 ? { expectedSha256: verified.expectedSha256 } : {}),
+        ...(verified.expectedBlobSha ? { expectedBlobSha: verified.expectedBlobSha } : {}),
+      },
+      signal,
+      input.onProgress,
+    );
   } finally {
-    try { handle?.close(); } catch { /* Preserve the download error. */ }
+    try {
+      handle?.close();
+    } catch {
+      /* Preserve the download error. */
+    }
     if (reader) {
       await reader.cancel().catch(() => undefined);
-      try { reader.releaseLock(); } catch { /* A cancelled reader may already be released. */ }
+      try {
+        reader.releaseLock();
+      } catch {
+        /* A cancelled reader may already be released. */
+      }
     } else await response.body?.cancel().catch(() => undefined);
-    try { if (destination?.exists) destination.delete(); } catch { /* Native analysis also clears its own snapshot. */ }
+    try {
+      if (destination?.exists) destination.delete();
+    } catch {
+      /* Native analysis also clears its own snapshot. */
+    }
   }
 }

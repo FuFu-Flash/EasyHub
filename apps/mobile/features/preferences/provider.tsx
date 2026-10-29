@@ -1,8 +1,14 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { File, Paths } from 'expo-file-system';
-import { defaultPreferences, normalizeTranslationNames, parsePreferences, type AppLanguage, type AppPreferences } from './model';
-import type { ThemePreference } from '../theme/theme';
-import { LanguageContext } from '../localization/react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { File, Paths } from "expo-file-system";
+import {
+  defaultPreferences,
+  normalizeTranslationNames,
+  parsePreferences,
+  type AppLanguage,
+  type AppPreferences,
+} from "./model";
+import type { ThemePreference } from "../theme/theme";
+import { LanguageContext } from "../localization/react";
 
 interface PreferencesContextValue extends AppPreferences {
   ready: boolean;
@@ -13,7 +19,7 @@ interface PreferencesContextValue extends AppPreferences {
 }
 
 const Context = createContext<PreferencesContextValue | null>(null);
-const preferencesFile = () => new File(Paths.document, 'easyhub-mobile-preferences.json');
+const preferencesFile = () => new File(Paths.document, "easyhub-mobile-preferences.json");
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState(defaultPreferences);
@@ -21,10 +27,23 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
     const file = preferencesFile();
-    if (file.exists) void file.text().then((raw) => { if (active) setPreferences(parsePreferences(raw)); })
-      .catch(() => undefined).finally(() => { if (active) setReady(true); });
-    else queueMicrotask(() => { if (active) setReady(true); });
-    return () => { active = false; };
+    if (file.exists)
+      void file
+        .text()
+        .then((raw) => {
+          if (active) setPreferences(parsePreferences(raw));
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          if (active) setReady(true);
+        });
+    else
+      queueMicrotask(() => {
+        if (active) setReady(true);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
   useEffect(() => {
     if (!ready) return;
@@ -32,17 +51,37 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       const file = preferencesFile();
       if (!file.exists) file.create();
       file.write(JSON.stringify(preferences));
-    } catch { /* The current session can still use its selected preferences. */ }
+    } catch {
+      /* The current session can still use its selected preferences. */
+    }
   }, [preferences, ready]);
-  const setLanguage = useCallback((language: AppLanguage) => setPreferences((current) => ({ ...current, language })), []);
+  const setLanguage = useCallback(
+    (language: AppLanguage) => setPreferences((current) => ({ ...current, language })),
+    [],
+  );
   const setTheme = useCallback((theme: ThemePreference) => setPreferences((current) => ({ ...current, theme })), []);
-  const setTranslationEnabled = useCallback((translationEnabled: boolean) => setPreferences((current) => ({ ...current, translationEnabled })), []);
-  const setTranslationNames = useCallback((names: string[]) => setPreferences((current) => ({ ...current, translationNames: normalizeTranslationNames(names) })), []);
-  return <LanguageContext.Provider value={preferences.language}><Context.Provider value={{ ...preferences, ready, setLanguage, setTheme, setTranslationEnabled, setTranslationNames }}>{children}</Context.Provider></LanguageContext.Provider>;
+  const setTranslationEnabled = useCallback(
+    (translationEnabled: boolean) => setPreferences((current) => ({ ...current, translationEnabled })),
+    [],
+  );
+  const setTranslationNames = useCallback(
+    (names: string[]) =>
+      setPreferences((current) => ({ ...current, translationNames: normalizeTranslationNames(names) })),
+    [],
+  );
+  return (
+    <LanguageContext.Provider value={preferences.language}>
+      <Context.Provider
+        value={{ ...preferences, ready, setLanguage, setTheme, setTranslationEnabled, setTranslationNames }}
+      >
+        {children}
+      </Context.Provider>
+    </LanguageContext.Provider>
+  );
 }
 
 export function usePreferences(): PreferencesContextValue {
   const value = useContext(Context);
-  if (!value) throw new Error('PreferencesProvider is missing');
+  if (!value) throw new Error("PreferencesProvider is missing");
   return value;
 }

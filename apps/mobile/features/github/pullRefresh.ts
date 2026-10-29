@@ -14,17 +14,33 @@ export function createPullRefresh() {
   };
   return {
     snapshot: () => refreshing,
-    subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    activate: () => { active = true; },
-    deactivate: () => { active = false; generation++; pending = null; publish(false); },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    activate: () => {
+      active = true;
+    },
+    deactivate: () => {
+      active = false;
+      generation++;
+      pending = null;
+      publish(false);
+    },
     run: (tasks: readonly RefreshTask[]): Promise<void> => {
       if (!active) return Promise.resolve();
       if (pending) return pending;
       const current = ++generation;
-      const task = Promise.allSettled(tasks.map((task) => Promise.resolve().then(() => {
-        if (!active || current !== generation) return;
-        return task();
-      }))).then(() => {
+      const task = Promise.allSettled(
+        tasks.map((task) =>
+          Promise.resolve().then(() => {
+            if (!active || current !== generation) return;
+            return task();
+          }),
+        ),
+      ).then(() => {
         if (!active || current !== generation) return;
         pending = null;
         publish(false);

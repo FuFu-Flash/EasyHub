@@ -2,7 +2,7 @@
 export function createPageFeedback<T>(empty: T) {
   let value = empty;
   let active = false;
-  let language = '';
+  let language = "";
   let generation = 0;
   const listeners = new Set<() => void>();
   const clear = () => {
@@ -11,12 +11,28 @@ export function createPageFeedback<T>(empty: T) {
   };
   return {
     snapshot: () => value,
-    subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    activate: (nextLanguage: string) => { generation += 1; active = true; language = nextLanguage; clear(); },
-    deactivate: () => { generation += 1; active = false; clear(); },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    activate: (nextLanguage: string) => {
+      generation += 1;
+      active = true;
+      language = nextLanguage;
+      clear();
+    },
+    deactivate: () => {
+      generation += 1;
+      active = false;
+      clear();
+    },
     changeLanguage: (nextLanguage: string) => {
       if (language === nextLanguage) return;
-      generation += 1; language = nextLanguage; clear();
+      generation += 1;
+      language = nextLanguage;
+      clear();
     },
     set: (next: T) => {
       if (!active) return;

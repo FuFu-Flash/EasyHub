@@ -1,10 +1,17 @@
-import { InterfaceError } from '../localization/error.ts';
-import type { GitHubClient } from '@easyhub/github';
+import { InterfaceError } from "../localization/error.ts";
+import type { GitHubClient } from "@easyhub/github";
 
 /** A detail link remains valid after its release falls outside the first list page. */
-export async function loadReleaseDetails(client: Pick<GitHubClient, 'release' | 'repo'>, owner: string, repo: string, id: string, signal?: AbortSignal) {
+export async function loadReleaseDetails(
+  client: Pick<GitHubClient, "release" | "repo">,
+  owner: string,
+  repo: string,
+  id: string,
+  signal?: AbortSignal,
+) {
   const releaseId = Number(id);
-  if (!/^\d+$/.test(id) || !Number.isSafeInteger(releaseId) || releaseId <= 0) throw new InterfaceError("releaseDetails.theReleaseAddressIsInvalid").withDiagnostic("版本地址无效。");
+  if (!/^\d+$/.test(id) || !Number.isSafeInteger(releaseId) || releaseId <= 0)
+    throw new InterfaceError("releaseDetails.theReleaseAddressIsInvalid").withDiagnostic("版本地址无效。");
   const [release, repository] = await Promise.all([
     client.release(owner, repo, releaseId, signal),
     // Unknown visibility keeps translation disabled while retaining readable release details.
