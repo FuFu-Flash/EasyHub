@@ -56,11 +56,7 @@ export const zh = {
   'nativeMenu.gitHubProxySettings': 'GitHub 代理设置…',
 
   'mac.defaultDotStyle': '默认 · 左上角圆点',
-  'mac.defaultWindowsStyle': '默认 · 右上角按钮',
   'mac.desktopConnected': 'macOS 桌面版 · 已连接 GitHub',
-  'mac.pairingCopied': '配对码已复制，可直接粘贴到 GitHub。',
-  'mac.copyPairingCode': '复制配对码',
-  'mac.copyPairingFailed': '无法复制配对码，请手动输入上方代码。',
   'mac.windowControlsFailed': '无法更新窗口控件，请重新启动 EasyHub。',
 
   'app.yourGithubLoginHasExpiredPleaseSignInAgain': 'GitHub 登录已过期，请重新登录。',

@@ -19,3 +19,11 @@ export function readWindowStyle(): WindowStyle {
     return platformDefault();
   }
 }
+
+/** On macOS the main process shows or hides its own traffic lights to match the style the page shows. */
+export async function synchronizeWindowControlStyle(
+  style: WindowStyle,
+  density?: 'comfortable' | 'compact',
+): Promise<void> {
+  if (window.easyHub?.platform === 'darwin') await window.easyHub.setWindowControlStyle?.(style, density);
+}

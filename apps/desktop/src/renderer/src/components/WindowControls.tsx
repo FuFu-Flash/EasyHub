@@ -3,8 +3,7 @@ import { Minus, Square, X } from 'lucide-react';
 import { useEasyHub } from '../bridge';
 import { useLayoutPreference } from '../layoutPreferences';
 import { useTranslation } from '../localization';
-import { synchronizeWindowControlStyle } from '../windowControlStyle';
-import type { WindowStyle } from '../windowStyle';
+import { synchronizeWindowControlStyle, type WindowStyle } from '../windowStyle';
 
 /**
  * The minimize / maximize / close buttons. The workspace top bar, the welcome page and the offline screen

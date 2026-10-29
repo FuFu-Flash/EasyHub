@@ -1,17 +1,17 @@
 import { useTranslation } from '../localization';
 import { Check } from 'lucide-react';
-import type { WindowControlStyle } from '../windowControlStyle';
+import type { WindowStyle } from '../windowStyle';
 
 export function WindowControlStyleOptions({
   value,
   onChange,
 }: {
-  value: WindowControlStyle;
-  onChange: (value: WindowControlStyle) => void;
+  value: WindowStyle;
+  onChange: (value: WindowStyle) => void;
 }) {
   const t = useTranslation();
   const isMac = window.easyHub?.platform === 'darwin';
-  const options: WindowControlStyle[] = isMac ? ['reference', 'windows'] : ['windows', 'reference'];
+  const options: WindowStyle[] = isMac ? ['reference', 'windows'] : ['windows', 'reference'];
 
   return (
     <div className="window-style-options" role="group" aria-label={t('settingsPage.windowControlStyle')}>

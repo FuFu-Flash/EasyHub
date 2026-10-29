@@ -58,11 +58,7 @@ export const en = {
   'nativeMenu.gitHubProxySettings': 'GitHub Proxy Settings…',
 
   'mac.defaultDotStyle': 'Default · top-left dots',
-  'mac.defaultWindowsStyle': 'Default · top-right buttons',
   'mac.desktopConnected': 'macOS desktop · Connected to GitHub',
-  'mac.pairingCopied': 'Pairing code copied. Paste it into GitHub.',
-  'mac.copyPairingCode': 'Copy pairing code',
-  'mac.copyPairingFailed': 'Could not copy the pairing code. Enter the code shown above.',
   'mac.windowControlsFailed': 'Could not update window controls. Restart EasyHub and try again.',
 
   'app.yourGithubLoginHasExpiredPleaseSignInAgain': 'Your GitHub login has expired. Please sign in again.',
