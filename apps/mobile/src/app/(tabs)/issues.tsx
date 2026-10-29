@@ -71,11 +71,11 @@ export default function Issues() {
   const currentCounts = loadedClient === client ? counts : {};
   if (!ready) return <Loading />;
   if (!client) return <Page><Heading title={t("issues.issues")} subtitle={t("issues.signInToViewIssuesInYourProjects")} /><Action title={t("discover.signInWithGitHub")} onPress={() => router.push('/login')} /></Page>;
-  return <Page refresh={refresh} refreshing={refreshing}><Heading title={activityTab === 'issues' ? t("issues.issues") : t("home.codeReviews800d378a")} subtitle={activityTab === 'issues' ? t("issues.groupedByProjectWithTheBusiestFirst") : t("issues.inspectProposedChangesAndLeaveAReview")} />
+  return <Page refresh={refresh} refreshing={refreshing}><Heading title={activityTab === 'issues' ? t("issues.issues") : t("home.codeReviews")} subtitle={activityTab === 'issues' ? t("issues.groupedByProjectWithTheBusiestFirst") : t("issues.inspectProposedChangesAndLeaveAReview")} />
     <View accessibilityRole="tablist" style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
       {([
         { label: t("issues.issues"), selected: activityTab === 'issues', onPress: () => setActivityTab('issues'), flex: 1 },
-        { label: t("home.codeReviews800d378a"), selected: activityTab === 'pulls', onPress: () => setActivityTab('pulls'), flex: 1.9 },
+        { label: t("home.codeReviews"), selected: activityTab === 'pulls', onPress: () => setActivityTab('pulls'), flex: 1.9 },
       ]).map((option) => <Pressable key={option.label} onPress={option.onPress} accessibilityRole="button" accessibilityState={{ selected: option.selected }} style={{ flex: option.flex, minWidth: 0, height: 41, paddingHorizontal: 3, borderRadius: 11, borderWidth: 1, borderColor: option.selected ? palette.blue : palette.border, backgroundColor: option.selected ? palette.blue : themed('#fff'), justifyContent: 'center', alignItems: 'center' }}><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ color: option.selected ? onAccent : palette.ink, fontSize: 12, fontWeight: '800', textAlign: 'center' }}>{option.label}</Text></Pressable>)}
     </View>
     <FilterPills options={activityTab === 'pulls' ? [

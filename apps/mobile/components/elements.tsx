@@ -69,6 +69,6 @@ export function RepositoryRow({ repo }: { repo: GitHubRepo }) {
       <View style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 13, backgroundColor: themed('#eaf3ff'), alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: palette.blue, fontWeight: '800', fontSize: 22 }}>{repo.name[0]?.toUpperCase()}</Text></View>
       <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ color: palette.ink, fontSize: 17, fontWeight: '800' }}>{repo.name}</Text><Text numberOfLines={2} style={{ color: palette.muted, marginTop: 3 }}>{repo.description || t("elements.noDescriptionYet")}</Text></View>
       <MaterialArrow name="chevron" color={palette.muted} />
-    </View><Text style={{ color: palette.green, marginTop: 12 }}>● {t("elements.savedToGitHub")} · {repo.private ? t("elements.onlyMe") : t("elements.public")}</Text></Card>
+    </View><Text style={{ color: palette.green, marginTop: 12 }}>● {repo.private ? t("elements.visibilityPrivate") : t("elements.visibilityPublic")}</Text></Card>
   </Pressable>;
 }
