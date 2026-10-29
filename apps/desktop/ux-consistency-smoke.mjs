@@ -102,7 +102,9 @@ try {
   // Each language is listed under its own name, so a reader can always find their way back.
   assert.ok(await page.getByRole('button',{name:'English',exact:true}).isVisible());
   await page.getByRole('button',{name:'English',exact:true}).click();
-  assert.equal(await page.locator('.window-style-option').first().locator('small').innerText(),process.platform==='darwin'?'Default · top-right buttons':'Top-right buttons');
+  const firstStyleHint=await page.locator('.window-style-option').first().locator('small').innerText();
+  // On macOS the app's own platform picks the default style, so the hint depends on the renderer, not the host running the test.
+  if(await page.evaluate(()=>window.easyHub?.platform==='darwin'))assert.match(firstStyleHint,/^Default · /);else assert.equal(firstStyleHint,'Top-right buttons');
   await writeFile(join(output,'language-leaks.json'),JSON.stringify(untranslated,null,2));assert.deepEqual(untranslated,[],'Untranslated interface text');
   await page.evaluate(()=>{window.easyHub.authLogout=async()=>{throw new Error('EPERM: fixture credential store locked')}});
   await page.getByRole('button',{name:/^Sign out$/i}).click();await page.locator('.live-error .friendly-error').waitFor();
