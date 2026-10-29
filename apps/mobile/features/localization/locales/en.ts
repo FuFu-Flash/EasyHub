@@ -599,6 +599,13 @@ export const en = {
   "discover.previous": "Previous",
   "discover.page": "Page ",
   "discover.message": "",
+  "discover.trendGain": {
+    count: "count",
+    one: "{count} new star observed",
+    other: "{count} new stars observed",
+  },
+  "discover.trendNone": "No new stars observed",
+  "discover.trendWatching": "Watching growth",
   "discover.next": "Next",
   "discover.recentGrowthRequiresObservationNewProjectsShowObservingGrowth":
     "Recent growth requires observation. New projects show “Observing growth”.",

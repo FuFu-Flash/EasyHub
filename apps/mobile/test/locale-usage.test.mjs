@@ -43,3 +43,11 @@ test("a message key with a generated hash suffix must say something its plain ke
   });
   assert.deepEqual(duplicates, []);
 });
+
+test("the English catalog has no Chinese text and no empty message except the one that is a Chinese-only page suffix", () => {
+  const flat = (value) => (typeof value === "string" ? value : Object.values(value).join(" "));
+  const withChinese = Object.keys(en).filter((key) => /[\u4e00-\u9fff]/u.test(flat(en[key])));
+  const empty = Object.keys(en).filter((key) => !flat(en[key]).trim());
+  assert.deepEqual(withChinese, []);
+  assert.deepEqual(empty, ["discover.message"]);
+});

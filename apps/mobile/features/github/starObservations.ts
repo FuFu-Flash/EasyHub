@@ -33,6 +33,9 @@ export function parseObservations(raw: string): StarObservations {
   }
 }
 
+/** What the hot-project list says about growth; the screen turns it into text in the app language. */
+export type StarTrend = { kind: "gain"; count: number } | { kind: "none" } | { kind: "watching" };
+
 export function recordObservations(previous: StarObservations, repos: GitHubRepo[], now: number): StarObservations {
   const next: StarObservations = {};
   for (const [key, value] of Object.entries(previous)) {
@@ -55,10 +58,10 @@ export function starTrend(
   observations: StarObservations,
   period: TrendingPeriod,
   now: number,
-): string {
+): StarTrend {
   const days = period === "today" ? 1 : period === "week" ? 7 : 30;
   const history = observations[String(repo.id)] ?? [];
   const first = history.find((item) => item.at >= now - days * 86400000 && item.stars < (repo.stargazers_count ?? 0));
-  if (first) return `观察期 +${(repo.stargazers_count ?? 0) - first.stars} Star`;
-  return history.some((item) => item.at < now - 3600000) ? "观察期无新增 Star" : "增长观察中";
+  if (first) return { kind: "gain", count: (repo.stargazers_count ?? 0) - first.stars };
+  return history.some((item) => item.at < now - 3600000) ? { kind: "none" } : { kind: "watching" };
 }

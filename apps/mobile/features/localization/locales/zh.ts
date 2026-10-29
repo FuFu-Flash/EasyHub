@@ -535,6 +535,9 @@ export const zh = {
   "discover.previous": "上一页",
   "discover.page": "第",
   "discover.message": "页",
+  "discover.trendGain": "观察期 +{count} Star",
+  "discover.trendNone": "观察期无新增 Star",
+  "discover.trendWatching": "增长观察中",
   "discover.next": "下一页",
   "discover.recentGrowthRequiresObservationNewProjectsShowObservingGrowth":
     "近期增长需持续观察，首次收录时显示“增长观察中”。",

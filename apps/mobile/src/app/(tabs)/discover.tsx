@@ -23,7 +23,12 @@ import {
   parseSearchHistory,
   rememberSearch,
 } from "@/features/github/searchHistory";
-import { recordObservations, starTrend, type StarObservations } from "@/features/github/starObservations";
+import {
+  recordObservations,
+  starTrend,
+  type StarObservations,
+  type StarTrend,
+} from "@/features/github/starObservations";
 import { loadStarObservations, saveStarObservations } from "@/features/github/starObservationStore";
 import { parseProjectAddress } from "@/features/github/projectAddress";
 import { Action, Card, DirectionLabel, ErrorText, Heading, Loading, Page, palette } from "@/components/elements";
@@ -90,7 +95,7 @@ function OpenRepo({
   repo: GitHubRepo;
   compact: boolean;
   rank?: number;
-  trend?: string;
+  trend?: StarTrend;
   width: number;
 }) {
   const t = useTranslation();
@@ -148,7 +153,15 @@ function OpenRepo({
             </Text>
           )}
           <Text style={{ color: palette.muted, fontSize: 12 }}>★ {(repo.stargazers_count ?? 0).toLocaleString()}</Text>
-          {trend && <Text style={{ color: palette.muted, fontSize: 12 }}>{trend}</Text>}
+          {trend && (
+            <Text style={{ color: palette.muted, fontSize: 12 }}>
+              {trend.kind === "gain"
+                ? t("discover.trendGain", { count: trend.count })
+                : trend.kind === "none"
+                  ? t("discover.trendNone")
+                  : t("discover.trendWatching")}
+            </Text>
+          )}
         </View>
       </Card>
     </Pressable>

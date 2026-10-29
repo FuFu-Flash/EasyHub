@@ -5,11 +5,11 @@ import { parseObservations, recordObservations, starTrend } from "../features/gi
 test("mobile hot projects report observed Star increases without inventing first-visit growth", () => {
   const now = Date.UTC(2026, 8, 26, 12);
   const repo = { id: 42, stargazers_count: 11 };
-  assert.equal(starTrend(repo, {}, "today", now), "增长观察中");
+  assert.deepEqual(starTrend(repo, {}, "today", now), { kind: "watching" });
   const old = recordObservations({}, [{ ...repo, stargazers_count: 8 }], now - 2 * 3600000);
-  assert.equal(starTrend(repo, old, "today", now), "观察期 +3 Star");
+  assert.deepEqual(starTrend(repo, old, "today", now), { kind: "gain", count: 3 });
   const same = recordObservations({}, [repo], now - 2 * 3600000);
-  assert.equal(starTrend(repo, same, "today", now), "观察期无新增 Star");
+  assert.deepEqual(starTrend(repo, same, "today", now), { kind: "none" });
 });
 
 test("mobile Star observations discard malformed records", () => {
