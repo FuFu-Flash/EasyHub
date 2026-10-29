@@ -12,7 +12,8 @@
 
 ## 新的签名证书
 
-- 证书 SHA-256：`（构建后用 scripts/verify-android-signature.mjs 得到，填在这里）`
+- 证书 SHA-256：`e3bc715e03d2e63aac2a898ec283e6f72c4a9b945ec91ebeda76e9882c4e9f79`
+- 证书主体：`CN=EasyHub, C=CN`，APK Signature Scheme v2 校验通过
 
 可以在电脑上用 `apksigner verify --print-certs EasyHub-Android-1.2.0-arm64.apk` 自行核对。
 
