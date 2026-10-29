@@ -58,7 +58,6 @@ function VisibilityChoice({
         ) : (
           <EarthIcon size={22} color={selected ? palette.blue : palette.muted} />
         )}
-        <Text style={{ color: palette.blue, fontWeight: "800" }}>{selected ? "✓" : ""}</Text>
       </View>
       <Text style={{ color: palette.ink, fontWeight: "800", marginTop: 11 }}>{title}</Text>
       <Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>{description}</Text>

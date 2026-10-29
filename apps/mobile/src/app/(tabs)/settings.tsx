@@ -29,10 +29,7 @@ const Choice = ({ label, checked, onPress }: { label: string; checked: boolean; 
       backgroundColor: checked ? themed("#e7f0ff") : themed("#fff"),
     }}
   >
-    <Text style={{ color: checked ? palette.blue : palette.ink, fontWeight: "700" }}>
-      {checked ? "✓ " : ""}
-      {label}
-    </Text>
+    <Text style={{ color: checked ? palette.blue : palette.ink, fontWeight: "700" }}>{label}</Text>
   </Pressable>
 );
 
