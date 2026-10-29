@@ -1,7 +1,10 @@
+import type { MenuCommand } from '../../shared/applicationMenu';
+import { useApplicationMenu } from './useApplicationMenu';
+import { useLanguage } from './localization';
 import { useTranslation } from './localization';
 import { useEffect, useRef, useState } from 'react';
 import type { GitHubUser } from '@easyhub/github';
-import { Minus, ShieldCheck, Square, X } from 'lucide-react';
+import { ShieldCheck, X } from 'lucide-react';
 import { ErrorMessage } from './components/ErrorMessage';
 import { errorText } from './errors';
 import { needsWelcome, readWelcomeChoice, saveWelcomeChoice, type WelcomeChoice } from './onboarding';
@@ -9,7 +12,14 @@ import { useDialogFocus } from './components/useDialogFocus';
 import { LiveWorkspace } from './LiveWorkspace';
 import { DemoWorkspace } from './DemoWorkspace';
 import { OfflineStart } from './components/OfflineStart';
+import { WindowControls } from './components/WindowControls';
+import { readWindowStyle } from './windowStyle';
+import { PairingCode } from './components/PairingCode';
 import appIcon from './assets/easyhub-icon.svg';
+import { startThemeSync } from './themePreferences';
+
+// Runs once when the app loads, before the first paint, so every screen starts in the saved theme.
+startThemeSync();
 
 const demoOnlyBuild = import.meta.env.VITE_EASYHUB_DEMO_ONLY === 'true';
 
@@ -18,10 +28,15 @@ interface LoginFlow {
   verificationUri: string;
   expiresAt: number;
   interval: number;
+  codeCopied?: boolean;
 }
 
 export default function App() {
-  const t = useTranslation();
+  const language = useLanguage();
+  const t = useTranslation(language);
+  const windowStyle = readWindowStyle();
+  const [initialMenuCommand, setInitialMenuCommand] = useState<MenuCommand>();
+  const [offlineRepairRequest, setOfflineRepairRequest] = useState(0);
   const [user, setUser] = useState<GitHubUser | null>(null);
   const [authState, setAuthState] = useState('checking');
   const [welcomeChoice, setWelcomeChoice] = useState<WelcomeChoice | null>(readWelcomeChoice);
@@ -40,6 +55,19 @@ export default function App() {
   const loginStarting = useRef(false);
   const loginDialog = useRef<HTMLDivElement>(null);
   useDialogFocus(Boolean(flow || loginBusy || loginError), loginDialog, cancelLogin);
+  useApplicationMenu(
+    { language, signedIn: false, busy: loginBusy, demoOnly: demoOnlyBuild },
+    (command) => {
+      if (authOffline && (command === 'settings' || command === 'proxy-settings')) {
+        setOfflineRepairRequest((value) => value + 1);
+        return;
+      }
+      if (authOffline) setAuthOffline(false);
+      setInitialMenuCommand(command);
+      choose('demo');
+    },
+    !user && (authChecking || authOffline || needsWelcome(authState, welcomeChoice)),
+  );
 
   useEffect(() => {
     if (demoOnlyBuild) return;
@@ -137,7 +165,8 @@ export default function App() {
     void window.easyHub?.authCancel().catch(() => undefined);
   }
 
-  if (demoOnlyBuild) return <DemoWorkspace onLogin={() => undefined} demoOnly />;
+  if (demoOnlyBuild)
+    return <DemoWorkspace initialMenuCommand={initialMenuCommand} onLogin={() => undefined} demoOnly />;
   if (authChecking && !user)
     return (
       <div className="startup-loading" role="status" aria-live="polite">
@@ -145,11 +174,20 @@ export default function App() {
         <p>{t('app.connectingToGithub')}</p>
       </div>
     );
-  if (authOffline && !user) return <OfflineStart onRetry={() => setAuthRetry((value) => value + 1)} />;
+  if (authOffline && !user)
+    return (
+      <OfflineStart
+        repairRequest={
+          offlineRepairRequest + (initialMenuCommand === 'settings' || initialMenuCommand === 'proxy-settings' ? 1 : 0)
+        }
+        onRetry={() => setAuthRetry((value) => value + 1)}
+      />
+    );
   if (user)
     return (
       <LiveWorkspace
         key={user.login}
+        initialMenuCommand={initialMenuCommand}
         user={user}
         offline={authOffline}
         authRetrying={authChecking}
@@ -167,28 +205,8 @@ export default function App() {
     <>
       {needsWelcome(authState, welcomeChoice) ? (
         <div className="welcome-page">
-          <header className="welcome-controls">
-            <button
-              className="icon-button"
-              aria-label={t('app.minimizeWindow')}
-              onClick={() => void window.easyHub?.minimizeWindow()}
-            >
-              <Minus size={18} />
-            </button>
-            <button
-              className="icon-button"
-              aria-label={t('app.maximizeOrRestoreWindow')}
-              onClick={() => void window.easyHub?.toggleMaximizeWindow()}
-            >
-              <Square size={16} />
-            </button>
-            <button
-              className="icon-button"
-              aria-label={t('app.closeWindow')}
-              onClick={() => void window.easyHub?.closeWindow()}
-            >
-              <X size={18} />
-            </button>
+          <header className={`welcome-controls welcome-controls-${windowStyle}`}>
+            <WindowControls style={windowStyle} />
           </header>
           <section>
             <img src={appIcon} alt="EasyHub" />
@@ -209,7 +227,7 @@ export default function App() {
           </section>
         </div>
       ) : (
-        <DemoWorkspace onLogin={() => void beginLogin()} />
+        <DemoWorkspace initialMenuCommand={initialMenuCommand} onLogin={() => void beginLogin()} />
       )}
       {(flow || loginBusy || loginError) && (
         <div className="modal-backdrop">
@@ -231,14 +249,22 @@ export default function App() {
             {flow ? (
               <>
                 <p>{t('app.githubOpenedInYourBrowserEnterThisCodeAnd')}</p>
-                <strong className="oauth-code">{flow.userCode}</strong>
-                <p className="oauth-wait">{t('app.waitingForYourConfirmationOnGithub')}</p>
-                <button
-                  className="button button-quiet"
-                  onClick={() => void window.easyHub?.openExternalLink(flow.verificationUri)}
+                <PairingCode
+                  key={`${flow.userCode}:${flow.expiresAt}`}
+                  code={flow.userCode}
+                  codeCopied={flow.codeCopied}
+                  pendingMessage={t('app.waitingForYourConfirmationOnGithub')}
                 >
-                  {t('app.openGithubAgain')}
-                </button>
+                  <button
+                    className="button button-quiet"
+                    onClick={() => void window.easyHub?.openExternalLink(flow.verificationUri)}
+                  >
+                    {t('app.openGithubAgain')}
+                  </button>
+                  <button className="button button-quiet" onClick={cancelLogin}>
+                    {t('app.cancel')}
+                  </button>
+                </PairingCode>
               </>
             ) : loginBusy ? (
               <p>{t('app.connectingToGithub')}</p>
@@ -252,11 +278,13 @@ export default function App() {
                 </button>
               </>
             )}
-            <div className="modal-actions">
-              <button className="button button-quiet" onClick={cancelLogin}>
-                {t('app.cancel')}
-              </button>
-            </div>
+            {!flow && (
+              <div className="modal-actions">
+                <button className="button button-quiet" onClick={cancelLogin}>
+                  {t('app.cancel')}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

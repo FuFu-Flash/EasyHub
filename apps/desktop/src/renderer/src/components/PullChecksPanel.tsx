@@ -245,7 +245,6 @@ export function PullChecksPanel({
             : t('pullChecksPanel.loadMoreChecks')}
         </button>
       )}
-      <p className="pull-checks-note">{t('pullChecksPanel.theseAreTheResultsReportedForTheCurrentChanges')}</p>
     </section>
   );
 }

@@ -1,8 +1,10 @@
 import { useTranslation } from '../localization';
 import { useEasyHub } from '../bridge';
 import { ErrorMessage } from './ErrorMessage';
+import { PairingCode } from './PairingCode';
+import { useDialogFocus } from './useDialogFocus';
 import { errorText } from '../errors';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GitHubRepo } from '@easyhub/github';
 import { X } from 'lucide-react';
 import type { Language } from '../i18n';
@@ -19,6 +21,7 @@ interface DeviceFlow {
   verificationUri: string;
   expiresAt: number;
   interval: number;
+  codeCopied?: boolean;
 }
 
 export function LiveProjectDangerZone({
@@ -27,9 +30,14 @@ export function LiveProjectDangerZone({
   onUpdate,
   onTransferred,
   onNotice,
+  open: settingsOpen,
+  onClose: closeSettings,
 }: {
   repo: GitHubRepo;
   language: Language;
+  /** The project settings list is shown; each action's own confirmation still opens on top of it. */
+  open: boolean;
+  onClose: () => void;
   onUpdate: (repo: GitHubRepo) => void;
   onTransferred: () => void;
   onNotice: (message: string) => void;
@@ -47,6 +55,10 @@ export function LiveProjectDangerZone({
   const [deleteScope, setDeleteScope] = useState(false);
   const [flow, setFlow] = useState<DeviceFlow | null>(null);
   const [authMessage, setAuthMessage] = useState('');
+  const dialog = useRef<HTMLDivElement>(null);
+  const settingsDialog = useRef<HTMLDivElement>(null);
+  useDialogFocus(Boolean(action), dialog, close);
+  useDialogFocus(settingsOpen, settingsDialog, closeSettings);
 
   useEffect(() => {
     if (!flow) return;
@@ -219,24 +231,48 @@ export function LiveProjectDangerZone({
   }
 
   return (
-    <section className="danger-zone" aria-label={t('liveProjectDangerZone.dangerZone')}>
-      <div className="danger-zone-heading">
-        <h2>{t('liveProjectDangerZone.dangerZone')}</h2>
-        <p>{t('liveProjectDangerZone.theseActionsChangeProjectAccessOrManagementConfirmThe')}</p>
-      </div>
-      <div className="danger-zone-list">
-        {rows.map((row) => (
-          <div className="danger-zone-row" key={row.id}>
-            <div>
-              <strong>{row.title}</strong>
-              <p>{row.description}</p>
-            </div>
-            <button type="button" disabled={row.disabled || busy} onClick={() => open(row.id)}>
-              {row.button}
+    <>
+      {/* Stays open beneath an action's confirmation so closing it returns to the row that opened it. */}
+      {settingsOpen && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeSettings();
+          }}
+        >
+          <div
+            className="modal danger-modal project-settings-modal"
+            ref={settingsDialog}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="project-settings-title"
+          >
+            <button
+              className="icon-button modal-close"
+              aria-label={t('liveProjectDangerZone.close')}
+              onClick={closeSettings}
+            >
+              <X size={19} />
             </button>
+            <h2 id="project-settings-title">{t('liveProjectDangerZone.projectSettings')}</h2>
+            <div className="danger-zone-list">
+              {rows.map((row) => (
+                <div className="danger-zone-row" key={row.id}>
+                  <div>
+                    <strong>{row.title}</strong>
+                    <p>{row.description}</p>
+                  </div>
+                  <button type="button" disabled={row.disabled || busy} onClick={() => open(row.id)}>
+                    {row.button}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
       {action && chosen && (
         <div
           className="modal-backdrop"
@@ -245,7 +281,14 @@ export function LiveProjectDangerZone({
             if (event.target === event.currentTarget) close();
           }}
         >
-          <div className="modal danger-modal" role="dialog" aria-modal="true" aria-labelledby="live-danger-title">
+          <div
+            className="modal danger-modal"
+            ref={dialog}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="live-danger-title"
+          >
             <button
               className="icon-button modal-close"
               aria-label={t('liveProjectDangerZone.close')}
@@ -312,17 +355,22 @@ export function LiveProjectDangerZone({
             </label>
             {flow && (
               <div className="danger-auth">
-                <p>
-                  {t('liveProjectDangerZone.enterThisCodeOnGithub')} <strong>{flow.userCode}</strong>
-                </p>
-                <button
-                  type="button"
-                  className="button button-quiet"
-                  onClick={() => void easyHub?.openExternalLink(flow.verificationUri)}
+                <p>{t('liveProjectDangerZone.enterThisCodeOnGithub')}</p>
+                <PairingCode
+                  key={`${flow.userCode}:${flow.expiresAt}`}
+                  code={flow.userCode}
+                  codeCopied={flow.codeCopied}
+                  language={language}
+                  pendingMessage={t('liveProjectDangerZone.waitingForAuthorization')}
                 >
-                  {t('liveProjectDangerZone.openGithubAuthorization')}
-                </button>
-                <small>{t('liveProjectDangerZone.waitingForAuthorization')}</small>
+                  <button
+                    type="button"
+                    className="button button-quiet"
+                    onClick={() => void easyHub?.openExternalLink(flow.verificationUri)}
+                  >
+                    {t('liveProjectDangerZone.openGithubAuthorization')}
+                  </button>
+                </PairingCode>
               </div>
             )}
             {authMessage && (
@@ -360,6 +408,6 @@ export function LiveProjectDangerZone({
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 }

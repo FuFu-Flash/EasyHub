@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { NavigationState, PageParams, View } from './navigation';
-import { initialNavigation, navigationReducer, pageIdentity } from './navigation';
+import { initialNavigation, isSearchResults, navigationReducer, pageIdentity } from './navigation';
 const visit = (state: NavigationState, view: View, params: PageParams = {}, scrollTop = 0, replace = false) =>
   navigationReducer(state, { type: 'visit', page: { view, params, scrollTop: 0 }, scrollTop, replace });
 describe('parameter-only workspace history', () => {
@@ -87,5 +87,15 @@ describe('parameter-only workspace history', () => {
     expect(state.entries[state.index]?.scrollTop).toBe(0);
     expect(initial.entries[initial.index]?.params.page).toBe(1);
     expect(state.entries[state.index]?.params.page).toBe(2);
+  });
+});
+describe('search results origin', () => {
+  it('only treats a Discover page with a search as search results', () => {
+    expect(isSearchResults({ view: 'discover', params: { query: 'easyhub' } })).toBe(true);
+    expect(isSearchResults({ view: 'discover', params: { query: '  ' } })).toBe(false);
+    expect(isSearchResults({ view: 'discover', params: {} })).toBe(false);
+    expect(isSearchResults({ view: 'home', params: {} })).toBe(false);
+    expect(isSearchResults({ view: 'projects', params: { query: 'easyhub' } })).toBe(false);
+    expect(isSearchResults(null)).toBe(false);
   });
 });

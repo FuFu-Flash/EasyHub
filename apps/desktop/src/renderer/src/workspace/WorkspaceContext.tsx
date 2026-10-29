@@ -1,3 +1,4 @@
+import type { MenuCommand } from '../../../shared/applicationMenu';
 import { getTranslator, type Translator } from '../localization';
 import type { DemoNotice } from '../demo/demoBridge';
 import type { GitHubActivityCount, GitHubRepo, GitHubUser } from '@easyhub/github';
@@ -9,11 +10,14 @@ import { useDownloadCenter } from '../components/useDownloadCenter';
 import { errorText } from '../errors';
 import { readLanguage, type Language } from '../i18n';
 import { useLayoutPreference } from '../layoutPreferences';
+import { readWindowStyle } from '../windowStyle';
+import { useThemePreference } from '../themePreferences';
 import { publicBookmarksKey, readPublicBookmarks } from '../publicBookmarks';
 import { historyKey, readSearchHistory, rememberSearch, type SearchEntry, type SearchScope } from '../searchHistory';
 import { useWorkspaceNavigation } from './NavigationContext';
 
 export interface WorkspaceProps {
+  initialMenuCommand?: MenuCommand;
   user: GitHubUser;
   onLogout: () => void | Promise<void>;
   offline?: boolean;
@@ -82,7 +86,7 @@ function useController(props: WorkspaceProps) {
       checkingLocal: false,
       loading: false,
       language: readLanguage(),
-      windowStyle: localStorage.getItem('easyhub:window-control-style') === 'reference' ? 'reference' : 'windows',
+      windowStyle: readWindowStyle(),
       automaticTranslation: localStorage.getItem('easyhub:auto-translate') === 'true',
       translationTarget: localStorage.getItem('easyhub:translation-target') === 'en' ? 'en' : 'zh-CN',
       translationNamesText: storage.getItem(`easyhub:translation-names:${props.user.login}`) ?? '',
@@ -264,6 +268,7 @@ function useController(props: WorkspaceProps) {
     [state.translationNamesText],
   );
   const layout = useLayoutPreference();
+  const theme = useThemePreference();
   const recordSearch = useCallback(
     (query: string, scope: SearchScope) => {
       if (!query.trim() || ((scope === 'public' || scope === 'users') && query.trim().length < 2)) return;
@@ -284,6 +289,7 @@ function useController(props: WorkspaceProps) {
     cache: cache.current,
     downloads,
     layout,
+    theme,
     translationNames,
     set,
     loadRepos,

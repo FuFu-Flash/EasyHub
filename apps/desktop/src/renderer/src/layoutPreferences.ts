@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 export type LayoutPreference = 'auto' | 'comfortable' | 'compact';
 export type LayoutDensity = Exclude<LayoutPreference, 'auto'>;
@@ -22,37 +22,58 @@ export function resolveLayoutDensity(preference: LayoutPreference, compactWindow
   return preference === 'auto' ? (compactWindow ? 'compact' : 'comfortable') : preference;
 }
 
+// One preference per window: every component that reads the layout (the workspace, the window buttons that
+// position the macOS traffic lights) sees a change made anywhere else in the same window right away.
+const listeners = new Set<() => void>();
+let shared: LayoutPreference | null = null;
+
+function currentPreference(): LayoutPreference {
+  shared ??= readLayoutPreference();
+  return shared;
+}
+
+function publish(next: LayoutPreference): void {
+  if (next === currentPreference()) return;
+  shared = next;
+  for (const listener of listeners) listener();
+}
+
+function subscribePreference(listener: () => void): () => void {
+  listeners.add(listener);
+  // Another window changing the saved layout arrives as a storage event.
+  const onStorage = (event: StorageEvent): void => {
+    if (event.key === LAYOUT_PREFERENCE_KEY || event.key === null) publish(readLayoutPreference());
+  };
+  window.addEventListener('storage', onStorage);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener('storage', onStorage);
+  };
+}
+
+export function setLayoutPreference(next: LayoutPreference): void {
+  publish(next);
+  try {
+    window.localStorage.setItem(LAYOUT_PREFERENCE_KEY, next);
+  } catch {
+    /* The selected layout can still apply for this session. */
+  }
+}
+
+function subscribeCompactWindow(listener: () => void): () => void {
+  const media = window.matchMedia(COMPACT_LAYOUT_QUERY);
+  media.addEventListener('change', listener);
+  return () => media.removeEventListener('change', listener);
+}
+
+const compactWindowNow = (): boolean => window.matchMedia(COMPACT_LAYOUT_QUERY).matches;
+
 export function useLayoutPreference(): {
   preference: LayoutPreference;
   density: LayoutDensity;
   setPreference: (preference: LayoutPreference) => void;
 } {
-  const [preference, updatePreference] = useState(readLayoutPreference);
-  const [compactWindow, setCompactWindow] = useState(() => window.matchMedia(COMPACT_LAYOUT_QUERY).matches);
-
-  useEffect(() => {
-    const media = window.matchMedia(COMPACT_LAYOUT_QUERY);
-    const onResize = (event: MediaQueryListEvent): void => setCompactWindow(event.matches);
-    const onStorage = (event: StorageEvent): void => {
-      if (event.key === LAYOUT_PREFERENCE_KEY || event.key === null) updatePreference(readLayoutPreference());
-    };
-    setCompactWindow(media.matches);
-    media.addEventListener('change', onResize);
-    window.addEventListener('storage', onStorage);
-    return () => {
-      media.removeEventListener('change', onResize);
-      window.removeEventListener('storage', onStorage);
-    };
-  }, []);
-
-  const setPreference = useCallback((next: LayoutPreference): void => {
-    updatePreference(next);
-    try {
-      window.localStorage.setItem(LAYOUT_PREFERENCE_KEY, next);
-    } catch {
-      /* The selected layout can still apply for this session. */
-    }
-  }, []);
-
-  return { preference, density: resolveLayoutDensity(preference, compactWindow), setPreference };
+  const preference = useSyncExternalStore(subscribePreference, currentPreference);
+  const compactWindow = useSyncExternalStore(subscribeCompactWindow, compactWindowNow);
+  return { preference, density: resolveLayoutDensity(preference, compactWindow), setPreference: setLayoutPreference };
 }

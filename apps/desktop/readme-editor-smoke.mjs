@@ -51,7 +51,7 @@ const packaged = process.argv.includes('--packaged');
 let application;
 try {
   application = await electron.launch({
-    executablePath: packaged ? join(desktop, 'release', 'win-unpacked', 'EasyHub.exe') : electronPath,
+    executablePath: packaged ? join(desktop, 'release', 'windows', 'win-unpacked', 'EasyHub.exe') : electronPath,
     args: [...(packaged ? [] : [desktop]), `--user-data-dir=${profile}`],
     cwd: desktop,
     env: { ...process.env, ELECTRON_RENDERER_URL: 'data:text/html,<title>README editor fixture</title>', EASYHUB_PROXY_APP_ONLY_TEST: '1' },
@@ -122,7 +122,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await application.evaluate(async ({ BrowserWindow }, renderer) => {
     await BrowserWindow.getAllWindows()[0].loadFile(renderer);
-  }, packaged ? join(desktop, 'release', 'win-unpacked', 'resources', 'app.asar', 'out', 'renderer', 'index.html') : join(desktop, 'out', 'renderer', 'index.html'));
+  }, packaged ? join(desktop, 'release', 'windows', 'win-unpacked', 'resources', 'app.asar', 'out', 'renderer', 'index.html') : join(desktop, 'out', 'renderer', 'index.html'));
   await page.locator('.live-connected').waitFor();
   await page.locator('.sidebar-nav').getByRole('button', { name: '我的项目', exact: true }).click();
   await page.getByRole('button', { name: /我的云端项目/ }).click();
@@ -158,6 +158,8 @@ try {
   const edited = original.replace('HTML preview fixture', 'Live HTML preview updated');
   await dialog.getByRole('textbox', { name: '项目介绍内容' }).fill(edited);
   await preview.getByRole('heading', { name: 'Live HTML preview updated' }).waitFor();
+  await page.keyboard.press('Escape');
+  assert.equal(await dialog.isVisible(), true, 'Escape must not discard typed introduction text');
   assert.equal(await readFile(join(folder, 'README.md'), 'utf8'), original, 'Preview must not save the README');
   assert.equal(await dialog.getByRole('button', { name: '保存介绍' }).isDisabled(), true);
   await dialog.getByRole('button', { name: '预览', exact: true }).click();
@@ -264,7 +266,7 @@ try {
   await englishDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   assert.deepEqual(await application.evaluate(() => globalThis.easyHubReadmePreviewFixture.saves), []);
   await page.getByRole('button', { name: 'Choose language' }).click();
-  await page.getByRole('button', { name: 'Chinese', exact: true }).click();
+  await page.getByRole('button', { name: '中文', exact: true }).click();
   await page.getByRole('button', { name: '编辑介绍', exact: true }).click();
   await dialog.getByRole('button', { name: '边写边看', exact: true }).click();
   await dialog.getByRole('textbox', { name: '项目介绍内容' }).fill(edited);

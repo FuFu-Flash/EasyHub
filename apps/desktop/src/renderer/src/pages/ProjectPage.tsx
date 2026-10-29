@@ -1,6 +1,16 @@
 import { useTranslation } from '../localization';
 import type { GitHubCommit } from '@easyhub/github';
-import { ArrowDownToLine, ArrowRight, ChevronRight, FolderOpen, Globe2, LockKeyhole, Pencil, Tag } from 'lucide-react';
+import {
+  ArrowDownToLine,
+  ArrowRight,
+  ChevronRight,
+  FolderOpen,
+  Globe2,
+  LockKeyhole,
+  Pencil,
+  Settings,
+  Tag,
+} from 'lucide-react';
 import { useState } from 'react';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { ForkContributionPanel } from '../components/ForkContributionPanel';
@@ -44,6 +54,7 @@ export function ProjectPage() {
     navigation,
   } = w;
   const { params } = usePageRoute();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { openVersionFor, openProfileRepository, openReadmeLink } = usePageActions();
   const relativeDate = formatRelative;
   const setView = (view: View) =>
@@ -145,6 +156,8 @@ export function ProjectPage() {
     }
   }
   if (!selected) return <PageStatus loading error="" />;
+  const canManage =
+    selected.owner.login.toLowerCase() === user.login.toLowerCase() || Boolean(selected.permissions?.admin);
 
   return (
     <>
@@ -159,13 +172,28 @@ export function ProjectPage() {
         <PageBack>
           {params.section === 'profile' ? t('projectPage.backToStarredProjects') : t('projectPage.allProjects')}
         </PageBack>
-        <section className="detail-hero has-source-history">
-          <SourceHistoryButton
-            language={language}
-            onClick={() => {
-              setView('source-history');
-            }}
-          />
+        <section className={`detail-hero has-source-history${canManage ? ' has-project-settings' : ''}`}>
+          <div className="detail-hero-tools">
+            <StarProjectButton repo={selected} onError={setError} />
+            <SourceHistoryButton
+              language={language}
+              onClick={() => {
+                setView('source-history');
+              }}
+            />
+            {canManage && (
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={t('projectPage.projectSettings')}
+                title={t('projectPage.projectSettings')}
+                aria-haspopup="dialog"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings size={19} aria-hidden="true" />
+              </button>
+            )}
+          </div>
           <div className="detail-main">
             <RepoLogo repo={selected} />
             <div>
@@ -184,20 +212,19 @@ export function ProjectPage() {
                     </>
                   )}
                 </span>
+                <span className={`status status-compact status-${selectedState.state}`}>
+                  <span className="status-dot" />
+                  {selected.archived ? t('projectPage.archivedReadOnly') : selectedState.text}
+                </span>
               </div>
               {!selected.private && selected.description ? (
                 <TranslatableContent text={selected.description} format="text" render={(value) => <p>{value}</p>} />
               ) : (
                 <p>{selected.description || t('projectPage.noProjectDescriptionYet')}</p>
               )}
-              <span className={`status status-${selectedState.state}`}>
-                <span className="status-dot" />
-                {selected.archived ? t('projectPage.archivedReadOnly') : selectedState.text}
-              </span>
             </div>
           </div>
           <div className="detail-actions">
-            <StarProjectButton repo={selected} />
             <button className="button button-primary" disabled={selected.archived} onClick={() => setView('local')}>
               <FolderOpen size={17} />
               {t('projectPage.localProjectPublishSourceCode')}
@@ -316,7 +343,6 @@ export function ProjectPage() {
                 <h2>{t('projectPage.issues')}</h2>
                 <span className="count-bubble">{activityCounts[selected.id]?.issues ?? '…'}</span>
               </div>
-              <p>{t('projectPage.seeFeedbackAndMakeYourProjectBetterTogether')}</p>
               <button className="button button-quiet full-width" onClick={() => setView('issues')}>
                 {t('projectPage.viewIssues')} <ArrowRight size={16} />
               </button>
@@ -326,14 +352,13 @@ export function ProjectPage() {
                 <h2>{t('projectPage.pullRequestReviews')}</h2>
                 <span className="count-bubble">{activityCounts[selected.id]?.pullRequests ?? '…'}</span>
               </div>
-              <p>{t('projectPage.readTheProposedChangesAndFilesBeforeDecidingWhether')}</p>
               <button
                 className="button button-quiet full-width"
                 onClick={() => {
                   setView('pulls');
                 }}
               >
-                {t('projectPage.pullRequestReviews')} <ArrowRight size={16} />
+                {t('projectPage.reviewPullRequests')} <ArrowRight size={16} />
               </button>
             </section>
             <section className="panel side-panel">
@@ -356,10 +381,12 @@ export function ProjectPage() {
             </section>
           </div>
         </div>
-        {(selected.owner.login.toLowerCase() === user.login.toLowerCase() || selected.permissions?.admin) && (
+        {canManage && (
           <LiveProjectDangerZone
             repo={selected}
             language={language}
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
             onUpdate={(updated) => {
               w.cache.set('repo:' + updated.full_name, updated);
               w.set('repos', (items) => items.map((item) => (item.id === updated.id ? updated : item)));

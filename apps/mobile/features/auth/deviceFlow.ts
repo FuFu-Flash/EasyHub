@@ -86,5 +86,5 @@ export async function awaitDeviceAuthorization(code: DeviceCode, signal?: AbortS
     if (result.error === 'expired_token') break;
     throw new InterfaceError("deviceFlow.signInCouldNotBeCompletedPleaseRetry").withDiagnostic("登录暂时无法完成，请重试。");
   }
-  throw new InterfaceError("deviceFlow.theVerificationCodeExpiredSignInAgain").withDiagnostic("验证码已过期，请重新登录。");
+  throw new InterfaceError("deviceFlow.theVerificationCodeExpiredSignInAgain").withDiagnostic("配对码已过期，请重新登录。");
 }

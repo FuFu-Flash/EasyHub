@@ -81,9 +81,7 @@ export function PullsPage() {
       <>
         <div className="page-header">
           <div>
-            <div className="eyebrow">{t('pullsPage.improveTogether')}</div>
             <h1>{t('pullsPage.pullRequestReviews')}</h1>
-            <p>{t('pullsPage.reviewProposedChangesAndDecideWhetherToMergeThem')}</p>
           </div>
         </div>
         {activityError && (

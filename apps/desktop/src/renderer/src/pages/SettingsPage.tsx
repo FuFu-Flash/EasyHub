@@ -1,11 +1,13 @@
+import { WindowControlStyleOptions } from '../components/WindowControlStyleOptions';
 import { useTranslation } from '../localization';
 import type { TranslationTargetLanguage } from '@easyhub/types';
-import { ArrowRight, Check, Globe2, Info, Languages, Square } from 'lucide-react';
+import { ArrowRight, Globe2, Info, Languages, Square } from 'lucide-react';
 import { useState } from 'react';
 import { AiSettingsPanel } from '../components/AiSettingsPanel';
 import { AppUpdatePanel } from '../components/AppUpdatePanel';
 import { HostsRepairPanel } from '../components/HostsRepairPanel';
 import { LayoutSettingsPanel } from '../components/LayoutSettingsPanel';
+import { ThemeSettingsPanel } from '../components/ThemeSettingsPanel';
 import { StyledDropdown } from '../components/StyledDropdown';
 import { errorText as message } from '../errors';
 import { usePageFeedback } from '../workspace/pageFeedback';
@@ -21,12 +23,12 @@ export function SettingsPage() {
     user,
     language,
     translationTarget,
-    translationNames,
     translationNamesText,
     windowStyle,
     demo,
     onLogout,
     layout,
+    theme,
     easyHub,
   } = w;
   const setWindowStyle = (value: 'windows' | 'reference') => w.set('windowStyle', value);
@@ -50,9 +52,7 @@ export function SettingsPage() {
     <>
       <div className="page-header">
         <div>
-          <div className="eyebrow">{t('settingsPage.personalize')}</div>
           <h1>{t('settingsPage.settings')}</h1>
-          <p>{t('settingsPage.adjustEasyhubSAppearanceAndManageTheGithubConnection')}</p>
         </div>
       </div>
       <div className="settings-stack">
@@ -91,49 +91,11 @@ export function SettingsPage() {
           </div>
           <div className="settings-panel-content">
             <h2>{t('settingsPage.windowControls')}</h2>
-            <p>{t('settingsPage.chooseTheStyleOfTheWindowButtonsChangesTake')}</p>
-            <div className="window-style-options" role="group" aria-label={t('settingsPage.windowControlStyle')}>
-              <button
-                className={`window-style-option ${windowStyle === 'windows' ? 'selected' : ''}`}
-                aria-pressed={windowStyle === 'windows'}
-                onClick={() => setWindowStyle('windows')}
-              >
-                <span className="window-style-preview windows-preview" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-                <span>
-                  <strong>{t('settingsPage.windowsStyle')}</strong>
-                  <small>{t('settingsPage.topRightButtons')}</small>
-                </span>
-                {windowStyle === 'windows' && <Check size={18} className="window-style-check" />}
-              </button>
-              <button
-                className={`window-style-option ${windowStyle === 'reference' ? 'selected' : ''}`}
-                aria-pressed={windowStyle === 'reference'}
-                onClick={() => setWindowStyle('reference')}
-              >
-                <span className="window-style-preview reference-preview" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-                <span>
-                  <strong>{t('settingsPage.dotStyle')}</strong>
-                  <small>{t('settingsPage.referenceTopLeft')}</small>
-                </span>
-                {windowStyle === 'reference' && <Check size={18} className="window-style-check" />}
-              </button>
-            </div>
+            <WindowControlStyleOptions value={windowStyle} onChange={setWindowStyle} />
           </div>
         </section>
-        <LayoutSettingsPanel
-          language={language}
-          preference={layout.preference}
-          density={layout.density}
-          onChange={layout.setPreference}
-        />
+        <ThemeSettingsPanel language={language} preference={theme.preference} onChange={theme.setPreference} />
+        <LayoutSettingsPanel language={language} preference={layout.preference} onChange={layout.setPreference} />
         <AiSettingsPanel language={language} />
         <section className="panel settings-panel">
           <div className="settings-icon blue">
@@ -159,9 +121,6 @@ export function SettingsPage() {
             <label className="translation-names-label" htmlFor="translation-names">
               {t('settingsPage.namesToKeepUnchanged')}
             </label>
-            <p className="translation-names-help">
-              {t('settingsPage.theCurrentProjectAuthorsAndGithubProjectsLinkedIn')}
-            </p>
             <textarea
               id="translation-names"
               aria-label={t('settingsPage.namesToKeepUnchanged')}
@@ -171,9 +130,6 @@ export function SettingsPage() {
               onChange={(event) => setTranslationNamesText(event.target.value)}
               placeholder={t('settingsPage.enterOneNameToKeepPerLine')}
             />
-            <small className="muted">
-              {t('settingsPage.saved')} {translationNames.length} {t('settingsPage.namesSavedOnThisComputerOnly')}
-            </small>
           </div>
         </section>
         <HostsRepairPanel language={language} />
@@ -181,14 +137,21 @@ export function SettingsPage() {
           <div className="settings-icon amber">
             <Info size={22} />
           </div>
-          <div>
+          <div className="settings-panel-content">
             <h2>{t('settingsPage.aboutEasyhub')}</h2>
-            <p>{demo ? t('settingsPage.desktopEdition') : t('settingsPage.windowsDesktopConnectedToGithub')}</p>
-            <span className="settings-version">{t('settingsPage.version130')}</span>
+            <p>
+              {demo
+                ? t('settingsPage.desktopEdition')
+                : t(
+                    easyHub.platform === 'darwin'
+                      ? 'mac.desktopConnected'
+                      : 'settingsPage.windowsDesktopConnectedToGithub',
+                  )}
+            </p>
+            <span className="settings-version">{t('settingsPage.version142')}</span>
             <AppUpdatePanel language={language} />
             <div className="license-details">
               <strong>Apache 2.0</strong>
-              <span>{t('settingsPage.thisApplicationIsLicensedUnderApacheLicense20')}</span>
               <button className="text-link" onClick={() => void easyHub?.openLicense()}>
                 {t('settingsPage.viewLicense')} <ArrowRight size={15} />
               </button>

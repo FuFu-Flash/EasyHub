@@ -30,6 +30,7 @@ try {
   await page.reload();
   await page.locator('.live-connected').waitFor();
   await page.locator('.topbar-profile').click();
+  await page.getByRole('menuitem', { name: '个人资料' }).click();
   await page.locator('.profile-hero').waitFor();
   assert.equal(await page.locator('.profile-avatar').count(), 1);
   await page.screenshot({ path: 'out/profile-smoke.png' });
@@ -49,7 +50,8 @@ try {
   assert.equal(await page.getByTestId('public-project-browser').getByText('发布源码').count(), 0);
   await page.locator('.sidebar-nav button').filter({ hasText: '发现' }).click();
   await page.locator('.discover-scopes button').filter({ hasText: '用户' }).click();
-  await page.locator('.discover-search input').fill('writer');
+  await page.locator('.topbar-search input').fill('writer');
+  await page.locator('.topbar-search input').press('Enter');
   await page.locator('.user-search-card').waitFor();
   assert.equal(await page.locator('.user-search-avatar img').count(), 1);
   assert.equal(await page.locator('.user-search-project').count(), 0);

@@ -4,7 +4,7 @@ import type { GitAuthor, GitProgress, GitRepository } from './GitEngine';
 import type { SyncDecision, LocalPublishSelection } from '@easyhub/types';
 import type { OriginRule } from '../services/githubProxyOrigin';
 
-interface WorkItem { action: 'inspect' | 'status' | 'preview-changes' | 'file-diff' | 'create' | 'download' | 'publish' | 'check-sync' | 'sync'; path: string; repo?: GitRepository; author?: GitAuthor; token?: string; message?: string; proxy?: string; githubRules?: Record<string, OriginRule>; revision?: string; decisions?: SyncDecision[]; selection?: LocalPublishSelection; filePath?: string; snapshot?: string }
+interface WorkItem { action: 'inspect' | 'status' | 'preview-changes' | 'file-diff' | 'create' | 'download' | 'publish' | 'push-branch' | 'list-branches' | 'switch-branch' | 'create-branch' | 'check-sync' | 'sync'; path: string; repo?: GitRepository; author?: GitAuthor; token?: string; message?: string; proxy?: string; githubRules?: Record<string, OriginRule>; revision?: string; decisions?: SyncDecision[]; selection?: LocalPublishSelection; filePath?: string; snapshot?: string; branch?: string }
 
 const task = workerData as WorkItem;
 const engine = new GitEngine(task.proxy, task.githubRules);
@@ -19,6 +19,10 @@ async function run(): Promise<unknown> {
     case 'create': if (task.repo && task.author && task.token) return engine.createProject(task.path, task.repo, task.author, task.token, progress); break;
     case 'download': if (task.repo && task.token) return engine.downloadProject(task.path, task.repo, task.token, progress); break;
     case 'publish': if (task.repo && task.author && task.token && task.message) return engine.publishUpdate(task.path, task.repo, task.author, task.token, task.message, progress, task.selection); break;
+    case 'list-branches': return engine.listBranches(task.path, task.repo, task.token);
+    case 'switch-branch': if (task.branch) return engine.switchBranch(task.path, task.branch, task.repo, task.token); break;
+    case 'create-branch': if (task.branch) return engine.createBranch(task.path, task.branch); break;
+    case 'push-branch': if (task.repo && task.token) return engine.pushBranch(task.path, task.repo, task.token, progress); break;
     case 'check-sync': if (task.repo && task.token) return engine.checkSync(task.path, task.repo, task.token, progress); break;
     case 'sync': if (task.repo && task.token) return engine.syncProject(task.path, task.repo, task.token, task.revision, task.decisions, progress); break;
   }

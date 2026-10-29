@@ -20,7 +20,7 @@ const bridgeChannels = [...new Set([...preload.matchAll(/ipcRenderer\.invoke\(([
 assert.ok(bridgeChannels.length >= 40, 'The fixture must discover the full EasyHub IPC bridge.');
 const executableArgument = process.argv.find(value => value.startsWith('--executable='));
 const executable = executableArgument?.slice('--executable='.length)
-  ?? (process.argv.includes('--packaged') ? join(desktopDirectory, 'release', 'win-unpacked', 'EasyHub.exe') : null);
+  ?? (process.argv.includes('--packaged') ? join(desktopDirectory, 'release', 'windows', 'win-unpacked', 'EasyHub.exe') : null);
 if (executableArgument && (!executable || !isAbsolute(executable))) throw new Error('--executable requires an absolute path.');
 const launcher = join(runDirectory, 'launch.cjs');
 if (!executable) await writeFile(launcher, `
@@ -56,6 +56,7 @@ try {
     };
     // Deny every exposed real handler first, including packaged executables; allow only the explicit local reads below.
     for (const channel of bridgeChannels) mock(channel, () => {
+      if (['easyhub:menu-state', 'easyhub:window-set-style'].includes(channel)) return;
       fixture.forbidden.push(channel);
       throw new Error('External and write actions are blocked by this layout fixture: ' + channel);
     });
@@ -155,8 +156,20 @@ try {
   await page.locator('.cloud-row').first().getByRole('button', { name: '查看', exact: true }).click();
   const icon = page.getByRole('button', { name: '源码历史', exact: true });
   await icon.waitFor(); await settle();
-  const location = await icon.evaluate(button => { const r = button.getBoundingClientRect(); const hero = button.closest('.detail-hero').getBoundingClientRect(); return { right: hero.right - r.right, top: r.top - hero.top, width: r.width }; });
-  assert.ok(location.top < 15 && location.right < 15 && location.width >= 30, 'History icon sits in the requested top-right corner');
+  // The top-right actions read, from left to right: star, source history, project settings.
+  const location = await icon.evaluate(button => {
+    const hero = button.closest('.detail-hero').getBoundingClientRect();
+    const box = (element) => element?.getBoundingClientRect() ?? null;
+    const history = box(button);
+    const star = box(button.closest('.detail-hero').querySelector('.star-project-button'));
+    const settings = box([...button.closest('.detail-hero').querySelectorAll('button')].find((item) => item.getAttribute('aria-label') === '项目设置' || item.textContent.trim() === '项目设置'));
+    return { history, star, settings, heroRight: hero.right, heroTop: hero.top };
+  });
+  const { history, star, settings } = location;
+  assert.ok(star && settings, 'Star and project settings sit beside the history button');
+  assert.ok(star.right <= history.left + 1 && history.right <= settings.left + 1, 'History sits between star and project settings');
+  assert.ok(Math.abs(star.top + star.height / 2 - (history.top + history.height / 2)) < 4 && Math.abs(settings.top + settings.height / 2 - (history.top + history.height / 2)) < 4, 'Star, history and settings share one row');
+  assert.ok(location.heroRight - settings.right < 40 && history.top - location.heroTop < 40 && history.width >= 30, 'The actions sit in the top-right corner of the project header');
   await page.screenshot({ path: join(outputDirectory, 'own-project-icon.png') });
   await icon.click(); await count('.source-history-row', 100);
   await page.getByRole('button', { name: '加载更多提交', exact: true }).click(); await count('.source-history-row', 101);

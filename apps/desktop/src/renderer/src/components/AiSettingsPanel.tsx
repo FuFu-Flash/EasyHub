@@ -180,11 +180,7 @@ export function AiSettingsPanel({
         <FeedbackNotice message={notice} language={language} onClose={() => setNotice('')} />
         <div id="ai-settings-details" hidden={!expanded}>
           <p>{t('aiSettingsPanel.chooseAnAiProviderAndEnterYourOwnApi')}</p>
-          {disabled ? (
-            <p className="ai-settings-note">{t('aiSettingsPanel.theDemoDoesNotStoreKeysUseTheFull')}</p>
-          ) : (
-            <p className="ai-settings-note">{t('aiSettingsPanel.yourKeyIsKeptInThisComputerSSecure')}</p>
-          )}
+          {disabled && <p className="ai-settings-note">{t('aiSettingsPanel.theDemoDoesNotStoreKeysUseTheFull')}</p>}
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -255,7 +251,6 @@ export function AiSettingsPanel({
                   required
                 />
               </label>
-              <p className="ai-settings-note">{t('aiSettingsPanel.aDefaultModelIsSelectedForThisProviderChange')}</p>
             </details>
             {saved?.providerId === 'legacy' && (
               <p className="ai-settings-note">

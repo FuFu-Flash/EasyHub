@@ -12,6 +12,18 @@ describe('application update checks', () => {
     expect(await checkAppUpdate('1.9.9', transport)).toEqual({ currentVersion: '1.9.9', latestVersion: '1.10.0', available: true, releaseUrl: 'https://github.com/FuFu-Flash/EasyHub/releases/tag/v1.10.0' });
     expect(new Headers(transport.mock.calls[0]![1]?.headers).has('Authorization')).toBe(false);
   });
+  it('keeps Mac updates separate from newer Windows, Android and component releases', async () => {
+    const mac = (tag: string, assets = ['EasyHub-macOS.dmg'], extra = {}) => release(tag, assets, extra);
+    const transport = vi.fn<typeof fetch>().mockImplementation(async () => Response.json([
+      release('v9.0.0'), mac('macos-v1.3.0'), mac('macos-v1.4.0', ['EasyHub-macOS.zip']),
+      mac('macos-v1.5.0', undefined, { prerelease: true }), mac('macos-v1.6.0', undefined, { draft: true }),
+      mac('macos-v8.0.0', ['EasyHub-8.0.0.apk']), release('analysis-runtime-12.0.0'),
+    ]));
+    expect(await checkAppUpdate('1.3.0', transport, 'darwin')).toEqual({ currentVersion: '1.3.0', latestVersion: '1.4.0', available: true, releaseUrl: 'https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.4.0' });
+    expect((await checkAppUpdate('1.4.0', transport, 'darwin')).available).toBe(false);
+    expect((await checkAppUpdate('1.3.0', transport, 'win32')).latestVersion).toBe('9.0.0');
+    await expect(checkAppUpdate('1.3.0', vi.fn<typeof fetch>().mockResolvedValue(Response.json([release('v9.0.0')])), 'darwin')).rejects.toThrow('macOS');
+  });
   it('does not offer equal versions or downgrades', async () => {
     for (const current of ['1.1.0', '1.2.0']) expect((await checkAppUpdate(current, vi.fn<typeof fetch>().mockResolvedValue(Response.json([release('v1.1.0')])))).available).toBe(false);
   });

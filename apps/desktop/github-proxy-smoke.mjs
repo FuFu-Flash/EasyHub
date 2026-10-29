@@ -70,7 +70,7 @@ try {
   await page.waitForFunction(() => document.querySelector('[role="switch"]').disabled === false);
   assert.equal(await toggle.getAttribute('aria-checked'), 'false');
   assert.equal(await page.getByText('让 EasyHub 和使用 Windows 系统代理设置的浏览器访问 GitHub 相关网站。', { exact: true }).count(), 1);
-  assert.equal(await page.getByText('已有系统代理时优先复用。关闭或退出后恢复 EasyHub 修改的设置，其他代理接管时自动让出。', { exact: true }).count(), 1);
+  assert.equal(await page.getByText('已有系统代理时优先复用。关闭或退出后恢复 EasyHub 修改的设置，其他代理接管时自动让出。', { exact: true }).count(), 0, 'The proxy panel no longer carries the explanatory gray note');
   await toggle.click();
   await page.getByText('已启用系统代理', { exact: true }).waitFor();
   assert.equal(await page.getByRole('alertdialog').count(), 0, 'Enabling the proxy should take effect directly');

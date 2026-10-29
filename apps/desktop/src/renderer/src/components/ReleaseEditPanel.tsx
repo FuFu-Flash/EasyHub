@@ -224,16 +224,24 @@ export function ReleaseEditPanel({
         <h3>
           {t('releaseEditPanel.editReleases')} · {release.tag_name}
         </h3>
-        <button
-          className="icon-button"
-          disabled={busy}
-          onClick={onClose}
-          aria-label={t('releaseEditPanel.closeEditor')}
-        >
-          <X size={18} />
-        </button>
+        <div className="release-edit-heading-actions">
+          <button
+            type="button"
+            className="button button-quiet small-button"
+            onClick={() => setPreview((value) => !value)}
+          >
+            {preview ? t('releaseEditPanel.continueEditing') : t('releaseEditPanel.preview')}
+          </button>
+          <button
+            className="icon-button"
+            disabled={busy}
+            onClick={onClose}
+            aria-label={t('releaseEditPanel.closeEditor')}
+          >
+            <X size={18} />
+          </button>
+        </div>
       </div>
-      <p className="muted">{t('releaseEditPanel.theVersionTagStaysTheSameSoDownloadLinks')}</p>
       <label>
         {t('releaseEditPanel.releaseTitle')}
         <input value={title} maxLength={120} onChange={(event) => setTitle(event.target.value)} disabled={busy} />
@@ -260,9 +268,6 @@ export function ReleaseEditPanel({
         <button type="button" className="secondary-button" onClick={() => void addImage()} disabled={busy}>
           <ImagePlus size={16} />
           {t('releaseEditPanel.uploadImageAndInsert')}
-        </button>
-        <button type="button" className="secondary-button" onClick={() => setPreview((value) => !value)}>
-          {preview ? t('releaseEditPanel.continueEditing') : t('releaseEditPanel.preview')}
         </button>
       </div>
       {urlDialog && (

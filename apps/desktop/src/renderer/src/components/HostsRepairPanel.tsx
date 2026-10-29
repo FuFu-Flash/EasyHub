@@ -213,7 +213,13 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
         <div className="github-proxy-heading">
           <div>
             <h2>{t('hostsRepairPanel.githubSystemProxy')}</h2>
-            <p>{t('hostsRepairPanel.connectEasyhubAndBrowsersThatUseWindowsSystemProxy')}</p>
+            <p>
+              {t(
+                easyHub?.platform === 'darwin'
+                  ? 'mac.systemProxyDescription'
+                  : 'hostsRepairPanel.connectEasyhubAndBrowsersThatUseWindowsSystemProxy',
+              )}
+            </p>
           </div>
           <button
             type="button"
@@ -227,7 +233,6 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
             <span />
           </button>
         </div>
-        <p className="github-proxy-explain">{t('hostsRepairPanel.reuseAnExistingSystemProxyTurningThisOffOr')}</p>
         <div className="github-proxy-connection">
           <span
             className={`github-proxy-status ${!checking && status?.state === 'ready' && status.system?.mode !== 'unavailable' && status.system?.mode !== 'external' ? 'is-ready' : ''}`}
@@ -257,22 +262,7 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
               })}
             </ul>
           )}
-        </div>
-        {connectionError && (
-          <p className="github-proxy-error" role="alert">
-            <ErrorMessage error={connectionError} />
-          </p>
-        )}
-        {!disabled && (
-          <div className="github-proxy-footer">
-            <span className="github-proxy-last-check">
-              {status?.checkedAt && !Number.isNaN(Date.parse(status.checkedAt))
-                ? t('hostsRepairPanel.checkedAt', {
-                    p0: t('hostsRepairPanel.lastChecked'),
-                    p1: formatDateTime(status.checkedAt, language),
-                  })
-                : ''}
-            </span>
+          {!disabled && (
             <div className="github-proxy-actions">
               {(busy && busy !== 'cleanup') || status?.state === 'checking' ? (
                 <button type="button" className="button button-quiet" onClick={() => void cancel()}>
@@ -295,7 +285,20 @@ export function HostsRepairPanel({ language, disabled = false }: { language: Lan
                 </button>
               )}
             </div>
-          </div>
+          )}
+        </div>
+        {connectionError && (
+          <p className="github-proxy-error" role="alert">
+            <ErrorMessage error={connectionError} />
+          </p>
+        )}
+        {!disabled && status?.checkedAt && !Number.isNaN(Date.parse(status.checkedAt)) && (
+          <p className="github-proxy-last-check">
+            {t('hostsRepairPanel.checkedAt', {
+              p0: t('hostsRepairPanel.lastChecked'),
+              p1: formatDateTime(status.checkedAt, language),
+            })}
+          </p>
         )}
         {!disabled && status?.legacyHosts && (
           <div className="github-proxy-legacy">

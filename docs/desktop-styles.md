@@ -7,7 +7,10 @@ Android is outside this contract.
 
 ## Tokens
 
-- Colors: 30 named colors, including decoration and state colors. Transparent
+- Colors: 32 named colors, including decoration and state colors. White text sits on
+  `--eh-color-primary-fill` / `--eh-color-danger-fill`; links and state text keep
+  `--eh-color-primary` / `--eh-color-danger`. Every text color reaches 4.5:1 on the
+  surfaces in both themes (checked by `styleTokens.test.ts`). Transparent
   variants use `color-mix(in srgb, var(--eh-color-…), …%, transparent)`.
 - Sizes: `--eh-text-12/13/14/16/20/24/32`. Body text stays 13–14px;
   metadata uses 12px. Zero is reserved for visually hidden narrow sidebar labels.

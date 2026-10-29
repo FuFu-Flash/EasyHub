@@ -125,6 +125,8 @@ export function createDemoBridge(
         sensitiveReasons: file.sensitiveReasons ?? sensitiveFileReasons(file.path),
       })),
       needsReview: false,
+      branch: 'main',
+      pushable: false,
     };
   }
   function snapshot(item: DemoLocal) {
@@ -274,17 +276,6 @@ export function createDemoBridge(
     },
     onMenuCommand: (callback) => native?.onMenuCommand?.(callback) ?? (() => undefined),
     copyPairingCode: async () => false,
-    macProxy: {
-      status: async () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }),
-      setEnabled: async () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }),
-      probe: async () => ({ status: 'disconnected', pacURL: 'http://127.0.0.1:8869/github.pac', socksPort: 8868 }),
-      openSettings: async () => ({
-        status: 'disconnected',
-        pacURL: 'http://127.0.0.1:8869/github.pac',
-        socksPort: 8868,
-      }),
-      onChanged: () => () => undefined,
-    },
     reportRendererError: async (report) => {
       reports.push(copy(report));
     },
@@ -422,11 +413,14 @@ export function createDemoBridge(
         writable(repo);
         if (!selection || snapshot(item).snapshot !== selection.snapshot)
           throw demoError('请重新查看并选择本次发布的文件。', 'CONFLICT');
+        const batches = selection.batches ?? [{ paths: selection.paths, message }];
         if (
           !message.trim() ||
           !selection.paths.length ||
           new Set(selection.paths).size !== selection.paths.length ||
-          selection.paths.some((path) => !item.files.some((file) => file.path === path))
+          selection.paths.some((path) => !item.files.some((file) => file.path === path)) ||
+          batches.map((batch) => batch.paths.join('\n')).join('\n') !== selection.paths.join('\n') ||
+          batches.some((batch) => !batch.paths.length)
         )
           throw demoError('请填写说明，并选择有效的修改文件。');
         const chosen = status(item).files.filter((file) => selection.paths.includes(file.path));
@@ -434,13 +428,18 @@ export function createDemoBridge(
           throw demoError('[SENSITIVE_FILES] 请确认可能包含密码或密钥的文件。');
         item.files = item.files.filter((file) => !selection.paths.includes(file.path));
         item.revision++;
-        repo.commits.unshift(demoCommit(next(), message, selection.paths));
+        for (const batch of batches)
+          repo.commits.unshift(demoCommit(next(), batch.message?.trim() || message, batch.paths));
         repo.repo.updated_at = new Date().toISOString();
         if (selection.paths.includes('README.md')) repo.readme = item.readme;
         emitLocal(item);
         localProgress.emit({ phase: '演示发布完成', loaded: 1, total: 1, cancelable: false });
         return { changed: chosen.length };
       }),
+    localListBranches: async () => ({ current: 'main', branches: ['main'], localOnly: [] }),
+    localSwitchBranch: async () => ({ current: 'main', branches: ['main'], localOnly: [] }),
+    localCreateBranch: async (_id, name) => ({ current: 'main', branches: ['main', name], localOnly: [name] }),
+    localPushBranch: async () => ({ state: 'current', branch: 'main' }),
     localCheckSync: async (id) => {
       const item = local(id);
       return {

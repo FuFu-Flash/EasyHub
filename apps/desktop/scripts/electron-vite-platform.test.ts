@@ -29,6 +29,8 @@ describe('desktop release build platform isolation', () => {
     ['linux', '1', '1'],
   ])('keeps ordinary build defaults on %s (Mac=%s, Windows=%s)', async (platform, macFlag, winFlag) => {
     const config = await configuration(platform!, macFlag, winFlag);
+    expect(config.main?.build?.outDir).toBe('out/main');
+    expect(config.preload?.build?.outDir).toBe('out/preload');
     expect(config.main?.build?.minify).toBeUndefined();
     expect(config.preload?.build?.minify).toBeUndefined();
     expect(config.main?.plugins).toHaveLength(1);
@@ -42,6 +44,11 @@ describe('desktop release build platform isolation', () => {
     ['darwin', '1', '1'],
   ])('bundles dependencies with license notices for %s releases (Mac=%s, Windows=%s)', async (platform, macFlag, winFlag) => {
     const config = await configuration(platform!, macFlag, winFlag);
+    const target = platform === 'darwin' ? 'macos' : 'windows';
+    expect(config.main?.build?.outDir).toBe(`out/${target}/main`);
+    expect(config.preload?.build?.outDir).toBe(`out/${target}/preload`);
+    // The renderer output is an absolute path, so Windows hosts report it with backslashes.
+    expect(config.renderer?.build?.outDir?.replaceAll('\\', '/')).toMatch(new RegExp(`/out/${target}/renderer$`));
     expect(config.main?.build?.minify).toBe('esbuild');
     expect(config.preload?.build?.minify).toBe('esbuild');
     expect(config.main?.plugins).toHaveLength(2);

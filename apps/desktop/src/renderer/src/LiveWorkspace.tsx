@@ -1,3 +1,4 @@
+import { useNativeShell } from './workspace/useNativeShell';
 import { useTranslation } from './localization';
 import { PageStatus } from './pages/shared';
 import {
@@ -10,16 +11,13 @@ import {
   Home,
   Languages,
   MessageCircle,
-  Minus,
   RotateCw,
   Settings2,
-  Square,
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { canReviewRepository, sumActivity } from './activityCounts';
 import appIcon from './assets/easyhub-icon.svg';
-import { useEasyHub } from './bridge';
 import { RecoveryHomeContext } from './components/AppErrorBoundary';
 import type { ActivityNotice } from './components/DownloadNotifications';
 import { DownloadNotifications } from './components/DownloadNotifications';
@@ -28,6 +26,7 @@ import { FeedbackNotice } from './components/FeedbackNotice';
 import { NavigationPages } from './components/NavigationPages';
 import { ProfileMenu } from './components/ProfileMenu';
 import { TopbarSearch } from './components/TopbarSearch';
+import { WindowControls } from './components/WindowControls';
 import { LanguageContext } from './i18n';
 import { navigateNested } from './nestedNavigation';
 import { WorkspacePage } from './pages/WorkspacePage';
@@ -51,8 +50,7 @@ export function LiveWorkspace(props: WorkspaceProps) {
 }
 
 function WorkspaceShell() {
-  const w = useWorkspace(),
-    easyHub = useEasyHub();
+  const w = useWorkspace();
   const {
     navigation,
     user,
@@ -76,6 +74,7 @@ function WorkspaceShell() {
   const [search, setSearch] = useState(''),
     [languageMenuOpen, setLanguageMenuOpen] = useState(false),
     [refreshing, setRefreshing] = useState(false);
+  useNativeShell(root, refreshing);
   const instance = JSON.stringify([
     page.view,
     page.params.repo,
@@ -199,6 +198,16 @@ function WorkspaceShell() {
                 {t('liveWorkspace.settings')}
               </button>
             </nav>
+            {demo && (
+              <div className="demo-mode-notice" role="status">
+                <span>{t('liveWorkspace.demoModeChangesAreNotUploadedToGithubFiles')}</span>
+                {!demo.only && (
+                  <button className="text-link" onClick={demo.onLogin}>
+                    {t('liveWorkspace.signInToGithub')}
+                  </button>
+                )}
+              </div>
+            )}
             <div className="sidebar-bottom live-sidebar-bottom">
               <button
                 type="button"
@@ -217,7 +226,10 @@ function WorkspaceShell() {
                   className={`sidebar-demo live-connected${offline ? ' is-offline' : ''}`}
                 >
                   <span />
-                  {offline ? t('liveWorkspace.githubIsOffline') : t('liveWorkspace.connectedToGithub')} · {user.login}
+                  <small className="sidebar-connection">
+                    <small>{offline ? t('liveWorkspace.githubIsOffline') : t('liveWorkspace.connectedToGithub')}</small>
+                    <strong>{user.login}</strong>
+                  </small>
                 </span>
               )}
             </div>
@@ -225,23 +237,7 @@ function WorkspaceShell() {
           <div className="main-column" ref={scrollArea}>
             <header className={`topbar topbar-${windowStyle}`}>
               {windowStyle === 'reference' && (
-                <div className="window-controls" aria-label={t('liveWorkspace.windowControls')}>
-                  <button
-                    className="window-dot window-close"
-                    aria-label={t('liveWorkspace.closeWindow')}
-                    onClick={() => void easyHub?.closeWindow()}
-                  />
-                  <button
-                    className="window-dot window-minimize"
-                    aria-label={t('liveWorkspace.minimizeWindow')}
-                    onClick={() => void easyHub?.minimizeWindow()}
-                  />
-                  <button
-                    className="window-dot window-maximize"
-                    aria-label={t('liveWorkspace.maximizeOrRestoreWindow')}
-                    onClick={() => void easyHub?.toggleMaximizeWindow()}
-                  />
-                </div>
+                <WindowControls style="reference" onSyncError={() => w.setError(t('mac.windowControlsFailed'))} />
               )}
               <button className="topbar-brand" onClick={() => navigation.sidebar('home')}>
                 <img src={appIcon} alt="" />
@@ -307,7 +303,7 @@ function WorkspaceShell() {
                   {languageMenuOpen && (
                     <div className="language-menu" role="group" aria-label={t('liveWorkspace.languageOptions')}>
                       <button aria-pressed={language === 'zh'} onClick={() => chooseLanguage('zh')}>
-                        <span>{t('liveWorkspace.chinese')}</span>
+                        <span>中文</span>
                         {language === 'zh' && <Check size={16} />}
                       </button>
                       <button aria-pressed={language === 'en'} onClick={() => chooseLanguage('en')}>
@@ -332,44 +328,9 @@ function WorkspaceShell() {
                 />
               </div>
               {windowStyle === 'windows' && (
-                <div className="windows-window-controls" aria-label={t('liveWorkspace.windowControls')}>
-                  <button
-                    className="windows-control-button"
-                    aria-label={t('liveWorkspace.minimizeWindow')}
-                    title={t('liveWorkspace.minimize')}
-                    onClick={() => void easyHub?.minimizeWindow()}
-                  >
-                    <Minus size={17} strokeWidth={1.6} />
-                  </button>
-                  <button
-                    className="windows-control-button"
-                    aria-label={t('liveWorkspace.maximizeOrRestoreWindow')}
-                    title={t('liveWorkspace.maximizeOrRestore')}
-                    onClick={() => void easyHub?.toggleMaximizeWindow()}
-                  >
-                    <Square size={13} strokeWidth={1.7} />
-                  </button>
-                  <button
-                    className="windows-control-button windows-control-close"
-                    aria-label={t('liveWorkspace.closeWindow')}
-                    title={t('liveWorkspace.close')}
-                    onClick={() => void easyHub?.closeWindow()}
-                  >
-                    <X size={17} strokeWidth={1.6} />
-                  </button>
-                </div>
+                <WindowControls style="windows" onSyncError={() => w.setError(t('mac.windowControlsFailed'))} />
               )}
             </header>
-            {demo && (
-              <div className="demo-mode-notice" role="status">
-                <span>{t('liveWorkspace.demoModeChangesAreNotUploadedToGithubFiles')}</span>
-                {!demo.only && (
-                  <button className="button button-quiet small-button" onClick={demo.onLogin}>
-                    {t('liveWorkspace.signInToGithub')}
-                  </button>
-                )}
-              </div>
-            )}
             <FeedbackNotice message={w.error} kind="error" onClose={() => w.setError('')} language={language} />
             <FeedbackNotice message={w.notice} onClose={() => w.setNotice('')} language={language} />
             <NavigationPages active={instance}>
@@ -377,7 +338,7 @@ function WorkspaceShell() {
                 <main
                   className={`page-content live-page${page.view === 'home' || page.view === 'projects' ? ' page-with-footer' : ''}${formPage ? ' page-form-layout' : ''}`}
                 >
-                  <div className="v2-page-transition" key={page.view}>
+                  <div className="page-transition" key={page.view}>
                     {offline && (
                       <div className="live-offline" role="status" aria-live="polite">
                         <span>{t('liveWorkspace.githubIsTemporarilyUnavailableShowingYourLastSavedData')}</span>

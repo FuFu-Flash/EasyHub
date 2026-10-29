@@ -18,26 +18,20 @@ import type {
   SyncDecision,
   SyncPreview,
 } from '@easyhub/types';
-import {
-  ArrowDownToLine,
-  FileDiff,
-  ArrowLeft,
-  Check,
-  CheckCircle2,
-  Download,
-  FolderOpen,
-  Globe2,
-  LockKeyhole,
-  Plus,
-  RotateCw,
-  Send,
-  X,
-} from 'lucide-react';
-import { ReadmeMarkdown } from './components/ReadmeMarkdown';
+import { ArrowDownToLine, FileDiff, ArrowLeft, Download, FolderOpen, RotateCw, Send } from 'lucide-react';
+import { LocalBranchBar } from './components/LocalBranchBar';
 import { LocalChangeSelector } from './components/LocalChangeSelector';
+import { LocalCreateForm } from './components/LocalCreateForm';
+import { LocalSyncReview } from './components/LocalSyncReview';
+import {
+  LocalCloudProjects,
+  LocalFolderError,
+  LocalIntroduction,
+  LocalPublishForm,
+} from './components/LocalProjectParts';
+import { LocalRemoveDialog, LocalSensitiveConfirmDialog } from './components/LocalWorkspaceDialogs';
 
 import { useDialogFocus } from './components/useDialogFocus';
-import { sensitiveReasonText } from './sensitiveReasonText';
 import { PageActivityContext } from './components/NavigationPages';
 
 interface Props {
@@ -87,6 +81,7 @@ export function LocalWorkspace({
   const [inspection, setInspection] = useState<FolderInspection | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const lastAutomaticName = useRef('');
   const [description, setDescription] = useState('');
   const [isPrivate, setIsPrivate] = useState(true);
   const [publishId, setPublishId] = useState<string | null>(initialPublish ? (initialLocalId ?? null) : null);
@@ -299,7 +294,11 @@ export function LocalWorkspace({
       if (!path) return;
       const result = await api.localInspect(path);
       setInspection(result);
-      setName(result.name ?? path.split(/[\\/]/).filter(Boolean).at(-1) ?? '');
+      if (!name.trim() || name === lastAutomaticName.current) {
+        const suggestedName = result.name ?? path.split(/[\\/]/).filter(Boolean).at(-1) ?? '';
+        lastAutomaticName.current = suggestedName;
+        setName(suggestedName);
+      }
       if (result.state === 'github') {
         const link = await api.localConnect(path);
         setInspection(null);
@@ -398,6 +397,41 @@ export function LocalWorkspace({
     });
   }
 
+  async function changeBranch(
+    work: () => Promise<unknown>,
+    notice: 'localWorkspace.switchedBranch' | 'localWorkspace.createdBranch',
+    name: string,
+  ): Promise<void> {
+    if (!api) return;
+    await task(async () => {
+      try {
+        await work();
+        setNotice(t(notice, { p0: name }));
+      } finally {
+        setPreviewRefresh((value) => value + 1);
+        await refresh();
+      }
+    });
+  }
+
+  async function pushBranch(item: LocalProjectLink): Promise<void> {
+    if (!api) return;
+    await task(async () => {
+      try {
+        const result = await api.localPushBranch(item.id);
+        setNotice(
+          result.state === 'current'
+            ? t('localWorkspace.branchAlreadyCurrent', { p0: result.branch })
+            : result.state === 'created'
+              ? t('localWorkspace.branchCreated', { p0: result.branch })
+              : t('localWorkspace.branchPushed', { p0: result.branch }),
+        );
+      } finally {
+        await refresh();
+      }
+    });
+  }
+
   async function checkLatest(item: LocalProjectLink): Promise<void> {
     if (!api) return;
     await task(async () => {
@@ -451,6 +485,9 @@ export function LocalWorkspace({
     : selectedLink
       ? repos.filter((repo) => repo.id === selectedLink.repositoryId)
       : repos;
+  // The branch picker sits beside the title when the page shows one project.
+  const headerItem = singleProject && effectiveMode !== 'create' ? visibleLinks[0] : undefined;
+  const headerStatus = headerItem ? statuses[headerItem.id] : undefined;
   return (
     <div className="local-workspace">
       <button className="back-link" onClick={onBack}>
@@ -458,17 +495,25 @@ export function LocalWorkspace({
         {t('localWorkspace.back')}
       </button>
       <div className="page-header">
-        <div>
+        <div className="local-title-row">
           <h1 ref={title} tabIndex={-1}>
             {effectiveMode === 'create'
               ? t('localWorkspace.newProject')
               : (selectedLink?.name ?? selectedRepo?.name ?? t('localWorkspace.localProjects'))}
           </h1>
-          <p>
-            {effectiveMode === 'create'
-              ? t('localWorkspace.createProjectHelp')
-              : t('localWorkspace.reviewLocalChangesAndPublishTheSource')}
-          </p>
+          {headerItem && headerStatus?.branch && !statusErrors[headerItem.id] && (
+            <LocalBranchBar
+              id={headerItem.id}
+              current={headerStatus.branch}
+              busy={busy}
+              onSwitch={(name) =>
+                changeBranch(() => api!.localSwitchBranch(headerItem.id, name), 'localWorkspace.switchedBranch', name)
+              }
+              onCreate={(name) =>
+                changeBranch(() => api!.localCreateBranch(headerItem.id, name), 'localWorkspace.createdBranch', name)
+              }
+            />
+          )}
         </div>
       </div>
       {error && (
@@ -502,98 +547,21 @@ export function LocalWorkspace({
         </section>
       )}
       {(effectiveMode === 'create' || (inspection && inspection.state !== 'github')) && (
-        <form className="panel live-form live-create-form" onSubmit={(event) => void create(event)}>
-          <h2>
-            {inspection?.state === 'existing'
-              ? t('localWorkspace.createANewProjectFromThisFolder')
-              : t('localWorkspace.createProject')}
-          </h2>
-          <label className="field">
-            <span>{t('localWorkspace.projectName')}</span>
-            <input
-              aria-label={t('localWorkspace.projectName')}
-              value={name}
-              required
-              disabled={busy}
-              maxLength={100}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-          <label className="field">
-            <span>{t('localWorkspace.shortDescription')}</span>
-            <input
-              aria-label={t('localWorkspace.shortDescription')}
-              value={description}
-              disabled={busy}
-              maxLength={350}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </label>
-          <div className="field">
-            <span>
-              {effectiveMode === 'create' ? t('localWorkspace.localFolderOptional') : t('localWorkspace.localFolder')}
-            </span>
-            <div className="folder-field">
-              <FolderOpen size={19} />
-              <span title={inspection?.path ?? ''}>{inspection?.path || t('localWorkspace.noFolderSelected')}</span>
-              <button type="button" className="button button-quiet" disabled={busy} onClick={() => void chooseFolder()}>
-                {t('localWorkspace.chooseFolder')}
-              </button>
-              {effectiveMode === 'create' && inspection && (
-                <button
-                  type="button"
-                  className="icon-button"
-                  disabled={busy}
-                  aria-label={t('localWorkspace.clearFolder')}
-                  title={t('localWorkspace.clearFolder')}
-                  onClick={() => setInspection(null)}
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-            {effectiveMode === 'create' && <small className="muted">{t('localWorkspace.cloudOnlyHint')}</small>}
-          </div>
-          <div className="field">
-            <span>{t('localWorkspace.whoCanSeeIt')}</span>
-            <div className="choice-grid" role="group" aria-label={t('localWorkspace.whoCanSeeIt')}>
-              <button
-                type="button"
-                className={`choice ${isPrivate ? 'chosen' : ''}`}
-                aria-pressed={isPrivate}
-                disabled={busy}
-                onClick={() => setIsPrivate(true)}
-              >
-                <span className="choice-circle">{isPrivate && <Check size={13} />}</span>
-                <LockKeyhole size={18} />
-                <strong>{t('localWorkspace.onlyMe')}</strong>
-                <small>{t('localWorkspace.visibleOnlyToYou')}</small>
-              </button>
-              <button
-                type="button"
-                className={`choice ${!isPrivate ? 'chosen' : ''}`}
-                aria-pressed={!isPrivate}
-                disabled={busy}
-                onClick={() => setIsPrivate(false)}
-              >
-                <span className="choice-circle">{!isPrivate && <Check size={13} />}</span>
-                <Globe2 size={18} />
-                <strong>{t('localWorkspace.everyone')}</strong>
-                <small>{t('localWorkspace.shareItWithOthers')}</small>
-              </button>
-            </div>
-          </div>
-          <button
-            className="button button-primary submit-button"
-            disabled={
-              busy || !name.trim() || (effectiveMode !== 'create' && !inspection) || inspection?.state === 'github'
-            }
-            type="submit"
-          >
-            <Plus size={17} />
-            {t('localWorkspace.createProject')}
-          </button>
-        </form>
+        <LocalCreateForm
+          language={language}
+          createMode={effectiveMode === 'create'}
+          inspection={inspection}
+          name={name}
+          onNameChange={setName}
+          description={description}
+          onDescriptionChange={setDescription}
+          isPrivate={isPrivate}
+          onPrivateChange={setIsPrivate}
+          busy={busy}
+          onChooseFolder={() => void chooseFolder()}
+          onClearFolder={() => setInspection(null)}
+          onSubmit={(event) => void create(event)}
+        />
       )}
       {effectiveMode === 'list' && activeLocalId && linksReady && visibleLinks.length === 0 && (
         <p className="live-empty">{t('localWorkspace.thisLocalLinkWasRemovedYouCanReturnTo')}</p>
@@ -641,33 +609,15 @@ export function LocalWorkspace({
             </div>
             <p className="muted">{item.localPath}</p>
             {statusError ? (
-              <div className="local-folder-error" role="alert">
-                <h3>
-                  {missing
-                    ? t('localWorkspace.cannotFindThisFolder')
-                    : t('localWorkspace.cannotReadThisFolderRightNow')}
-                </h3>
-                <p>{t('localWorkspace.ifYouMovedTheFolderSelectItsNewLocation')}</p>
-                {missing ? (
-                  <details>
-                    <summary>{t('localWorkspace.viewDetails')}</summary>
-                    <pre data-content-original>{readAppError(statusError).detail}</pre>
-                  </details>
-                ) : (
-                  <ErrorMessage error={statusError} />
-                )}
-                <div className="local-actions">
-                  <button className="button button-primary" disabled={busy} onClick={() => void relocate(item)}>
-                    {t('localWorkspace.chooseNewLocation')}
-                  </button>
-                  <button className="button button-quiet" disabled={busy} onClick={() => void task(refresh)}>
-                    {t('localWorkspace.retry')}
-                  </button>
-                  <button className="button button-quiet" disabled={busy} onClick={() => setRemoveTarget(item)}>
-                    {t('localWorkspace.remove')}
-                  </button>
-                </div>
-              </div>
+              <LocalFolderError
+                language={language}
+                statusError={statusError}
+                missing={Boolean(missing)}
+                busy={busy}
+                onRelocate={() => void relocate(item)}
+                onRetry={() => void task(refresh)}
+                onRemove={() => setRemoveTarget(item)}
+              />
             ) : (
               <>
                 <div className="local-actions">
@@ -704,6 +654,12 @@ export function LocalWorkspace({
                     <ArrowDownToLine size={16} />
                     {t('localWorkspace.getLatest')}
                   </button>
+                  {status?.pushable && !status.files.length && !status.needsReview ? (
+                    <button className="button button-quiet" disabled={busy} onClick={() => void pushBranch(item)}>
+                      <Send size={16} />
+                      {t('localWorkspace.pushBranch')}
+                    </button>
+                  ) : null}
                   {status && (status.files.length > 0 || status.pendingPublish) ? (
                     <button
                       className="button button-primary"
@@ -734,153 +690,52 @@ export function LocalWorkspace({
                   <p className="live-error">{t('localWorkspace.anotherToolHasPreparedChangesInThisFolderFinish')}</p>
                 )}
                 {syncReview?.id === item.id && (
-                  <div className="sync-review">
-                    <h3>{t('localWorkspace.contentNeedsYourChoice')}</h3>
-                    <p>{t('localWorkspace.theseFilesWereAlsoChangedOnAnotherComputerReview')}</p>
-                    {syncReview.preview.files.map((file) => (
-                      <div className="sync-review-file" key={file.path}>
-                        <strong>{file.path}</strong>
-                        <div className="local-actions">
-                          <button
-                            className="button button-quiet"
-                            type="button"
-                            onClick={() => setShowDifferences((old) => ({ ...old, [file.path]: !old[file.path] }))}
-                          >
-                            {showDifferences[file.path]
-                              ? t('localWorkspace.hideComparison')
-                              : t('localWorkspace.compareVersions')}
-                          </button>
-                          <button
-                            className={`button ${syncChoices[file.path] === 'mine' ? 'button-primary' : 'button-quiet'}`}
-                            type="button"
-                            onClick={() => setSyncChoices((old) => ({ ...old, [file.path]: 'mine' }))}
-                          >
-                            {t('localWorkspace.keepMine')}
-                          </button>
-                          <button
-                            className={`button ${syncChoices[file.path] === 'github' ? 'button-primary' : 'button-quiet'}`}
-                            type="button"
-                            onClick={() => setSyncChoices((old) => ({ ...old, [file.path]: 'github' }))}
-                          >
-                            {t('localWorkspace.useGithubVersion')}
-                          </button>
-                        </div>
-                        {showDifferences[file.path] && (
-                          <div className="sync-review-diff">
-                            <div>
-                              <span>{t('localWorkspace.yourVersion')}</span>
-                              <pre>{file.mine ?? t('localWorkspace.thisVersionHasNoFile')}</pre>
-                            </div>
-                            <div>
-                              <span>{t('localWorkspace.versionOnGithub')}</span>
-                              <pre>{file.github ?? t('localWorkspace.thisVersionHasNoFile')}</pre>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    <div className="local-actions">
-                      <button
-                        className="button button-quiet"
-                        type="button"
-                        onClick={() => {
-                          setSyncReview(null);
-                          setPublishAfterSync(null);
-                        }}
-                      >
-                        {t('localWorkspace.decideLater')}
-                      </button>
-                      <button
-                        className="button button-primary"
-                        type="button"
-                        disabled={busy || syncReview.preview.files.some((file) => !syncChoices[file.path])}
-                        onClick={() => void confirmSync(item)}
-                      >
-                        {t('localWorkspace.confirmAndGetLatest')}
-                      </button>
-                    </div>
-                  </div>
+                  <LocalSyncReview
+                    language={language}
+                    preview={syncReview.preview}
+                    choices={syncChoices}
+                    showDifferences={showDifferences}
+                    busy={busy}
+                    onToggleDifference={(path) => setShowDifferences((old) => ({ ...old, [path]: !old[path] }))}
+                    onChoose={(path, choice) => setSyncChoices((old) => ({ ...old, [path]: choice }))}
+                    onDecideLater={() => {
+                      setSyncReview(null);
+                      setPublishAfterSync(null);
+                    }}
+                    onConfirm={() => void confirmSync(item)}
+                  />
                 )}
                 {publishId === item.id && status && (
-                  <form className="local-publish" onSubmit={(event) => void publish(event, item)}>
-                    <h3>{t('localWorkspace.publishSourceCode')}</h3>
-                    <p className={repo?.private ? '' : 'local-sensitive-warning'}>
-                      {repo?.private
-                        ? t('localWorkspace.targetRepositoryPrivateVisibleToAuthorizedPeopleOnly')
-                        : t('localWorkspace.targetRepositoryPublicAnyoneCanReadPublishedFilesDo')}
-                    </p>
-                    <label className="field">
-                      <span>{t('localWorkspace.whatChanged')}</span>
-                      <input
-                        ref={publishInput}
-                        aria-label={t('localWorkspace.whatChanged')}
-                        required
-                        maxLength={200}
-                        value={updateMessage}
-                        onChange={(event) => setUpdateMessage(event.target.value)}
-                        placeholder={t('localWorkspace.forExampleFixWindowResizing')}
-                      />
-                    </label>
-                    <div className="local-actions">
-                      <button className="button button-quiet" type="button" onClick={() => setPublishId(null)}>
-                        {t('localWorkspace.cancel')}
-                      </button>
-                      <button
-                        className="button button-primary"
-                        disabled={
-                          busy ||
-                          status.needsReview ||
-                          !updateMessage.trim() ||
-                          !selections[item.id] ||
-                          (!selections[item.id]?.paths.length && !pending[item.id])
-                        }
-                        type="submit"
-                      >
-                        {status.pendingPublish
-                          ? t('localWorkspace.retryPublishing')
-                          : t('localWorkspace.publishSelectedFiles')}
-                      </button>
-                    </div>
-                  </form>
+                  <LocalPublishForm
+                    language={language}
+                    status={status}
+                    targetPrivate={repo?.private}
+                    defaultBranch={repo?.default_branch}
+                    message={updateMessage}
+                    onMessageChange={setUpdateMessage}
+                    inputRef={publishInput}
+                    submitDisabled={
+                      busy ||
+                      status.needsReview ||
+                      !updateMessage.trim() ||
+                      !selections[item.id] ||
+                      (!selections[item.id]?.paths.length && !pending[item.id])
+                    }
+                    onCancel={() => setPublishId(null)}
+                    onSubmit={(event) => void publish(event, item)}
+                  />
                 )}
                 {effectiveMode !== 'create' && (
-                  <details
-                    className="local-readme"
-                    onToggle={(event) => {
-                      if (event.currentTarget.open) setIntroductionRefresh((value) => value + 1);
+                  <LocalIntroduction
+                    language={language}
+                    item={item}
+                    branch={repo?.default_branch || 'main'}
+                    introduction={introduction}
+                    onRefresh={() => setIntroductionRefresh((value) => value + 1)}
+                    onOpenLink={(url) => {
+                      void api?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause)));
                     }}
-                  >
-                    <summary>{t('localWorkspace.projectIntroduction')}</summary>
-                    <section aria-label={t('localWorkspace.projectIntroduction')}>
-                      <div className="panel-heading">
-                        <h3>{t('localWorkspace.projectIntroduction')}</h3>
-                      </div>
-                      {!introduction ? (
-                        <p className="muted" role="status">
-                          {t('localWorkspace.loadingProjectIntroduction')}
-                        </p>
-                      ) : introduction.error ? (
-                        <div>
-                          <p className="live-error" role="alert">
-                            <ErrorMessage error={introduction.error} />
-                          </p>
-                          <button className="text-link" onClick={() => setIntroductionRefresh((value) => value + 1)}>
-                            {t('localWorkspace.readAgain')}
-                          </button>
-                        </div>
-                      ) : introduction.content ? (
-                        <ReadmeMarkdown
-                          markdown={introduction.content}
-                          repository={{ owner: item.owner, name: item.name, branch: repo?.default_branch || 'main' }}
-                          onOpenLink={(url) => {
-                            void api?.openExternalLink(url).catch((cause: unknown) => setError(errorText(cause)));
-                          }}
-                        />
-                      ) : (
-                        <p className="muted">{t('localWorkspace.thisProjectHasNoIntroductionYet')}</p>
-                      )}
-                    </section>
-                  </details>
+                  />
                 )}
               </>
             )}
@@ -888,103 +743,38 @@ export function LocalWorkspace({
         );
       })}
       {effectiveMode !== 'create' && !singleProject && (
-        <section className="panel live-section">
-          <div className="panel-heading">
-            <h2>{t('localWorkspace.cloudProjects')}</h2>
-          </div>
-          {visibleRepos
-            .filter((repo) => !links.some((item) => item.repositoryId === repo.id))
-            .map((repo) => (
-              <div className="live-repo-row local-cloud-row" key={repo.id}>
-                <span>
-                  <strong>{repo.name}</strong>
-                  <small>{repo.description || t('localWorkspace.noDescriptionYet')}</small>
-                </span>
-                <button
-                  className="button button-quiet"
-                  disabled={busy || downloadBusy}
-                  onClick={() => void download(repo)}
-                >
-                  <Download size={16} />
-                  {t('localWorkspace.download')}
-                </button>
-              </div>
-            ))}
-          {visibleRepos.every((repo) => links.some((item) => item.repositoryId === repo.id)) && (
-            <p className="muted">
-              <CheckCircle2 size={16} />
-              {t('localWorkspace.allCloudProjectsAreOnThisComputer')}
-            </p>
-          )}
-        </section>
+        <LocalCloudProjects
+          language={language}
+          repos={visibleRepos}
+          links={links}
+          disabled={busy || downloadBusy}
+          onDownload={(repo) => void download(repo)}
+        />
       )}
       {removeTarget && (
-        <div className="modal-backdrop">
-          <div
-            className="modal"
-            ref={removeDialog}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="remove-local-title"
-          >
-            <h2 id="remove-local-title">{t('localWorkspace.removeLocalProjectLink')}</h2>
-            <p data-content-original>{removeTarget.name}</p>
-            <p>{t('localWorkspace.thisOnlyRemovesTheLinkFromThisComputerS')}</p>
-            <div className="modal-actions">
-              <button className="button button-quiet" disabled={busy} onClick={() => setRemoveTarget(null)}>
-                {t('localWorkspace.cancel')}
-              </button>
-              <button className="button danger-confirm" disabled={busy} onClick={() => void remove(removeTarget)}>
-                {t('localWorkspace.confirmRemoval')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <LocalRemoveDialog
+          language={language}
+          target={removeTarget}
+          busy={busy}
+          dialogRef={removeDialog}
+          onCancel={() => setRemoveTarget(null)}
+          onConfirm={() => void remove(removeTarget)}
+        />
       )}
       {sensitiveConfirm && (
-        <div className="modal-backdrop" role="presentation">
-          <div
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="sensitive-confirm-title"
-            ref={confirmDialog}
-          >
-            <h2 id="sensitive-confirm-title">{t('localWorkspace.theseFilesMayContainPasswordsOrKeys')}</h2>
-            <p className="local-sensitive-warning">
-              {t('localWorkspace.checkTheseFilesAnyoneWithAccessToThisRepository')}
-            </p>
-            <ul>
-              {sensitiveSelections[sensitiveConfirm.item.id]?.map((file) => (
-                <li key={file.path}>
-                  <strong>{file.path}</strong>
-                  <ul>
-                    {file.sensitiveReasons?.map((reason) => (
-                      <li key={reason}>{sensitiveReasonText(reason, language)}</li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ul>
-            <div className="modal-actions">
-              <button className="button button-quiet" onClick={() => setSensitiveConfirm(null)}>
-                {t('localWorkspace.backToReview')}
-              </button>
-              <button
-                className="button danger-confirm"
-                onClick={() =>
-                  void publishSelection(
-                    sensitiveConfirm.item,
-                    { ...sensitiveConfirm.selection, sensitiveConfirmed: true },
-                    sensitiveConfirm.message,
-                  )
-                }
-              >
-                {t('localWorkspace.confirmPublicationOfTheseFiles')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <LocalSensitiveConfirmDialog
+          language={language}
+          files={sensitiveSelections[sensitiveConfirm.item.id]}
+          dialogRef={confirmDialog}
+          onBack={() => setSensitiveConfirm(null)}
+          onConfirm={() =>
+            void publishSelection(
+              sensitiveConfirm.item,
+              { ...sensitiveConfirm.selection, sensitiveConfirmed: true },
+              sensitiveConfirm.message,
+            )
+          }
+        />
       )}
     </div>
   );

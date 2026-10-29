@@ -14,4 +14,6 @@ PLAN.md
 
 # Generated macOS build resources.
 /apps/desktop/resources/easyhub.icns
-/apps/desktop/resources/easyhub-proxy-helper
+
+# Desktop installers are generated independently for each platform.
+/apps/desktop/release/

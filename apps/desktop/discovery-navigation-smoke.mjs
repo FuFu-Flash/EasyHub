@@ -7,7 +7,7 @@ import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
 
 const desktop = dirname(fileURLToPath(import.meta.url));
-const product = process.argv.includes('--packaged') ? join(desktop,'release/win-unpacked/resources/app.asar') : desktop;
+const product = process.argv.includes('--packaged') ? join(desktop,'release/windows/win-unpacked/resources/app.asar') : desktop;
 const profile = await mkdtemp(join(tmpdir(),'easyhub-discovery-navigation-'));
 const bootstrap = join(profile,'bootstrap.cjs');
 await writeFile(bootstrap, `const{app}=require('electron');app.setPath('userData',${JSON.stringify(join(profile,'data'))});process.env.EASYHUB_PROXY_APP_ONLY_TEST='1';process.env.ELECTRON_RENDERER_URL='data:text/html,Discovery fixture';require(${JSON.stringify(join(product,'out/main/index.js'))});`);
@@ -49,7 +49,9 @@ try {
   assert.ok(before > 500, 'The discovery list did not scroll far enough to test restoration.');
   await page.locator('.trending-card').nth(25).click();
   const during = await page.locator('.main-column').evaluate((node) => node.scrollTop);
-  await page.getByTestId('public-project-browser').getByRole('button', { name: '返回搜索结果' }).click();
+  // Trending is not a search, so the way back is a plain "返回".
+  assert.equal(await page.getByTestId('public-project-browser').getByRole('button', { name: '返回搜索结果' }).count(), 0);
+  await page.getByTestId('public-project-browser').getByRole('button', { name: '返回', exact: true }).click();
   await page.locator('.trending-card').nth(25).waitFor();
   const after = await page.locator('.main-column').evaluate((node) => node.scrollTop);
   assert.ok(Math.abs(after - before) < 80, `Discovery position was lost: before=${before}, during=${during}, after=${after}`);
@@ -66,7 +68,7 @@ try {
   assert.equal(await page.locator('.trending-card').count(), 5);
   assert.equal(await page.getByRole('button', { name: '下一页' }).isDisabled(), true);
   await page.locator('.trending-card').first().click();
-  await page.getByTestId('public-project-browser').getByRole('button', { name: '返回搜索结果' }).click();
+  await page.getByTestId('public-project-browser').getByRole('button', { name: '返回', exact: true }).click();
   await page.getByText('#61', { exact: true }).waitFor();
   await page.getByRole('button', { name: '上一页' }).click();
   await page.getByText('#31', { exact: true }).waitFor();

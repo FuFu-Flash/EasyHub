@@ -4,7 +4,7 @@ import { _electron as electron } from 'playwright-core';
 import electronPath from 'electron';
 
 const packaged = process.argv.includes('--packaged');
-const app = await electron.launch({ executablePath: packaged ? join(process.cwd(), 'release/win-unpacked/EasyHub.exe') : electronPath, args: packaged ? [] : ['.'], cwd: process.cwd() });
+const app = await electron.launch({ executablePath: packaged ? join(process.cwd(), 'release/windows/win-unpacked/EasyHub.exe') : electronPath, args: packaged ? [] : ['.'], cwd: process.cwd() });
 try {
   await app.evaluate(({ ipcMain }) => {
     let repo = { id: 901, name: 'owned-repo', full_name: 'test-owner/owned-repo', description: 'A sample project', private: false, archived: false, permissions: { admin: true, push: true, pull: true }, updated_at: new Date().toISOString(), default_branch: 'main', owner: { login: 'test-owner' }, open_issues_count: 0 };
@@ -51,8 +51,10 @@ try {
   await page.locator('.sidebar-nav button').nth(1).click();
   await page.getByRole('button', { name: /我的云端项目/ }).click();
   await page.locator('.cloud-row').filter({ hasText: 'owned-repo' }).getByRole('button', { name: '查看' }).click();
-  const danger = page.getByRole('region', { name: '危险区' });
+  await page.getByRole('button', { name: '项目设置', exact: true }).click();
+  const danger = page.getByRole('dialog', { name: '项目设置', exact: true });
   await danger.waitFor();
+  await page.waitForTimeout(400);
   await page.screenshot({ path: 'out/live-danger-zone.png' });
   await danger.getByRole('button', { name: '改变可见性' }).click();
   const dialog = page.getByRole('dialog', { name: '变更项目可见性' });

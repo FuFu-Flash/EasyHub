@@ -14,7 +14,7 @@ function compare(a: Version, b: Version): number {
   return 0;
 }
 
-export async function checkAppUpdate(currentVersion: string, transport: typeof fetch): Promise<AppUpdateResult> {
+export async function checkAppUpdate(currentVersion: string, transport: typeof fetch, platform: NodeJS.Platform = 'win32'): Promise<AppUpdateResult> {
   const current = version(currentVersion);
   if (!current) throw new Error('无法识别当前应用版本。');
   let response: Response;
@@ -27,15 +27,17 @@ export async function checkAppUpdate(currentVersion: string, transport: typeof f
   const releases = data.flatMap((entry: unknown) => {
     if (!entry || typeof entry !== 'object') return [];
     const item = entry as Record<string, unknown>;
-    const parsed = version(item.tag_name);
+    const tag = typeof item.tag_name === 'string' ? item.tag_name : '';
+    const parsed = version(platform === 'darwin' && /^macos-v?/u.test(tag) ? tag.replace(/^macos-v?/u, '') : tag);
     if (!parsed || item.draft !== false || item.prerelease !== false || !Array.isArray(item.assets)) return [];
     const number = parsed.join('.');
     const windows = item.assets.some((asset: unknown) => typeof asset === 'object' && asset !== null && 'name' in asset &&
       (asset.name === `EasyHub-${number}-setup.exe` || asset.name === `EasyHub-${number}-portable.exe`));
-    return windows ? [{ tag: String(item.tag_name), version: number, parsed }] : [];
+    const mac = /^macos-v?/u.test(tag) && item.assets.some((asset: unknown) => typeof asset === 'object' && asset !== null && 'name' in asset && ['EasyHub-macOS.dmg', 'EasyHub-macOS.zip'].includes(String(asset.name)));
+    return (platform === 'darwin' ? mac : windows) ? [{ tag, version: number, parsed }] : [];
   }).sort((a, b) => compare(b.parsed, a.parsed));
   const latest = releases[0];
-  if (!latest) throw new Error('暂时没有可用的 Windows 版本，请稍后重试。');
+  if (!latest) throw new Error(platform === 'darwin' ? '暂时没有可用的 macOS 版本，请稍后重试。' : '暂时没有可用的 Windows 版本，请稍后重试。');
   return { currentVersion, latestVersion: latest.version, available: compare(latest.parsed, current) > 0,
     releaseUrl: `https://github.com/FuFu-Flash/EasyHub/releases/tag/${encodeURIComponent(latest.tag)}` };
 }

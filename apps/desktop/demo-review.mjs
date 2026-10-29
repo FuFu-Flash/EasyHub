@@ -41,7 +41,7 @@ export async function runDemoReview(page, { app, output }) {
       }
       await page.screenshot({ path: join(output, `review-${language}-${density}-${width}-${label}.png`) });
     }
-    await page.locator('.sidebar-nav').getByRole('button', { name: language === 'en' ? 'Home' : '首页', exact: true }).click(); await page.locator('.v2-feature-button').click(); await page.locator('.local-publish').waitFor();
+    await page.locator('.sidebar-nav').getByRole('button', { name: language === 'en' ? 'Home' : '首页', exact: true }).click(); await page.locator('.home-task-row .button-primary').click(); await page.locator('.local-publish').waitFor();
     assert.equal(await page.getByRole('checkbox', { name: language === 'en' ? 'Publish .env' : '发布 .env', exact: true }).isChecked(), false);
     assert.ok(await page.locator('.local-publish input').evaluate((input) => input === document.activeElement));
     await page.screenshot({ path: join(output, `review-publish-${language}-${density}-${width}.png`) });

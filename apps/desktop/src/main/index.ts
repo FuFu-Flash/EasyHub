@@ -7,8 +7,8 @@ import { AsyncEntry } from '@napi-rs/keyring';
 import { AiReviewService, type AiCredentialStore } from './services/AiReviewService';
 import { HostsRepairService } from './services/hostsRepair';
 import { GitHubProxyService, useGitHubProxy } from './services/GitHubProxyService';
-import { WindowsSystemProxy } from './services/WindowsSystemProxy';
-import { MacSystemProxy } from './services/MacSystemProxy';
+import { WindowsSystemProxy } from './platforms/windows/WindowsSystemProxy';
+import { MacSystemProxy } from './platforms/macos/MacSystemProxy';
 import { GitHubSystemRelay } from './services/GitHubSystemRelay';
 import { GITHUB_CLIENT_ID } from './services/githubAuthConfig';
 import { OpenAiReviewProvider } from './services/OpenAiReviewProvider';
@@ -20,7 +20,7 @@ import { ReleasePublishingService } from './services/releasePublishing';
 import { FallbackTranslationProvider, GoogleWebTranslationProvider, MyMemoryTranslationProvider, TranslationService } from './services/TranslationService';
 import type { TranslationRequest } from '@easyhub/types';
 import { canRunMenuCommand, isMenuState, type MenuCommand, type MenuState } from '../shared/applicationMenu';
-import { createApplicationMenuTemplate } from './applicationMenu';
+import { createApplicationMenuTemplate, nativeMenuText } from './platforms/macos/applicationMenu';
 import { AnalysisRuntime } from './analysis/AnalysisRuntime';
 import { analysisElectronFetch } from './analysis/analysisElectronFetch';
 import { BinaryAnalysisService } from './analysis/BinaryAnalysisService';
@@ -104,9 +104,8 @@ function rebuildApplicationMenu(): void {
     showWindow: showMainWindow,
     openExternal: (url) => {
       void shell.openExternal(url).catch(() => {
-        const english = menuState.language === 'en';
-        dialog.showErrorBox(english ? 'Could not open the browser' : '无法打开浏览器',
-          english ? 'Check your default browser and try again.' : '请检查默认浏览器设置，然后重试。');
+        dialog.showErrorBox(nativeMenuText(menuState.language, 'nativeMenu.browserFailureTitle'),
+          nativeMenuText(menuState.language, 'nativeMenu.browserFailureMessage'));
       });
     },
   })));
@@ -157,7 +156,7 @@ function createWindow(): void {
     frame: process.platform === 'darwin',
     ...(process.platform === 'darwin' ? {
       titleBarStyle: 'hidden' as const,
-      trafficLightPosition: windowToolbarDensity === 'compact' ? { x: 16, y: 21 } : { x: 25, y: 29 },
+      trafficLightPosition: windowToolbarDensity === 'compact' ? { x: 16, y: 17 } : { x: 20, y: 19 },
     } : {}),
     roundedCorners: true,
     thickFrame: true,
@@ -307,7 +306,7 @@ if (primaryInstance) app.whenReady().then(async () => {
     if (process.platform === 'darwin') {
       mainWindow!.setWindowButtonVisibility(style === 'reference');
       // Match the renderer's 56/72px toolbar and 16/25px leading inset.
-      mainWindow!.setWindowButtonPosition(density === 'compact' ? { x: 16, y: 21 } : { x: 25, y: 29 });
+      mainWindow!.setWindowButtonPosition(density === 'compact' ? { x: 16, y: 17 } : { x: 20, y: 19 });
     }
   });
 
@@ -327,7 +326,7 @@ if (primaryInstance) app.whenReady().then(async () => {
     await shell.openExternal('https://www.apache.org/licenses/LICENSE-2.0');
   });
 
-  handle('easyhub:hosts-status', (event) => { assertTrustedSender(event); return requireWindowsHosts().status(); });
+  handle('easyhub:hosts-status', (event) => { assertTrustedSender(event); return hostsRepairService ? hostsRepairService.status() : { enabled: false, updatedAt: null, source: '' }; });
   handle('easyhub:hosts-set-enabled', async (event, enabled: unknown) => {
     assertTrustedSender(event);
     if (typeof enabled !== 'boolean') throw new Error('Hosts 修复设置无效。');
@@ -383,6 +382,10 @@ if (primaryInstance) app.whenReady().then(async () => {
   handle('easyhub:local-file-diff', (event, id: unknown, path: unknown, snapshot: unknown) => { assertTrustedSender(event); return localService.fileDiff(id, path, snapshot); });
   handle('easyhub:local-cancel-preview', (event, id: unknown) => { assertTrustedSender(event); return localService.cancelPreview(id); });
   handle('easyhub:local-publish', (event, id: unknown, message: unknown, selection: unknown) => { assertTrustedSender(event); return localService.publish(id, message, selection); });
+  handle('easyhub:local-list-branches', (event, id) => { assertTrustedSender(event); return localService.listBranches(id); });
+  handle('easyhub:local-switch-branch', (event, id, name) => { assertTrustedSender(event); return localService.switchBranch(id, name); });
+  handle('easyhub:local-create-branch', (event, id, name) => { assertTrustedSender(event); return localService.createBranch(id, name); });
+  handle('easyhub:local-push-branch', (event, id: unknown) => { assertTrustedSender(event); return localService.pushBranch(id); });
   handle('easyhub:local-check-sync', (event, id: unknown) => { assertTrustedSender(event); return localService.checkSync(id); });
   handle('easyhub:local-sync', (event, id: unknown, revision: unknown, decisions: unknown) => { assertTrustedSender(event); return localService.sync(id, revision, decisions); });
   handle('easyhub:local-cancel', (event) => { assertTrustedSender(event); localService.cancel(); });

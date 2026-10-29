@@ -10,7 +10,7 @@ export default async context => {
       ['main', ['openai', 'isomorphic-git', 'https-proxy-agent', 'tar', 'yauzl']],
       ['renderer', ['react', 'react-markdown']],
     ]) {
-      const notices = await readFile(join(root, 'out', target, 'bundled-dependency-notices.txt'), 'utf8');
+      const notices = await readFile(join(root, 'out', 'windows', target, 'bundled-dependency-notices.txt'), 'utf8');
       if (!notices.includes('Permission is hereby granted') || packages.some(name => !notices.includes(`${name}@`))) {
         throw new Error('Incomplete bundled dependency notices');
       }

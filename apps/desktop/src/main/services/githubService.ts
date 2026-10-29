@@ -338,6 +338,16 @@ export async function gitHubIdentity(): Promise<{ token: string; user: GitHubUse
 }
 
 export function repositoryDetails(owner: string, name: string) { return client.repo(owner, name); }
+/** Names of the branches GitHub has for a repository (first 500). */
+export async function repositoryBranchNames(owner: string, name: string): Promise<string[]> {
+  const names: string[] = [];
+  for (let page: number | null = 1; page && page <= 5;) {
+    const result: Awaited<ReturnType<typeof client.branchesPage>> = await client.branchesPage(owner, name, page);
+    names.push(...result.items.map((branch) => branch.name));
+    page = result.nextPage;
+  }
+  return names;
+}
 export function loadCommitExplanation(owner: string, repo: string, sha: string, page: number, signal: AbortSignal) {
   return client.commitChangesPage(owner, repo, sha, page, signal);
 }
@@ -473,7 +483,7 @@ export async function githubAction(action: unknown, args: unknown[]): Promise<un
       }
     };
     switch (action) {
-      case 'appUpdate': if (args.length === 0) return await checkAppUpdate(app.getVersion(), (input, init) => net.fetch(String(input), init)); invalid();
+      case 'appUpdate': if (args.length === 0) return await checkAppUpdate(app.getVersion(), (input, init) => net.fetch(String(input), init), process.platform); invalid();
       case 'user': return await client.user(controller?.signal);
       case 'profile': if (validRepoPart(owner)) return await client.profile(owner, controller?.signal); invalid();
       case 'contributions': if (validRepoPart(owner) && typeof repo === 'string' && /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/.test(repo) && typeof third === 'string' && /^\d{4}-\d{2}-\d{2}T23:59:59\.999Z$/.test(third) && Date.parse(third) >= Date.parse(repo) && Date.parse(third) - Date.parse(repo) <= 370 * 86400000) return await client.contributions(owner, repo, third, controller?.signal); invalid();

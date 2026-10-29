@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const vault = vi.hoisted(() => ({ password: undefined as string | undefined, probes: new Map<string, string>(), fail: '' as '' | 'construct' | 'read' | 'write' | 'delete', wrongProbe: false, beforeWrite: undefined as (() => Promise<void>) | undefined }));
-const desktop = vi.hoisted(() => ({ directory: '', save: vi.fn(), confirm: vi.fn(), reveal: vi.fn() }));
+const desktop = vi.hoisted(() => ({ save: vi.fn(), confirm: vi.fn(), reveal: vi.fn() }));
 vi.mock('@napi-rs/keyring', () => ({ AsyncEntry: class {
   constructor(private readonly service: string, private readonly account: string) { if (vault.fail === 'construct') throw new Error('keyring constructor private-debug'); }
   async getPassword(): Promise<string | undefined> {
@@ -22,10 +22,9 @@ vi.mock('@napi-rs/keyring', () => ({ AsyncEntry: class {
     return vault.probes.delete(`${this.service}/${this.account}`);
   }
 } }));
-vi.mock('electron', () => ({ app: { getPath: () => desktop.directory }, dialog: { showSaveDialog: desktop.save, showMessageBox: desktop.confirm }, shell: { showItemInFolder: desktop.reveal }, net: { fetch: (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init) } }));
+vi.mock('electron', () => ({ app: {}, dialog: { showSaveDialog: desktop.save, showMessageBox: desktop.confirm }, shell: { showItemInFolder: desktop.reveal }, net: { fetch: (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init) } }));
 
-beforeEach(async () => { desktop.directory = await mkdtemp(join(tmpdir(), 'easyhub-github-service-test-')); });
-afterEach(async () => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); vault.password = undefined; vault.probes.clear(); vault.fail = ''; vault.wrongProbe = false; vault.beforeWrite = undefined; await rm(desktop.directory, { recursive: true, force: true }); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); vault.password = undefined; vault.probes.clear(); vault.fail = ''; vault.wrongProbe = false; vault.beforeWrite = undefined; });
 
 describe('read-only build and test checks', () => {
   const headSha = 'a'.repeat(40);

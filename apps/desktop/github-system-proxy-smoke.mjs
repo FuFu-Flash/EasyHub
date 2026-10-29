@@ -22,7 +22,7 @@ await writeFile(source, `
 export { GitHubSystemRelay } from ${JSON.stringify(importPath('src/main/services/GitHubSystemRelay.ts'))};
 export { GitHubOriginAgent } from ${JSON.stringify(importPath('src/main/services/githubProxyOrigin.ts'))};
 export { DEFAULT_GITHUB_RULES } from ${JSON.stringify(importPath('src/main/services/steamGitHubRules.ts'))};
-export { WindowsSystemProxy, createWindowsSystemProxyAdapter } from ${JSON.stringify(importPath('src/main/services/WindowsSystemProxy.ts'))};
+export { WindowsSystemProxy, createWindowsSystemProxyAdapter } from ${JSON.stringify(importPath('src/main/platforms/windows/WindowsSystemProxy.ts'))};
 `, 'utf8');
 
 let running;

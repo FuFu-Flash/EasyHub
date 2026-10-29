@@ -21,7 +21,7 @@ const channels = [...new Set([...preload.matchAll(/ipcRenderer\.invoke\(([^,\r\n
 assert.ok(channels.length > 40);
 const executableArgument = process.argv.find(value => value.startsWith('--executable='));
 const executable = executableArgument?.slice('--executable='.length)
-  ?? (process.argv.includes('--packaged') ? join(desktop, 'release', 'win-unpacked', 'EasyHub.exe') : null);
+  ?? (process.argv.includes('--packaged') ? join(desktop, 'release', 'windows', 'win-unpacked', 'EasyHub.exe') : null);
 if (executableArgument) assert.ok(isAbsolute(executable), '--executable must be an absolute path.');
 const baseline = process.argv.includes('--baseline');
 const preferenceKey = 'easyhub:program-review-install-prompts:v1';
@@ -60,6 +60,7 @@ try {
       });
     };
     for (const channel of channels) mock(channel, () => {
+      if (['easyhub:menu-state', 'easyhub:window-set-style'].includes(channel)) return;
       fixture.forbidden.push(channel);
       throw new Error('Write or unknown program notice fixture IPC blocked: ' + channel);
     });
@@ -140,13 +141,15 @@ try {
   const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const openProject = async () => {
     await page.locator('.live-connected').waitFor();
-    await page.locator('.sidebar-nav').getByRole('button', { name: /^(我的项目|My Projects)$/ }).click();
+    const projects = page.locator('.sidebar-nav').getByRole('button', { name: /^(我的项目|My Projects)$/ });
+    await projects.click();
+    // Returning to the section first restores the project left open; a second click shows the list.
+    if (!(await page.locator('h1').filter({ hasText: /^(我的项目|My Projects)$/ }).count())) await projects.click();
     await page.getByRole('button', { name: /我的云端项目|Cloud Projects/ }).click();
     await page.locator('.cloud-row').filter({ hasText: 'notice-project' }).getByRole('button', { name: /^(查看|View)$/ }).click();
-    await page.getByRole('button', { name: /^(查看问题|View Issues)$/ }).click();
-    await page.getByRole('tab', { name: /合并请求审查|Pull Request Review/ }).click();
-    const rememberedRequest = panel.getByRole('button', { name: /^(返回合并请求审查|Back to Pull Request Reviews)$/ });
-    if (await rememberedRequest.isVisible()) await rememberedRequest.click();
+    await page.getByRole('button', { name: /^(去审查|Review)$/ }).click();
+    // The section may reopen the request read last; go back to the list first.
+    if (await panel.locator('.pull-file-change').count()) await back();
     await panel.locator('.public-list-row').first().waitFor();
   };
   const openRequest = async title => {
@@ -155,7 +158,7 @@ try {
     await panel.getByRole('button', { name: /^(AI 审查|AI review)$/ }).waitFor();
     await settle();
   };
-  const back = () => panel.getByRole('button', { name: /^(返回合并请求审查|Back to Pull Request Reviews)$/ }).click();
+  const back = () => page.locator('.back-link:visible').filter({ hasText: /^(返回|Back)$/ }).click();
   const mode = async value => app.evaluate((_electron, value) => { globalThis.programNoticeFixture.mode = value; }, value);
   await openProject();
   await openRequest('Mixed changes');

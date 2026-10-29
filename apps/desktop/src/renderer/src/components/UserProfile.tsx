@@ -104,7 +104,6 @@ export function UserProfile({
           </span>
         )}
         <div>
-          <div className="eyebrow">{t('userProfile.githubProfile')}</div>
           <h1>{profile.name || login}</h1>
           <p className="profile-handle">@{login}</p>
           <p>{profile.bio || t('userProfile.noBioYet')}</p>

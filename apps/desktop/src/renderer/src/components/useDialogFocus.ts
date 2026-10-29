@@ -51,7 +51,8 @@ export function useDialogFocus(
     const focusFirst = (): void => (targets(dialog)[0] ?? dialog).focus({ preventScroll: true });
     if (activeDialog(dialog)) focusFirst();
     const key = (event: KeyboardEvent): void => {
-      if (!activeDialog(dialog)) return;
+      // Escape cancels an input-method composition first; it must not also close the dialog.
+      if (event.isComposing || !activeDialog(dialog)) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
@@ -81,9 +82,18 @@ export function useDialogFocus(
     const focus = (event: FocusEvent): void => {
       if (activeDialog(dialog) && !dialog.contains(event.target as Node)) focusFirst();
     };
+    // A focused button can disappear when the dialog's content changes (for example a finished download
+    // drops its Cancel button); focus then falls to the page, so it is brought back into the dialog.
+    const removed = new MutationObserver(() => {
+      const current = document.activeElement;
+      if ((!current || current === document.body || !current.isConnected) && activeDialog(dialog))
+        dialog.focus({ preventScroll: true });
+    });
+    removed.observe(dialog, { childList: true, subtree: true });
     document.addEventListener('keydown', key, true);
     document.addEventListener('focusin', focus);
     return () => {
+      removed.disconnect();
       document.removeEventListener('keydown', key, true);
       document.removeEventListener('focusin', focus);
       // Wait for the close/navigation render so stale buttons from the old page are excluded.

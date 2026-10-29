@@ -46,7 +46,7 @@ export function demoGithub(state: DemoState, action: string, ...args: unknown[])
   const newId = (): number => ++state.nextId;
   if (action === 'user') return DEMO_USER;
   if (action === 'appUpdate')
-    return { available: false, currentVersion: '1.3.0', latestVersion: '1.3.0', releaseUrl: '' };
+    return { available: false, currentVersion: '1.4.2', latestVersion: '1.4.2', releaseUrl: '' };
   if (action === 'repos')
     return page(
       own.map((entry) => entry.repo),

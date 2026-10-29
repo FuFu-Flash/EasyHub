@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      # The version comes from "packageManager" in package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Format check
+        run: pnpm run format:check
+
+      - name: Build
+        run: pnpm run build
+
+      # Window buttons tell the main process their style on every screen; uses the runner's installed Chrome.
+      - name: Window style sync
+        run: pnpm run test:window-style-sync
+
+      # The application menu is native on macOS only; it runs against the build above.
+      - name: Application menu (macOS)
+        if: runner.os == 'macOS'
+        run: pnpm run test:menu-ui
+
+  android:
+    name: Android (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # Only the mobile app and the shared packages it uses; the desktop app is not needed here.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter "@easyhub/mobile..."
+
+      - name: Typecheck
+        run: pnpm run typecheck:mobile
+
+      - name: Lint
+        run: pnpm run lint:mobile
+
+      - name: Unit tests
+        run: pnpm run test:mobile

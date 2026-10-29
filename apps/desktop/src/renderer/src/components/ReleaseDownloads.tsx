@@ -194,11 +194,6 @@ export function ReleaseDownloads({
               ? t('releaseDownloads.editReleases')
               : t('releaseDownloads.downloadReleasesOrSource')}
           </h1>
-          <p>
-            {editOnOpen && canEdit
-              ? t('releaseDownloads.chooseAPublishedReleaseToEditItsDescriptionOr')
-              : t('releaseDownloads.chooseReleaseFilesOrSourceCodeToSaveTo')}
-          </p>
         </div>
       </div>
       {error && (
@@ -219,7 +214,6 @@ export function ReleaseDownloads({
       {downloadBusy && <p className="muted">{t('releaseDownloads.downloadInProgressSeeNotificationsInTheTopRight')}</p>}
       <section className="panel release-download-card release-source-card">
         <h2>{t('releaseDownloads.currentProjectSource')}</h2>
-        <p className="muted">{t('releaseDownloads.downloadTheCompleteSourceOfTheCurrentDefaultBranch')}</p>
         <button
           type="button"
           className="release-asset"

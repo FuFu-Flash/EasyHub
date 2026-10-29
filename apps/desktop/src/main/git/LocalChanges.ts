@@ -12,15 +12,29 @@ import { sensitiveFileReasons } from '../../shared/sensitiveFiles';
 const staleMessage = '文件在你查看后又发生了变化，请刷新修改列表后重新选择。';
 interface FileSnapshot { file: ChangedFile; fingerprint: string; mode?: number }
 export interface ChangeSnapshot { preview: LocalPublishPreview; head: string | null; branch: string | undefined; files: FileSnapshot[] }
-export interface PendingPublication { head: string; snapshot: string; paths: string[]; message: string }
-export async function pendingPublication(dir: string, head: string | null): Promise<PendingPublication | null> {
+/** A saved version whose upload has not finished. Each branch keeps its own record, so publishing on one branch never hides another's. */
+export interface PendingPublication { head: string; snapshot: string; paths: string[]; message: string; branch?: string }
+/** Records written before branches were supported live in one shared file; they are still honoured for the version they describe. */
+const legacyPendingFile = (dir: string): string => join(dir, '.git', 'easyhub-publish-pending.json');
+const pendingFile = (dir: string, branch: string): string =>
+  join(dir, '.git', `easyhub-publish-pending-${createHash('sha256').update(branch).digest('hex').slice(0, 16)}.json`);
+async function readPending(path: string): Promise<Partial<PendingPublication> | null> {
   try {
-    const value: unknown = JSON.parse(await readFile(join(dir, '.git', 'easyhub-publish-pending.json'), 'utf8'));
-    if (!value || typeof value !== 'object') return null;
-    const item = value as Partial<PendingPublication>;
-    return item.head === head && typeof item.snapshot === 'string' && /^[a-f0-9]{64}$/.test(item.snapshot) && typeof item.message === 'string'
-      && Array.isArray(item.paths) && item.paths.every(safeChangePath) ? item as PendingPublication : null;
+    const value: unknown = JSON.parse(await readFile(path, 'utf8'));
+    return value && typeof value === 'object' ? value as Partial<PendingPublication> : null;
   } catch { return null; }
+}
+export async function pendingPublication(dir: string, head: string | null, branch?: string): Promise<PendingPublication | null> {
+  const item = (branch ? await readPending(pendingFile(dir, branch)) : null) ?? await readPending(legacyPendingFile(dir));
+  if (!item) return null;
+  if (branch !== undefined && item.branch !== undefined && item.branch !== branch) return null;
+  return item.head === head && typeof item.snapshot === 'string' && /^[a-f0-9]{64}$/.test(item.snapshot) && typeof item.message === 'string'
+    && Array.isArray(item.paths) && item.paths.every(safeChangePath) ? item as PendingPublication : null;
+}
+/** Forgets the waiting upload once `head` is on GitHub; another branch's waiting upload is never touched. */
+export async function clearPendingPublication(dir: string, branch: string, head: string): Promise<void> {
+  await rm(pendingFile(dir, branch), { force: true });
+  if ((await readPending(legacyPendingFile(dir)))?.head === head) await rm(legacyPendingFile(dir), { force: true });
 }
 const missing = (error: unknown): boolean => error instanceof Error && 'code' in error && error.code === 'ENOENT';
 
@@ -91,7 +105,7 @@ export async function snapshotChanges(dir: string, status: GitProjectStatus): Pr
     files.push({ file, fingerprint: found.value, mode: found.mode });
   }
   const snapshot = createHash('sha256').update(JSON.stringify({ head: status.head, branch, prepared: status.hasPreparedChanges, files })).digest('hex');
-  return { preview: { snapshot, files: status.files, needsReview: status.hasPreparedChanges, pendingPublish: status.pendingPublish, pendingMessage: status.pendingMessage }, head: status.head, branch, files };
+  return { preview: { snapshot, files: status.files, needsReview: status.hasPreparedChanges, pendingPublish: status.pendingPublish, pendingMessage: status.pendingMessage, branch, pushable: status.pushable }, head: status.head, branch, files };
 }
 
 function diffLines(before: string, after: string): { lines: LocalDiffLine[]; additions: number; deletions: number } | null {
@@ -138,7 +152,7 @@ export async function fileDifference(dir: string, snapshot: ChangeSnapshot, path
 /** Builds a private index, then atomically replaces only metadata under normal Git locks.
  * The working directory is never checked out, reset, removed or rewritten here. */
 export async function commitSelectedChanges(dir: string, author: GitAuthor, message: string, selection: LocalPublishSelection,
-  rescan: () => Promise<ChangeSnapshot>): Promise<{ head: string; changed: number }> {
+  rescan: () => Promise<ChangeSnapshot>, earlierPaths: string[] = []): Promise<{ head: string; changed: number }> {
   const gitdir = join(dir, '.git');
   const gitInfo = await lstat(gitdir);
   if (!gitInfo.isDirectory() || gitInfo.isSymbolicLink()) throw new GitEngineError('unsupported', '这个项目的本地保存方式暂时不支持按文件发布。');
@@ -198,7 +212,8 @@ export async function commitSelectedChanges(dir: string, author: GitAuthor, mess
     if (verified.branch !== branch || verified.preview.snapshot !== selection.snapshot || verified.preview.needsReview || !Buffer.from(originalIndex ?? '').equals(Buffer.from(indexNow ?? '')))
       throw new GitEngineError('invalid', staleMessage);
     await writeFile(marker, JSON.stringify({ before: current.head, head }), { flag: 'wx' }); markerCreated = true;
-    await writeFile(join(gitdir, 'easyhub-publish-pending.json'), JSON.stringify({ head, snapshot: selection.snapshot, paths: selection.paths, message }));
+    // A multi-step publish keeps counting the files saved by its earlier steps, so a retry reports the whole upload.
+    await writeFile(pendingFile(dir, branch), JSON.stringify({ head, snapshot: selection.snapshot, paths: [...earlierPaths, ...selection.paths], message, branch }));
     await indexHandle!.writeFile(await readFile(tempIndex)); await indexHandle!.sync(); await indexHandle!.close(); indexHandle = undefined;
     await refHandle!.writeFile(`${head}\n`); await refHandle!.sync(); await refHandle!.close(); refHandle = undefined;
     await rename(indexLock, indexPath); indexHeld = false;

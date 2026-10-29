@@ -84,6 +84,7 @@ try {
     mock('easyhub:hosts-status', () => ({ enabled: false, updatedAt: null, source: 'fixture' }));
     mock('easyhub:local-list', () => fixture.links);
     mock('easyhub:local-discovery-roots', () => []);
+    mock('easyhub:downloads-list', () => []);
     mock('easyhub:local-status', (id) => {
       fixture.reads.push({ action: 'localStatus', id });
       if (fixture.deferStatuses) return new Promise((resolveStatus) => fixture.pendingStatuses.push({ id, resolveStatus }));
@@ -138,13 +139,10 @@ try {
   const homeRows = page.locator('.home-project-row');
   await homeRows.last().waitFor();
   assert.equal(await homeRows.count(), 2);
-  await page.locator('.home-all-saved.checking').waitFor();
-  assert.equal(await page.getByText('你的项目已经全部保存。', { exact: true }).count(), 0);
+  await page.getByText('正在检查电脑上的项目…', { exact: true }).waitFor();
+  assert.equal(await page.getByText('现在没有需要你处理的事。', { exact: true }).count(), 0);
   assert.equal(await homeRows.locator('.home-row-status.checking').count(), 2);
-  assert.equal(await homeRows.getByText(/… 个问题/).count(), 2, 'Unresolved activity counts must display an ellipsis');
-  const overview = page.getByRole('region', { name: '项目概览', exact: true });
-  assert.equal(await overview.getByRole('button', { name: /尚未发布的文件/ }).locator('strong').innerText(), '…');
-  assert.equal(await overview.getByRole('button', { name: /待处理的反馈与改进/ }).locator('strong').innerText(), '…');
+  assert.deepEqual(await homeRows.locator('.home-project-issues').allInnerTexts(), ['…', '…'], 'Unresolved activity counts must display an ellipsis');
   await page.screenshot({ path: join(outputDirectory, 'home-checking.png') });
 
   await app.evaluate(() => {
@@ -154,7 +152,7 @@ try {
     for (const { id, resolveStatus } of fixture.pendingStatuses.splice(0)) resolveStatus(fixture.statuses[id]);
     for (const resolveCounts of fixture.pendingCounts.splice(0)) resolveCounts(fixture.counts);
   });
-  await page.locator('.home-all-saved.remote').waitFor();
+  await page.locator('.home-task-row').filter({ hasText: 'quiet-project' }).getByRole('button', { name: /获取最新/ }).waitFor();
   const currentHome = homeRows.filter({ hasText: 'active-project' }).locator('.home-row-status');
   const remoteHome = homeRows.filter({ hasText: 'quiet-project' }).locator('.home-row-status');
   await currentHome.filter({ hasText: '已保存到 GitHub' }).waitFor();
@@ -167,11 +165,12 @@ try {
   await page.screenshot({ path: join(outputDirectory, 'home-resolved.png') });
   await page.locator('.home-recent-row').first().click();
   await page.getByRole('heading', { name: 'Actual commit for active-project', exact: true }).waitFor();
-  await page.getByRole('button', { name: '最近更新', exact: true }).click();
+  await page.locator('.back-link:visible').first().click();
+  await page.locator('.home-activity').getByRole('button', { name: /^查看全部/ }).click();
   await page.getByRole('heading', { name: '最近更新', exact: true }).waitFor();
   assert.equal(await page.locator('.history-row').count(), 2);
   await page.getByRole('button', { name: '返回首页', exact: true }).click();
-  await page.locator('.v2-dashboard-intro').waitFor();
+  await page.locator('.home-dashboard').waitFor();
 
   const notifications = page.getByRole('button', { name: '通知', exact: true });
   const badge = page.locator('.download-notification-count');
@@ -204,14 +203,12 @@ try {
   assert.equal(await localCards.filter({ hasText: 'quiet-project' }).locator('.status').innerText(), homeStatuses[1]);
   await localCards.filter({ hasText: 'active-project' }).getByRole('button', { name: '查看详情', exact: true }).click();
   await page.locator('.detail-primary').getByRole('heading', { name: 'Fixture introduction', exact: true }).waitFor();
-  await page.getByText('部分反馈或修改记录暂时无法加载，请刷新重试。', { exact: true }).waitFor();
   assert.equal(await page.locator('.detail-primary').getByText('这个项目还没有介绍。', { exact: true }).count(), 0);
   const reviewSide = page.locator('.detail-side .side-panel').filter({ has: page.getByRole('heading', { name: '合并请求审查', exact: true }) });
   assert.equal(await reviewSide.locator('.count-bubble').innerText(), '1');
-  await reviewSide.getByRole('button', { name: '合并请求审查', exact: false }).click();
+  await reviewSide.getByRole('button', { name: '去审查', exact: true }).click();
   await page.locator('.pull-requests-panel').getByText('Fixture improvement', { exact: true }).waitFor();
-  assert.equal(await page.getByText('部分反馈或修改记录暂时无法加载，请刷新重试。', { exact: true }).count(), 0, 'A project loading error must clear when leaving the project page');
-  assert.equal(await page.getByRole('tab', { name: '合并请求审查 1', exact: true }).getAttribute('aria-selected'), 'true');
+  assert.match(await navigation.locator('button.active').innerText(), /^合并请求/);
 
   await navigation.getByRole('button', { name: /^问题/ }).click();
   await page.getByRole('heading', { name: '问题', exact: true }).waitFor();
@@ -225,7 +222,13 @@ try {
   assert.equal(await groups.count(), 2);
   assert.equal(await page.getByRole('button', { name: '收起其他项目 1', exact: true }).getAttribute('aria-expanded'), 'true');
   await page.getByRole('button', { name: '收起其他项目 1', exact: true }).click();
-  await page.getByRole('tab', { name: '合并请求审查 1', exact: true }).click();
+  await navigation.getByRole('button', { name: /^合并请求/ }).click();
+  await page.locator('h1').filter({ hasText: '合并请求审查' }).waitFor();
+  // The section first reopens the project filtered earlier; a second click shows every project.
+  if (await page.locator('.filter-project:visible').count()) await navigation.getByRole('button', { name: /^合并请求/ }).click();
+  // The Issues page stays mounted (hidden) behind this one, so only count what is on screen.
+  groups = page.locator('.issue-project-group:visible');
+  await groups.first().waitFor();
   assert.equal(await groups.count(), 1, 'Repos with no reviews should be folded by default');
   assert.equal(await groups.locator('.issue-project-heading strong').innerText(), 'active-project');
   const otherReviews = page.getByRole('button', { name: '查看其他项目 1', exact: true });
@@ -236,13 +239,11 @@ try {
   await page.getByRole('button', { name: '收起其他项目 1', exact: true }).click();
 
   await navigation.getByRole('button', { name: '首页', exact: true }).click();
-  await page.getByRole('textbox', { name: '搜索项目/用户', exact: true }).pressSequentially('project', { delay: 20 });
+  const topbarSearch = page.locator('.topbar-search input');
+  await topbarSearch.pressSequentially('project', { delay: 20 });
+  await topbarSearch.press('Enter');
   await page.locator('.discover-page').waitFor();
-  assert.equal(await page.getByText('部分反馈或修改记录暂时无法加载，请刷新重试。', { exact: true }).count(), 0);
-  assert.equal(await page.locator('.topbar-search input').count(), 0, 'Discover must not duplicate its search field in the topbar');
-  assert.equal(await page.locator('.discover-search input').count(), 1);
-  assert.equal(await page.getByRole('textbox', { name: '搜索公开项目', exact: true }).inputValue(), 'project', 'Typing must continue after the first character moves search into Discover');
-  assert.equal(await page.locator('.discover-search input').evaluate((input) => input === document.activeElement), true);
+  assert.equal(await topbarSearch.inputValue(), 'project', 'The one topbar search keeps the submitted text on Discover');
   const displayMode = page.getByRole('group', { name: '结果显示方式', exact: true });
   await displayMode.waitFor();
   await page.locator('.search-result-grid .trending-card').first().waitFor();
@@ -255,7 +256,7 @@ try {
   assert.equal(await page.locator('.search-result-grid.compact .trending-card.compact').count(), 2);
   await page.setViewportSize({ width: 1060, height: 700 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'Supported minimum window must not overflow');
-  assert.ok(await page.locator('.v2-page-transition').evaluate((element) => getComputedStyle(element).animationDuration
+  assert.ok(await page.locator('.page-transition').evaluate((element) => getComputedStyle(element).animationDuration
     .split(',').every((value) => parseFloat(value) <= 0.001)), 'Reduced motion should disable visible page animations');
   await page.screenshot({ path: join(outputDirectory, 'discover-minimum.png') });
 

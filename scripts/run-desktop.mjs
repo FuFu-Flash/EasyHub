@@ -5,6 +5,7 @@ const task = process.argv[2];
 allowed.add('format');
 allowed.add('format:check');
 allowed.add('test:consistency-repair');
+allowed.add('test:pairing-code');
 allowed.add('test:ai-review-ui');
 allowed.add('test:live-pull-download');
 allowed.add('test:local-introduction-ui');
@@ -45,6 +46,9 @@ allowed.add('test:single-instance');
 allowed.add('test:binary-analysis-ui');
 allowed.add('test:live-binary-analysis');
 allowed.add('test:compact-package');
+allowed.add('package:mac');
+allowed.add('test:menu-ui');
+allowed.add('test:window-style-sync');
 if (!allowed.has(task)) {
   process.stderr.write('Unknown desktop task.\n');
   process.exit(1);

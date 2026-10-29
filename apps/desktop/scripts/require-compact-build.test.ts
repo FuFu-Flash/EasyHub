@@ -12,12 +12,12 @@ afterEach(async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
-async function fixture(main?: string, renderer?: string) {
+async function fixture(main?: string, renderer?: string, platform = 'windows') {
   const root = await mkdtemp(join(tmpdir(), 'easyhub-compact-build-'));
   directories.push(root);
   for (const [target, text] of [['main', main], ['renderer', renderer]]) {
     if (text === undefined) continue;
-    const directory = join(root, 'out', target!);
+    const directory = join(root, 'out', platform, target!);
     await mkdir(directory, { recursive: true });
     await writeFile(join(directory, 'bundled-dependency-notices.txt'), text);
   }
@@ -36,4 +36,8 @@ it('rejects missing or incomplete dependency license output', async () => {
 });
 it('accepts release output containing the bundled dependency notices', async () => {
   await expect(check(await fixture(mainNotices, rendererNotices))).resolves.toBeUndefined();
+});
+
+it('rejects Mac release output even when it has complete bundled notices', async () => {
+  await expect(check(await fixture(mainNotices, rendererNotices, 'macos'))).rejects.toThrow('pnpm package:win');
 });

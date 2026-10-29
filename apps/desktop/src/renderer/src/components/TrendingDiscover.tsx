@@ -173,9 +173,7 @@ export function TrendingDiscover({
     <div className="discover-page">
       <div className="page-header">
         <div>
-          <div className="eyebrow">{t('trendingDiscover.discoverProjects')}</div>
           <h1>{t('trendingDiscover.discoverSearch')}</h1>
-          <p>{t('trendingDiscover.searchPublicProjectsAndGithubUsersOrExploreRecent')}</p>
         </div>
       </div>
       <SegmentedControl className="discover-scopes" role="group" aria-label={t('trendingDiscover.searchType')}>
@@ -201,7 +199,6 @@ export function TrendingDiscover({
           <div className="trending-heading">
             <div>
               <h2>{t('trendingDiscover.easyhubPopular')}</h2>
-              <p>{t('trendingDiscover.easyhubRanksPublicProjectsByStarsRecentActivityAnd')}</p>
             </div>
             <button className="text-link" onClick={() => setRefresh((value) => value + 1)}>
               {t('trendingDiscover.refresh')}
@@ -329,11 +326,12 @@ export function TrendingDiscover({
               <ArrowRight size={19} />
             </button>
           ))}
-          {visible.length === 0 && isSearch ? (
-            <SearchEmptyState onClear={() => setQuery('')} />
-          ) : (
-            <p className="live-empty">{t('trendingDiscover.noPopularProjectsMatchThisPeriodYet')}</p>
-          )}
+          {visible.length === 0 &&
+            (isSearch ? (
+              <SearchEmptyState onClear={() => setQuery('')} />
+            ) : (
+              <p className="live-empty">{t('trendingDiscover.noPopularProjectsMatchThisPeriodYet')}</p>
+            ))}
         </div>
       )}
       {scope === 'projects' && isSearch && (
@@ -359,9 +357,6 @@ export function TrendingDiscover({
             {t('trendingDiscover.nextPage')}
           </button>
         </nav>
-      )}
-      {scope === 'projects' && !hasQuery && (
-        <p className="trending-disclaimer">{t('trendingDiscover.growthOnlyReflectsStarChangesObservedByEasyhubOn')}</p>
       )}
     </div>
   );

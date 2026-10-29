@@ -5,16 +5,33 @@ import type { FSWatcher } from 'node:fs';
 import { lstat, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { join, parse } from 'node:path';
 import type { GitHubRepo } from '@easyhub/github';
-import type { FolderInspection, LocalDiscoveryResult, LocalFileDiff, LocalPublishPreview, LocalPublishSelection, LocalProjectStatus, SyncDecision, SyncPreview } from '@easyhub/types';
+import type { FolderInspection, LocalDiscoveryResult, LocalFileDiff, LocalBranchList, LocalPublishBatch, LocalPublishPreview, LocalPublishSelection, LocalProjectStatus, LocalPushBranchResult, SyncDecision, SyncPreview } from '@easyhub/types';
 import { safeChangePath } from './LocalChanges';
-import { createEmptyRepository, gitHubIdentity, repositoryDetails } from '../services/githubService';
+import { createEmptyRepository, gitHubIdentity, repositoryBranchNames, repositoryDetails } from '../services/githubService';
 import type { GitProgress, GitProjectInfo, GitProjectStatus, GitRepository } from './GitEngine';
+import { branchList } from './GitEngine';
 import { LocalProjectStore } from './LocalProjectStore';
 import type { LocalProjectRecord } from './LocalProjectStore';
 import { runGitTask } from './gitTaskRunner';
 import type { GitJob, GitTask } from './gitTaskRunner';
 import { DiscoveryRootsStore, findGitProjects } from './LocalProjectDiscovery';
 import { githubOriginRules, isEasyHubProxyChoice } from '../services/GitHubProxyService';
+
+/** Checks the multi-step publish the page sent; the paths must be exactly the batches' paths, in order. */
+function publishBatches(raw: unknown, paths: string[]): LocalPublishBatch[] {
+  const invalid = new Error('分批发布的文件选择无效，请刷新修改列表后重试。');
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 50) throw invalid;
+  const batches = raw.map((item): LocalPublishBatch => {
+    if (!item || typeof item !== 'object') throw invalid;
+    const batch = item as Partial<LocalPublishBatch>;
+    if (!Array.isArray(batch.paths) || !batch.paths.length || batch.paths.some((path) => !safeChangePath(path))) throw invalid;
+    if (batch.message !== undefined && (typeof batch.message !== 'string' || batch.message.length > 200)) throw new Error('请用一句话说明这次修改。');
+    return { paths: batch.paths, ...(batch.message?.trim() ? { message: batch.message.trim() } : {}) };
+  });
+  const flat = batches.flatMap((batch) => batch.paths);
+  if (flat.length !== paths.length || flat.some((path, index) => path !== paths[index])) throw invalid;
+  return batches;
+}
 
 function validName(value: unknown): value is string { return typeof value === 'string' && /^[A-Za-z0-9_.-]{1,100}$/.test(value) && value !== '.' && value !== '..'; }
 function repository(repo: GitHubRepo): GitRepository { return { owner: repo.owner.login, name: repo.name, defaultBranch: repo.default_branch || 'main' }; }
@@ -36,14 +53,17 @@ export class LocalProjectService {
   private readonly grants = new Set<string>();
   private readonly watchers = new Map<string, FSWatcher>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
-  private active: GitJob<unknown> | null = null;
-  private activePreview: string | null = null;
+  /** Each project folder works through its own queue, so one project's slow scan never holds up another's. */
+  private readonly lanes = new Map<string, { tail: Promise<void>; active: GitJob<unknown> | null; activePreview: string | null; cancelSafe: boolean }>();
   private previewEpochs = new Map<string, number>();
   private discoveryController: AbortController | null = null;
   private discoveryJob: GitJob<GitProjectInfo> | null = null;
   private discoveryPromise: Promise<LocalDiscoveryResult> | null = null;
-  private cancelSafe = true;
-  private operationTail: Promise<void> = Promise.resolve();
+  private lane(path: string) {
+    let lane = this.lanes.get(path);
+    if (!lane) { lane = { tail: Promise.resolve(), active: null, activePreview: null, cancelSafe: true }; this.lanes.set(path, lane); }
+    return lane;
+  }
   constructor(private readonly store: LocalProjectStore, private readonly send: (channel: string, value: unknown) => void,
     private readonly discoveryRoots?: DiscoveryRootsStore) {}
 
@@ -63,11 +83,11 @@ export class LocalProjectService {
   async list(): Promise<LocalProjectRecord[]> { return this.store.list(); }
 
   async relocate(id: unknown, path: unknown): Promise<LocalProjectRecord> {
-    if (this.active) throw new Error('正在处理项目，请完成后再更换位置。');
     const record = await this.record(id);
+    if (this.lane(record.localPath).active) throw new Error('正在处理项目，请完成后再更换位置。');
     const info = await this.inspectRaw(path);
     if (!info.isGit || info.owner?.toLowerCase() !== record.owner.toLowerCase() || info.repo?.toLowerCase() !== record.name.toLowerCase()) throw new Error('请选择原项目对应的文件夹，不能关联到其他项目。');
-    if (this.active) throw new Error('正在处理项目，请完成后再更换位置。');
+    if (this.lane(record.localPath).active) throw new Error('正在处理项目，请完成后再更换位置。');
     const updated = await this.store.relocate(record.id, info.root);
     this.watchRecord(updated);
     this.previewEpochs.set(record.id, (this.previewEpochs.get(record.id) ?? 0) + 1);
@@ -75,8 +95,8 @@ export class LocalProjectService {
   }
 
   async remove(id: unknown): Promise<void> {
-    if (this.active) throw new Error('正在处理项目，请完成后再移除关联。');
     const record = await this.record(id);
+    if (this.lane(record.localPath).active) throw new Error('正在处理项目，请完成后再移除关联。');
     await this.store.remove(record.id);
     this.watchers.get(record.id)?.close(); this.watchers.delete(record.id);
     const timer = this.timers.get(record.id);
@@ -221,7 +241,7 @@ export class LocalProjectService {
       catch (error) { if (['ENOENT', 'ENOTDIR', 'NOT_FOUND'].includes((error as NodeJS.ErrnoException).code ?? '')) throw Object.assign(new Error('找不到这个文件夹。'), { code: 'NOT_FOUND' }); }
       throw cause;
     }
-    return { files: result.files, needsReview: result.hasPreparedChanges, pendingPublish: result.pendingPublish, pendingMessage: result.pendingMessage };
+    return { files: result.files, needsReview: result.hasPreparedChanges, pendingPublish: result.pendingPublish, pendingMessage: result.pendingMessage, branch: result.branch, pushable: result.pushable };
   }
 
   async previewChanges(id: unknown): Promise<LocalPublishPreview> {
@@ -238,7 +258,8 @@ export class LocalProjectService {
   async cancelPreview(id: unknown): Promise<void> {
     const record = await this.record(id);
     this.previewEpochs.set(record.id, (this.previewEpochs.get(record.id) ?? 0) + 1);
-    if (this.activePreview === record.id) this.active?.cancel();
+    const lane = this.lane(record.localPath);
+    if (lane.activePreview === record.id) lane.active?.cancel();
   }
 
   async publish(id: unknown, rawMessage: unknown, rawSelection?: unknown): Promise<{ changed: number }> {
@@ -251,13 +272,51 @@ export class LocalProjectService {
       if (typeof input.snapshot !== 'string' || !/^[a-f0-9]{64}$/.test(input.snapshot) || !Array.isArray(input.paths) || input.paths.length > 10000
         || input.paths.some((path) => !safeChangePath(path)) || new Set(input.paths).size !== input.paths.length) throw new Error('文件选择无效，请刷新修改列表后重试。');
       if (input.sensitiveConfirmed !== undefined && typeof input.sensitiveConfirmed !== 'boolean') throw new Error('文件确认无效。');
-      selection = { snapshot: input.snapshot, paths: input.paths, ...(input.sensitiveConfirmed ? { sensitiveConfirmed: true } : {}) };
+      const batches = input.batches === undefined ? undefined : publishBatches(input.batches, input.paths);
+      selection = { snapshot: input.snapshot, paths: input.paths, ...(input.sensitiveConfirmed ? { sensitiveConfirmed: true } : {}), ...(batches ? { batches } : {}) };
     }
     const remote = await repositoryDetails(record.owner, record.name);
     if (remote.id !== record.repositoryId) throw new Error('GitHub 项目已发生变化，请重新添加这个文件夹。');
     const identity = await gitHubIdentity();
     const result = await this.interactive<{ head: string; changed: number }>({ action: 'publish', path: record.localPath, repo: repository(remote), author: author(identity.user), token: identity.token, message: rawMessage.trim(), selection });
     return { changed: result.changed };
+  }
+
+  /** GitHub details for branch tasks; without a connection the branch tasks still work on what is on this computer. */
+  private async branchConnection(record: LocalProjectRecord): Promise<{ repo?: GitRepository; token?: string }> {
+    try {
+      const remote = await repositoryDetails(record.owner, record.name);
+      if (remote.id !== record.repositoryId) return {};
+      return { repo: repository(remote), token: (await gitHubIdentity()).token };
+    } catch { return {}; }
+  }
+
+  /** Reading branch names is light, so it skips the project task queue and one slow scan never holds the list back. */
+  async listBranches(id: unknown): Promise<LocalBranchList> {
+    const record = await this.record(id);
+    const names = await repositoryBranchNames(record.owner, record.name).catch(() => null);
+    return branchList(record.localPath, names);
+  }
+
+  async switchBranch(id: unknown, name: unknown): Promise<LocalBranchList> {
+    const record = await this.record(id);
+    if (typeof name !== 'string' || !name || name.length > 100) throw new Error('分支名无效。');
+    return this.interactive<LocalBranchList>({ action: 'switch-branch', path: record.localPath, branch: name, ...(await this.branchConnection(record)) });
+  }
+
+  async createBranch(id: unknown, name: unknown): Promise<LocalBranchList> {
+    const record = await this.record(id);
+    if (typeof name !== 'string' || !name.trim() || name.length > 100) throw new Error('请填写分支名。');
+    return this.interactive<LocalBranchList>({ action: 'create-branch', path: record.localPath, branch: name.trim() });
+  }
+
+  /** Uploads the saved versions already on the project's current branch, as they are, to the same-named GitHub branch. */
+  async pushBranch(id: unknown): Promise<LocalPushBranchResult> {
+    const record = await this.record(id);
+    const remote = await repositoryDetails(record.owner, record.name);
+    if (remote.id !== record.repositoryId) throw new Error('GitHub 项目已发生变化，请重新添加这个文件夹。');
+    const identity = await gitHubIdentity();
+    return this.interactive<LocalPushBranchResult>({ action: 'push-branch', path: record.localPath, repo: repository(remote), token: identity.token });
   }
 
   async checkSync(id: unknown): Promise<SyncPreview> {
@@ -307,7 +366,7 @@ export class LocalProjectService {
       await rename(temp, file);
     } finally { await rm(temp, { force: true }).catch(() => undefined); }
   }
-  cancel(): void { if (this.cancelSafe) this.active?.cancel(); this.discoveryController?.abort(); this.discoveryJob?.cancel(); }
+  cancel(): void { for (const lane of this.lanes.values()) if (lane.cancelSafe) lane.active?.cancel(); this.discoveryController?.abort(); this.discoveryJob?.cancel(); }
 
   async startWatching(): Promise<void> { for (const record of await this.store.list()) this.watchRecord(record); }
   stopWatching(): void { for (const watcher of this.watchers.values()) watcher.close(); for (const timer of this.timers.values()) clearTimeout(timer); this.watchers.clear(); this.timers.clear(); }
@@ -320,25 +379,26 @@ export class LocalProjectService {
   }
 
   private async interactive<T>(task: GitTask, options?: { signal: AbortSignal; progress: (value: GitProgress) => void }, preview?: { id: string; epoch: number }): Promise<T> {
-    const previous = this.operationTail;
+    const lane = this.lane(task.path);
+    const previous = lane.tail;
     let release = (): void => undefined;
-    this.operationTail = new Promise<void>((resolve) => { release = resolve; });
+    lane.tail = new Promise<void>((resolve) => { release = resolve; });
     await previous;
     try {
       if (preview && (this.previewEpochs.get(preview.id) ?? 0) !== preview.epoch) throw new Error('已取消读取，可以重新读取修改。');
       options?.signal.throwIfAborted();
-      const needsNetwork = task.action === 'create' || task.action === 'download' || task.action === 'publish' || task.action === 'check-sync' || task.action === 'sync';
-      this.cancelSafe = true;
+      const needsNetwork = task.action === 'create' || task.action === 'list-branches' || task.action === 'switch-branch' || task.action === 'download' || task.action === 'publish' || task.action === 'push-branch' || task.action === 'check-sync' || task.action === 'sync';
+      lane.cancelSafe = true;
       const job = runGitTask<T>({ ...task, proxy: needsNetwork ? await githubProxy() : undefined,
         githubRules: needsNetwork ? githubOriginRules() : undefined },
-        (value: GitProgress) => { if (value.cancelable === false) this.cancelSafe = false; this.send('easyhub:local-progress', value); options?.progress(value); });
-      this.active = job;
-      this.activePreview = preview?.id ?? null;
-      const abort = (): void => { if (this.cancelSafe) job.cancel(); };
+        (value: GitProgress) => { if (value.cancelable === false) lane.cancelSafe = false; this.send('easyhub:local-progress', value); options?.progress(value); });
+      lane.active = job;
+      lane.activePreview = preview?.id ?? null;
+      const abort = (): void => { if (lane.cancelSafe) job.cancel(); };
       options?.signal.addEventListener('abort', abort, { once: true });
       if (options?.signal.aborted) abort();
       try { return await job.result; }
-      finally { options?.signal.removeEventListener('abort', abort); this.active = null; this.activePreview = null; this.cancelSafe = true; }
+      finally { options?.signal.removeEventListener('abort', abort); lane.active = null; lane.activePreview = null; lane.cancelSafe = true; }
     } finally { release(); }
   }
 
@@ -350,12 +410,12 @@ export class LocalProjectService {
     try {
       const scan = (): void => {
         if (!this.watchers.has(record.id)) return;
-        if (this.active) {
+        if (this.lane(record.localPath).active) {
           this.timers.set(record.id, setTimeout(scan, 700));
           return;
         }
         void runGitTask<GitProjectStatus>({ action: 'status', path: record.localPath }).result
-          .then((status) => this.send('easyhub:local-status', { id: record.id, status: { files: status.files, needsReview: status.hasPreparedChanges, pendingPublish: status.pendingPublish, pendingMessage: status.pendingMessage } }))
+          .then((status) => this.send('easyhub:local-status', { id: record.id, status: { files: status.files, needsReview: status.hasPreparedChanges, pendingPublish: status.pendingPublish, pendingMessage: status.pendingMessage, branch: status.branch, pushable: status.pushable } }))
           .catch(() => undefined);
       };
       const watcher = watch(record.localPath, { recursive: true }, (_event, filename) => {

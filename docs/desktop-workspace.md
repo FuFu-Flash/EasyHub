@@ -59,3 +59,20 @@ The independent review runs the signed-in UI with an isolated in-memory API
 fixture, blocks external network traffic, and never operates a real GitHub
 account. It covers the complete return chain, retained draft/revalidation, and
 six main pages at 1440/1000 widths in both languages and layout densities.
+
+## macOS native shell
+
+`workspace/useNativeShell.ts` connects native menu commands to the same navigation
+controller used by page controls. It owns no repository data. Authentication and
+welcome screens retain a pending native command and hand it to the mounted
+workspace, including when Settings reopens the last closed window.
+
+Native menu labels use the shared Chinese/English catalogs. Menu state follows
+sign-in, loading and visible dialogs. AppKit draws the macOS traffic lights; the
+renderer reserves their space and synchronizes the saved style and layout density.
+Windows retains its own window controls and default preference.
+
+The macOS build uses the shared GitHub proxy service with `MacSystemProxy` as the
+OS adapter. Test profiles use memory credentials and skip acquiring system proxy
+settings. Keep native menu and compact-package smoke tests on the packaged app,
+and run workspace/localization/new-project layout tests against the shared UI.

@@ -1,0 +1,6 @@
+# Prettier checks these files with LF line endings, so Windows checkouts keep LF here too.
+apps/desktop/src/renderer/**/*.ts text eol=lf
+apps/desktop/src/renderer/**/*.tsx text eol=lf
+apps/desktop/src/renderer/**/*.css text eol=lf
+apps/desktop/src/renderer/**/*.html text eol=lf
+apps/desktop/src/renderer/**/*.json text eol=lf
