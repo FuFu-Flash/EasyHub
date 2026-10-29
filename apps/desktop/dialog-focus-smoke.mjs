@@ -15,6 +15,7 @@ await mkdir(output, { recursive: true });
 const fixture = `
 import { createElement as h, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import App from '/src/App.tsx';
 import { useDialogFocus } from '/src/components/useDialogFocus.ts';
 import { useDownloadCenter } from '/src/components/useDownloadCenter.ts';
@@ -51,7 +52,8 @@ function FocusFixture() {
   const [hidden, setHidden] = useState(false);
   const [latestClose, setLatestClose] = useState('');
   window.fixtureHideOuter = () => { setHidden(true); setInner(true); };
-  window.fixtureChangeClose = () => setLatestClose('updated');
+  // Render the new close callback before returning, so the test can press Escape straight away.
+  window.fixtureChangeClose = () => flushSync(() => setLatestClose('updated'));
   return h('main', { className: 'v2-layout', style: { padding: 20 } },
     h('button', { id: 'background' }, '背景按钮'),
     h('button', { id: 'start-download', onClick: () => center.start({ kind: 'archive', repo, ref: 'main', fileName: 'second.zip' }) }, '添加下载'),
