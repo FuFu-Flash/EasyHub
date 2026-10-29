@@ -27,7 +27,7 @@ export function AppAlertProvider({ children }: { children: ReactNode }) {
   const dismiss = () => setDialog(null);
   return <>{children}<Modal visible={!!dialog} transparent animationType="fade" statusBarTranslucent onRequestClose={dismiss}>
     <View style={{ flex: 1, backgroundColor: scrim(), justifyContent: 'center', padding: 22 }}>
-      <Pressable onPress={dismiss} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }} accessibilityLabel={t("AppAlert.closeDialog")} />
+      <Pressable accessibilityRole="button" onPress={dismiss} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }} accessibilityLabel={t("AppAlert.closeDialog")} />
       <View style={{ backgroundColor: themed('#fff'), borderRadius: 22, borderWidth: 1, borderColor: palette.border, padding: 22, maxHeight: '78%' }}>
         <Text style={{ color: palette.ink, fontSize: 21, fontWeight: '800' }}>{dialog?.title}</Text>
         {!!dialog?.message && <ScrollView style={{ flexGrow: 0, marginTop: 11, marginBottom: 20 }}><Text style={{ color: palette.muted, fontSize: 15, lineHeight: 23 }}>{dialog.message}</Text></ScrollView>}
