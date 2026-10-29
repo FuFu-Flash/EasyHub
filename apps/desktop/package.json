@@ -7,8 +7,8 @@
   "author": "EasyHub",
   "main": "./out/main/index.js",
   "scripts": {
-    "format": "prettier --write \"src/renderer/**/*.{ts,tsx,css,html,json}\"",
-    "format:check": "prettier --check \"src/renderer/**/*.{ts,tsx,css,html,json}\"",
+    "format": "prettier --write \"src/renderer/**/*.{ts,tsx,css,html,json}\" \"../mobile/{components,src,features,plugins,test}/**/*.{ts,tsx,cjs,mjs}\"",
+    "format:check": "prettier --check \"src/renderer/**/*.{ts,tsx,css,html,json}\" \"../mobile/{components,src,features,plugins,test}/**/*.{ts,tsx,cjs,mjs}\"",
     "test:pairing-code": "node pairing-code-smoke.mjs",
     "test:consistency-repair": "node consistency-repair-smoke.mjs",
     "dev": "electron-vite dev",
