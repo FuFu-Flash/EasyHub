@@ -77,7 +77,8 @@
     "test:key-localization": "node key-localization-smoke.mjs",
     "test:new-project-layout": "node new-project-layout-smoke.mjs",
     "package:mac": "node package-mac.mjs",
-    "test:menu-ui": "node application-menu-smoke.mjs"
+    "test:menu-ui": "node application-menu-smoke.mjs",
+    "test:window-style-sync": "node window-style-sync-smoke.mjs"
   },
   "dependencies": {
     "@easyhub/github": "workspace:*",

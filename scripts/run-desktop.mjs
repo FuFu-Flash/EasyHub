@@ -48,6 +48,7 @@ allowed.add('test:live-binary-analysis');
 allowed.add('test:compact-package');
 allowed.add('package:mac');
 allowed.add('test:menu-ui');
+allowed.add('test:window-style-sync');
 if (!allowed.has(task)) {
   process.stderr.write('Unknown desktop task.\n');
   process.exit(1);

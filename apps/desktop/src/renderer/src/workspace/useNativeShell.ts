@@ -1,15 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { MenuCommand } from '../../../shared/applicationMenu';
 import { useApplicationMenu } from '../useApplicationMenu';
-import { synchronizeWindowControlStyle } from '../windowControlStyle';
-import { useTranslation } from '../localization';
 import { useWorkspace } from './WorkspaceContext';
 
 /** Native commands enter the same navigation stack as the visible controls. */
 export function useNativeShell(root: RefObject<HTMLDivElement | null>, refreshing: boolean): void {
   const workspace = useWorkspace();
-  const t = useTranslation(workspace.language);
-  const { navigation, language, windowStyle, layout, demo } = workspace;
+  const { navigation, language, demo } = workspace;
   const [focus, setFocus] = useState<{ target: 'proxy' | 'add-folder' | 'download-project'; revision: number }>();
   const initial = useRef(workspace.initialMenuCommand);
 
@@ -51,15 +48,6 @@ export function useNativeShell(root: RefObject<HTMLDivElement | null>, refreshin
       command(pending);
     }
   }, []);
-  useLayoutEffect(() => {
-    let active = true;
-    void synchronizeWindowControlStyle(windowStyle, layout.density).catch(() => {
-      if (active) workspace.setError(t('mac.windowControlsFailed'));
-    });
-    return () => {
-      active = false;
-    };
-  }, [windowStyle, layout.density, language]);
   useEffect(() => {
     if (!focus || navigation.page.view !== (focus.target === 'proxy' ? 'settings' : 'local')) return;
     const frame = requestAnimationFrame(() => {

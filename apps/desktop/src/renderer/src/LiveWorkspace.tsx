@@ -236,7 +236,9 @@ function WorkspaceShell() {
           </aside>
           <div className="main-column" ref={scrollArea}>
             <header className={`topbar topbar-${windowStyle}`}>
-              {windowStyle === 'reference' && <WindowControls style="reference" />}
+              {windowStyle === 'reference' && (
+                <WindowControls style="reference" onSyncError={() => w.setError(t('mac.windowControlsFailed'))} />
+              )}
               <button className="topbar-brand" onClick={() => navigation.sidebar('home')}>
                 <img src={appIcon} alt="" />
                 <span>EasyHub</span>
@@ -325,7 +327,9 @@ function WorkspaceShell() {
                   onStarred={() => navigation.navigate('starred', { visit: Date.now(), section: 'profile' })}
                 />
               </div>
-              {windowStyle === 'windows' && <WindowControls style="windows" />}
+              {windowStyle === 'windows' && (
+                <WindowControls style="windows" onSyncError={() => w.setError(t('mac.windowControlsFailed'))} />
+              )}
             </header>
             <FeedbackNotice message={w.error} kind="error" onClose={() => w.setError('')} language={language} />
             <FeedbackNotice message={w.notice} onClose={() => w.setNotice('')} language={language} />

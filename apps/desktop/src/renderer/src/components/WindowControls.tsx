@@ -1,15 +1,32 @@
+import { useLayoutEffect, useRef } from 'react';
 import { Minus, Square, X } from 'lucide-react';
 import { useEasyHub } from '../bridge';
+import { useLayoutPreference } from '../layoutPreferences';
 import { useTranslation } from '../localization';
+import { synchronizeWindowControlStyle } from '../windowControlStyle';
 import type { WindowStyle } from '../windowStyle';
 
 /**
  * The minimize / maximize / close buttons. The workspace top bar, the welcome page and the offline screen
  * all render these, so the buttons look and behave the same wherever the window is first seen.
  */
-export function WindowControls({ style }: { style: WindowStyle }) {
+export function WindowControls({ style, onSyncError }: { style: WindowStyle; onSyncError?: () => void }) {
   const t = useTranslation();
   const easyHub = useEasyHub();
+  const { density } = useLayoutPreference();
+  const syncError = useRef(onSyncError);
+  syncError.current = onSyncError;
+  // Every screen with window buttons (welcome, offline and the workspace) tells the main process which style it
+  // shows, so macOS shows its own traffic lights only beside the dot style and never next to the Windows buttons.
+  useLayoutEffect(() => {
+    let active = true;
+    void synchronizeWindowControlStyle(style, density).catch(() => {
+      if (active) syncError.current?.();
+    });
+    return () => {
+      active = false;
+    };
+  }, [style, density]);
   if (style === 'reference') {
     // macOS draws the traffic lights itself; only their space is kept free.
     if (easyHub?.platform === 'darwin') return <span className="native-window-controls" aria-hidden="true" />;
