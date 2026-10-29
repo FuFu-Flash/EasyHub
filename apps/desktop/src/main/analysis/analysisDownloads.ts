@@ -85,7 +85,7 @@ export const MAC_RUNTIME_ARTIFACTS: readonly RuntimeArtifact[] = [
 export function runtimeArtifacts(platform: NodeJS.Platform, arch: string): readonly RuntimeArtifact[] {
   if (platform === 'darwin' && arch === 'arm64') return MAC_RUNTIME_ARTIFACTS;
   if (platform === 'win32' && arch === 'x64') return RUNTIME_ARTIFACTS;
-  throw new Error('分析组件支持 Apple 芯片的 macOS 和 Windows x64');
+  throw new Error('分析组件目前支持 Apple 芯片的 macOS 和 Windows x64，暂不提供 Linux 版本');
 }
 
 export const RUNTIME_DOWNLOAD_BYTES = RUNTIME_ARTIFACTS.reduce((sum, artifact) => sum + artifact.size, 0);

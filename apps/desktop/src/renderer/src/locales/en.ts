@@ -60,6 +60,9 @@ export const en = {
   'mac.defaultDotStyle': 'Default · top-left dots',
   'mac.desktopConnected': 'macOS desktop · Connected to GitHub',
   'mac.windowControlsFailed': 'Could not update window controls. Restart EasyHub and try again.',
+  'linux.desktopConnected': 'Linux desktop · Connected to GitHub',
+  'linux.systemProxyDescription':
+    'Connect EasyHub to GitHub on this computer. Linux does not change system proxy settings. An existing proxy is reused.',
 
   'app.yourGithubLoginHasExpiredPleaseSignInAgain': 'Your GitHub login has expired. Please sign in again.',
   'app.signInConfirmationExpiredPleaseStartAgain': 'Sign-in confirmation expired. Please start again.',

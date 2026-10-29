@@ -17,7 +17,9 @@ await new Promise((resolve) => imageServer.listen(0, '127.0.0.1', resolve));
 const imageUrl = `http://127.0.0.1:${imageServer.address().port}/intro.png`;
 const selectedFolder = await mkdtemp(join(tmpdir(), 'easyhub-ui-smoke-'));
 const profile = await mkdtemp(join(tmpdir(), 'easyhub-ui-profile-'));
-const packagedExecutable = join(process.cwd(), 'release/windows/win-unpacked/EasyHub.exe');
+const packagedExecutable = process.platform === 'linux'
+  ? join(process.cwd(), 'release/linux/linux-unpacked/easyhub')
+  : join(process.cwd(), 'release/windows/win-unpacked/EasyHub.exe');
 const app = await electron.launch({
   executablePath: packaged ? packagedExecutable : electronPath,
   args: [...(packaged ? [] : ['.']), `--user-data-dir=${profile}`],
@@ -50,7 +52,11 @@ try {
   assert.equal(await page.evaluate(() => typeof window.easyHub?.authStatus), 'function');
   assert.equal('clientId' in (await page.evaluate(() => window.easyHub?.authStatus())), true);
   await page.getByRole('button', { name: '先看看演示', exact: true }).click();
-  const iconPath = packaged ? join(process.cwd(), 'release/windows/win-unpacked/resources/easyhub.ico') : join(process.cwd(), 'resources/easyhub.ico');
+  const iconPath = packaged
+    ? process.platform === 'linux'
+      ? join(process.cwd(), 'release/linux/linux-unpacked/resources/easyhub.png')
+      : join(process.cwd(), 'release/windows/win-unpacked/resources/easyhub.ico')
+    : join(process.cwd(), 'resources/easyhub.ico');
   assert.equal(await app.evaluate(({ nativeImage }, path) => nativeImage.createFromPath(path).isEmpty(), iconPath), false);
   await runDemoChecks(page);
   await page.evaluate(() => localStorage.setItem('easyhub:language', 'en'));

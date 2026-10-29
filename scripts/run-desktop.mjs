@@ -47,6 +47,7 @@ allowed.add('test:binary-analysis-ui');
 allowed.add('test:live-binary-analysis');
 allowed.add('test:compact-package');
 allowed.add('package:mac');
+allowed.add('package:linux');
 allowed.add('test:menu-ui');
 allowed.add('test:window-style-sync');
 if (!allowed.has(task)) {

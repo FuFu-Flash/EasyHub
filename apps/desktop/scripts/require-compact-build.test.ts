@@ -38,6 +38,7 @@ it('accepts release output containing the bundled dependency notices', async () 
   await expect(check(await fixture(mainNotices, rendererNotices))).resolves.toBeUndefined();
 });
 
-it('rejects Mac release output even when it has complete bundled notices', async () => {
+it('rejects Mac and Linux release output even when it has complete bundled notices', async () => {
   await expect(check(await fixture(mainNotices, rendererNotices, 'macos'))).rejects.toThrow('pnpm package:win');
+  await expect(check(await fixture(mainNotices, rendererNotices, 'linux'))).rejects.toThrow('pnpm package:win');
 });

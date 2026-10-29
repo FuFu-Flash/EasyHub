@@ -9,6 +9,7 @@ import { HostsRepairService } from './services/hostsRepair';
 import { GitHubProxyService, useGitHubProxy } from './services/GitHubProxyService';
 import { WindowsSystemProxy } from './platforms/windows/WindowsSystemProxy';
 import { MacSystemProxy } from './platforms/macos/MacSystemProxy';
+import { LinuxSystemProxy } from './platforms/linux/LinuxSystemProxy';
 import { GitHubSystemRelay } from './services/GitHubSystemRelay';
 import { GITHUB_CLIENT_ID } from './services/githubAuthConfig';
 import { OpenAiReviewProvider } from './services/OpenAiReviewProvider';
@@ -146,6 +147,11 @@ function flushPendingMenuCommand(): void {
   dispatchMenuCommand(command);
 }
 
+function windowIconPath(): string {
+  const file = process.platform === 'win32' ? 'easyhub.ico' : 'easyhub.png';
+  return app.isPackaged ? join(process.resourcesPath, file) : join(__dirname, '../../resources', file);
+}
+
 function createWindow(): void {
   resetRendererMenuState();
   mainWindow = new BrowserWindow({
@@ -163,9 +169,7 @@ function createWindow(): void {
     show: false,
     backgroundColor: '#f5f7fb',
     title: 'EasyHub',
-    icon: app.isPackaged
-      ? join(process.resourcesPath, process.platform === 'darwin' ? 'easyhub.png' : 'easyhub.ico')
-      : join(__dirname, '../../resources', process.platform === 'darwin' ? 'easyhub.png' : 'easyhub.ico'),
+    icon: windowIconPath(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -222,7 +226,7 @@ if (primaryInstance) app.whenReady().then(async () => {
   const analysisRuntime = new AnalysisRuntime(app.getPath('userData'), { fetch: analysisElectronFetch });
   binaryAnalysisService = new BinaryAnalysisService(join(app.getPath('userData'), 'analysis-sessions'), {
     status: async () => { const status = await analysisRuntime.status(); return { installed: status.state === 'ready', downloadBytes: status.downloadBytes,
-      error: status.error ? '分析组件尚未准备好，请重新安装。' : undefined }; },
+      error: status.error ? (status.error.includes('暂不提供 Linux') ? status.error : '分析组件尚未准备好，请重新安装。') : undefined }; },
     install: async (signal, progress) => { await analysisRuntime.install({ signal, onProgress: (value) => progress(value.downloadedBytes, value.totalBytes) }); },
     analyzer: async (workspace) => {
       const status = await analysisRuntime.status();
@@ -268,10 +272,12 @@ if (primaryInstance) app.whenReady().then(async () => {
         ? new MacSystemProxy(join(app.getPath('userData'), 'mac-system-proxy-lease.json'), {
           resolveExistingProxy: (url: string) => session.defaultSession.resolveProxy(url),
         })
-        : new WindowsSystemProxy(join(app.getPath('userData'), 'system-proxy-lease.json'), {
-          scriptPath: join(resourcesPath, 'windows-system-proxy.ps1'),
-          resolveExistingProxy: (url: string) => session.defaultSession.resolveProxy(url),
-        }),
+        : process.platform === 'win32'
+          ? new WindowsSystemProxy(join(app.getPath('userData'), 'system-proxy-lease.json'), {
+            scriptPath: join(resourcesPath, 'windows-system-proxy.ps1'),
+            resolveExistingProxy: (url: string) => session.defaultSession.resolveProxy(url),
+          })
+          : new LinuxSystemProxy(),
       systemRelay: new GitHubSystemRelay({ connect: (host, signal) => githubProxyService.agent.openBrowserTunnel(host, signal) }),
     }),
   });

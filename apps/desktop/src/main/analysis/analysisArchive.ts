@@ -89,6 +89,7 @@ export async function extractRuntimeArchive(
     await extractMacRuntimeArchive(canonicalArchive, canonical, maximumUnpackedBytes, signal);
     return;
   }
+  if (process.platform !== 'win32') throw new Error('分析组件解压目前仅支持 Windows 和 macOS。');
   const executable = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   await new Promise<void>((resolvePromise, reject) => {
     let aborted = false;

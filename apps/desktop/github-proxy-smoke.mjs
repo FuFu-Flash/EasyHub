@@ -22,6 +22,7 @@ if(query.has('checking')) current = {...ready,state:'checking',checks:[]};
 if(query.has('error')) current = {...ready,state:'error',error:'unsafe internals',checks:[{target:'login',ok:false}]};
 const metrics = window.fixture = { reads:0, enabled:[], refresh:0, cancel:0, cleanup:[], resolve:null };
 window.easyHub = {
+ platform: query.get('platform') || 'win32',
  githubProxyStatus:async()=>{metrics.reads++;if(query.has('load-error')&&metrics.reads===1)throw Error('unsafe internals');if(query.has('checking')&&metrics.reads>1)current=ready;if(query.has('takeover')&&metrics.reads>1)current={...current,system:{mode:'external',error:null}};return structuredClone(current)},
  githubProxySetEnabled:async enabled=>{metrics.enabled.push(enabled);if(metrics.enabled.length===1&&(query.has('enable-rejection')||query.has('disable-rejection'))){current={...ready,state:'error',system:{mode:'unavailable',error:'unsafe recovery internals'}};throw Error('unsafe recovery internals')}current=enabled?ready:off();return structuredClone(current)},
  githubProxyRefresh:async()=>{metrics.refresh++;current={...ready,state:'checking',checks:[]};return new Promise(resolve=>{metrics.resolve=()=>{current=ready;resolve(structuredClone(ready))}})},
@@ -53,7 +54,7 @@ let browser;
 try {
   await server.listen();
   const base = 'http://127.0.0.1:' + server.httpServer.address().port + '/proxy-ui-test';
-  const installed = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+  const installed = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find(existsSync);
   browser = await chromium.launch({ executablePath: installed, headless: true });
   const page = await browser.newPage({ viewport: { width: 1060, height: 700 } });
   const errors = [];
@@ -172,6 +173,10 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
   await page.getByRole('button', { name: '移除旧版修复', exact: true }).click();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  await go('?platform=linux');
+  assert.equal(await page.getByText('让 EasyHub 自己连接 GitHub。Linux 暂不修改系统代理；如果系统里已经有代理，会继续使用它。', { exact: true }).count(), 1);
+  await go('?en&platform=linux');
+  assert.equal(await page.getByText('Connect EasyHub to GitHub on this computer. Linux does not change system proxy settings. An existing proxy is reused.', { exact: true }).count(), 1);
   assert.deepEqual(errors, []);
   console.log('PASS GitHub system proxy UI: direct toggle, rejected enable/disable recovery, checks/cancel, existing proxy, external takeover, safe system errors, load retry, startup checking, legacy cleanup, keyboard dialog, English, demo, 480px layout');
 } finally {

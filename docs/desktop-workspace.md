@@ -76,3 +76,12 @@ The macOS build uses the shared GitHub proxy service with `MacSystemProxy` as th
 OS adapter. Test profiles use memory credentials and skip acquiring system proxy
 settings. Keep native menu and compact-package smoke tests on the packaged app,
 and run workspace/localization/new-project layout tests against the shared UI.
+
+## Linux window
+
+Linux uses the same frameless window and in-app minimize, maximize and close
+buttons as Windows. It does not install the macOS application menu. The window
+icon is `easyhub.png`. Login uses the system secret service through the existing
+keyring library. GitHub access inside the app can be turned on without rewriting
+desktop proxy settings; an existing proxy is reused. Program-file review
+components remain available only for Windows x64 and Apple Silicon macOS.

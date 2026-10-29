@@ -15,5 +15,8 @@ PLAN.md
 # Generated macOS build resources.
 /apps/desktop/resources/easyhub.icns
 
+# Architecture-specific Linux packager config, written only while package:linux runs.
+/apps/desktop/build/linux/electron-builder.resolved.yml
+
 # Desktop installers are generated independently for each platform.
 /apps/desktop/release/

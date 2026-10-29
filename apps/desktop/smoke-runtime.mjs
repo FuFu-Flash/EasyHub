@@ -14,7 +14,7 @@ export function smokeExecutable(desktopDirectory, allowedFlags = []) {
   const defaults = {
     darwin: '/tmp/easyhub-desktop-release/mac-arm64/EasyHub.app/Contents/MacOS/EasyHub',
     win32: join(desktopDirectory, 'release', 'windows', 'win-unpacked', 'EasyHub.exe'),
-    linux: join(desktopDirectory, 'release', 'linux-unpacked', 'easyhub'),
+    linux: join(desktopDirectory, 'release', 'linux', 'linux-unpacked', 'easyhub'),
   };
   const executable = explicit[0]?.slice('--executable='.length) ?? (arguments_.includes('--packaged')
     ? process.env.EASYHUB_PACKAGED_EXECUTABLE || defaults[process.platform] : undefined);

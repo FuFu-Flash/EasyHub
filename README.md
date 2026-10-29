@@ -25,17 +25,17 @@
 
 **不会 Git 命令，也能把作品发到 GitHub。**
 
-EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看改动、写一句说明，就能发布源码。用**桌面版（Windows / macOS）**创作和发布，用 Android 版随时浏览项目、回复问题和审查合并请求。
+EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看改动、写一句说明，就能发布源码。用**桌面版（Windows / macOS / Linux）**创作和发布，用 Android 版随时浏览项目、回复问题和审查合并请求。
 
 不需要安装 Git，也不需要另外注册 EasyHub 账号；真正发布时，使用自己的 GitHub 账号登录即可。
 
-> **English overview:** An open-source GitHub client with desktop (Windows / macOS) and Android editions. Publish code, manage releases, review pull requests, and get optional AI assistance. [Read the English guide](README.en.md).
+> **English overview:** An open-source GitHub client with desktop (Windows / macOS / Linux) and Android editions. Publish code, manage releases, review pull requests, and get optional AI assistance. [Read the English guide](README.en.md).
 
 ## 下载与安装
 
 > **Android 提醒：** Android 1.2.0 更换了签名（之前的安装包使用公开的调试签名）。从 1.1.0 或更早版本升级需要**先卸载旧版再安装**，卸载后要重新登录 GitHub；你在 GitHub 上的项目不受影响。
 
-**当前版本：桌面版（Windows）1.4.1 · 桌面版（macOS）1.4.1 · Android 版 1.2.0。**
+**当前版本：桌面版（Windows）1.4.1 · 桌面版（macOS）1.4.1 · 桌面版（Linux，需在本机构建）1.4.2 · Android 版 1.2.0。**
 
 | 平台 | 版本 | 适合谁 | 下载 |
 | --- | --- | --- | --- |
@@ -44,8 +44,9 @@ EasyHub 是面向新手的开源 **GitHub 客户端**。选择文件夹、查看
 | 桌面版（macOS） | DMG 镜像 / ZIP | Apple 芯片 Mac，macOS 12 或以上 | **[下载 DMG](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.4.1/EasyHub-macOS.dmg)** · [下载 ZIP](https://github.com/FuFu-Flash/EasyHub/releases/download/macos-v1.4.1/EasyHub-macOS.zip) · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/macos-v1.4.1) |
 | Android | 1.2.0 ARM64 安装包 | 适合大多数较新的 Android 手机，安装包更小。从 1.1.0 升级需先卸载旧版 | **[下载 ARM64 包](https://github.com/FuFu-Flash/EasyHub/releases/download/android-v1.2.0/EasyHub-Android-1.2.0-arm64.apk)** · [发行说明](https://github.com/FuFu-Flash/EasyHub/releases/tag/android-v1.2.0) |
 | Android | 通用安装包 | ARM32、x86 设备与模拟器 | 1.2.0 暂无通用包；旧的 1.1.0 通用包使用公开的调试签名，不再提供链接 |
+| 桌面版（Linux） | AppImage / deb | 64 位 x64 或 arm64，需在本机从源码构建 | 见下方 [Linux 安装](#linux-安装) |
 
-Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，“创建桌面快捷方式”默认勾选。Android 版适用于 Android 7.0 及以上。macOS 版适用于 Apple 芯片 Mac，要求 macOS 12 或以上。打开 DMG，把 EasyHub 拖入 Applications，再从“应用程序”启动。
+Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，“创建桌面快捷方式”默认勾选。Android 版适用于 Android 7.0 及以上。macOS 版适用于 Apple 芯片 Mac，要求 macOS 12 或以上。打开 DMG，把 EasyHub 拖入 Applications，再从“应用程序”启动。Linux 版适用于常见的 64 位发行版，安装包需在对应电脑上自行构建。发行页暂不提供现成的 Linux 下载。
 
 ## macOS 必看
 
@@ -78,6 +79,24 @@ Windows 版适用于 64 位电脑，安装时会识别之前的安装位置，�
 安装完成后，可在访达侧栏弹出 EasyHub 的安装磁盘。选择 ZIP 的用户，先解压，再把 EasyHub 拖入“应用程序”，按上面的首次打开步骤操作。
 
 </details>
+
+## Linux 安装
+
+Linux 与 Windows、macOS 使用同一套桌面源码，平台差异放在 `platforms/` 目录。目录和命令见 [桌面平台分类](docs/desktop-platforms.md)。
+
+在 Linux x64 或 arm64 上，于仓库根目录执行：
+
+```sh
+pnpm install --frozen-lockfile
+pnpm package:linux
+```
+
+安装包在 `apps/desktop/release/linux`：
+
+- `EasyHub-<版本>-<架构>.AppImage`：先允许运行（文件属性里勾选“允许作为程序执行”，或在终端执行 `chmod +x`），再双击或直接运行。个别系统需要先安装 FUSE（软件包名通常是 `libfuse2`）。
+- `EasyHub-<版本>-<架构>.deb`：用系统的软件安装器打开，或执行 `sudo apt install ./EasyHub-<版本>-<架构>.deb`。
+
+登录会把凭证放进当前系统的密钥环（GNOME 密钥环、KWallet 或其他 Secret Service）。请先解锁密钥环再登录。GitHub 代理只影响 EasyHub 自己，不会改系统代理；电脑上如果已经有代理，EasyHub 会继续用它。程序文件审查组件目前只提供 Windows 64 位和 Apple 芯片 Mac，Linux 上可以照常发布源码和浏览项目。
 
 ## 三步上手（桌面版）
 
@@ -188,7 +207,7 @@ Windows 版尚未使用商业代码签名证书，首次运行可能出现此提
 
 **其他系统有安装包吗？**
 
-目前提供 Windows、macOS 和 Android 安装包，下载链接见上方表格。Linux 暂无安装包，iOS 尚未推出。
+Windows、macOS 和 Android 的现成安装包见上方表格。Linux 可在本机构建 AppImage 或 deb，见 [Linux 安装](#linux-安装)。iOS 尚未推出。
 
 </details>
 

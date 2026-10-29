@@ -14,7 +14,7 @@ function compare(a: Version, b: Version): number {
   return 0;
 }
 
-export async function checkAppUpdate(currentVersion: string, transport: typeof fetch, platform: NodeJS.Platform = 'win32'): Promise<AppUpdateResult> {
+export async function checkAppUpdate(currentVersion: string, transport: typeof fetch, platform: NodeJS.Platform = 'win32', arch = process.arch): Promise<AppUpdateResult> {
   const current = version(currentVersion);
   if (!current) throw new Error('无法识别当前应用版本。');
   let response: Response;
@@ -28,16 +28,18 @@ export async function checkAppUpdate(currentVersion: string, transport: typeof f
     if (!entry || typeof entry !== 'object') return [];
     const item = entry as Record<string, unknown>;
     const tag = typeof item.tag_name === 'string' ? item.tag_name : '';
-    const parsed = version(platform === 'darwin' && /^macos-v?/u.test(tag) ? tag.replace(/^macos-v?/u, '') : tag);
-    if (!parsed || item.draft !== false || item.prerelease !== false || !Array.isArray(item.assets)) return [];
+    const parsed = version(platform === 'darwin' && /^macos-v?/u.test(tag) ? tag.replace(/^macos-v?/u, '')
+      : platform === 'linux' && /^linux-v?/u.test(tag) ? tag.replace(/^linux-v?/u, '') : tag);
+    if (!parsed || item.draft !== false || item.prerelease !== false || !Array.isArray(item.assets) || (platform !== 'win32' && platform !== 'darwin' && platform !== 'linux')) return [];
     const number = parsed.join('.');
-    const windows = item.assets.some((asset: unknown) => typeof asset === 'object' && asset !== null && 'name' in asset &&
-      (asset.name === `EasyHub-${number}-setup.exe` || asset.name === `EasyHub-${number}-portable.exe`));
-    const mac = /^macos-v?/u.test(tag) && item.assets.some((asset: unknown) => typeof asset === 'object' && asset !== null && 'name' in asset && ['EasyHub-macOS.dmg', 'EasyHub-macOS.zip'].includes(String(asset.name)));
-    return (platform === 'darwin' ? mac : windows) ? [{ tag, version: number, parsed }] : [];
+    const named = (asset: unknown, names: readonly string[]): boolean => typeof asset === 'object' && asset !== null && 'name' in asset && names.includes(String(asset.name));
+    const windows = platform === 'win32' && item.assets.some((asset: unknown) => named(asset, [`EasyHub-${number}-setup.exe`, `EasyHub-${number}-portable.exe`]));
+    const mac = platform === 'darwin' && /^macos-v?/u.test(tag) && item.assets.some((asset: unknown) => named(asset, ['EasyHub-macOS.dmg', 'EasyHub-macOS.zip']));
+    const linux = platform === 'linux' && /^linux-v?/u.test(tag) && item.assets.some((asset: unknown) => named(asset, [`EasyHub-${number}-${arch}.AppImage`, `EasyHub-${number}-${arch}.deb`]));
+    return (platform === 'darwin' ? mac : platform === 'linux' ? linux : windows) ? [{ tag, version: number, parsed }] : [];
   }).sort((a, b) => compare(b.parsed, a.parsed));
   const latest = releases[0];
-  if (!latest) throw new Error(platform === 'darwin' ? '暂时没有可用的 macOS 版本，请稍后重试。' : '暂时没有可用的 Windows 版本，请稍后重试。');
+  if (!latest) throw new Error(platform === 'darwin' ? '暂时没有可用的 macOS 版本，请稍后重试。' : platform === 'linux' ? '暂时没有可用的 Linux 版本，请稍后重试。' : '暂时没有可用的 Windows 版本，请稍后重试。');
   return { currentVersion, latestVersion: latest.version, available: compare(latest.parsed, current) > 0,
     releaseUrl: `https://github.com/FuFu-Flash/EasyHub/releases/tag/${encodeURIComponent(latest.tag)}` };
 }

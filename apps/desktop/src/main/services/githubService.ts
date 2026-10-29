@@ -28,11 +28,16 @@ interface CredentialVault {
 }
 const isolatedTestMode = process.env.EASYHUB_TEST_MODE === '1';
 let memoryPassword: string | undefined;
-let vault: CredentialVault | undefined = isolatedTestMode ? {
-  async getPassword() { return memoryPassword; },
-  async setPassword(value) { memoryPassword = value; },
-  async deleteCredential() { memoryPassword = undefined; },
-} : undefined;
+let vault: CredentialVault | undefined;
+// Keep this object inside a function. A conditional object literal is dropped by the
+// bundler, and then test mode calls a missing method and reports a keyring failure.
+function memoryCredentialVault(): CredentialVault {
+  return {
+    async getPassword() { return memoryPassword; },
+    async setPassword(value) { memoryPassword = value; },
+    async deleteCredential() { memoryPassword = undefined; },
+  };
+}
 
 let loginController: AbortController | null = null;
 let credentialMutations = Promise.resolve();
@@ -68,6 +73,7 @@ class CredentialStorageError extends Error {}
 const staleRequestMessage = '这个合并请求已经有新修改，请刷新后重新查看。';
 
 function credentialVault(): CredentialVault {
+  if (isolatedTestMode) return vault ??= memoryCredentialVault();
   return vault ??= new AsyncEntry('EasyHub GitHub OAuth', 'default');
 }
 

@@ -4474,6 +4474,9 @@ body,
   resize: vertical;
   font:
     var(--eh-text-12)/1.6 Consolas,
+    'Cascadia Code',
+    'Liberation Mono',
+    'Noto Sans Mono',
     'Microsoft YaHei',
     monospace;
 }
